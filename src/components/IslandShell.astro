@@ -1,0 +1,193 @@
+---
+/**
+ * The island page: canvas, HUD, and every panel (server-rendered so they work for search
+ * engines, screen readers and people without WebGL). The island script only shows and hides
+ * them. Pass an article in the default slot to render /blog/<slug>/ with the book open.
+ */
+import { getCollection } from 'astro:content';
+import { SECRETS } from '../island/content';
+import { career } from '../data/career';
+import { interests } from '../data/interests';
+import { projects } from '../data/projects';
+import { site } from '../data/site';
+import songs from '../data/songs.json';
+import PixelIcon from './PixelIcon.astro';
+
+interface Props {
+  hasArticle?: boolean;
+}
+const { hasArticle = false } = Astro.props;
+
+const SHELF_NAMES = { ai: 'Artificial minds', games: 'Games & tables', music: 'Music', craft: 'Craft' } as const;
+const SHELF_COLORS = { ai: ['#2f5d8c', '#23384f', '#6b3f8c'], games: ['#8c2f39', '#3d7a4a', '#b5562d'], music: ['#c9a23f', '#b27a48'], craft: ['#5a5264', '#7f7688'] };
+const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const shelves = (Object.keys(SHELF_NAMES) as (keyof typeof SHELF_NAMES)[])
+  .map((shelf) => ({ shelf, name: SHELF_NAMES[shelf], posts: posts.filter((p) => p.data.shelf === shelf) }))
+  .filter((s) => s.posts.length);
+const spine = (slug: string, shelf: keyof typeof SHELF_COLORS) => {
+  let h = 0;
+  for (const ch of slug) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const colors = SHELF_COLORS[shelf];
+  return `--spine:${colors[h % colors.length]};--h:${78 + (h % 5) * 5}%;--w:${30 + (h % 3) * 4}px`;
+};
+const fmt = (d: Date) => d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+const places = [
+  { id: 'library', label: 'Library', hint: 'the blog' },
+  { id: 'workshop', label: 'Workshop', hint: 'projects' },
+  { id: 'campfire', label: 'Campfire', hint: 'about me' },
+  { id: 'cairn_0', label: 'Mountain trail', hint: 'career' },
+  { id: 'lighthouse', label: 'Lighthouse', hint: 'interests' },
+];
+---
+<div class="island-page">
+  <div id="island" class="island" aria-label="An island you can explore. Use the places menu to navigate with a keyboard.">
+    <p class="island-loading">Rowing over…</p>
+  </div>
+
+  <header class="brand">
+    <a href="/" class="brand-name">{site.handle}</a>
+    <p class="brand-tag">{site.name} · {site.tagline}</p>
+  </header>
+
+  <nav class="hud" aria-label="Island controls">
+    <button class="hud-btn" data-action="places" aria-label="Places"><PixelIcon name="map" /><span>Places</span></button>
+    <button class="hud-btn" data-action="journal" aria-label="Journal"><PixelIcon name="book" /><span data-journal-count>0/{Object.keys(SECRETS).length}</span></button>
+    <button class="hud-btn" data-action="time" aria-label="Time of day: now"><PixelIcon name="sun" /><span data-label>now</span></button>
+    <button class="hud-btn" data-action="sound" aria-pressed="false" aria-label="Sound"><PixelIcon name="sound" /></button>
+    <span class="hud-group">
+      <button class="hud-btn" data-action="rotate-left" aria-label="Rotate left (Q)">⟲</button>
+      <button class="hud-btn" data-action="rotate-right" aria-label="Rotate right (E)">⟳</button>
+    </span>
+    <span class="hud-group">
+      <button class="hud-btn" data-action="zoom-in" aria-label="Zoom in"><PixelIcon name="plus" /></button>
+      <button class="hud-btn" data-action="zoom-out" aria-label="Zoom out"><PixelIcon name="minus" /></button>
+    </span>
+    <a class="hud-btn hud-plain" href="/plain/">Just the facts</a>
+  </nav>
+
+  <p class="hint">Drag to explore · scroll to zoom · Q/E to turn · click what looks interesting</p>
+
+  <!-- panels ------------------------------------------------------------------------ -->
+  <section class="panel" data-panel="library" hidden aria-labelledby="library-title">
+    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <h2 id="library-title" tabindex="-1">The library</h2>
+    <p class="panel-lede">Everything I've written, shelved by subject. Pull out a book.</p>
+    {shelves.map((s) => (
+      <div class="shelf">
+        <h3 class="shelf-name">{s.name}</h3>
+        <ul class="books">
+          {s.posts.map((p) => (
+            <li>
+              <a class="book" href={`/blog/${p.id}/`} data-book={p.id} style={spine(p.id, s.shelf)}>
+                <span class="book-title">{p.data.title}</span>
+                <span class="book-card" aria-hidden="true">
+                  <strong>{p.data.title}</strong>
+                  <em>{fmt(p.data.date)}</em>
+                  <span>{p.data.excerpt}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+    <p class="panel-foot"><a href="/rss.xml">RSS</a></p>
+  </section>
+
+  <section class="panel" data-panel="workshop" hidden aria-labelledby="workshop-title">
+    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <h2 id="workshop-title" tabindex="-1">The workshop</h2>
+    <p class="panel-lede">Things I'm building. Most of them started as "wouldn't it be fun if…".</p>
+    <ul class="projects">
+      {projects.map((p) => (
+        <li class="project">
+          <h3><a href={p.href}>{p.name}</a></h3>
+          <p>{p.blurb}</p>
+          <p class="tags">{p.tags.map((t) => <span>{t}</span>)}</p>
+          {p.post && <p><a href={`/blog/${p.post}/`} data-book={p.post}>Read the story →</a></p>}
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="panel" data-panel="lighthouse" hidden aria-labelledby="lighthouse-title">
+    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <h2 id="lighthouse-title" tabindex="-1">The keeper's log</h2>
+    <p class="panel-lede">What I keep looking out for.</p>
+    <ol class="log">
+      {interests.map((i) => (<li><h3>{i.title}</h3><p>{i.text}</p></li>))}
+    </ol>
+  </section>
+
+  <section class="panel" data-panel="campfire" hidden aria-labelledby="campfire-title">
+    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <h2 id="campfire-title" tabindex="-1">By the campfire</h2>
+    <p class="panel-lede">Hi, I'm {site.name}. I build things with AI, write about them, and play
+      guitar when the fire's going. This island is my corner of the internet. Stay a while.</p>
+    <ul class="links">
+      {site.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+    </ul>
+    <h3>Setlist</h3>
+    <p class="muted">Covers I recorded. Pick one and he'll play it.</p>
+    <ol class="setlist">
+      {songs.map((s) => (
+        <li><button data-song={s.id} aria-pressed="false"><span class="song-title">{s.title}</span>
+          <span class="song-time">{Math.floor(s.duration / 60)}:{String(Math.round(s.duration % 60)).padStart(2, '0')}</span></button></li>
+      ))}
+    </ol>
+  </section>
+
+  <section class="panel" data-panel="trail" hidden aria-labelledby="trail-title">
+    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <h2 id="trail-title" tabindex="-1">The mountain trail</h2>
+    <p class="panel-lede">Every cairn marks a stretch of the climb. The summit is where I am now.</p>
+    {career.length ? (
+      <ol class="trail">
+        {[...career].reverse().map((m) => (<li><span class="years">{m.years}</span><h3>{m.role}</h3><p class="org">{m.org}</p><p>{m.text}</p></li>))}
+      </ol>
+    ) : (
+      <p class="muted">The stones on this trail are still being carved. Meanwhile, the whole climb is on <a href={site.links[0].href}>LinkedIn</a>.</p>
+    )}
+  </section>
+
+  <section class="panel" data-panel="places" hidden aria-labelledby="places-title">
+    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <h2 id="places-title" tabindex="-1">Where to?</h2>
+    <ul class="places">
+      {places.map((p) => (<li><button data-goto={p.id}><strong>{p.label}</strong><span>{p.hint}</span></button></li>))}
+    </ul>
+    <p class="muted">The signpost only points at the big places. The rest you'll have to find.</p>
+  </section>
+
+  <section class="panel" data-panel="journal" hidden aria-labelledby="journal-title">
+    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <h2 id="journal-title" tabindex="-1">Field journal <span data-journal-count></span></h2>
+    <p class="panel-lede">Things you've found on the island. Some only show up at night.</p>
+    <ul class="journal">
+      {Object.entries(SECRETS).map(([id, s]) => (<li data-secret={id}><strong data-title>???</strong><span>{s.hint}</span></li>))}
+    </ul>
+  </section>
+
+  <!-- the book: an article opened over the island ------------------------------------ -->
+  <div id="backdrop" class="backdrop" hidden></div>
+  <article id="article" class="book-open" hidden={!hasArticle} aria-live="polite">
+    <a class="book-back" href="/blog/" data-close>← back to the island</a>
+    <div id="article-body"><slot /></div>
+  </article>
+
+  <div id="tip" class="tip" hidden></div>
+  <div id="toasts" class="toasts" role="status"></div>
+
+  <noscript>
+    <div class="noscript">This island needs JavaScript to explore. Here's <a href="/plain/">everything in plain text</a>.</div>
+  </noscript>
+</div>
+
+<script>
+  import { bootIsland } from '../island/main';
+  const host = document.getElementById('island')!;
+  bootIsland(host).catch((err) => {
+    console.error(err);
+    host.innerHTML = '<p class="island-loading">The island is hidden in fog. <a href="/plain/">Here is everything in plain text.</a></p>';
+  });
+</script>

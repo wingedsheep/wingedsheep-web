@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "youtubeId": "RTPLDUnV9Yg",
+    "title": "The Cave – Mumford & Sons",
+    "duration": 212.48,
+    "teaseStart": 146
+  },
+  {
+    "id": 2,
+    "youtubeId": "MnkEEi39U5o",
+    "title": "Like Real People Do – Hozier",
+    "duration": 191.65,
+    "teaseStart": 78
+  },
+  {
+    "id": 3,
+    "youtubeId": "bNZg4UifoZ4",
+    "title": "Cherry Wine – Hozier",
+    "duration": 217.72,
+    "teaseStart": 151
+  },
+  {
+    "id": 4,
+    "youtubeId": "98RSfUzqLiQ",
+    "title": "Rhiannon – Fleetwood Mac",
+    "duration": 252.39,
+    "teaseStart": 159
+  },
+  {
+    "id": 5,
+    "youtubeId": "lkrhCkbQFWk",
+    "title": "Katherine Kiss Me – Franz Ferdinand",
+    "duration": 174.52,
+    "teaseStart": 74
+  }
+]

@@ -1,0 +1,32 @@
+---
+import { getCollection } from 'astro:content';
+import { career } from '../data/career';
+import { interests } from '../data/interests';
+import { projects } from '../data/projects';
+import { site } from '../data/site';
+import Base from '../layouts/Base.astro';
+
+const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+---
+<Base title="Just the facts">
+  <main class="plain">
+    <p><a href="/">← back to the island</a></p>
+    <h1>{site.name}</h1>
+    <p>{site.tagline}.</p>
+    <ul class="inline">{site.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
+
+    <h2>Projects</h2>
+    <ul>{projects.map((p) => <li><a href={p.href}>{p.name}</a>: {p.blurb}</li>)}</ul>
+
+    {career.length > 0 && (<>
+      <h2>Career</h2>
+      <ul>{[...career].reverse().map((m) => <li><strong>{m.role}</strong>, {m.org} ({m.years})</li>)}</ul>
+    </>)}
+
+    <h2>Writing</h2>
+    <ul>{posts.map((p) => <li><a href={`/blog/${p.id}/`}>{p.data.title}</a> <small>{p.data.date.getFullYear()}</small></li>)}</ul>
+
+    <h2>Interests</h2>
+    <ul>{interests.map((i) => <li><strong>{i.title}.</strong> {i.text}</li>)}</ul>
+  </main>
+</Base>

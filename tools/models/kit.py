@@ -1,0 +1,197 @@
+"""A small low-poly modelling kit on top of bmesh.
+
+    m = Model("library")
+    m.box((8, 6, 4), (0, 0, 2), P.PLASTER)
+    m.gable((8.6, 6.6, 2.5), (0, 0, 4), P.PLUM_ROOF)
+    obj = m.build()
+
+Every colour becomes a shared flat material. Materials named "glow_*" are emissive and the
+runtime brightens them at night. Custom properties on objects are exported as glTF extras.
+"""
+from __future__ import annotations
+
+import math
+import random
+
+import bmesh
+import bpy
+from mathutils import Euler, Matrix, Vector
+
+
+# --- materials ------------------------------------------------------------------
+
+def _srgb_to_linear(c: float) -> float:
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def rgb(hex_: str) -> tuple[float, float, float]:
+    h = hex_.lstrip("#")
+    return tuple(_srgb_to_linear(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4))
+
+
+_MATS: dict[str, bpy.types.Material] = {}
+
+
+def material(hex_: str, glow: bool = False) -> bpy.types.Material:
+    key = f"{'glow' if glow else 'c'}_{hex_.lstrip('#').lower()}"
+    if key in _MATS:
+        return _MATS[key]
+    mat = bpy.data.materials.new(key)
+    mat.use_nodes = True
+    bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (*rgb(hex_), 1)
+    bsdf.inputs["Roughness"].default_value = 1.0
+    if glow:
+        bsdf.inputs["Emission Color"].default_value = (*rgb(hex_), 1)
+        bsdf.inputs["Emission Strength"].default_value = 1.0
+    _MATS[key] = mat
+    return mat
+
+
+def reset():
+    _MATS.clear()
+
+
+# --- model builder ------------------------------------------------------------------
+
+class Model:
+    def __init__(self, name: str, seed: int = 0):
+        self.name = name
+        self.bm = bmesh.new()
+        self.mats: list[bpy.types.Material] = []
+        self.rng = random.Random(seed)
+
+    # material slot for a colour
+    def _slot(self, color: str, glow: bool) -> int:
+        mat = material(color, glow)
+        if mat not in self.mats:
+            self.mats.append(mat)
+        return self.mats.index(mat)
+
+    def _paint(self, verts, color: str, glow: bool = False):
+        idx = self._slot(color, glow)
+        faces = {f for v in verts for f in v.link_faces}
+        for f in faces:
+            f.material_index = idx
+        return faces
+
+    @staticmethod
+    def _matrix(loc, rot=(0, 0, 0), scale=(1, 1, 1)):
+        return Matrix.LocRotScale(Vector(loc), Euler(rot), Vector(scale))
+
+    # --- primitives -----------------------------------------------------------------
+    def box(self, size, loc, color, rot=(0, 0, 0), glow=False, taper: float = 1.0):
+        """Axis-aligned box centred on loc. taper < 1 shrinks the top face (for chimneys, posts)."""
+        r = bmesh.ops.create_cube(self.bm, size=1.0, matrix=self._matrix(loc, rot, size))
+        if taper != 1.0:
+            top = max(v.co.z for v in r["verts"])
+            cx, cy = loc[0], loc[1]
+            for v in r["verts"]:
+                if abs(v.co.z - top) < 1e-4:
+                    v.co.x = cx + (v.co.x - cx) * taper
+                    v.co.y = cy + (v.co.y - cy) * taper
+        return self._paint(r["verts"], color, glow)
+
+    def cyl(self, r, h, loc, color, segs=8, r_top=None, rot=(0, 0, 0), glow=False):
+        """Cylinder / cone standing on loc (loc is the centre of the base)."""
+        r_top = r if r_top is None else r_top
+        m = self._matrix(loc, rot) @ Matrix.Translation((0, 0, h / 2))
+        res = bmesh.ops.create_cone(self.bm, cap_ends=True, cap_tris=False, segments=segs,
+                                    radius1=r, radius2=r_top, depth=h, matrix=m)
+        return self._paint(res["verts"], color, glow)
+
+    def ball(self, r, loc, color, subdiv=1, scale=(1, 1, 1), jitter=0.0, glow=False):
+        res = bmesh.ops.create_icosphere(self.bm, subdivisions=subdiv, radius=r,
+                                         matrix=self._matrix(loc, (0, 0, 0), scale))
+        if jitter:
+            for v in res["verts"]:
+                v.co += Vector((self.rng.uniform(-1, 1), self.rng.uniform(-1, 1), self.rng.uniform(-1, 1))) * jitter
+        return self._paint(res["verts"], color, glow)
+
+    def prism(self, points, depth, loc, color, rot=(0, 0, 0), glow=False):
+        """Extrude a 2D polygon (in the XZ plane) along Y by `depth`, centred on loc."""
+        verts_f = [self.bm.verts.new((x, -depth / 2, z)) for x, z in points]
+        verts_b = [self.bm.verts.new((x, depth / 2, z)) for x, z in points]
+        n = len(points)
+        faces = [self.bm.faces.new(verts_f[::-1]), self.bm.faces.new(verts_b)]
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append(self.bm.faces.new((verts_f[i], verts_f[j], verts_b[j], verts_b[i])))
+        m = self._matrix(loc, rot)
+        for v in verts_f + verts_b:
+            v.co = m @ v.co
+        idx = self._slot(color, glow)
+        for f in faces:
+            f.material_index = idx
+        return set(faces)
+
+    def gable(self, size, loc, color, overhang=0.0, rot=(0, 0, 0), thick=0.18):
+        """Gable roof made of two slabs; the ridge runs along X.
+
+        size = (length, width, height) of the roof volume, loc = centre of its base. The gable
+        ends stay open so a wall triangle (see prism) can show through.
+        """
+        L, W, H = size
+        angle = math.atan2(H, W / 2)
+        run = W / 2 + overhang                     # horizontal reach of each slab
+        slope = run / math.cos(angle)
+        m = self._matrix(loc, rot)
+        faces = set()
+        for side in (-1, 1):
+            centre = Vector((0, side * run / 2, H - run / 2 * math.tan(angle) + thick / 2))
+            local = Matrix.LocRotScale(centre, Euler((-side * angle, 0, 0)), Vector((L, slope, thick)))
+            r = bmesh.ops.create_cube(self.bm, size=1.0, matrix=m @ local)
+            faces |= self._paint(r["verts"], color)
+        return faces
+
+    def plank_line(self, start, end, width, thick, color):
+        """A beam from start to end (e.g. a railing, a paddle shaft)."""
+        a, b = Vector(start), Vector(end)
+        d = b - a
+        rot = Vector((0, 0, 1)).rotation_difference(d.normalized()).to_euler()
+        return self.box((width, thick, d.length), (a + b) / 2, color, rot=rot)
+
+    # --- output -----------------------------------------------------------------------
+    def build(self, parent: bpy.types.Object | None = None, loc=(0, 0, 0), rot_z=0.0, **props) -> bpy.types.Object:
+        bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-5)
+        mesh = bpy.data.meshes.new(self.name)
+        self.bm.to_mesh(mesh)
+        self.bm.free()
+        for mat in self.mats:
+            mesh.materials.append(mat)
+        for poly in mesh.polygons:
+            poly.use_smooth = False
+        obj = bpy.data.objects.new(self.name, mesh)
+        bpy.context.scene.collection.objects.link(obj)
+        obj.location = loc
+        obj.rotation_euler = (0, 0, rot_z)
+        if parent:
+            obj.parent = parent
+        for k, v in props.items():
+            obj[k] = v
+        return obj
+
+
+def group(name: str, loc=(0, 0, 0), rot_z=0.0, parent=None, **props) -> bpy.types.Object:
+    """An empty that holds a model's parts; custom props become glTF extras."""
+    e = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(e)
+    e.location = loc
+    e.rotation_euler = (0, 0, rot_z)
+    e.empty_display_size = 0.5
+    if parent:
+        e.parent = parent
+    for k, v in props.items():
+        e[k] = v
+    return e
+
+
+def light(parent, loc, color: str, radius: float, intensity: float = 1.0, flicker: float = 0.0, day=False):
+    """Marker the runtime turns into a point light + glow halo."""
+    return group("light", loc, parent=parent, light=1, color=color, radius=radius,
+                 intensity=intensity, flicker=flicker, day=int(day))
+
+
+def emitter(parent, loc, kind: str):
+    """Marker for particles: smoke, embers, petals…"""
+    return group(f"emit_{kind}", loc, parent=parent, emit=kind)

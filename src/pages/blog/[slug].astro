@@ -1,0 +1,33 @@
+---
+import 'katex/dist/katex.min.css';
+import { getCollection, render } from 'astro:content';
+import IslandShell from '../../components/IslandShell.astro';
+import Base from '../../layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const posts = (await getCollection('blog')).sort((a, b) => a.data.date.valueOf() - b.data.date.valueOf());
+  return posts.map((post, i) => ({
+    params: { slug: post.id },
+    props: { post, prev: posts[i - 1], next: posts[i + 1] },
+  }));
+}
+
+const { post, prev, next } = Astro.props;
+const { Content } = await render(post);
+const date = post.data.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+<Base title={post.data.title} description={post.data.excerpt} image={post.data.cover}>
+  <IslandShell hasArticle>
+    <header class="article-head">
+      <p class="article-meta">{date}{post.data.tags.length > 0 && <> · {post.data.tags.join(', ')}</>}</p>
+      <h1 tabindex="-1">{post.data.title}</h1>
+      <p class="article-excerpt">{post.data.excerpt}</p>
+    </header>
+    {post.data.cover && <img class="article-cover" src={post.data.cover} alt="" />}
+    <div class="prose"><Content /></div>
+    <nav class="article-nav">
+      {prev ? <a href={`/blog/${prev.id}/`} data-book={prev.id}>← {prev.data.title}</a> : <span />}
+      {next ? <a href={`/blog/${next.id}/`} data-book={next.id}>{next.data.title} →</a> : <span />}
+    </nav>
+  </IslandShell>
+</Base>

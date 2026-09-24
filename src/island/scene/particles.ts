@@ -1,0 +1,103 @@
+import * as THREE from 'three';
+
+export interface ParticleSpec {
+  position: THREE.Vector3;
+  velocity?: THREE.Vector3;
+  color: THREE.ColorRepresentation;
+  life: number; // seconds
+  size?: number; // in art pixels (render-target texels)
+  gravity?: number;
+  wobble?: number;
+}
+
+const MAX = 1200;
+
+/**
+ * Single-texel particles: GL points sized in render-target pixels, so every ember and firefly
+ * is one crisp art pixel.
+ */
+export class Particles {
+  readonly points: THREE.Points;
+  private pos = new Float32Array(MAX * 3);
+  private col = new Float32Array(MAX * 4);
+  private size = new Float32Array(MAX);
+  private vel = new Float32Array(MAX * 3);
+  private age = new Float32Array(MAX);
+  private life = new Float32Array(MAX);
+  private grav = new Float32Array(MAX);
+  private wob = new Float32Array(MAX);
+  private next = 0;
+  private clock = 0;
+
+  constructor() {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('color', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */ `
+        attribute float size;
+        attribute vec4 color;
+        varying vec4 vColor;
+        void main() {
+          vColor = color;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying vec4 vColor;
+        void main() {
+          if (vColor.a < 0.02) discard;
+          gl_FragColor = vColor;
+          #include <colorspace_fragment>
+        }
+      `,
+    });
+    this.points = new THREE.Points(g, mat);
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 4;
+    this.points.raycast = () => {};
+  }
+
+  emit(s: ParticleSpec) {
+    const i = this.next;
+    this.next = (this.next + 1) % MAX;
+    this.pos.set([s.position.x, s.position.y, s.position.z], i * 3);
+    const v = s.velocity ?? new THREE.Vector3();
+    this.vel.set([v.x, v.y, v.z], i * 3);
+    const c = new THREE.Color(s.color);
+    this.col.set([c.r, c.g, c.b, 0], i * 4);
+    this.size[i] = s.size ?? 1;
+    this.age[i] = 0;
+    this.life[i] = s.life;
+    this.grav[i] = s.gravity ?? 0;
+    this.wob[i] = s.wobble ?? 0;
+  }
+
+  update(dt: number) {
+    this.clock += dt;
+    for (let i = 0; i < MAX; i++) {
+      if (this.life[i] <= 0) continue;
+      this.age[i] += dt;
+      const t = this.age[i] / this.life[i];
+      if (t >= 1) {
+        this.life[i] = 0;
+        this.col[i * 4 + 3] = 0;
+        continue;
+      }
+      this.vel[i * 3 + 1] += this.grav[i] * dt;
+      const w = this.wob[i] ? Math.sin(this.clock * 2.3 + i) * this.wob[i] * dt : 0;
+      this.pos[i * 3] += this.vel[i * 3] * dt + w;
+      this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
+      this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
+      this.col[i * 4 + 3] = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+    }
+    const g = this.points.geometry;
+    g.attributes.position.needsUpdate = true;
+    g.attributes.color.needsUpdate = true;
+    g.attributes.size.needsUpdate = true;
+  }
+}
