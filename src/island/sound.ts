@@ -122,6 +122,15 @@ export class Sound {
     return this.songs.find((s) => s.id === this.song!.id) ?? null;
   }
 
+  /**
+   * How far into the song you're hearing (seconds), less the time the audio takes to reach your
+   * ears, so what's on screen lines up with what you hear.
+   */
+  get songTime(): number {
+    if (!this.song || !this.ctx) return 0;
+    return this.song.el.currentTime - (this.ctx.baseLatency || 0) - (this.ctx.outputLatency || 0);
+  }
+
   /** The piano piece playing in the library, if any. */
   get pianoPiece(): Piece | null {
     return this.piano?.piece ?? null;

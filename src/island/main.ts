@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import beats from '../data/beats.json';
 import piano from '../data/piano.json';
 import records from '../data/records.json';
 import songs from '../data/songs.json';
@@ -12,7 +13,7 @@ import { CameraRig } from './scene/camera-rig';
 import { createFoliage } from './scene/foliage';
 import { createGrass, wind } from './scene/grass';
 import { Island } from './scene/island';
-import { Life } from './scene/life';
+import { Life, type Rhythm } from './scene/life';
 import { Picker } from './scene/picking';
 import { PixelRenderer } from './scene/pixel-renderer';
 import { Sky } from './scene/sky';
@@ -221,6 +222,8 @@ export async function bootIsland(host: HTMLElement) {
     sound.wind = weather.gust;
     sound.cicadas = weather.heat.scorch * (1 - sky.lamps);
     life.playing = sound.playing !== null;
+    life.rhythm = sound.playing ? ((beats as Record<string, Rhythm>)[sound.playing.id] ?? null) : null;
+    life.songTime = sound.songTime;
     if (!reducedMotion) life.update(dt);
     const near = 1 - rig.target.distanceTo(campfire.clone().setY(1)) / 14;
     sound.update(near, rig.view, dt);

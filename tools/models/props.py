@@ -1,7 +1,7 @@
 """Smaller things: campfire, pier, kayak, signpost, well, bench, lamps, cairns, flag…
 
 Parts the runtime animates are separate objects with telling names:
-  flame*   flicker      flag   waves      wing_*   flap      arm_strum   strums
+  flame*   flicker      flag   waves      wing_*   flap      arm_strum   strums      arm_fret   changes chords
 """
 from __future__ import annotations
 

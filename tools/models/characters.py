@@ -5,6 +5,7 @@ import math
 
 import palette as P
 from kit import Model
+from mathutils import Matrix, Vector
 
 
 # dreadnought outline in the guitar's own frame: x runs along the neck, z across the body
@@ -40,7 +41,7 @@ def guitar(root, loc, tilt):
 
 def vincent(root):
     """Vincent on a log at the campfire with his acoustic. Faces -y; his right hand is -x.
-    The runtime animates `arm_strum`, `head` and `foot_tap` while he plays."""
+    The runtime animates `arm_strum`, `arm_fret`, `head` and `foot_tap` while he plays."""
     m = Model("vincent")
     m.cyl(0.26, 1.7, (-0.85, 0, 0.26), P.WOOD, segs=7, rot=(0, math.pi / 2, 0))        # the log
     for x in (-0.16, 0.16):
@@ -82,20 +83,51 @@ def vincent(root):
     h.box((0.16, 0.02, 0.04), (0, -0.225, 1.93 - hz), P.CAP_DARK)                        # strap
     h.box((0.12, 0.02, 0.05), (0, -0.226, 1.88 - hz), P.HAIR)                            # hair through the gap
     h.build(root, loc=(0, 0, hz))
-    # fretting (left) arm: sleeve, bare forearm, watch
+    loc, tilt = (-0.14, -0.29, 0.97), 0.33
+    frame = Matrix.Translation(loc) @ Matrix.Rotation(-tilt, 4, "Y")
+
+    def on_guitar(x, y, z):
+        """A point in the guitar's frame (x along the neck, -y out of the top) in Vincent's."""
+        return frame @ Vector((x, y, z))
+
+    def y_up(v):
+        """A direction in Vincent's frame as the runtime sees it (glTF is y-up)."""
+        v = v.normalized()
+        return [round(v.x, 4), round(v.z, 4), round(-v.y, 4)]
+
+    def turning(r, towards):
+        """The axis to turn about so that a point at r (from the pivot) moves towards `towards`."""
+        return y_up(r.cross(towards))
+
+    along, across, out = (frame.to_3x3() @ Vector(v) for v in ((1, 0, 0), (0, 0, 1), (0, -1, 0)))
+    # fretting (left) arm: sleeve and upper arm, then the forearm, watch and hand, which slide
+    # along the neck (`slide`) from chord to chord, lifting off the strings in between (`lift`)
     m.plank_line((0.33, -0.02, 1.32), (0.37, -0.08, 1.16), 0.15, 0.15, P.TEE)
     m.plank_line((0.37, -0.08, 1.16), (0.4, -0.16, 1.0), 0.12, 0.12, P.SKIN)
-    m.plank_line((0.4, -0.16, 1.0), (0.54, -0.33, 1.16), 0.11, 0.11, P.SKIN)
-    m.plank_line((0.5, -0.29, 1.1), (0.52, -0.31, 1.13), 0.13, 0.13, P.WATCH)
-    m.box((0.1, 0.12, 0.13), (0.57, -0.36, 1.22), P.SKIN)
+    elbow, hand = Vector((0.4, -0.16, 1.0)), Vector((0.57, -0.36, 1.22))
+    fret = Model("arm_fret")
+    fret.box((0.12, 0.12, 0.12), (0, 0, 0), P.SKIN)                                     # elbow
+    fret.plank_line((0, 0, 0), Vector((0.14, -0.17, 0.16)), 0.11, 0.11, P.SKIN)
+    fret.plank_line((0.1, -0.13, 0.1), (0.12, -0.15, 0.13), 0.13, 0.13, P.WATCH)
+    fret.box((0.1, 0.12, 0.13), hand - elbow, P.SKIN)
+    fret.build(root, loc=elbow, slide=y_up(along), lift=turning(hand - elbow, out))
+
+    # strumming (right) arm, like a player's: the upper arm comes round over the lower bout, the
+    # elbow rests just past its edge and the forearm lies across the top, clear of the strings
+    shoulder, elbow = Vector((-0.31, -0.08, 1.3)), on_guitar(-0.26, -0.21, 0.45)
+    hand = on_guitar(0.0, -0.2, 0.06)                                                   # between soundhole and bridge
+    m.plank_line(shoulder, shoulder.lerp(elbow, 0.4), 0.15, 0.15, P.TEE)
+    m.plank_line(shoulder.lerp(elbow, 0.4), elbow, 0.12, 0.12, P.SKIN)
     m.build(root)
-    guitar(root, (-0.14, -0.29, 0.97), 0.33)
-    arm = Model("arm_strum")                                                             # pivots at the shoulder
-    arm.plank_line((0, 0, 0), (-0.04, -0.07, -0.14), 0.15, 0.15, P.TEE)
-    arm.plank_line((-0.04, -0.07, -0.14), (-0.1, -0.18, -0.3), 0.12, 0.12, P.SKIN)
-    arm.plank_line((-0.1, -0.18, -0.3), (0.1, -0.42, -0.33), 0.11, 0.11, P.SKIN)
-    arm.box((0.11, 0.1, 0.12), (0.15, -0.46, -0.36), P.SKIN)
-    arm.build(root, loc=(-0.31, -0.02, 1.32))
+    guitar(root, loc, tilt)
+    # the forearm pivots at the elbow and swings parallel to the top, so it never goes through
+    # the guitar; `swing` turns it for a downstroke
+    down = out * math.copysign(1, (hand - elbow).cross(-across).dot(out))
+    arm = Model("arm_strum")
+    arm.box((0.13, 0.13, 0.13), (0, 0, 0), P.SKIN)                                     # elbow
+    arm.plank_line((0, 0, 0), (hand - elbow) * 0.85, 0.11, 0.11, P.SKIN)
+    arm.box((0.11, 0.1, 0.12), hand - elbow, P.SKIN)
+    arm.build(root, loc=elbow, swing=y_up(down))
 
 
 def cat(root):

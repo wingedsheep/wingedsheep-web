@@ -27,6 +27,18 @@ export const ICONS = {
   zzz: icon(['###', '..#', '.#.', '#..', '###'], '#cdc6cf'),
 };
 
+/** A song's rhythm (src/data/beats.json): beat times in seconds, and [beat, chord] changes. */
+export interface Rhythm {
+  beats: number[];
+  chords: number[][];
+}
+
+const SWING = 0.3; // how far (radians) the strumming forearm swings each way
+const SLIDE = 0.05; // how far the fretting hand travels up or down the neck
+const LIFT = 0.12; // how far (radians) it comes off the strings while it moves
+const q = new THREE.Quaternion();
+const axis = new THREE.Vector3();
+
 export type Burst = 'hearts' | 'notes' | 'chalk' | 'petals' | 'zzz' | 'silk';
 
 interface Floater {
@@ -55,7 +67,17 @@ export class Life {
   readonly beike: Beike;
   /** Whether Vincent's song is audible; he eases into and out of playing. */
   playing = false;
+  /** The beats and chord changes of the song he's playing... */
+  rhythm: Rhythm | null = null;
+  /** ...and how far into it you're hearing, set every frame. */
+  songTime = 0;
   private groove = 0;
+  /** The song time he strums to: runs on the frame clock, pulled gently towards `songTime`. */
+  private heard = 0;
+  private beatIndex = 0;
+  private chordIndex = 0;
+  /** Where his fretting hand is along the neck, -1..1, easing towards the chord's place. */
+  private fretPos = 0;
 
   constructor(
     private scene: THREE.Scene,
@@ -169,23 +191,75 @@ export class Life {
   }
 
   /**
-   * Vincent: idle he rests his strumming hand and looks around; playing he strums, nods on
-   * the beat and taps his right foot. `groove` blends between the two.
+   * Vincent: idle he rests his hands and looks around; playing he strums down on every beat of
+   * the song and up in between, moves his fretting hand along the neck when the chord changes,
+   * nods on the beat and taps his right foot. `groove` blends between the two, so he also rests
+   * before the first beat and after the last.
    */
   private strum(dt: number) {
     const t = this.clock;
-    const g = (this.groove = THREE.MathUtils.damp(this.groove, this.playing ? 1 : 0, 3, dt));
-    const beat = t * 1.9 * Math.PI * 2; // ~114 bpm
-    const pulse = Math.max(0, Math.sin(beat)) ** 2;
+    const beat = this.beatAt(dt); // beats into the song, fractional; -1 outside of it
+    const g = (this.groove = THREE.MathUtils.damp(this.groove, this.playing && beat >= 0 ? 1 : 0, 3, dt));
+    const swing = Math.max(0, beat) * Math.PI * 2;
+    const nod = Math.max(0, Math.cos(swing)) ** 3; // deepest right on the beat
+    const tap = Math.max(0, -Math.sin(swing)); // toes up in the second half of the beat, down on it
+    // quick through the strings, lingering a moment at the top and bottom of each stroke
+    const stroke = Math.sign(Math.sin(swing)) * Math.abs(Math.sin(swing)) ** 0.7;
     const arm = this.island.part('vincent', 'arm_strum');
-    if (arm) arm.rotation.x = Math.sin(beat) * 0.35 * g;
+    if (arm?.userData.swing) arm.quaternion.setFromAxisAngle(axis.fromArray(arm.userData.swing), stroke * SWING * g);
+
+    // the fretting hand gets to each new chord a touch early, lifting off the strings to move
+    const place = beat < 0 ? 0 : this.chordPlace(beat + 0.2) * g;
+    this.fretPos = THREE.MathUtils.damp(this.fretPos, place, 14, dt);
+    const fret = this.island.part('vincent', 'arm_fret');
+    if (fret?.userData.slide) {
+      const rest = (fret.userData.rest ??= fret.position.clone()) as THREE.Vector3;
+      fret.position.copy(rest).addScaledVector(axis.fromArray(fret.userData.slide), this.fretPos * SLIDE);
+      fret.quaternion.setFromAxisAngle(axis.fromArray(fret.userData.lift), Math.min(1, Math.abs(place - this.fretPos) * 3) * LIFT);
+    }
+
     const head = this.island.part('vincent', 'head');
     if (head) {
-      head.rotation.x = pulse * 0.12 * g - 0.05 * (1 - g);
-      head.rotation.z = Math.sin(t * 0.4) * 0.25 * (1 - g) + Math.sin(beat / 4) * 0.06 * g;
+      head.rotation.x = nod * 0.12 * g - 0.05 * (1 - g);
+      head.rotation.z = Math.sin(t * 0.4) * 0.25 * (1 - g) + Math.sin(swing / 4) * 0.06 * g;
     }
     const foot = this.island.part('vincent', 'foot_tap');
-    if (foot) foot.rotation.x = -pulse * 0.4 * g;
+    if (foot) foot.rotation.x = -tap * 0.4 * g;
+  }
+
+  /**
+   * Where along the neck (-1..1) his hand sits for the chord playing at `beat`. Chords with
+   * different roots sit in different places; minor ones a little further up.
+   */
+  private chordPlace(beat: number): number {
+    const c = this.rhythm?.chords;
+    if (!c?.length) return 0;
+    let i = this.chordIndex;
+    if (i >= c.length || c[i][0] > beat) i = 0;
+    while (i < c.length - 1 && c[i + 1][0] <= beat) i++;
+    this.chordIndex = i;
+    const chord = c[i][1];
+    return (((chord % 12) * 5) % 12) / 11 * 1.6 - 0.8 + (chord >= 12 ? 0.2 : 0);
+  }
+
+  /**
+   * Where in the song's beats he is: 2.25 is a quarter of the way from the third beat to the
+   * fourth, -1 is before the first or after the last. Audio clocks tick coarsely, so he keeps
+   * his own time and only drifts towards what you hear (or jumps, for a new song).
+   */
+  private beatAt(dt: number): number {
+    const b = this.rhythm?.beats ?? [];
+    if (!this.playing || b.length < 2) return -1;
+    this.heard += dt;
+    const off = this.songTime - this.heard;
+    this.heard = Math.abs(off) > 0.25 ? this.songTime : this.heard + off * Math.min(1, dt * 4);
+    const now = this.heard;
+    let i = this.beatIndex;
+    if (i >= b.length - 1 || b[i] > now) i = 0; // a new song, or started over
+    while (i < b.length - 2 && b[i + 1] <= now) i++;
+    this.beatIndex = i;
+    if (now < b[0] || now >= b[b.length - 1]) return -1;
+    return i + (now - b[i]) / (b[i + 1] - b[i]);
   }
 
   /** Figure-eight over the island; y is altitude. */
