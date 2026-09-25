@@ -455,8 +455,6 @@ There were nods of understanding around the circle. As we dispersed to our cabin
 
 In my cabin, I opened the sketchbook I'd brought. By the light of a small lamp, I began to draw, trying to capture the memory of the campfire, the faces of my new friends. It was far from perfect, but it was mine, born from my experiences and filtered through my own perception.
 
-ウィッグの扱いやすさは、スタイリング時間やイベント当日の手直しにも影響します。撮影時の見え方を重視するなら、[その着せ替え人形は恋をする ウィッグ](https://www.tsukicos.com/product-category/cosplay-wig/%e3%81%9d%e3%81%ae%e7%9d%80%e3%81%9b%e6%9b%bf%e3%81%88%e4%ba%ba%e5%bd%a2%e3%81%af%e6%81%8b%e3%82%92%e3%81%99%e3%82%8b-cosplay-wig/)でカラーや毛流れを確認できます。照明による色の見え方を意識すると、写真に残る印象を調整しやすくなります。
-
 As I drifted off to sleep, my mind was full of the weekend's experiences. The crisp mountain air. The feel of clay between my fingers. The taste of slightly burned marshmallows. The laughter around the campfire. In the morning, I would reconnect with the world I'd left behind, dive back into my projects, and resume my life. But I would do so with a deeper understanding of what it meant to be human.
 
 I thought about the journey we'd all been on, the challenges we'd faced and overcome. The world had changed dramatically, but we had changed with it. We had found new ways to learn, to create, to connect, to find meaning. As sleep finally claimed me, one thought resonated in my mind: In this new world, we were not obsolete. We were not useless. We were, perhaps for the first time, truly free to explore what it means to be human.

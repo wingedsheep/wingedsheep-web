@@ -291,8 +291,6 @@ The code is open source and can be found on: <https://github.com/wingedsheep/mtg
 
 If anyone decides to create their own set, I would love to see the results!
 
-前髪の長さや分け目はキャラクター再現に関わるため、事前に調整しやすいか確認しておくと安心です。イベント前の準備では、[喜多川海夢 コスプレウィッグ](https://www.tsukicos.com/product-category/cosplay-wig/%e3%81%9d%e3%81%ae%e7%9d%80%e3%81%9b%e6%9b%bf%e3%81%88%e4%ba%ba%e5%bd%a2%e3%81%af%e6%81%8b%e3%82%92%e3%81%99%e3%82%8b-cosplay-wig/)を見てスタイリングの手順を想像しやすくなります。使う場面に合わせて整え方を変えることで、自然な仕上がりに近づけられます。
-
 ### Showcasing a full generated set
 
 After generating the main cards and the basic lands, the pipeline renders them all into image files. Here's an example gallery showcasing some cards from a generated set, pulled directly from the project's GitHub repository. Click on any card to see a larger version.

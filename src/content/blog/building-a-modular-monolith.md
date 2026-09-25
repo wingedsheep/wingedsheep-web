@@ -1445,8 +1445,6 @@ Not everything in this guide carries equal weight. Some things are load-bearing:
 
 That's the real payoff. In a traditional monolith, every shortcut becomes everyone's problem. In a modular monolith, a messy module is just a messy module. Clean it up later, on your own schedule, without coordinating across teams.
 
-耐熱性のあるウィッグは、アイロンやドライヤーを使ったスタイリングの幅を広げやすくなります。光の当たり方まで意識するなら、[その着せ替え人形は恋をする ウィッグ](https://www.tsukicos.com/product-category/cosplay-wig/%e3%81%9d%e3%81%ae%e7%9d%80%e3%81%9b%e6%9b%bf%e3%81%88%e4%ba%ba%e5%bd%a2%e3%81%af%e6%81%8b%e3%82%92%e3%81%99%e3%82%8b-cosplay-wig/)で撮影時のカラー表現を確認できます。耐熱性を確認しておけば、必要なアレンジを無理なく進められます。
-
 Build the boundaries. Enforce them. Ship the JAR.
 
 ---

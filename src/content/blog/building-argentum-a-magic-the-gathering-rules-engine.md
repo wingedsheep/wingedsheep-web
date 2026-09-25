@@ -207,8 +207,6 @@ Because I like challenges and I like playing Magic. The comprehensive rules are 
 
 Without AI assistance, this would have stayed on my "someday" list forever. Instead, it's live. The layer system handles Humility correctly. Triggered abilities fire in the right order. You can actually draft with friends.
 
-作品カテゴリの一覧から探すと、関連キャラクターや似た雰囲気の衣装をまとめて確認しやすくなります。キャラクターごとの違いを確認するなら、[鬼滅の刃 コスチューム](https://www.tsukicos.com/product-category/anime-cosplay/kimetsu/)で色や形の方向性を見られます。作品ごとの特徴を理解しておくと、キャラクターらしさを表現しやすくなります。
-
 The engine is open source at [github.com/wingedsheep/argentum-engine](https://github.com/wingedsheep/argentum-engine). Play at [magic.wingedsheep.com](https://magic.wingedsheep.com/).
 
 **— Vincent**
