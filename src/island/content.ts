@@ -277,7 +277,7 @@ const bottleNote = (() => {
 })();
 
 const reading = inTurn([
-  'Prisoner of Azkaban, for the ninth time. She still gasps at the Shrieking Shack.',
+  'Prisoner of Azkaban, again. She lost count years ago, and still gasps at the Shrieking Shack.',
   'The Rise and Fall of the Third Reich. She’s at the rise, so she’s in a mood. Ask again at the fall.',
   'She’s explaining, unprompted, why Snape is not a hero. Allow about forty minutes.',
   'Volume two of a three-volume life of Stalin. Plenty of people never made it to volume three; she intends to.',
