@@ -44,6 +44,8 @@ export interface IslandContext {
   /** Close whatever is open (from the library: step back outside). */
   close(): void;
   toast(text: string): void;
+  /** Hold a drawing up to the screen. */
+  showDrawing(src: string, alt: string): void;
   /** A toast with buttons; picking one dismisses it. */
   ask(text: string, choices: { label: string; pick?(): void }[]): void;
   /** Mark a secret as found (toasts the first time). */
@@ -359,9 +361,10 @@ export const WORKSHOP_PLACES: Record<string, Place> = {
 };
 
 const GAMES: Record<string, { label: string; text: string }> = {
-  'hollow-knight': { label: 'Hollow Knight', text: 'Hollow Knight. A strange, beautiful, dangerous world where you have to be completely in the zone, with music to match.' },
-  silksong: { label: 'Hollow Knight: Silksong', text: 'Hollow Knight: Silksong. The one that’s been an inspiration lately: the world, the art, the music, and how good it feels to move.' },
-  worms: { label: 'Worms', text: 'Worms, played hot-seat on an old PC with friends, with all the voices re-recorded as our own. Its Super Sheep is where the name wingedsheep comes from.' },
+  silksong: { label: 'Hollow Knight: Silksong', text: 'Hollow Knight: Silksong. A strange, beautiful, dangerous world where you have to be completely in the zone, with music to match, and it feels great to move through.' },
+  civilization: { label: 'Civilization', text: 'Civilization. Build an empire from a single settler. One more turn. Then one more.' },
+  overwatch: { label: 'Overwatch', text: 'Overwatch. Heroes, teamwork, and just one more match.' },
+  warcraft: { label: 'World of Warcraft', text: 'World of Warcraft. A whole world to get lost in.' },
   carcassonne: { label: 'Carcassonne', text: 'Carcassonne. Also rebuilt from scratch in Python and in Kotlin: it’s over in the workshop.' },
   root: { label: 'Root', text: 'Root. Cats, birds and woodland rebels, all fighting over the same forest, each by different rules.' },
   dune: { label: 'Dune: Imperium', text: 'Dune: Imperium. Deck building and worker placement on Arrakis.' },
@@ -401,7 +404,14 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   },
   coffee_machine: { label: 'The coffee machine', activate: say('The most important machine in the lighthouse. The light on the front is never off.') },
   wrap: { label: 'A wrap on a plate', activate: say('Hummus, tuna and whatever vegetables were left: dinner for an evening when cooking is too much.') },
-  sketchbook: { label: 'A sketchbook', activate: say('Open on a pencil drawing of a bird on a branch. Vincent is learning to draw.') },
+  sketchbook: {
+    label: 'A sketchbook',
+    activate: (ctx) => ctx.showDrawing('/drawings/bird.png', 'A pencil drawing of a bird on a branch, signed Vincent.'),
+  },
+  painting: {
+    label: 'A painting · a figure before a pale moon',
+    activate: (ctx) => ctx.showDrawing('/drawings/painting.png', 'An acrylic painting by Vincent: a lone figure on red rock, facing a huge pale moon in a deep blue sky.'),
+  },
   logbook: {
     label: 'The keeper’s log',
     activate(ctx) {

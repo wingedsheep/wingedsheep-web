@@ -24,6 +24,7 @@ export class UI {
   private article = $('#article')!;
   private articleBody = $('#article-body')!;
   private articleBack = $('.book-back')!;
+  private sketch = $('#sketch')!;
   private reader = new Reader(this.article);
   private current: Open = null;
   /** The panel a post was opened from; closing the post goes back there. */
@@ -38,7 +39,12 @@ export class UI {
       });
     }
     this.backdrop.addEventListener('click', () => this.back());
-    document.addEventListener('keydown', (e) => e.key === 'Escape' && this.back());
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!this.sketch.hidden) this.sketch.hidden = true;
+      else this.back();
+    });
+    this.sketch.addEventListener('click', () => (this.sketch.hidden = true));
 
     // books in the library open in place, without a page load
     document.addEventListener('click', (e) => {
@@ -168,6 +174,21 @@ export class UI {
     el.append(p, row);
     this.toasts.append(el);
     setTimeout(dismiss, 12000);
+  }
+
+  /** Hold up a drawing or painting over whatever is on screen; a click or Escape puts it down again. */
+  showDrawing(src: string, alt: string) {
+    const img = $<HTMLImageElement>('img', this.sketch)!;
+    img.src = src;
+    img.alt = alt;
+    this.sketch.setAttribute('aria-label', alt);
+    this.tooltip(null);
+    // size it to the picture once it's in, so it doesn't jump
+    void img.decode().catch(() => {}).then(() => {
+      img.style.setProperty('--w', String(img.naturalWidth || 1));
+      img.style.setProperty('--h', String(img.naturalHeight || 1));
+      this.sketch.hidden = false;
+    });
   }
 
   private showArticle(slug: string) {

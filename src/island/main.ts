@@ -134,6 +134,7 @@ export async function bootIsland(host: HTMLElement) {
     close: () => ui.close(),
     showProject: (id) => workshop.select(id),
     toast: (text) => ui.toast(text),
+    showDrawing: (src, alt) => ui.showDrawing(src, alt),
     ask: (text, choices) => ui.ask(text, choices),
     discover(id) {
       if (!journal.discover(id)) return;

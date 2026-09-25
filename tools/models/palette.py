@@ -122,10 +122,10 @@ SOFA_LIGHT = "#a45a48"
 COFFEE = "#1a0f0a"
 OILSKIN = "#e8c43a"
 # the games on the shelf and the stool
-HOLLOW = "#2b3a4f"         # Hollow Knight: a pale mask on dusk blue
 SILKSONG = "#8c2f39"       # Silksong: the red of her cloak
-WORMS = "#5aa04a"
-WORM_PINK = "#f0a0b0"
+CIV = "#23384f"            # Civilization: a gold globe on deep blue
+OVERWATCH = "#e8862f"      # Overwatch: the white ring on orange
+WARCRAFT = "#2a2230"       # World of Warcraft: a gold shield on near-black
 CARCASSONNE = "#3a5a8c"
 ROOT = "#d9772e"
 DUNE = "#c9933a"

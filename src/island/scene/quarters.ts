@@ -66,6 +66,7 @@ export class QuartersRoom {
   private particles = new Particles(300);
   private steam: THREE.Vector3[] = [];
   private screen?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; next: number };
+  private painting?: THREE.MeshBasicMaterial;
   private clock = 0;
   private timers = new Map<string, number>();
 
@@ -82,6 +83,7 @@ export class QuartersRoom {
     const rows: Row[] = [];
     const halo = haloTexture();
     let screen: THREE.Mesh | undefined;
+    let canvas: THREE.Mesh | undefined;
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
@@ -95,6 +97,7 @@ export class QuartersRoom {
         const src = mesh.material as THREE.MeshStandardMaterial;
         const glass = o.name.startsWith('window_glass') || o.parent?.name.startsWith('window_glass');
         if (o.name.startsWith('tv_screen') || o.parent?.name.startsWith('tv_screen')) screen = mesh;
+        if (o.name.startsWith('painting_canvas') || o.parent?.name.startsWith('painting_canvas')) canvas = mesh;
         const glow = src.name.startsWith('glow_');
         mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
         mesh.castShadow = !glass && !glow;
@@ -104,6 +107,7 @@ export class QuartersRoom {
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
     if (screen) this.tv(screen);
+    if (canvas) this.hang(canvas, '/drawings/painting.png');
 
     this.key.position.set(9, 16, 11);
     this.key.castShadow = true;
@@ -144,6 +148,7 @@ export class QuartersRoom {
     this.hemi.intensity = 0.9 + day * 0.5;
     this.key.intensity = 0.35 + day * 0.75;
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
+    this.painting?.color.setScalar(0.8 + day * 0.2);
 
     // the coffee steams while it's still hot, which is to say during the day
     for (const [i, at] of this.steam.entries()) {
@@ -175,19 +180,23 @@ export class QuartersRoom {
     const texture = new THREE.CanvasTexture(canvas);
     texture.magFilter = texture.minFilter = THREE.NearestFilter;
     texture.colorSpace = THREE.SRGBColorSpace;
-    // the screen box faces +x: map the canvas across it, not round it
-    const geo = mesh.geometry.clone();
-    const pos = geo.getAttribute('position');
-    const box = new THREE.Box3().setFromBufferAttribute(pos as THREE.BufferAttribute);
-    const uv = new Float32Array(pos.count * 2);
-    for (let i = 0; i < pos.count; i++) {
-      uv[i * 2] = 1 - (pos.getZ(i) - box.min.z) / (box.max.z - box.min.z || 1);
-      uv[i * 2 + 1] = (pos.getY(i) - box.min.y) / (box.max.y - box.min.y || 1);
-    }
-    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    mesh.geometry = geo;
+    faceRoom(mesh, 'west');
     mesh.material = new THREE.MeshBasicMaterial({ map: texture });
     this.screen = { canvas, texture, next: 0 };
+  }
+
+  /**
+   * Hang a picture on a canvas box on the north wall. It shows its own colours rather than being
+   * lit by the room (the warm lamps turned its blues grey and its moon beige), so it looks like
+   * the same painting you see up close; it only dims a little at night.
+   */
+  private hang(mesh: THREE.Mesh, src: string) {
+    const texture = new THREE.TextureLoader().load(src);
+    texture.magFilter = THREE.NearestFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    faceRoom(mesh, 'north');
+    this.painting = new THREE.MeshBasicMaterial({ map: texture });
+    mesh.material = this.painting;
   }
 
   private drawScreen() {
@@ -298,4 +307,23 @@ export class QuartersRoom {
     this.timers.set(key, left <= 0 ? left + seconds : left);
     return left <= 0;
   }
+}
+
+/**
+ * Map a texture across the face of a box that hangs on the west or the north wall, facing into
+ * the room, rather than round it. (In three's axes the north wall is -z and up is +y.)
+ */
+function faceRoom(mesh: THREE.Mesh, wall: 'west' | 'north') {
+  const geo = mesh.geometry.clone();
+  const pos = geo.getAttribute('position');
+  const box = new THREE.Box3().setFromBufferAttribute(pos as THREE.BufferAttribute);
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = wall === 'west'
+      ? 1 - (pos.getZ(i) - box.min.z) / (box.max.z - box.min.z || 1)
+      : (pos.getX(i) - box.min.x) / (box.max.x - box.min.x || 1);
+    uv[i * 2 + 1] = (pos.getY(i) - box.min.y) / (box.max.y - box.min.y || 1);
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  mesh.geometry = geo;
 }

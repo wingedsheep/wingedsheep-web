@@ -8,7 +8,8 @@ floor at z = 0. In the north-west corner the tower's spiral stair winds up towar
 The runtime (src/island/scene/quarters.ts) fills the bookcase with what Vincent has read: every
 `shelf` marker is one row (row 0 at the top). Other parts it drives:
   tv_screen     shows the game on the console          window_glass  the sky outside
-  steam         rises from the coffee                  the rest      things you can click (ids)
+  steam         rises from the coffee                  painting_canvas  Vincent's painting, as a texture
+  the rest      things you can click (ids)
 """
 from __future__ import annotations
 
@@ -229,24 +230,37 @@ def telly(root):
         sh.box((0.2, 0.05, 0.25), (X0 + 0.12, yc + dy, 2.08), P.IRON, rot=(0.6, 0, 0))    # brackets
     sh.build(root)
     boxes = [
-        ("hollow-knight", yc - 0.6, P.HOLLOW, P.WHITE),
-        ("silksong", yc, P.SILKSONG, P.WHITE),
-        ("worms", yc + 0.6, P.WORMS, P.WORM_PINK),
+        ("silksong", yc - 0.75, P.SILKSONG, P.WHITE),
+        ("civilization", yc - 0.25, P.CIV, P.GOLD),
+        ("overwatch", yc + 0.25, P.OVERWATCH, P.WHITE),
+        ("warcraft", yc + 0.75, P.WARCRAFT, P.GOLD),
     ]
     for gid, y, cover, mark in boxes:
         gg = group(f"game_{gid}", parent=root, id=f"game:{gid}")
         b = Model(f"box_{gid}")
-        b.box((0.05, 0.42, 0.56), (X0 + 0.2, y, 2.51), cover, rot=(0, -0.12, 0))
-        if gid == "worms":
-            b.cyl(0.05, 0.22, (X0 + 0.245, y - 0.1, 2.46), mark, segs=5, rot=(0.9, 0, 0))  # a pink worm
-            b.ball(0.06, (X0 + 0.25, y + 0.03, 2.58), mark, subdiv=1)
-        else:
-            # a white mask with two horns (the bug in the red cloak has a red dot below it)
-            b.ball(0.07, (X0 + 0.245, y, 2.5), mark, subdiv=1, scale=(0.5, 1.0, 1.1))
+        b.box((0.05, 0.4, 0.56), (X0 + 0.2, y, 2.51), cover, rot=(0, -0.12, 0))
+        f = X0 + 0.25                                                                    # just proud of the cover
+        if gid == "silksong":
+            # a white mask with two horns, and the red cloak's pin below it
+            b.ball(0.07, (f - 0.005, y, 2.5), mark, subdiv=1, scale=(0.5, 1.0, 1.1))
             for side in (-1, 1):
-                b.box((0.02, 0.03, 0.14), (X0 + 0.25, y + side * 0.06, 2.62), mark, rot=(side * 0.3, 0, 0))
-            if gid == "silksong":
-                b.ball(0.035, (X0 + 0.25, y, 2.36), P.WHITE, subdiv=1)
+                b.box((0.02, 0.03, 0.14), (f, y + side * 0.06, 2.62), mark, rot=(side * 0.3, 0, 0))
+            b.ball(0.035, (f, y, 2.36), P.WHITE, subdiv=1)
+        elif gid == "civilization":
+            b.cyl(0.11, 0.02, (f - 0.01, y, 2.52), mark, segs=10, rot=(0, math.pi / 2, 0))  # a gold globe
+            b.cyl(0.08, 0.025, (f - 0.01, y, 2.52), P.CIV, segs=10, rot=(0, math.pi / 2, 0))
+            b.box((0.02, 0.2, 0.02), (f + 0.005, y, 2.52), mark)                         # its equator
+        elif gid == "overwatch":
+            b.cyl(0.12, 0.02, (f - 0.01, y, 2.52), mark, segs=10, rot=(0, math.pi / 2, 0))  # the white ring
+            b.cyl(0.08, 0.025, (f - 0.01, y, 2.52), P.OVERWATCH, segs=10, rot=(0, math.pi / 2, 0))
+            for side in (-1, 1):
+                b.box((0.02, 0.05, 0.12), (f + 0.005, y + side * 0.035, 2.5), mark, rot=(-side * 0.35, 0, 0))
+        else:
+            # a gold shield with a W on it
+            b.box((0.02, 0.2, 0.22), (f - 0.005, y, 2.53), mark, taper=1.0)
+            b.box((0.02, 0.1, 0.1), (f - 0.005, y, 2.4), mark, rot=(math.pi / 4, 0, 0))
+            for dy in (-0.06, 0.0, 0.06):
+                b.box((0.02, 0.025, 0.12), (f + 0.005, y + dy, 2.54), P.WARCRAFT, rot=(0.25 if dy <= 0 else -0.25, 0, 0))
         b.build(gg)
 
     # the board games, stacked on a stool beside the cabinet
@@ -372,6 +386,28 @@ def gear(root):
     plant.build(root)
 
 
+def easel(root):
+    """Vincent's painting, a figure alone before a pale moon, on an easel in the open corner of the
+    room, turned towards whoever is looking in. The runtime hangs public/drawings/painting.png on
+    the canvas; its face is the canvas model's -y side, so it can be turned like any model."""
+    g = group("painting", parent=root, id="painting")
+    ex, ey, turn = 4.1, -1.7, 0.38                                                    # facing the camera, more or less
+    w, h, bottom = 1.25, 1.0, 0.95                                                     # 160 × 128, like the canvas
+    e = Model("easel")
+    for side in (-1, 1):                                                               # two front legs and one behind
+        e.plank_line((side * 0.5, -0.12, 0), (side * 0.12, 0.02, 2.3), 0.07, 0.05, P.WOOD_LIGHT)
+    e.plank_line((0, 0.75, 0), (0, 0.08, 2.1), 0.06, 0.05, P.WOOD_LIGHT)
+    e.box((w + 0.2, 0.2, 0.05), (0, -0.12, bottom - 0.03), P.WOOD_LIGHT)                # the ledge it stands on
+    e.box((0.2, 0.08, 0.1), (0, 0.0, bottom + h + 0.02), P.WOOD_LIGHT)                 # the clamp on top
+    for k, c in enumerate((P.RED, P.TILE_BLUE, P.GOLD)):                               # paint on the ledge
+        e.cyl(0.03, 0.12, (-0.45 + k * 0.08, -0.14, bottom - 0.005), c, segs=5, rot=(0, math.pi / 2 - 0.2, 0.3))
+    e.build(g, loc=(ex, ey, 0), rot_z=turn)
+    c = Model("painting_canvas")
+    c.box((w, 0.05, h), (0, -0.06, bottom + h / 2), "#2c3a8c")                          # the blue of its sky
+    c.build(g, loc=(ex, ey, 0), rot_z=turn)
+    light(root, (ex - 0.6, ey - 1.4, 2.4), P.WARM_LIGHT, 3.5, 0.5, halo=False)
+
+
 def details(root):
     """Two cat bowls, the keeper's oilskins by the door, a life ring, and the door out."""
     g = group("bowls", parent=root, id="bowls")
@@ -405,6 +441,7 @@ def details(root):
         r.box((0.14, 0.14, 0.24), (X0 + 0.1, ry + math.cos(a) * 0.36, rz + math.sin(a) * 0.36), P.RED if (i // 3) % 2 else P.WHITE, rot=(a, 0, 0))
     r.build(root)
 
+
     lamp = Model("lamp")                                                                # a ship's lamp over the kitchen
     lamp.box((0.06, 0.4, 0.06), (3.4, Y1 - 0.2, 4.1), P.IRON)
     lamp.box((0.22, 0.22, 0.3), (3.4, Y1 - 0.45, 3.9), P.LANTERN, glow=True)
@@ -424,5 +461,6 @@ def build():
     lounge(root)
     table(root)
     gear(root)
+    easel(root)
     details(root)
     return root
