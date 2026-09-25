@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { type IslandContext, labelFor, toggleRecord, workshopPlaceFor } from './content';
+import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { WorkshopRoom } from './scene/workshop-room';
 import type { UI } from './ui';
@@ -22,7 +23,7 @@ interface Sign {
   at: { x: number; y: number };
 }
 
-export class Workshop {
+export class Workshop implements RoomInput {
   /** Whether the room (rather than the island) is on screen. */
   inside = false;
   private want = false;
@@ -145,6 +146,25 @@ export class Workshop {
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
     room.frame(w, h, this.freeArea(w, h));
+    this.pinSigns();
+  }
+
+  /** Pinch, scroll or drag: look closer at the exhibits. */
+  zoom(factor: number, ndc: THREE.Vector2) {
+    this.room?.view.zoomBy(factor, ndc);
+    this.pinSigns();
+  }
+
+  pan(dxPx: number, dyPx: number) {
+    this.room?.view.pan(dxPx, dyPx);
+    this.pinSigns();
+  }
+
+  private pinSigns() {
+    const room = this.room;
+    if (!room) return;
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
     // pin each sign over its exhibit; one that would cover another is lifted clear of it
     const placed: { l: number; r: number; t: number; b: number }[] = [];
     const shown = this.signs.filter((s) => (s.li.hidden = !room.anchors.has(s.id)) === false);
@@ -216,9 +236,12 @@ export class Workshop {
   private swap() {
     this.inside = this.want;
     this.ctx.sound.indoors = this.inside;
-    this.ctx.rig.locked = this.inside;
-    if (this.inside) this.resize();
-    else {
+    if (this.inside) {
+      this.ctx.rig.room = this;
+      this.room?.view.reset();
+      this.resize();
+    } else {
+      if (this.ctx.rig.room === this) this.ctx.rig.room = null;
       this.ctx.sound.stopRecord();
       this.light(null);
     }

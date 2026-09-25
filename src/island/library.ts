@@ -8,15 +8,18 @@ import type { BookInfo } from '../data/subjects';
 import { Catalogue } from './catalogue';
 import { type IslandContext, labelFor, libraryPlaceFor, togglePiano } from './content';
 import { Interior } from './scene/interior';
+import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
+const PEEK = 84; // px of the catalogue sheet left showing when it's folded down (small screens)
+const narrow = () => innerWidth <= 760;
 const NO_SHIFT = new THREE.Vector2();
 const month = (date: string) =>
   new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
-export class Library {
+export class Library implements RoomInput {
   /** Whether the room (rather than the island) is on screen. */
   inside = false;
   private want = false;
@@ -27,6 +30,8 @@ export class Library {
   private catalogue: Catalogue;
   private plates = document.getElementById('plates')!;
   private filter: Set<string> | null = null;
+  private panel: HTMLElement;
+  private sheetHeight = 0; // the sheet's height when the room was last framed
 
   constructor(
     private ctx: IslandContext,
@@ -36,7 +41,8 @@ export class Library {
     private reducedMotion: boolean,
   ) {
     this.books = JSON.parse(document.getElementById('library-books')?.textContent ?? '[]');
-    const panel = document.querySelector<HTMLElement>('[data-panel="library"]')!;
+    const panel = (this.panel = document.querySelector<HTMLElement>('[data-panel="library"]')!);
+    this.grip(panel.querySelector<HTMLElement>('[data-grip]')!);
     this.catalogue = new Catalogue(panel, {
       hot: (slug) => this.interior?.setHot(slug),
       filter: (slugs) => {
@@ -83,7 +89,28 @@ export class Library {
     if (!this.interior) return;
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
+    if (!narrow()) this.panel.style.height = ''; // the sheet's handle only exists on small screens
+    this.sheetHeight = this.panel.offsetHeight;
     this.interior.frame(w, h, this.freeArea(w, h));
+    this.pinPlates();
+  }
+
+  /** Pinch, scroll or drag: look closer at the shelves. */
+  zoom(factor: number, ndc: THREE.Vector2) {
+    this.interior?.view.zoomBy(factor, ndc);
+    this.pinPlates();
+  }
+
+  pan(dxPx: number, dyPx: number) {
+    this.interior?.view.pan(dxPx, dyPx);
+    this.pinPlates();
+  }
+
+  /** Keep each year plate on the end of its shelf. */
+  private pinPlates() {
+    if (!this.interior) return;
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
     for (const [i, plate] of this.interior.plates.entries()) {
       const el = this.plates.children[i] as HTMLElement;
       const { x, y } = this.interior.project(plate.at, w, h);
@@ -128,6 +155,8 @@ export class Library {
     }
     this.pixels.uniforms.uFade.value = this.fade;
     this.plates.hidden = !this.inside || this.fade > 0.3;
+    // the sheet was dragged or snapped: the room fills whatever it leaves free
+    if (this.inside && narrow() && this.panel.offsetHeight !== this.sheetHeight) this.resize();
     if (this.inside && this.interior) {
       this.interior.playing = this.ctx.sound.pianoPiece !== null;
       this.interior.update(dt, night);
@@ -144,9 +173,12 @@ export class Library {
   private swap() {
     this.inside = this.want;
     this.ctx.sound.indoors = this.inside;
-    this.ctx.rig.locked = this.inside;
-    if (this.inside) this.resize();
-    else {
+    if (this.inside) {
+      this.ctx.rig.room = this;
+      this.interior?.view.reset();
+      this.resize();
+    } else {
+      if (this.ctx.rig.room === this) this.ctx.rig.room = null;
       this.ctx.sound.stopPiano();
       this.interior?.setHot(null);
       this.interior?.picker.highlight(null);
@@ -160,7 +192,52 @@ export class Library {
       return { x: 12, y: 56, w: w - panel - 36, h: h - 70 };
     }
     // small screens: the catalogue is a sheet over the bottom of the screen
-    return { x: 8, y: 52, w: w - 16, h: h * 0.42 - 56 };
+    const sheet = this.panel.hidden ? 0 : this.panel.offsetHeight + 8;
+    return { x: 8, y: 52, w: w - 16, h: Math.max(80, h - sheet - 60) };
+  }
+
+  /**
+   * On small screens the catalogue sheet has a handle: drag it down to see more of the room or
+   * up to read more; let go and it settles on the nearest of folded, half and tall. A tap folds
+   * it down or brings it back.
+   */
+  private grip(handle: HTMLElement) {
+    const panel = this.panel;
+    const stops = () => [PEEK, innerHeight * 0.58, this.host.clientHeight - 60];
+    let start: { y: number; height: number } | null = null;
+    let moved = 0;
+    handle.addEventListener('pointerdown', (e) => {
+      handle.setPointerCapture(e.pointerId);
+      start = { y: e.clientY, height: panel.offsetHeight };
+      moved = 0;
+      panel.classList.add('dragging');
+    });
+    handle.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      moved = Math.max(moved, Math.abs(e.clientY - start.y));
+      const [low, , high] = stops();
+      panel.style.height = `${THREE.MathUtils.clamp(start.height - (e.clientY - start.y), low, high)}px`;
+    });
+    const settle = () => {
+      if (!start) return;
+      const height = panel.offsetHeight;
+      const [low, half] = stops();
+      const to = moved < 6
+        ? (height > low + 1 ? low : half)
+        : stops().reduce((best, s) => (Math.abs(s - height) < Math.abs(best - height) ? s : best));
+      panel.style.height = `${Math.round(to)}px`;
+      if (to === low) panel.scrollTop = 0;
+      panel.classList.remove('dragging');
+      start = null;
+    };
+    handle.addEventListener('pointerup', settle);
+    handle.addEventListener('pointercancel', settle);
+    // tapping handles itself; keep the keyboard working too
+    handle.addEventListener('click', (e) => {
+      if (e.detail !== 0) return;
+      const [low, half] = stops();
+      panel.style.height = `${Math.round(panel.offsetHeight > low + 1 ? low : half)}px`;
+    });
   }
 
   /** A brass plate with the year on the end of every shelf; clicking it opens that drawer. */

@@ -4,12 +4,10 @@ import { type BookInfo, hash, spineColor } from '../../data/subjects';
 import { ICONS } from './life';
 import { Particles } from './particles';
 import { Picker } from './picking';
+import { RoomCamera } from './room-camera';
 import { haloTexture } from './sky';
 import { GRADIENT } from './toon';
 
-const ELEVATION = THREE.MathUtils.degToRad(35); // the same angle as the island camera
-const YAW = THREE.MathUtils.degToRad(-22); // looking in from the south-east
-const DISTANCE = 60;
 /** Every row starts with room for its year plate; the books stand to the right of it. */
 const PLATE_SPACE = 0.62;
 const GOLD = new THREE.Color('#e8b24a');
@@ -96,7 +94,6 @@ interface Floater {
  */
 export class Interior {
   readonly scene = new THREE.Scene();
-  readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, DISTANCE * 2);
   readonly picker: Picker;
   /** Things with an id (the piano, the door…), for highlighting. */
   readonly named = new Map<string, THREE.Object3D>();
@@ -107,6 +104,8 @@ export class Interior {
 
   private root: THREE.Group;
   private bounds = new THREE.Box3();
+  /** Frames the room; you can zoom and look around it. */
+  readonly view = new RoomCamera(this.bounds);
   private books = new Map<string, Book>();
   private hot: string | null = null;
   private matches: Set<string> | null = null;
@@ -192,36 +191,13 @@ export class Interior {
 
   // --- what the page asks of it ----------------------------------------------------
 
-  /**
-   * Fit the room into the part of the canvas that isn't under a panel. `free` is in CSS pixels
-   * relative to the canvas.
-   */
-  frame(width: number, height: number, free: { x: number; y: number; w: number; h: number }) {
-    const cam = this.camera;
-    const centre = this.bounds.getCenter(V());
-    const dir = V(-Math.sin(YAW) * Math.cos(ELEVATION), Math.sin(ELEVATION), Math.cos(YAW) * Math.cos(ELEVATION));
-    cam.position.copy(centre).addScaledVector(dir, DISTANCE);
-    cam.lookAt(centre);
-    cam.updateMatrixWorld();
+  get camera() {
+    return this.view.camera;
+  }
 
-    const box = new THREE.Box2();
-    const { min, max } = this.bounds;
-    for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) {
-      const p = V(x, y, z).applyMatrix4(cam.matrixWorldInverse);
-      box.expandByPoint(new THREE.Vector2(p.x, p.y));
-    }
-    const size = box.getSize(new THREE.Vector2());
-    const mid = box.getCenter(new THREE.Vector2());
-    const perPx = Math.max(size.x / free.w, size.y / free.h) * 1.04;
-    const fx = free.x + free.w / 2 - width / 2;
-    const fy = free.y + free.h / 2 - height / 2;
-    const right = V().setFromMatrixColumn(cam.matrixWorld, 0);
-    const up = V().setFromMatrixColumn(cam.matrixWorld, 1);
-    cam.position.addScaledVector(right, mid.x - fx * perPx).addScaledVector(up, mid.y + fy * perPx);
-    const h = (perPx * height) / 2;
-    Object.assign(cam, { left: -h * (width / height), right: h * (width / height), top: h, bottom: -h });
-    cam.updateProjectionMatrix();
-    cam.updateMatrixWorld();
+  /** Fit the room into the part of the canvas a panel leaves free (CSS pixels). */
+  frame(width: number, height: number, free: { x: number; y: number; w: number; h: number }) {
+    this.view.frame(width, height, free);
   }
 
   /** Where a world point lands on the canvas, in CSS pixels. */

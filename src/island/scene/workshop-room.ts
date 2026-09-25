@@ -5,12 +5,10 @@ import { toonIndoors } from './interior';
 import { ICONS } from './life';
 import { Particles } from './particles';
 import { Picker } from './picking';
+import { RoomCamera } from './room-camera';
 import { Robot, type Waypoint } from './robot';
 import { haloTexture } from './sky';
 
-const ELEVATION = THREE.MathUtils.degToRad(35); // the same angle as the island camera
-const YAW = THREE.MathUtils.degToRad(-22); // looking in from the south-east, like the library
-const DISTANCE = 60;
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
 
@@ -39,7 +37,6 @@ interface Floater {
  */
 export class WorkshopRoom {
   readonly scene = new THREE.Scene();
-  readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, DISTANCE * 2);
   readonly picker: Picker;
   readonly robot: Robot;
   /** Things with an id (the exhibits, the robot, the door), for highlighting. */
@@ -50,6 +47,8 @@ export class WorkshopRoom {
   playing = false;
 
   private bounds = new THREE.Box3();
+  /** Frames the room; you can zoom and look around it. */
+  readonly view = new RoomCamera(this.bounds);
   private exhibits: Exhibits;
   private lamps: Lamp[] = [];
   private glass = new THREE.MeshBasicMaterial({ color: SKY_DAY.clone() });
@@ -114,36 +113,13 @@ export class WorkshopRoom {
     this.picker.add(...this.named.values());
   }
 
-  /**
-   * Fit the room into the part of the canvas left free (CSS pixels relative to the canvas),
-   * the same way the library frames itself.
-   */
-  frame(width: number, height: number, free: { x: number; y: number; w: number; h: number }) {
-    const cam = this.camera;
-    const centre = this.bounds.getCenter(V());
-    const dir = V(-Math.sin(YAW) * Math.cos(ELEVATION), Math.sin(ELEVATION), Math.cos(YAW) * Math.cos(ELEVATION));
-    cam.position.copy(centre).addScaledVector(dir, DISTANCE);
-    cam.lookAt(centre);
-    cam.updateMatrixWorld();
+  get camera() {
+    return this.view.camera;
+  }
 
-    const box = new THREE.Box2();
-    const { min, max } = this.bounds;
-    for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) {
-      const p = V(x, y, z).applyMatrix4(cam.matrixWorldInverse);
-      box.expandByPoint(new THREE.Vector2(p.x, p.y));
-    }
-    const size = box.getSize(new THREE.Vector2());
-    const mid = box.getCenter(new THREE.Vector2());
-    const perPx = Math.max(size.x / free.w, size.y / free.h) * 1.04;
-    const fx = free.x + free.w / 2 - width / 2;
-    const fy = free.y + free.h / 2 - height / 2;
-    const right = V().setFromMatrixColumn(cam.matrixWorld, 0);
-    const up = V().setFromMatrixColumn(cam.matrixWorld, 1);
-    cam.position.addScaledVector(right, mid.x - fx * perPx).addScaledVector(up, mid.y + fy * perPx);
-    const h = (perPx * height) / 2;
-    Object.assign(cam, { left: -h * (width / height), right: h * (width / height), top: h, bottom: -h });
-    cam.updateProjectionMatrix();
-    cam.updateMatrixWorld();
+  /** Fit the room into the part of the canvas a panel leaves free (CSS pixels). */
+  frame(width: number, height: number, free: { x: number; y: number; w: number; h: number }) {
+    this.view.frame(width, height, free);
   }
 
   /** Where a world point lands on the canvas, in CSS pixels. */

@@ -5,6 +5,12 @@ const DISTANCE = 120;
 const MIN_VIEW = 9; // world units visible vertically, most zoomed in
 const MAX_VIEW = 64;
 
+/** A room's own camera, which takes over dragging and zooming while you're inside. */
+export interface RoomInput {
+  zoom(factor: number, ndc: THREE.Vector2): void;
+  pan(dxPx: number, dyPx: number): void;
+}
+
 export interface RigEvents {
   click(ndc: THREE.Vector2, client: { x: number; y: number }): void;
   hover(ndc: THREE.Vector2 | null, client: { x: number; y: number }): void;
@@ -19,8 +25,8 @@ export class CameraRig {
   readonly target = new THREE.Vector3(0, 1, -3);
   view = 46; // visible world height
   yaw = 0; // radians, 0 = looking north
-  /** Locked, it still reports hovers and clicks but won't pan or zoom (e.g. while indoors). */
-  locked = false;
+  /** Indoors, it still reports hovers and clicks but drags and zooms move the room instead. */
+  room: RoomInput | null = null;
   readonly subTexel = new THREE.Vector2();
 
   private goal: { target: THREE.Vector3; view: number; yaw: number } | null = null;
@@ -29,6 +35,7 @@ export class CameraRig {
   private dragDistance = 0;
   private pinchStart = 0;
   private viewAtPinch = 0;
+  private lastPinch = 0;
   private aspect = 1;
 
   constructor(
@@ -163,7 +170,7 @@ export class CameraRig {
     }
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
-      this.pinchStart = Math.hypot(a.x - b.x, a.y - b.y);
+      this.pinchStart = this.lastPinch = Math.hypot(a.x - b.x, a.y - b.y);
       this.viewAtPinch = this.view;
     }
   };
@@ -178,16 +185,21 @@ export class CameraRig {
     const dy = e.clientY - prev.y;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.dragDistance += Math.abs(dx) + Math.abs(dy);
-    if (this.locked) return;
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (this.room) {
+        this.room.zoom(this.lastPinch / Math.max(d, 1), this.ndc((a.x + b.x) / 2, (a.y + b.y) / 2));
+        this.lastPinch = d;
+        return;
+      }
       this.view = THREE.MathUtils.clamp((this.viewAtPinch * this.pinchStart) / Math.max(d, 1), MIN_VIEW, MAX_VIEW);
       return;
     }
+    this.el.style.cursor = 'grabbing';
+    if (this.room) return this.room.pan(dx, dy);
     this.pan(dx, dy);
     this.velocity.set(dx, dy);
-    this.el.style.cursor = 'grabbing';
   };
 
   private onUp = (e: PointerEvent) => {
@@ -202,7 +214,7 @@ export class CameraRig {
 
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    if (this.locked) return;
+    if (this.room) return this.room.zoom(Math.pow(1.0015, e.deltaY), this.ndc(e.clientX, e.clientY));
     const around = this.groundAt(this.ndc(e.clientX, e.clientY));
     this.zoom(Math.pow(1.0015, e.deltaY), around);
   };

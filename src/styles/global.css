@@ -101,6 +101,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* the library's card catalogue: a drawer of index cards, filed by year */
 .panel-library { padding-bottom: 18px; }
+.sheet-grip { display: none; }
 .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
 .filters button, .card-tags .tag {
   display: inline-flex; align-items: center; gap: 6px; border: 0; clip-path: var(--notch);
@@ -360,7 +361,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .toasts { bottom: 64px; }
   .panel { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 72vh; padding: 18px; animation-name: sheet-in; }
   @keyframes sheet-in { from { transform: translateY(30px); opacity: 0; } }
-  .panel-library { max-height: 58vh; }
+  /* the catalogue sheet has a handle: drag it down to see more of the room, up to read more */
+  .panel-library { height: 58vh; max-height: calc(100% - 60px); padding-top: 0; transition: height 0.2s ease-out; }
+  .panel-library.dragging { transition: none; }
+  .sheet-grip {
+    display: block; position: sticky; top: 0; z-index: 2; width: calc(100% + 36px); height: 26px;
+    margin: 0 -18px 6px; padding: 0; border: 0; background: var(--paper); cursor: grab; touch-action: none;
+  }
+  .sheet-grip::before { content: ''; display: block; width: 44px; height: 5px; margin: 0 auto; background: var(--paper-edge); clip-path: var(--notch); }
+  .panel-library .panel-close { top: 30px; }
   .drawer-label { top: -18px; }
   .card:hover, .card.is-hot, .card:focus-within { transform: none; }
   .plate { font-size: 10px; padding: 1px 3px; }
