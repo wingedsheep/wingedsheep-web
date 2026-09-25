@@ -3,6 +3,7 @@
     blender -b --factory-startup -P tools/models/build.py -- [--preview out.png] [--night]
     blender -b --factory-startup -P tools/models/build.py -- --only library [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only workshop [--preview out.png]
+    blender -b --factory-startup -P tools/models/build.py -- --only lighthouse [--preview out.png]
 
 Outputs (public/models/):
   island.glb    terrain + every model, with ids, lights and emitters as glTF extras
@@ -10,6 +11,7 @@ Outputs (public/models/):
   island.json   world extent and other numbers the runtime needs
   library.glb   the library, inside (tools/models/interior.py)
   workshop.glb  the workshop, inside, with the projects and the robot (tools/models/workshop.py)
+  lighthouse.glb  the keeper's quarters in the lighthouse (tools/models/quarters.py)
 """
 from __future__ import annotations
 
@@ -39,7 +41,7 @@ def args():
     ap.add_argument("--yaw", type=float, default=0.0)
     ap.add_argument("--focus", default="0,1")
     ap.add_argument("--span", type=float, default=70.0)
-    ap.add_argument("--only", choices=["island", "library", "workshop"])
+    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse"])
     return ap.parse_args(argv)
 
 
@@ -159,6 +161,17 @@ def build_workshop(a):
         preview(a.preview, a.night, -22.0, (0.0, 0.5), 20.0, sea=False)
 
 
+def build_lighthouse(a):
+    reset_scene()
+    import quarters  # noqa: E402
+    quarters.build()
+    export("lighthouse.glb")
+    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'lighthouse.glb'}")
+
+    if a.preview and a.only == "lighthouse":
+        preview(a.preview, a.night, -22.0, (0.0, 0.3), 16.0, sea=False)
+
+
 def main():
     a = args()
     if a.preview and not a.only:
@@ -169,6 +182,8 @@ def main():
         build_library(a)
     if a.only in (None, "workshop"):
         build_workshop(a)
+    if a.only in (None, "lighthouse"):
+        build_lighthouse(a)
 
 
 main()

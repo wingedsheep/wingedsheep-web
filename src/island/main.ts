@@ -7,6 +7,7 @@ import { type WeatherKind, fetchForecast } from './forecast';
 import { bindHud, renderJournal } from './hud';
 import { Journal } from './journal';
 import { Library } from './library';
+import { Lighthouse } from './lighthouse';
 import { CameraRig } from './scene/camera-rig';
 import { createFoliage } from './scene/foliage';
 import { createGrass, wind } from './scene/grass';
@@ -27,6 +28,7 @@ const PANEL_HOME: Partial<Record<PanelName | 'article', string>> = {
   article: 'library',
   campfire: 'campfire',
   trail: 'cairn_3',
+  lighthouse: 'lighthouse',
 };
 
 /** CSS pixels per art pixel: bigger screens get chunkier pixels so detail stays readable. */
@@ -64,6 +66,7 @@ export async function bootIsland(host: HTMLElement) {
     hover(ndc, client) {
       if (library.wanted) return library.hover(ndc, client);
       if (workshop.wanted) return workshop.hover(ndc, client);
+      if (lighthouse.wanted) return lighthouse.hover(ndc, client);
       const hit = ndc && picker.pick(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       picker.highlight(place && hit ? (island.get(hit.id) ?? null) : null);
@@ -73,6 +76,7 @@ export async function bootIsland(host: HTMLElement) {
     click(ndc) {
       if (library.wanted) return library.click(ndc);
       if (workshop.wanted) return workshop.click(ndc);
+      if (lighthouse.wanted) return lighthouse.click(ndc);
       const hit = picker.pick(ndc) ?? pickMoon(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       if (!hit || !place) return;
@@ -104,6 +108,7 @@ export async function bootIsland(host: HTMLElement) {
       const reading = name === 'article' && workshop.wanted;
       library.enter(name === 'library' || (name === 'article' && !reading));
       workshop.enter(name === 'workshop' || reading);
+      lighthouse.enter(name === 'lighthouse');
       const pos = PANEL_HOME[name] && island.positionOf(PANEL_HOME[name]!);
       if (!pos) return;
       const wide = innerWidth > 900;
@@ -112,6 +117,7 @@ export async function bootIsland(host: HTMLElement) {
     closed: () => {
       library.enter(false);
       workshop.enter(false);
+      lighthouse.enter(false);
     },
   });
 
@@ -137,7 +143,8 @@ export async function bootIsland(host: HTMLElement) {
   };
   const library = new Library(ctx, ui, pixels, host, reducedMotion);
   const workshop = new Workshop(ctx, ui, pixels, host, reducedMotion);
-  const rooms = [library, workshop];
+  const lighthouse = new Lighthouse(ctx, ui, pixels, host, reducedMotion);
+  const rooms = [library, workshop, lighthouse];
 
   // keyboard and screen-reader twins of the clickable places
   document.querySelectorAll<HTMLElement>('[data-goto]').forEach((el) =>
@@ -163,6 +170,7 @@ export async function bootIsland(host: HTMLElement) {
     rig.resize(w, h);
     library.resize();
     workshop.resize();
+    lighthouse.resize();
   }
   new ResizeObserver(resize).observe(host);
   resize();
@@ -189,10 +197,12 @@ export async function bootIsland(host: HTMLElement) {
   ui.route(true);
   library.enter(library.wanted, true); // landing on /blog/…: start inside, no iris
   workshop.enter(workshop.wanted, true);
+  lighthouse.enter(lighthouse.wanted, true);
   // the rooms load once the island is up and the browser has a moment
   (window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500)))(() => {
     void library.load();
     void workshop.load();
+    void lighthouse.load();
   });
 
   const campfire = island.positionOf('campfire')!;

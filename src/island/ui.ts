@@ -80,6 +80,7 @@ export class UI {
     this.current = { kind: 'panel', name };
     if (name === 'library') document.title = 'The library · wingedsheep';
     else if (name === 'workshop') document.title = 'The workshop · wingedsheep';
+    else if (name === 'lighthouse') document.title = 'The lighthouse · wingedsheep';
     if (push) history.pushState(null, '', name === 'library' ? '/blog/' : `/#${name}`);
     this.events.panelOpened(name);
     ($('[data-autofocus]', el) ?? $('h2', el))?.focus({ preventScroll: true });

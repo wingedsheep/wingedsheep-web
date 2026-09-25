@@ -31,6 +31,11 @@ preview-workshop:
     blender -b --factory-startup -P tools/models/build.py -- --only workshop --preview /tmp/workshop-preview.png
     open /tmp/workshop-preview.png
 
+# render a quick Blender preview of the lighthouse's inside
+preview-lighthouse:
+    blender -b --factory-startup -P tools/models/build.py -- --only lighthouse --preview /tmp/lighthouse-preview.png
+    open /tmp/lighthouse-preview.png
+
 # typecheck
 check:
     npx astro check

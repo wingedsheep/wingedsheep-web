@@ -6,6 +6,7 @@
  * entry here. Secrets listed in SECRETS show up in the journal automatically.
  */
 import type * as THREE from 'three';
+import { BOOKS } from '../data/books';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { travels, yearsOf } from '../data/travels';
@@ -20,7 +21,7 @@ import type { WorkshopRoom } from './scene/workshop-room';
 import type { Weather } from './scene/weather';
 import type { Sound } from './sound';
 
-export type PanelName = 'library' | 'workshop' | 'campfire' | 'trail' | 'places' | 'journal';
+export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'campfire' | 'trail' | 'places' | 'journal';
 
 export interface IslandContext {
   island: Island;
@@ -73,6 +74,8 @@ export const SECRETS = {
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
   robot: { title: 'The workshop robot', hint: 'Someone in the workshop keeps tripping over things.' },
   travels: { title: 'Pins in the globe', hint: 'Lean in close to the globe in the library.' },
+  winds: { title: 'Still being written', hint: 'One book on the keeper’s shelf won’t open.' },
+  arnhem: { title: 'Home town', hint: 'The keeper’s telly has a game about where he grew up.' },
   beike: { title: 'Beike', hint: 'Someone in the meadow has a ball and all the time in the world.' },
 } as const;
 
@@ -84,14 +87,7 @@ export const PLACES: Record<string, Place> = {
   signpost: { label: 'Signpost · where to?', panel: 'places' },
   library: { label: 'The library · blog', panel: 'library' },
   workshop: { label: 'The workshop · projects', panel: 'workshop' },
-  lighthouse: {
-    label: 'The lighthouse',
-    activate(ctx) {
-      // one page of the keeper's log at a time, never the whole book
-      logPage = (logPage + 1 + Math.floor(Math.random() * (interests.length - 1))) % interests.length;
-      ctx.toast(`Keeper's log: ${interests[logPage].text}`);
-    },
-  },
+  lighthouse: { label: 'The lighthouse · the keeper’s quarters', panel: 'lighthouse' },
   campfire: { label: 'The campfire · about me', panel: 'campfire' },
   cairn: { label: 'A cairn on the trail · career', panel: 'trail' },
   summit: {
@@ -160,7 +156,7 @@ export const PLACES: Record<string, Place> = {
   },
   beike: {
     label: (ctx) =>
-      ctx.life.beike.waiting ? 'Beike’s ball · throw it' : ctx.journal.has('beike') ? 'Beike · Dad’s dog' : 'A black-and-white dog',
+      ctx.life.beike.waiting ? 'Beike’s ball · throw it' : ctx.journal.has('beike') ? 'Beike' : 'A black-and-white dog',
     activate(ctx, at) {
       const beike = ctx.life.beike;
       switch (beike.poke(ctx.rig.camera.position)) {
@@ -361,6 +357,91 @@ export const WORKSHOP_PLACES: Record<string, Place> = {
     projects.map((p): [string, Place] => [`project_${p.id}`, { label: `${p.name} · ${p.thing}`, activate: (ctx) => ctx.showProject(p.id) }]),
   ),
 };
+
+const GAMES: Record<string, { label: string; text: string }> = {
+  'hollow-knight': { label: 'Hollow Knight', text: 'Hollow Knight. A strange, beautiful, dangerous world where you have to be completely in the zone, with music to match.' },
+  silksong: { label: 'Hollow Knight: Silksong', text: 'Hollow Knight: Silksong. The one that’s been an inspiration lately: the world, the art, the music, and how good it feels to move.' },
+  worms: { label: 'Worms', text: 'Worms, played hot-seat on an old PC with friends, with all the voices re-recorded as our own. Its Super Sheep is where the name wingedsheep comes from.' },
+  carcassonne: { label: 'Carcassonne', text: 'Carcassonne. Also rebuilt from scratch in Python and in Kotlin: it’s over in the workshop.' },
+  root: { label: 'Root', text: 'Root. Cats, birds and woodland rebels, all fighting over the same forest, each by different rules.' },
+  dune: { label: 'Dune: Imperium', text: 'Dune: Imperium. Deck building and worker placement on Arrakis.' },
+  agricola: { label: 'Agricola', text: 'Agricola. Build a farm, feed your family, and never have quite enough wood.' },
+  'next-station': { label: 'Next Station: London and Tokyo', text: 'Next Station: London and Tokyo. Draw your own underground line, one flip of a card at a time.' },
+};
+
+/** Things in the keeper's quarters, inside the lighthouse. */
+export const LIGHTHOUSE_PLACES: Record<string, Place> = {
+  door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
+  stairs: {
+    label: 'The stairs · up to the lamp',
+    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
+      ? 'Round and round and up. Far above, the lamp is turning.'
+      : 'Round and round and up to the lamp. It lights itself at dusk.'),
+  },
+  console: {
+    label: 'The telly · play GTA Arnhem',
+    activate(ctx) {
+      ctx.ask('GTA Arnhem: drive around Arnhem, where Vincent grew up. It opens in a new tab.', [
+        {
+          label: 'Play ↗',
+          pick() {
+            window.open('https://racer.wingedsheep.com/', '_blank', 'noopener');
+            ctx.discover('arnhem');
+          },
+        },
+        { label: 'Not now' },
+      ]);
+    },
+  },
+  coffee: {
+    label: 'A mug of coffee',
+    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
+      ? 'Black, and stone cold. Someone said they’d be right there. About three hours ago.'
+      : 'Black, no sugar, still hot. Someone said they’d be right there.'),
+  },
+  coffee_machine: { label: 'The coffee machine', activate: say('The most important machine in the lighthouse. The light on the front is never off.') },
+  wrap: { label: 'A wrap on a plate', activate: say('Hummus, tuna and whatever vegetables were left: dinner for an evening when cooking is too much.') },
+  sketchbook: { label: 'A sketchbook', activate: say('Open on a pencil drawing of a bird on a branch. Vincent is learning to draw.') },
+  logbook: {
+    label: 'The keeper’s log',
+    activate(ctx) {
+      // one page of the keeper's log at a time, never the whole book
+      logPage = (logPage + 1 + Math.floor(Math.random() * (interests.length - 1))) % interests.length;
+      ctx.toast(`Keeper's log: ${interests[logPage].text}`);
+    },
+  },
+  bowls: { label: 'Two cat bowls', activate: say('One for Charlie, one for George. Both empty, according to Charlie and George.') },
+  surfboard: { label: 'A surfboard', activate: say('It’s been out on the Atlantic: Mimizan, and the surf on the south-west coast of France.') },
+  backpack: { label: 'A pack and boots', activate: say('Boots by the door and a little green tent strapped to the pack. It has slept on a few mountain tops.') },
+  ...Object.fromEntries(
+    Object.entries(GAMES).map(([id, g]): [string, Place] => [`game:${id}`, { label: g.label, activate: say(g.text) }]),
+  ),
+};
+
+/** A book on the keeper's shelf: "read:<index into BOOKS>". */
+function readPlace(id: string): Place | undefined {
+  const book = BOOKS[Number(id.slice(5))];
+  if (!book) return undefined;
+  const stars = book.stars ? ` · ${'★'.repeat(book.stars)}` : '';
+  return {
+    label: `${book.title} · ${book.author}${stars}`,
+    activate(ctx) {
+      if (book.title === 'The Winds of Winter') {
+        ctx.toast('The Winds of Winter. It won’t open: it’s still being written. Five stars anyway.');
+        ctx.discover('winds');
+        return;
+      }
+      const when = book.read
+        ? ` Finished in ${new Date(`${book.read}T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`
+        : '';
+      ctx.toast(`${book.title}${book.series ? ` (${book.series})` : ''}, by ${book.author}.${when}`);
+    },
+  };
+}
+
+export function lighthousePlaceFor(id: string): Place | undefined {
+  return id.startsWith('read:') ? readPlace(id) : LIGHTHOUSE_PLACES[id];
+}
 
 /** Put a record on the workshop gramophone (or lift the needle if one is playing). */
 export function toggleRecord(ctx: IslandContext) {

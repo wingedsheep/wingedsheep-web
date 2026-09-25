@@ -139,6 +139,13 @@ const places = [
 
   <!-- the workshop has no side panel: the projects stand in the room, and these signs hang
        over them (pinned by src/island/workshop.ts). Without the island they're a plain list. -->
+  <section class="workshop" data-panel="lighthouse" hidden aria-labelledby="lighthouse-title">
+    <header class="workshop-banner">
+      <h2 id="lighthouse-title" tabindex="-1">The lighthouse</h2>
+      <p>The keeper's quarters. The coffee's on and the console's plugged in.</p>
+      <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
+    </header>
+  </section>
   <section class="workshop" data-panel="workshop" hidden aria-labelledby="workshop-title">
     <header class="workshop-banner">
       <h2 id="workshop-title" tabindex="-1">The workshop</h2>

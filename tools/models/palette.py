@@ -107,3 +107,34 @@ LEATHER_DARK = "#6a2a20"
 LAMP_GREEN = "#2f6a4a"
 FIREBOX = "#1a1216"
 SKY_DAY = "#a9dcff"           # window glass; the runtime recolours it with the time of day
+
+# the lighthouse, inside: whitewash over a sea-blue wainscot, driftwood, blue and white tiles
+WHITEWASH = "#e8e1d2"
+WAINSCOT = "#3f6a8a"
+WAINSCOT_DARK = "#335a78"
+DRIFTWOOD = "#a08a6e"
+BUTCHER_BLOCK = "#c29560"
+TILE = "#eef0ea"
+TILE_BLUE = "#4f7fae"
+SOFA = "#8c4a3a"
+SOFA_DARK = "#6e382c"
+SOFA_LIGHT = "#a45a48"
+COFFEE = "#1a0f0a"
+OILSKIN = "#e8c43a"
+# the games on the shelf and the stool
+HOLLOW = "#2b3a4f"         # Hollow Knight: a pale mask on dusk blue
+SILKSONG = "#8c2f39"       # Silksong: the red of her cloak
+WORMS = "#5aa04a"
+WORM_PINK = "#f0a0b0"
+CARCASSONNE = "#3a5a8c"
+ROOT = "#d9772e"
+DUNE = "#c9933a"
+AGRICOLA = "#6b8a3a"
+NEXT_STATION = "#e7e1d6"
+SURFBOARD = "#5fb3c4"
+PACK = "#c8563a"
+PACK_DARK = "#9c3f2a"
+TENT_GREEN = "#4f9a3f"     # the little green tent from the mountain tops
+BOOT = "#5a4030"
+RUG_ROUND = "#c9a23f"
+RUG_ROUND_DARK = "#b5562d"
