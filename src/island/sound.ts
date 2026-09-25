@@ -2,9 +2,9 @@
  * All island audio, built on one AudioContext:
  *  - the sea: filtered noise that swells like waves (synthesised, no files)
  *  - campfire crackle: tiny noise bursts, louder the closer the camera is
- *  - guitar: Vincent's recordings. The setlist runs around the clock (the position is derived
- *    from the wall clock, so he always picks up mid-song), but he only plays once you've
- *    zoomed in close to the campfire and asked him to (clicked him).
+ *  - guitar: Vincent's recordings. He only plays once you've zoomed in close to the campfire
+ *    and asked him to (clicked him): he starts a random song from the top, then carries on
+ *    through the setlist until you wander off.
  *  - the winged sheep: a baa when you click it (short clips, decoded up front)
  *  - Charlie and George: a synthesised purr when you pet them
  * Sound is on by default, but browsers only allow audio after a user gesture, so it starts on
@@ -33,13 +33,12 @@ export class Sound {
   private baas: Promise<AudioBuffer>[] = [];
   private lastBaa = -1;
   private nextCrackle = 0;
+  private lastSong = -1;
   private readonly ext: 'webm' | 'm4a';
-  private readonly setlistLength: number;
 
   constructor(private songs: Song[]) {
     const probe = document.createElement('audio');
     this.ext = probe.canPlayType('audio/webm; codecs="opus"') ? 'webm' : 'm4a';
-    this.setlistLength = songs.reduce((sum, s) => sum + s.duration, 0);
 
     const gestures = ['pointerdown', 'keydown', 'touchstart'] as const;
     const unlock = () => {
@@ -143,24 +142,22 @@ export class Sound {
     }
   }
 
-  /** Pick up wherever Vincent is in the setlist right now. */
+  /** Start a random song from the top, never the one he played last. */
   private joinSong() {
-    let at = (Date.now() / 1000) % this.setlistLength;
-    for (const song of this.songs) {
-      if (at < song.duration) return this.playFrom(song.id, at);
-      at -= song.duration;
-    }
+    const others = this.songs.filter((s) => s.id !== this.lastSong);
+    const pick = others.length ? others : this.songs;
+    this.playFrom(pick[Math.floor(Math.random() * pick.length)].id);
   }
 
-  private playFrom(id: number, offset: number) {
+  private playFrom(id: number) {
+    this.lastSong = id;
     const { el, gain } = this.stream(`guitar-${id}`, false);
     gain.gain.value = 0;
-    el.currentTime = offset;
     el.addEventListener('ended', () => {
       if (this.song?.el !== el) return;
       this.song = undefined;
       const next = this.songs[(this.songs.findIndex((s) => s.id === id) + 1) % this.songs.length];
-      this.playFrom(next.id, 0);
+      this.playFrom(next.id);
     });
     const song = { el, gain, id, live: false };
     el.addEventListener('playing', () => (song.live = true), { once: true });

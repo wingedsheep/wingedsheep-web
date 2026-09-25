@@ -1,4 +1,4 @@
-/** Buttons around the island (zoom, time of day, sound, journal) and small global delights. */
+/** Buttons around the island (places, journal, time of day, sound), Q/E to turn, and small global delights. */
 import { type IslandContext, SECRETS } from './content';
 import { PHASES } from './scene/sky';
 
@@ -6,10 +6,6 @@ const on = (sel: string, fn: (el: HTMLElement) => void) =>
   document.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
 
 export function bindHud(ctx: IslandContext) {
-  on('[data-action="zoom-in"]', () => ctx.rig.zoom(0.75));
-  on('[data-action="zoom-out"]', () => ctx.rig.zoom(1.33));
-  on('[data-action="rotate-left"]', () => ctx.rig.rotate(-1));
-  on('[data-action="rotate-right"]', () => ctx.rig.rotate(1));
   window.addEventListener('keydown', (e) => {
     if ((e.target as HTMLElement).closest('input, textarea')) return;
     if (e.key === 'q') ctx.rig.rotate(-1);

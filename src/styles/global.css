@@ -42,7 +42,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .brand-tag { margin: 4px 0 0; font: 15px var(--ui); opacity: 0.92; }
 
 .hud { position: absolute; top: 14px; right: 16px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 70vw; }
-.hud-group { display: flex; gap: 2px; }
 .hud-btn {
   display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px;
   background: var(--paper); color: var(--ink); border: 0; font: 15px var(--ui); text-decoration: none;
