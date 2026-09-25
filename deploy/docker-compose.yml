@@ -20,6 +20,16 @@ services:
       - traefik.http.middlewares.wingedsheep-web-www.redirectregex.replacement=https://$${1}
       - traefik.http.middlewares.wingedsheep-web-www.redirectregex.permanent=true
       - traefik.http.services.wingedsheep-web.loadbalancer.server.port=80
+      # vincentbons.com (and www) permanently redirects here, keeping the path
+      - traefik.http.routers.wingedsheep-vincentbons.rule=Host(`vincentbons.com`) || Host(`www.vincentbons.com`)
+      - traefik.http.routers.wingedsheep-vincentbons.entrypoints=websecure
+      - traefik.http.routers.wingedsheep-vincentbons.tls=true
+      - traefik.http.routers.wingedsheep-vincentbons.tls.certresolver=lets-encrypt
+      - traefik.http.routers.wingedsheep-vincentbons.service=wingedsheep-web
+      - traefik.http.routers.wingedsheep-vincentbons.middlewares=wingedsheep-vincentbons-redirect
+      - traefik.http.middlewares.wingedsheep-vincentbons-redirect.redirectregex.regex=^https?://[^/]+(.*)
+      - traefik.http.middlewares.wingedsheep-vincentbons-redirect.redirectregex.replacement=https://${APP_DOMAIN}$${1}
+      - traefik.http.middlewares.wingedsheep-vincentbons-redirect.redirectregex.permanent=true
 
 networks:
   traefik-wingedsheep:
