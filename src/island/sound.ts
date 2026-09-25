@@ -20,6 +20,7 @@
  * Sound is on by default, but browsers only allow audio after a user gesture, so it starts on
  * the visitor's first click, tap or key press (unless they've muted it by then).
  */
+import type { RiverSound } from './river/game';
 import type { Call } from './scene/fauna';
 
 export interface Song {
@@ -75,6 +76,9 @@ export class Sound {
   private songAir?: BiquadFilterNode;
   private windGain?: GainNode;
   private cicadaGain?: GainNode;
+  /** The river's rush, once someone has been out on it. */
+  private rush?: { gain: GainNode; filter: BiquadFilterNode };
+  private atRiver = false;
   /** Set every frame by the weather, 0..1 each. */
   rain = 0;
   wind = 0;
@@ -260,46 +264,10 @@ export class Sound {
   call(kind: Call, volume = 1) {
     if (kind === 'baa') return this.clip('baa', 0.5 * volume);
     if (!this.enabled || !this.ctx || !this.master) return;
-    const ctx = this.ctx;
-    const t = ctx.currentTime;
-    /** One tone: a pitch glide [[time, Hz]…] through a shaped envelope. */
-    const tone = (type: OscillatorType, at: number, glide: [number, number][], peak: number, length: number, filter?: number) => {
-      const osc = ctx.createOscillator();
-      osc.type = type;
-      glide.forEach(([dt, f], i) => (i ? osc.frequency.exponentialRampToValueAtTime(f, t + at + dt) : osc.frequency.setValueAtTime(f, t + at)));
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0, t + at);
-      env.gain.linearRampToValueAtTime(peak * volume, t + at + Math.min(0.03, length / 4));
-      env.gain.exponentialRampToValueAtTime(0.001, t + at + length);
-      let out: AudioNode = osc;
-      if (filter) {
-        const bp = ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.value = filter;
-        bp.Q.value = 2;
-        out = osc.connect(bp);
-      }
-      out.connect(env).connect(this.master!);
-      osc.start(t + at);
-      osc.stop(t + at + length + 0.05);
-    };
-    /** A burst of filtered noise (breath, spray). */
-    const hiss = (at: number, length: number, freq: number, peak: number) => {
-      if (!this.noise) return;
-      const src = ctx.createBufferSource();
-      src.buffer = this.noise;
-      const f = ctx.createBiquadFilter();
-      f.type = 'bandpass';
-      f.frequency.value = freq;
-      f.Q.value = 0.7;
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0, t + at);
-      env.gain.linearRampToValueAtTime(peak * volume, t + at + length * 0.15);
-      env.gain.exponentialRampToValueAtTime(0.001, t + at + length);
-      src.connect(f).connect(env).connect(this.master!);
-      src.start(t + at, Math.random());
-      src.stop(t + at + length + 0.05);
-    };
+    const t = this.ctx.currentTime;
+    const tone = (type: OscillatorType, at: number, glide: [number, number][], peak: number, length: number, filter?: number) =>
+      this.tone(t + at, type, glide, peak * volume, length, filter);
+    const hiss = (at: number, length: number, freq: number, peak: number) => this.hiss(t + at, length, freq, peak * volume);
     const r = (a: number, b: number) => a + Math.random() * (b - a);
     switch (kind) {
       case 'chirp':
@@ -360,6 +328,141 @@ export class Sound {
         hiss(0.7, 0.9, 300, 0.45);
         tone('sine', 0.7, [[0, 90], [0.3, 40]], 0.3, 0.5);
         for (let i = 0; i < 10; i++) hiss(0.9 + r(0, 0.9), 0.06, 3500, 0.12);
+        break;
+    }
+  }
+
+  /** One tone at time t: a pitch glide [[offset, Hz]…] through a shaped envelope, maybe band-passed. */
+  private tone(t: number, type: OscillatorType, glide: [number, number][], peak: number, length: number, filter?: number) {
+    const ctx = this.ctx!;
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    glide.forEach(([dt, f], i) => (i ? osc.frequency.exponentialRampToValueAtTime(f, t + dt) : osc.frequency.setValueAtTime(f, t)));
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(peak, t + Math.min(0.03, length / 4));
+    env.gain.exponentialRampToValueAtTime(0.001, t + length);
+    let out: AudioNode = osc;
+    if (filter) {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = filter;
+      bp.Q.value = 2;
+      out = osc.connect(bp);
+    }
+    out.connect(env).connect(this.master!);
+    osc.start(t);
+    osc.stop(t + length + 0.05);
+  }
+
+  /** A burst of filtered noise at time t (breath, spray, a splash). */
+  private hiss(t: number, length: number, freq: number, peak: number) {
+    if (!this.noise) return;
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = freq;
+    f.Q.value = 0.7;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(peak, t + length * 0.15);
+    env.gain.exponentialRampToValueAtTime(0.001, t + length);
+    src.connect(f).connect(env).connect(this.master!);
+    src.start(t, Math.random());
+    src.stop(t + length + 0.05);
+  }
+
+  // --- the river ------------------------------------------------------------------------
+
+  /**
+   * Out on the river (src/island/river/): the island's sea and fire fall silent, and the river
+   * rushes instead, louder and brighter the whiter the water. Weather still comes along.
+   */
+  riverWater(on: boolean, rough = 0, speed = 0) {
+    this.atRiver = on;
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    if (!this.rush) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.6;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      src.connect(bp).connect(gain).connect(this.master);
+      src.start();
+      this.rush = { gain, filter: bp };
+    }
+    const t = ctx.currentTime;
+    this.rush.gain.gain.setTargetAtTime(on ? 0.12 + rough * 0.5 + speed * 0.02 : 0, t, on ? 0.4 : 0.2);
+    this.rush.filter.frequency.setTargetAtTime(500 + rough * 1600 + speed * 60, t, 0.5);
+  }
+
+  /** The river's own sounds: a paddle stroke, a knock on a rock, landing off a fall, and so on. */
+  river(kind: RiverSound, volume = 1) {
+    if (!this.enabled || !this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    const r = (a: number, b: number) => a + Math.random() * (b - a);
+    switch (kind) {
+      case 'stroke':
+        this.hiss(t, 0.28, r(900, 1300), 0.05 * volume);
+        break;
+      case 'bump':
+        this.tone(t, 'sine', [[0, 140], [0.12, 70]], 0.2 * volume, 0.18);
+        this.hiss(t, 0.3, 700, 0.1 * volume);
+        break;
+      case 'hit': // the hull on a rock: a hollow thunk and a crack of spray
+        this.tone(t, 'triangle', [[0, 180], [0.2, 60]], 0.45 * volume, 0.35);
+        this.tone(t, 'square', [[0, 90], [0.1, 45]], 0.15 * volume, 0.2, 300);
+        this.hiss(t, 0.6, 1400, 0.25 * volume);
+        break;
+      case 'splash':
+        this.hiss(t, 1.2, 600, 0.45 * volume);
+        this.hiss(t, 0.4, 180, 0.4 * volume);
+        break;
+      case 'ball': // a tennis ball fished out: two bright little notes
+        this.tone(t, 'square', [[0, 988]], 0.05 * volume, 0.1, 2000);
+        this.tone(t + 0.08, 'square', [[0, 1319]], 0.05 * volume, 0.16, 2600);
+        break;
+      case 'gate':
+        [659, 784, 988].forEach((f, i) => this.tone(t + i * 0.09, 'triangle', [[0, f]], 0.08 * volume, 0.25));
+        break;
+      case 'croak': // a heron, put out: a harsh, rasping "fraank"
+        this.tone(t, 'sawtooth', [[0, 380], [0.25, 260]], 0.12 * volume, 0.32, 700);
+        this.hiss(t, 0.3, 1100, 0.05 * volume);
+        break;
+      case 'capsize':
+        this.hiss(t, 1.8, 400, 0.5 * volume);
+        this.tone(t + 0.1, 'sine', [[0, 320], [0.8, 120]], 0.12 * volume, 0.9);
+        for (let i = 0; i < 6; i++) this.tone(t + 0.4 + i * r(0.1, 0.2), 'sine', [[0, r(500, 900)], [0.06, r(900, 1400)]], 0.05 * volume, 0.08);
+        break;
+      case 'brace': // the blade slapped flat on the water
+        this.hiss(t, 0.25, 1800, 0.3 * volume);
+        this.tone(t, 'sine', [[0, 260], [0.08, 150]], 0.3 * volume, 0.12);
+        break;
+      case 'boof': // the flat, fat smack of a boof landing
+        this.tone(t, 'sine', [[0, 120], [0.18, 50]], 0.6 * volume, 0.3);
+        this.hiss(t, 0.5, 900, 0.35 * volume);
+        this.tone(t + 0.05, 'triangle', [[0, 523], [0.1, 784]], 0.06 * volume, 0.2);
+        break;
+      case 'roll': // back up: a gasp of air and water pouring off
+        this.hiss(t, 0.7, 2400, 0.2 * volume);
+        this.tone(t, 'sine', [[0, 300], [0.3, 600]], 0.1 * volume, 0.35);
+        break;
+      case 'whoosh': // past something fast
+        this.hiss(t, 0.35, 2600, 0.12 * volume);
+        this.tone(t, 'triangle', [[0, 880], [0.12, 1175]], 0.04 * volume, 0.15);
+        break;
+      case 'hole': // the roar of water pouring back on itself
+        this.hiss(t, 0.9, 320, 0.4 * volume);
+        this.hiss(t, 0.6, 1200, 0.15 * volume);
+        break;
+      case 'best': // a new best: a little fanfare
+        [523, 659, 784, 1047].forEach((f, i) => this.tone(t + i * 0.11, 'square', [[0, f]], 0.05 * volume, i === 3 ? 0.5 : 0.14, 2400));
         break;
     }
   }
@@ -443,15 +546,15 @@ export class Sound {
   update(campfireNearness: number, view: number, dt: number) {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
-    const near = this.indoors ? 0 : Math.max(0, Math.min(1, campfireNearness));
-    const walls = this.indoors ? 0.3 : 1; // indoors the sea and the wind come through the walls
+    const near = this.indoors || this.atRiver ? 0 : Math.max(0, Math.min(1, campfireNearness));
+    const walls = this.atRiver ? 0 : this.indoors ? 0.3 : 1; // indoors the sea and the wind come through the walls
     this.fireGain?.gain.setTargetAtTime(near * 0.5, t, 0.2);
     this.seaGain?.gain.setTargetAtTime((0.28 + this.sea * 0.3 - near * 0.12) * walls, t, 0.5);
     this.seaLfo?.frequency.setTargetAtTime(0.11 + this.sea * 0.12, t, 2);
     this.rainGain?.gain.setTargetAtTime(this.rain * 0.22 * (this.indoors ? 0.25 : 1), t, 1);
     this.roofGain?.gain.setTargetAtTime(this.indoors ? this.rain * 0.5 : 0, t, 0.6); // indoors, it drums on the roof
     // squared, so a breeze on a fair day is a whisper and only real wind howls
-    this.windGain?.gain.setTargetAtTime(this.wind * this.wind * 0.35 * walls, t, 1);
+    this.windGain?.gain.setTargetAtTime(this.wind * this.wind * 0.35 * (this.atRiver ? 1 : walls), t, 1);
     this.cicadaGain?.gain.setTargetAtTime(this.cicadas * 0.05 * walls, t, 1.5);
     if (near > 0 && t > this.nextCrackle) this.crackle(near);
 

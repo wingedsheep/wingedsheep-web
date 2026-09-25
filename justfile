@@ -41,6 +41,11 @@ preview-hut:
     blender -b --factory-startup -P tools/models/build.py -- --only hut --preview /tmp/hut-preview.png
     open /tmp/hut-preview.png
 
+# render a quick Blender preview of everything the river scatters along its banks
+preview-river:
+    blender -b --factory-startup -P tools/models/build.py -- --only river --preview /tmp/river-preview.png
+    open /tmp/river-preview.png
+
 # render a quick Blender preview of a career diorama (e.g. just preview-career student)
 preview-career scene="student":
     blender -b --factory-startup -P tools/models/build.py -- --only career --scene {{scene}} --preview /tmp/career-preview.png

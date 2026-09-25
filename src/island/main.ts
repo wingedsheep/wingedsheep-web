@@ -29,6 +29,7 @@ import { Sky } from './scene/sky';
 import { createWater } from './scene/water';
 import { Weather } from './scene/weather';
 import { Sound } from './sound';
+import { River } from './river';
 import { Trail } from './trail';
 import { UI } from './ui';
 import { Workshop } from './workshop';
@@ -90,6 +91,7 @@ export async function bootIsland(host: HTMLElement) {
       if (lighthouse.wanted) return lighthouse.hover(ndc, client);
       if (hut.wanted) return hut.hover(ndc, client);
       if (trail.wanted) return trail.hover(ndc, client);
+      if (river.wanted) return river.hover();
       const hit = ndc && picker.pick(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       picker.highlight(place && hit ? (island.get(hit.id) ?? null) : null);
@@ -102,6 +104,7 @@ export async function bootIsland(host: HTMLElement) {
       if (lighthouse.wanted) return lighthouse.click(ndc);
       if (hut.wanted) return hut.click(ndc);
       if (trail.wanted) return trail.click(ndc);
+      if (river.wanted) return river.click();
       const hit = picker.pick(ndc) ?? pickMoon(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       if (!hit || !place) return;
@@ -142,6 +145,7 @@ export async function bootIsland(host: HTMLElement) {
         history.replaceState(null, '', `/#trail/${trail.chapterId}`);
       }
       trail.enter(name === 'trail' || from === 'trail');
+      river.enter(name === 'river');
       const pos = PANEL_HOME[name] && island.positionOf(PANEL_HOME[name]!);
       if (!pos) return;
       const wide = innerWidth > 900;
@@ -153,6 +157,7 @@ export async function bootIsland(host: HTMLElement) {
       lighthouse.enter(false);
       hut.enter(false);
       trail.enter(false);
+      river.enter(false);
     },
   });
 
@@ -186,7 +191,8 @@ export async function bootIsland(host: HTMLElement) {
   const lighthouse = new Lighthouse(ctx, ui, pixels, host, reducedMotion);
   const hut = new Hut(ctx, ui, pixels, host, reducedMotion);
   const trail = new Trail(ctx, ui, pixels, host, reducedMotion);
-  const rooms = [library, workshop, lighthouse, hut, trail];
+  const river = new River(ctx, ui, pixels, host, reducedMotion, scene);
+  const rooms = [library, workshop, lighthouse, hut, trail, river];
 
   // keyboard and screen-reader twins of the clickable places
   document.querySelectorAll<HTMLElement>('[data-goto]').forEach((el) =>
@@ -215,6 +221,7 @@ export async function bootIsland(host: HTMLElement) {
     lighthouse.resize();
     hut.resize();
     trail.resize();
+    river.resize();
   }
   new ResizeObserver(resize).observe(host);
   resize();
@@ -270,6 +277,7 @@ export async function bootIsland(host: HTMLElement) {
   lighthouse.enter(lighthouse.wanted, true);
   hut.enter(hut.wanted, true);
   if (trail.wanted) trail.enter(true, true);
+  if (river.wanted) river.enter(true, true);
   // the rooms load once the island is up and the browser has a moment
   (window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500)))(() => {
     void library.load();

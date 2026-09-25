@@ -526,3 +526,97 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .exhibit-sign { font-size: 12px; padding: 1px 6px 3px; }
   .exhibit-card, .exhibit-card.beside, .exhibit-card.beside.to-left { position: fixed; left: 8px; right: 8px; top: auto; bottom: 64px; width: auto; max-height: 62vh; overflow-y: auto; transform: none; animation-name: sheet-in; }
 }
+
+/* --- wild water: the river's HUD and cards (src/island/river.ts) ---------------------------- */
+.river { position: absolute; inset: 0; z-index: 5; pointer-events: none; font-family: var(--ui); }
+.island-page:has(.river:not([hidden])) :is(.brand, .hud, .hint) { display: none; }
+.river-hud {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+  padding: 6px 50px 6px 16px; background: var(--paper); clip-path: var(--notch); pointer-events: auto; white-space: nowrap;
+  box-shadow: inset 0 0 0 3px var(--paper-edge), inset 0 -5px 0 var(--paper-2);
+}
+.river-hud p { margin: 0; }
+.river-hud .panel-close { top: 50%; right: 8px; transform: translateY(-50%); width: 30px; height: 30px; }
+.river-stat { font: 700 20px/1 var(--ui); color: var(--ink); display: flex; align-items: baseline; gap: 4px; }
+.river-stat small { font-size: 13px; font-weight: 400; color: var(--ink-soft); }
+.river-best { font-size: 14px; font-weight: 400; color: var(--ink-soft); }
+.river-best span { color: var(--ink); font-weight: 700; }
+.river-ball { display: inline-block; width: 12px; height: 12px; background: #d4dc3c; box-shadow: inset -2px -2px 0 #a8ae28, 0 0 0 2px var(--ink); align-self: center; }
+.river-banner {
+  position: absolute; top: 72px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 14px 6px;
+  font: 18px var(--ui); color: var(--paper); background: rgba(29, 26, 44, 0.78); clip-path: var(--notch); white-space: nowrap;
+}
+.river-banner.in { animation: banner-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+@keyframes banner-in { from { opacity: 0; transform: translate(-50%, -8px); } }
+.river-card {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(430px, calc(100vw - 32px));
+  padding: 18px 22px 16px; background: var(--paper); clip-path: var(--notch); pointer-events: auto; text-align: center;
+  box-shadow: inset 0 0 0 3px var(--paper-edge), inset 0 -6px 0 var(--paper-2); animation: card-pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes card-pop { from { opacity: 0; transform: translate(-50%, -46%); } }
+.river-card h2 { margin: 0 0 6px; font: 700 28px/1.1 var(--ui); outline: none; }
+.river-lede { margin: 0 0 12px; font: italic 17px/1.4 var(--serif); color: var(--ink-soft); }
+.river-keys { list-style: none; margin: 0; padding: 8px 10px; background: var(--paper-2); font: 14px/1.9 var(--ui); clip-path: var(--notch); }
+.river-keys li { display: none; }
+.river[data-device='keys'] [data-for='keys'], .river[data-device='pad'] [data-for='pad'], .river[data-device='touch'] [data-for='touch'] { display: block; }
+.river-keys kbd { display: inline-block; min-width: 22px; padding: 0 5px; margin: 0 1px; background: var(--paper); font: 13px/20px var(--ui); box-shadow: inset 0 -2px 0 var(--paper-edge); }
+.river-go, .river-back {
+  padding: 8px 20px 10px; border: 0; font: 700 18px var(--ui); clip-path: var(--notch); cursor: pointer;
+  background: var(--gold); color: var(--ink); box-shadow: inset 0 -4px 0 #b8862e;
+}
+.river-go:hover { background: #f2c35f; }
+.river-back { background: var(--paper-2); box-shadow: inset 0 -4px 0 var(--paper-edge); font-weight: 400; }
+.river-best-line { margin: 10px 0 0; font: 14px var(--ui); color: var(--ink-soft); }
+.river-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.river-tally { display: grid; grid-template-columns: 1fr auto; gap: 2px 18px; margin: 0 auto 16px; max-width: 260px; font: 17px var(--ui); text-align: left; }
+.river-tally dd { margin: 0; text-align: right; font-weight: 700; }
+.river-tally dt:nth-last-of-type(2), .river-tally dd:nth-last-of-type(2) { border-top: 2px solid var(--paper-edge); padding-top: 4px; }
+@media (max-width: 760px) {
+  .river-hud { gap: 10px; padding: 5px 44px 5px 12px; top: 8px; }
+  .river-stat { font-size: 17px; }
+  .river-best { display: none; }
+  .river-banner { top: 58px; font-size: 15px; }
+}
+.river-flow {
+  --heat: 0; margin: 0; padding: 2px 8px 3px; min-width: 56px; text-align: center; font: 700 20px/1 var(--ui);
+  color: var(--ink); background: color-mix(in srgb, var(--paper-2), #ff9a3c calc(var(--heat) * 100%)); clip-path: var(--notch);
+}
+.river-flow.pop { animation: flow-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.6); }
+@keyframes flow-pop { 40% { transform: scale(1.35); } }
+.river-score span { color: var(--wood); }
+.river-flash { position: absolute; inset: 0; opacity: 0; pointer-events: none; mix-blend-mode: screen; }
+.river-praise { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.river-word {
+  position: absolute; transform: translate(-50%, 0); white-space: nowrap; font: 700 20px/1 var(--ui); color: var(--paper);
+  text-shadow: 2px 2px 0 var(--ink), -1px -1px 0 var(--ink); animation: word-up 1.1s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+.river-word.big { font-size: 30px; color: var(--gold); animation-name: word-big; }
+.river-word.bad { font-size: 16px; color: #ffb4a0; }
+@keyframes word-up { 0% { opacity: 0; translate: 0 10px; } 15% { opacity: 1; translate: 0 0; } 70% { opacity: 1; } 100% { opacity: 0; translate: 0 -34px; } }
+@keyframes word-big { 0% { opacity: 0; scale: 0.4; } 18% { opacity: 1; scale: 1.25; } 30% { scale: 1; } 75% { opacity: 1; } 100% { opacity: 0; translate: 0 -40px; } }
+.river-gauge {
+  --tilt: 0deg; position: absolute; left: 0; top: 0; width: 64px; height: 32px; margin: -16px 0 0 -32px; pointer-events: none;
+  border: 3px solid rgba(244, 234, 211, 0.8); border-bottom: 0; border-radius: 64px 64px 0 0;
+  background: linear-gradient(90deg, rgba(255, 90, 60, 0.55) 0 14%, transparent 14% 86%, rgba(255, 90, 60, 0.55) 86%);
+}
+.river-gauge i { position: absolute; left: 50%; bottom: 0; width: 3px; height: 28px; margin-left: -1.5px; background: var(--paper); transform-origin: 50% 100%; transform: rotate(var(--tilt)); }
+.river-gauge.danger { border-color: #ff5a3c; animation: gauge-throb 0.3s steps(2) infinite; }
+.river-gauge.danger i { background: #ff5a3c; }
+@keyframes gauge-throb { 50% { opacity: 0.55; } }
+.river-roll {
+  --needle: 0; --window: 0.3; position: absolute; left: 0; top: 0; width: 180px; margin-left: -90px; pointer-events: none; text-align: center;
+  font: 700 22px/1 var(--ui); color: var(--gold); text-shadow: 2px 2px 0 var(--ink);
+}
+.river-roll b {
+  position: relative; display: block; height: 16px; margin-top: 6px; background: rgba(29, 26, 44, 0.8); clip-path: var(--notch);
+  background-image: linear-gradient(90deg, transparent calc((0.5 - var(--window) / 2) * 100%), #6fd06a calc((0.5 - var(--window) / 2) * 100%) calc((0.5 + var(--window) / 2) * 100%), transparent calc((0.5 + var(--window) / 2) * 100%));
+}
+.river-roll b::after { content: ''; position: absolute; top: -3px; bottom: -3px; width: 4px; left: calc(var(--needle) * 100% - 2px); background: var(--paper); }
+.river-breath { --breath: 1; position: absolute; left: 50%; bottom: 22px; width: 160px; height: 8px; margin-left: -80px; background: rgba(29, 26, 44, 0.6); clip-path: var(--notch); pointer-events: none; }
+.river-breath i { display: block; height: 100%; width: calc(var(--breath) * 100%); background: #8fd3f0; }
+.river-breath.puffed i { background: #ff5a3c; }
+.river-hint {
+  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); margin: 0; padding: 6px 14px 8px; max-width: calc(100vw - 32px);
+  font: 17px var(--ui); color: var(--ink); background: var(--gold); clip-path: var(--notch); text-align: center; animation: banner-in 0.35s;
+}
+.river-hint-line { margin: 10px 0 14px; font: 14px/1.4 var(--ui); color: var(--ink-soft); }

@@ -25,7 +25,7 @@ import type { WorkshopRoom } from './scene/workshop-room';
 import type { Weather } from './scene/weather';
 import type { Sound } from './sound';
 
-export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'hut' | 'campfire' | 'trail' | 'places' | 'journal';
+export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'hut' | 'campfire' | 'trail' | 'river' | 'places' | 'journal';
 
 export interface IslandContext {
   island: Island;
@@ -76,6 +76,7 @@ export const SECRETS = {
   summit: { title: 'The summit', hint: 'The trail keeps going up.' },
   magic: { title: 'An unfinished game', hint: 'Someone left in the middle of their turn.' },
   kayak: { title: 'Wet paddles', hint: 'Check the water by the dock.' },
+  river: { title: 'Wild water', hint: 'The kayak goes further than round the pier.' },
   ufo: { title: 'Unidentified', hint: 'Only at night. Only for a moment.' },
   moons: { title: 'Two moons', hint: 'Count the moons in the sea at night.' },
   piano: { title: 'Two originals', hint: 'Not all the music on the island is played outdoors.' },
@@ -531,13 +532,16 @@ export const PLACES: Record<string, Place> = {
   kayak: {
     label: 'A kayak',
     activate(ctx) {
-      // in a storm nobody's going out; after the cartridge, the kayak has something to add
-      ctx.toast(ctx.weather.now.storm > 0.5
-        ? 'The kayak bucks and tugs at its rope in the waves. You hope someone tied it up well.'
-        : ctx.journal.has('cartridge') && ctx.journal.has('kayak')
-          ? 'A strip of masking tape inside the cockpit. In marker: “level 1?”'
-          : 'The seat is still wet. Someone has been paddling around the island.');
       ctx.discover('kayak');
+      // in a storm nobody's going out; otherwise it's a long way downriver from here
+      if (ctx.weather.now.storm > 0.5) {
+        ctx.toast('The kayak bucks and tugs at its rope in the waves. You hope someone tied it up well.');
+        return;
+      }
+      const note = ctx.journal.has('cartridge')
+        ? 'A strip of masking tape inside the cockpit. In marker: “level 1?” Take it downriver?'
+        : 'The seat is still wet. There’s a river on the other side of the hill. Take the kayak down it?';
+      ctx.ask(note, [{ label: 'Paddle', pick: () => ctx.openPanel('river') }, { label: 'Later' }]);
     },
   },
   vincent_kayak: {
@@ -550,8 +554,11 @@ export const PLACES: Record<string, Place> = {
       ];
       let n = 0;
       return (ctx: IslandContext) => {
-        ctx.toast(lines[n++ % lines.length]);
         ctx.discover('kayak');
+        ctx.ask(`${lines[n++ % lines.length]} There’s a second kayak for the river, if you fancy it.`, [
+          { label: 'Paddle', pick: () => ctx.openPanel('river') },
+          { label: 'Later' },
+        ]);
       };
     })(),
   },

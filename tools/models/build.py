@@ -8,6 +8,7 @@
     blender -b --factory-startup -P tools/models/build.py -- --only hut [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only career [--scene student] [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only fauna --preview out.png [--focus x,y --span m]
+    blender -b --factory-startup -P tools/models/build.py -- --only river [--preview out.png]
 
 Outputs (public/models/):
   island.glb    terrain + every model, with ids, lights and emitters as glTF extras
@@ -19,6 +20,7 @@ Outputs (public/models/):
   lamproom.glb  the lamp room at the top of the tower (tools/models/lamproom.py)
   hut.glb       the mountain hut, inside, with Vincent's bed (tools/models/hut.py)
   career-<id>.glb  one floating diorama per chapter of the career trail (tools/models/career/)
+  river.glb     what the wild-water river scatters along its banks (tools/models/river.py)
 """
 from __future__ import annotations
 
@@ -48,7 +50,7 @@ def args():
     ap.add_argument("--yaw", type=float, default=0.0)
     ap.add_argument("--focus", default="0,1")
     ap.add_argument("--span", type=float, default=70.0)
-    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse", "lamproom", "hut", "fauna", "career"])
+    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse", "lamproom", "hut", "fauna", "career", "river"])
     ap.add_argument("--scene", help="with --only career: just this chapter's diorama")
     return ap.parse_args(argv)
 
@@ -234,6 +236,23 @@ def build_career(a):
                     a.night, -22.0, (fx, fy), a.span if close else 34.0, sea=False)
 
 
+def build_river(a):
+    reset_scene()
+    import river  # noqa: E402
+    river.build()
+    export("river.glb")
+    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'river.glb'}")
+
+    if a.preview and a.only == "river":
+        # the templates, lifted out of hiding into a row, to eyeball them
+        roots = [o for o in bpy.data.objects if "river" in o]
+        for o in roots:
+            o.location.y += 300
+            o.location.z += 40
+        n = len(roots)
+        preview(a.preview, a.night, a.yaw, (n * 2.0, 0.0), a.span if a.span != 70.0 else n * 4.4, sea=False)
+
+
 def main():
     a = args()
     if a.preview and not a.only:
@@ -252,6 +271,8 @@ def main():
         build_hut(a)
     if a.only in (None, "career"):
         build_career(a)
+    if a.only in (None, "river"):
+        build_river(a)
     if a.only == "fauna":
         preview_fauna(a)
 

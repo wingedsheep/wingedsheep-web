@@ -91,6 +91,7 @@ export class UI {
     else if (name === 'lighthouse') document.title = 'The lighthouse · wingedsheep';
     else if (name === 'hut') document.title = 'The mountain hut · wingedsheep';
     else if (name === 'trail') document.title = 'The mountain trail · wingedsheep';
+    else if (name === 'river') document.title = 'Wild water · wingedsheep';
     if (push) history.pushState(null, '', name === 'library' ? '/blog/' : `/#${name}`);
     this.events.panelOpened(name, sub);
     ($('[data-autofocus]', el) ?? $('h2', el))?.focus({ preventScroll: true });
