@@ -10,3 +10,6 @@ RUN npm run build
 FROM nginx:1.29-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
+# lets the deploy workflow check which commit is live
+ARG GIT_SHA=dev
+RUN echo "$GIT_SHA" > /usr/share/nginx/html/version.txt

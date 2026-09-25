@@ -1,8 +1,8 @@
 # Production: runs on the talespinner.io server behind the shared Traefik.
-# IMAGE_REPO and APP_DOMAIN come from the .env the deploy workflow writes next to this file.
+# IMAGE_REPO, IMAGE_TAG and APP_DOMAIN come from the .env the deploy workflow writes next to this file.
 services:
   web:
-    image: ${IMAGE_REPO}/site:latest
+    image: ${IMAGE_REPO}/site:${IMAGE_TAG:-latest}
     restart: always
     networks:
       - traefik-wingedsheep
