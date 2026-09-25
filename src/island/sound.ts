@@ -6,6 +6,7 @@
  *    from the wall clock, so he always picks up mid-song), but he only plays once you've
  *    zoomed in close to the campfire and asked him to (clicked him).
  *  - the winged sheep: a baa when you click it (short clips, decoded up front)
+ *  - Charlie and George: a synthesised purr when you pet them
  * Sound is on by default, but browsers only allow audio after a user gesture, so it starts on
  * the visitor's first click, tap or key press (unless they've muted it by then).
  */
@@ -83,6 +84,38 @@ export class Sound {
       src.connect(gain).connect(this.master!);
       src.start();
     });
+  }
+
+  /** A purr: rumbling noise pulsing ~25 times a second, over two slow breaths. */
+  purr() {
+    if (!this.enabled || !this.ctx || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 450;
+    const pulse = ctx.createGain();
+    pulse.gain.value = 0.5;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 23 + Math.random() * 4;
+    const depth = ctx.createGain();
+    depth.gain.value = 0.5;
+    lfo.connect(depth).connect(pulse.gain);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    for (const [at, peak] of [[0, 1], [1.4, 0.75]]) {
+      env.gain.linearRampToValueAtTime(peak, t + at + 0.35);
+      env.gain.linearRampToValueAtTime(0.15, t + at + 1.3);
+    }
+    env.gain.linearRampToValueAtTime(0, t + 2.9);
+    src.connect(lp).connect(pulse).connect(env).connect(this.master!);
+    src.start(t, Math.random());
+    lfo.start(t);
+    src.stop(t + 3);
+    lfo.stop(t + 3);
   }
 
   /**

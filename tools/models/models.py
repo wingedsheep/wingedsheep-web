@@ -5,6 +5,7 @@ import math
 import random
 
 import buildings
+import cats
 import characters
 import layout as L
 import nature
@@ -40,7 +41,13 @@ def landmarks(t: Terrain):
     place(t, "log", cx - 2.2, cy + 0.6, props.log_seat, rot_z=-1.3)
     place(t, "well", *L.WELL, props.well, id="well")
     place(t, "blossom", L.WELL[0] + 2.8, L.WELL[1] + 1.8, nature.blossom, id="blossom")
-    place(t, "bench", *L.BENCH, props.bench, rot_z=0.3, id="bench")
+    bench = place(t, "bench", *L.BENCH, lambda r: (props.bench(r), cats.fleece(r)), rot_z=0.3, id="bench")
+    # Charlie and George have claimed it: each sits on the fleece at an offset along the seat
+    bx, by = L.BENCH
+    for name, along, build in (("charlie", -0.58, cats.charlie), ("george", 0.2, cats.george)):
+        c, s = math.cos(0.3), math.sin(0.3)
+        x, y = bx + c * along + s * 0.02, by + s * along - c * 0.02
+        place(t, name, x, y, build, rot_z=0.3, z=bench.location.z + 0.56, id=name)
     place(t, "boulder", *L.BOULDER, props.boulder, id="boulder")
     place(t, "summit", *L.SUMMIT, props.summit_flag, id="summit")
     for i, (x, y) in enumerate(L.CAIRNS):

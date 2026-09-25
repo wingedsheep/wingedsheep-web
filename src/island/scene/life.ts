@@ -37,7 +37,8 @@ interface Floater {
 
 /**
  * Everything that moves by itself: flames, flags, the weathervane, smoke and embers,
- * fireflies after dark, the winged sheep's flight, and the occasional UFO.
+ * fireflies after dark, the winged sheep's flight, the occasional UFO, and the clips keyframed
+ * in Blender (Charlie and George breathing, twitching and dreaming on the bench).
  */
 export class Life {
   readonly particles = new Particles();
@@ -48,6 +49,8 @@ export class Life {
   private flock: THREE.Object3D[] = [];
   private stunt = 0;
   private ufo?: THREE.Object3D;
+  private mixer: THREE.AnimationMixer;
+  private idles = new Map<string, THREE.AnimationAction>();
   /** Whether Vincent's song is audible; he eases into and out of playing. */
   playing = false;
   private groove = 0;
@@ -61,6 +64,28 @@ export class Life {
     this.sheep = island.get('sheep');
     this.ufo = island.get('ufo');
     if (this.ufo) this.ufo.visible = false;
+
+    this.mixer = new THREE.AnimationMixer(island.root);
+    for (const clip of island.clips.filter((c) => c.name.endsWith('_idle'))) {
+      const idle = this.mixer.clipAction(clip).play();
+      idle.time = Math.random() * clip.duration; // so the cats don't breathe in step
+      this.idles.set(clip.name.slice(0, -'_idle'.length), idle);
+    }
+    // a reaction clip hands back to the idle loop when it's done
+    this.mixer.addEventListener('finished', (e) => {
+      const id = e.action.getClip().name.split('_')[0];
+      this.idles.get(id)?.reset().fadeIn(0.5).play();
+    });
+  }
+
+  /** Play a named thing's "<id>_pet" clip once, if Blender gave it one. */
+  pet(id: string) {
+    const clip = this.island.clips.find((c) => c.name === `${id}_pet`);
+    if (!clip) return;
+    const action = this.mixer.clipAction(clip);
+    if (action.isRunning()) return;
+    this.idles.get(id)?.fadeOut(0.3);
+    action.setLoop(THREE.LoopOnce, 1).reset().fadeIn(0.3).play();
   }
 
   /** Where the sheep is right now (for the camera and for clicking). */
@@ -121,6 +146,7 @@ export class Life {
     const cat = this.island.part('cat', 'cat_body');
     if (cat) cat.scale.set(1, 1 + Math.sin(t * 1.8) * 0.04, 1);
 
+    this.mixer.update(dt);
     this.strum(dt);
     this.flySheep(dt);
     this.flyFlock();

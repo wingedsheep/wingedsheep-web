@@ -7,6 +7,7 @@
 
 Every colour becomes a shared flat material. Materials named "glow_*" are emissive and the
 runtime brightens them at night. Custom properties on objects are exported as glTF extras.
+Keyframes set with animate() become named glTF animation clips.
 """
 from __future__ import annotations
 
@@ -50,6 +51,7 @@ def material(hex_: str, glow: bool = False) -> bpy.types.Material:
 
 def reset():
     _MATS.clear()
+    _CLIPS.clear()
 
 
 # --- model builder ------------------------------------------------------------------
@@ -100,9 +102,9 @@ class Model:
                                     radius1=r, radius2=r_top, depth=h, matrix=m)
         return self._paint(res["verts"], color, glow)
 
-    def ball(self, r, loc, color, subdiv=1, scale=(1, 1, 1), jitter=0.0, glow=False):
+    def ball(self, r, loc, color, subdiv=1, scale=(1, 1, 1), jitter=0.0, glow=False, rot=(0, 0, 0)):
         res = bmesh.ops.create_icosphere(self.bm, subdivisions=subdiv, radius=r,
-                                         matrix=self._matrix(loc, (0, 0, 0), scale))
+                                         matrix=self._matrix(loc, rot, scale))
         if jitter:
             for v in res["verts"]:
                 v.co += Vector((self.rng.uniform(-1, 1), self.rng.uniform(-1, 1), self.rng.uniform(-1, 1))) * jitter
@@ -195,3 +197,62 @@ def light(parent, loc, color: str, radius: float, intensity: float = 1.0, flicke
 def emitter(parent, loc, kind: str):
     """Marker for particles: smoke, embers, petals…"""
     return group(f"emit_{kind}", loc, parent=parent, emit=kind)
+
+
+# --- animation ----------------------------------------------------------------------
+
+FPS = 24
+_CLIPS: dict[str, bpy.types.Action] = {}
+
+
+def _slot(act: bpy.types.Action, obj: bpy.types.Object):
+    return next((s for s in act.slots if s.name_display == obj.name), None)
+
+
+def _bind(obj: bpy.types.Object, act: bpy.types.Action):
+    ad = obj.animation_data or obj.animation_data_create()
+    ad.action = act
+    ad.action_slot = _slot(act, obj) or act.slots.new("OBJECT", obj.name)
+    return ad
+
+
+def animate(obj: bpy.types.Object, clip: str, path: str, keys, rest=None):
+    """Keyframe one channel of a part for a named clip.
+
+    keys = [(seconds, value), ...], where value is an offset from `rest` (the part's pose as
+    built, e.g. obj.rotation_euler). A clip may span many objects; each clip becomes one glTF
+    animation. Clips ending in "_idle" are the ones the runtime loops.
+    """
+    act = _CLIPS.get(clip) or _CLIPS.setdefault(clip, bpy.data.actions.new(clip))
+    _bind(obj, act)
+    base = Vector(getattr(obj, path)[:] if rest is None else rest)
+    for i in range(len(base)):
+        fc = act.fcurve_ensure_for_datablock(obj, path, index=i)
+        for t, value in keys:
+            v = value[i] if hasattr(value, "__len__") else value
+            fc.keyframe_points.insert(round(t * FPS), base[i] + v, options={"FAST"})
+        fc.update()
+
+
+def stash_clips():
+    """Before export: every part plays its *_idle clip, and its other clips wait on muted NLA
+    tracks (the glTF exporter still writes each of them out as its own animation)."""
+    for obj in bpy.data.objects:
+        used = [a for a in _CLIPS.values() if _slot(a, obj)]
+        if not used:
+            continue
+        ad = obj.animation_data
+        for act in used:
+            if act.name.endswith("_idle"):
+                continue
+            _bind(obj, act)
+            track = ad.nla_tracks.new()
+            track.mute = True
+            strip = track.strips.new(act.name, int(act.frame_range[0]), act)
+            strip.action_slot = _slot(act, obj)
+        idle = next((a for a in used if a.name.endswith("_idle")), None)
+        if idle:
+            _bind(obj, idle)
+        else:
+            ad.action = None
+    bpy.context.scene.frame_set(0)

@@ -45,6 +45,7 @@ def reset_scene():
 
 def export():
     OUT.mkdir(parents=True, exist_ok=True)
+    kit.stash_clips()
     bpy.ops.export_scene.gltf(
         filepath=str(OUT / "island.glb"),
         export_format="GLB",
@@ -54,6 +55,8 @@ def export():
         export_vertex_color="ACTIVE",
         export_lights=False,
         export_cameras=False,
+        export_animation_mode="ACTIONS",
+        export_merge_animation="ACTION",
     )
 
 

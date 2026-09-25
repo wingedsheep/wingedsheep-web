@@ -38,6 +38,7 @@ export interface Place {
 
 export const SECRETS = {
   cat: { title: 'The dock cat', hint: 'Someone is napping where the boats come in.' },
+  cats: { title: 'Charlie & George', hint: 'Someone got to the bench before you.' },
   sheep: { title: 'The winged sheep', hint: 'Look up. Then click.' },
   guitar: { title: 'A song by the fire', hint: 'Follow the sound of strings.' },
   well: { title: 'The well', hint: 'Some wells go deeper than others.' },
@@ -99,6 +100,27 @@ export const PLACES: Record<string, Place> = {
       setTimeout(() => ctx.life.burst('zzz', at), 4000);
     },
   },
+  george: {
+    label: (ctx) => (ctx.journal.has('cats') ? 'George · taking up most of the bench' : 'A big cat, sprawled out'),
+    activate(ctx, at) {
+      ctx.life.pet('george');
+      ctx.sound.purr();
+      ctx.life.burst('hearts', at);
+      ctx.toast('George stretches one paw even further across the bench, clearly not moving for anyone.');
+      ctx.discover('cats');
+    },
+  },
+  charlie: {
+    label: (ctx) => (ctx.journal.has('cats') ? 'Charlie · curled up tight' : 'A cat, curled into a ball'),
+    activate(ctx, at) {
+      ctx.life.pet('charlie');
+      ctx.sound.purr();
+      ctx.life.burst('hearts', at);
+      ctx.toast('Charlie opens one eye, checks that George is still there, and goes back to sleep.');
+      ctx.discover('cats');
+      setTimeout(() => ctx.life.burst('zzz', at), 4000);
+    },
+  },
   sheep: {
     label: 'A winged sheep',
     activate(ctx) {
@@ -123,7 +145,7 @@ export const PLACES: Record<string, Place> = {
     label: 'A bench',
     activate(ctx, at) {
       ctx.life.burst('silk', at);
-      ctx.toast('You sit down for a moment. Progress saved.');
+      ctx.toast('You squeeze onto the end, next to the cats. Progress saved.');
       ctx.discover('bench');
     },
   },

@@ -31,7 +31,7 @@ export interface IslandInfo {
 
 /**
  * The island as exported from Blender (tools/models), with its markers resolved:
- * named things you can click, lights, canopies, particle emitters and animated parts.
+ * named things you can click, lights, canopies, particle emitters, animated parts and clips.
  */
 export class Island {
   readonly root: THREE.Group;
@@ -40,11 +40,14 @@ export class Island {
   readonly lights: LightMarker[] = [];
   readonly canopies: CanopyMarker[] = [];
   readonly emitters: Emitter[] = [];
+  /** Keyframed clips from Blender: "<id>_idle" loops, others play on demand (e.g. "george_pet"). */
+  readonly clips: THREE.AnimationClip[];
   readonly shore: THREE.Texture;
   readonly info: IslandInfo;
 
-  private constructor(root: THREE.Group, shore: THREE.Texture, info: IslandInfo) {
+  private constructor(root: THREE.Group, clips: THREE.AnimationClip[], shore: THREE.Texture, info: IslandInfo) {
     this.root = root;
+    this.clips = clips;
     this.shore = shore;
     this.info = info;
     root.updateMatrixWorld(true);
@@ -99,7 +102,7 @@ export class Island {
     ]);
     shore.magFilter = THREE.LinearFilter;
     shore.colorSpace = THREE.NoColorSpace;
-    return new Island(gltf.scene, shore, info);
+    return new Island(gltf.scene, gltf.animations, shore, info);
   }
 
   get(id: string) {
