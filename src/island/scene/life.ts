@@ -1,33 +1,19 @@
 import * as THREE from 'three';
 import { Beike } from './beike';
+import { Companion } from './companion';
 import { Fauna } from './fauna';
+import { Floaters } from './floaters';
 import type { Island } from './island';
 import { Particles } from './particles';
 import { season } from './season';
+import { Shelter } from './shelter';
 import type { Sky } from './sky';
+import { Vincent } from './vincent';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
-/** Tiny pixel icons (hearts, notes, zzz) as sprite textures. */
-function icon(rows: string[], color: string): THREE.Texture {
-  const cv = document.createElement('canvas');
-  cv.width = rows[0].length;
-  cv.height = rows.length;
-  const ctx = cv.getContext('2d')!;
-  ctx.fillStyle = color;
-  rows.forEach((r, y) => [...r].forEach((ch, x) => ch === '#' && ctx.fillRect(x, y, 1, 1)));
-  const tex = new THREE.CanvasTexture(cv);
-  tex.magFilter = tex.minFilter = THREE.NearestFilter;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-export const ICONS = {
-  heart: icon(['.#.#.', '#####', '#####', '.###.', '..#..'], '#e46f5a'),
-  note: icon(['...##', '...#.', '...#.', '...#.', '.###.', '####.', '.##..'], '#fff3c4'),
-  zzz: icon(['###', '..#', '.#.', '#..', '###'], '#cdc6cf'),
-};
+export { ICONS } from './floaters';
 
 /** A song's rhythm (src/data/beats.json): beat times in seconds, and [beat, chord] changes. */
 export interface Rhythm {
@@ -46,16 +32,10 @@ const FACING = new THREE.Vector3();
 
 export type Burst = 'hearts' | 'notes' | 'chalk' | 'petals' | 'zzz' | 'silk';
 
-interface Floater {
-  sprite: THREE.Sprite;
-  velocity: THREE.Vector3;
-  age: number;
-  life: number;
-}
-
 /**
  * Everything that moves by itself: flames, flags, the weathervane, smoke and embers,
- * fireflies after dark, the winged sheep's flight, the occasional UFO, Beike and his ball,
+ * fireflies after dark, the winged sheep's flight, the occasional UFO, Beike and his ball, the
+ * cats and Beike heading indoors when it rains (shelter.ts),
  * the wildlife (fauna.ts), and the clips keyframed in Blender (Charlie and George breathing,
  * twitching and dreaming on the bench).
  */
@@ -63,7 +43,7 @@ export class Life {
   readonly particles = new Particles();
   private clock = 0;
   private timers = new Map<string, number>();
-  private floaters: Floater[] = [];
+  private floaters: Floaters;
   private sheep?: THREE.Object3D;
   private flock: THREE.Object3D[] = [];
   private stunt = 0;
@@ -76,8 +56,18 @@ export class Life {
   readonly beike: Beike;
   /** The wildlife: see fauna.ts. */
   readonly fauna: Fauna;
+  /** The cats and Beike going indoors when it rains: see shelter.ts. */
+  readonly shelter: Shelter;
+  /** Who's reading, baking, watching telly or by the fire: see companion.ts (main.ts drives it). */
+  readonly companion: Companion;
+  /** Where Vincent is: the guitar, the kayak, his game or bed. See vincent.ts (main.ts drives it). */
+  readonly vincent: Vincent;
+  /** How hard it's raining (or hailing), 0..1 (set every frame). */
+  rain = 0;
   /** How wet the weather is, 0..1 (set every frame): rabbits and robins shelter from the rain. */
   wet = 0;
+  /** How stormy it is, 0..1 (set every frame): something in the sea likes a thunderstorm. */
+  storm = 0;
   /** How cold it is, 0..1 (set every frame): breath shows, and the chimneys smoke harder. */
   chill = 0;
   /** Which way the wind blows (world x, z), for breath drifting off. */
@@ -102,12 +92,16 @@ export class Life {
     private sky: Sky,
   ) {
     scene.add(this.particles.points);
+    this.floaters = new Floaters(scene);
     this.sheep = island.get('sheep');
     if (this.sheep) this.sheep.visible = false; // until its first pass
     this.ufo = island.get('ufo');
     if (this.ufo) this.ufo.visible = false;
     this.beike = new Beike(island);
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
+    this.shelter = new Shelter(island, this.beike);
+    this.companion = new Companion(island);
+    this.vincent = new Vincent(island, this.beike.ground);
 
     this.mixer = new THREE.AnimationMixer(island.root);
     for (const clip of island.clips.filter((c) => c.name.endsWith('_idle'))) {
@@ -148,7 +142,7 @@ export class Life {
         case 'hearts':
         case 'notes':
         case 'zzz':
-          if (i < (kind === 'zzz' ? 2 : 4)) this.float(kind === 'hearts' ? 'heart' : kind === 'notes' ? 'note' : 'zzz', at, i);
+          if (i < (kind === 'zzz' ? 2 : 4)) this.floaters.add(kind === 'hearts' ? 'heart' : kind === 'notes' ? 'note' : 'zzz', at, i);
           break;
         case 'chalk':
           p.emit({ position: at.clone().add(V(rand(-0.6, 0.6), rand(0, 1.5), rand(-0.6, 0.6))), velocity: V(rand(-1, 1), rand(0, 1), rand(-1, 1)), color: '#f7f3ea', life: 1.2, size: 2 });
@@ -195,12 +189,13 @@ export class Life {
     this.strum(dt);
     this.flySheep(dt);
     this.flyFlock();
+    this.shelter.update(dt, this.rain);
     this.beike.update(dt);
-    this.fauna.update(dt, { night, season: season.name, wet: this.wet });
+    this.fauna.update(dt, { night, season: season.name, wet: this.wet, storm: this.storm });
     this.visitors(dt, night);
     this.emitters(dt, night);
     this.breath(dt, night);
-    this.updateFloaters(dt);
+    this.floaters.update(dt);
     this.particles.update(dt);
   }
 
@@ -435,7 +430,7 @@ export class Life {
         });
       }
     };
-    const head = this.island.part('vincent', 'head');
+    const head = this.vincent.head;
     if (head && this.every('breath:vincent', 3.2, dt)) {
       head.localToWorld(MOUTH.set(0, 0.12, 0.24));
       FACING.set(0, 0, 1).transformDirection(head.matrixWorld);
@@ -444,28 +439,5 @@ export class Life {
     if (this.beike.muzzle(MOUTH, FACING) && this.every('breath:beike', 2.2 - this.beike.panting * 1.6, dt)) {
       puff(MOUTH, FACING, 1 + Math.round(c * 3));
     }
-  }
-
-  private float(name: keyof typeof ICONS, at: THREE.Vector3, i: number) {
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: ICONS[name], transparent: true, depthWrite: false, fog: false }));
-    const img = ICONS[name].image as HTMLCanvasElement;
-    sprite.scale.set(img.width * 0.09, img.height * 0.09, 1);
-    sprite.position.copy(at).add(V(rand(-0.5, 0.5), 1 + i * 0.3, rand(-0.3, 0.3)));
-    sprite.renderOrder = 5;
-    this.scene.add(sprite);
-    this.floaters.push({ sprite, velocity: V(rand(-0.3, 0.3), rand(0.7, 1.1), 0), age: -i * 0.15, life: 2 });
-  }
-
-  private updateFloaters(dt: number) {
-    this.floaters = this.floaters.filter((f) => {
-      f.age += dt;
-      if (f.age < 0) return true;
-      f.sprite.position.addScaledVector(f.velocity, dt);
-      f.sprite.material.opacity = 1 - Math.max(0, f.age / f.life - 0.6) / 0.4;
-      if (f.age < f.life) return true;
-      this.scene.remove(f.sprite);
-      f.sprite.material.dispose();
-      return false;
-    });
   }
 }

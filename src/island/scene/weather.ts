@@ -520,6 +520,12 @@ export class Weather {
     (this.rainbow.material as THREE.MeshBasicMaterial).opacity = a * 0.4;
   }
 
+  /** Lightning right now (if there's a storm to bring it); the next strike waits its turn. */
+  bolt() {
+    if (this.reducedMotion || this.now.storm < 0.5) return;
+    this.nextStrike = 0;
+  }
+
   /** A bright double-flicker now and then, then thunder rolling in a little later. */
   private lightning(dt: number) {
     const n = this.now;

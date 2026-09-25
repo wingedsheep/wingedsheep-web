@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Island } from './island';
+import { heightBetween, type Waypoint } from './shelter';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -21,7 +22,9 @@ type Mood =
   | { kind: 'offer'; t: number } // ball at your feet, play bow, waiting for a throw
   | { kind: 'chase' }
   | { kind: 'pickup'; t: number }
-  | { kind: 'return' };
+  | { kind: 'return' }
+  | { kind: 'trip'; path: Waypoint[]; leg: number; indoors: boolean } // in out of the rain, or back out
+  | { kind: 'inside' };
 
 export type Poke = 'greet' | 'offer' | 'throw' | 'busy';
 
@@ -74,7 +77,7 @@ export class Beike {
   private ears: THREE.Object3D[] = [];
   private legs: THREE.Object3D[] = []; // front left, front right, back left, back right
   private rest = new Map<THREE.Object3D, { p: THREE.Vector3; r: THREE.Euler }>();
-  private ground: Ground;
+  readonly ground: Ground;
   private obstacles: { at: THREE.Vector3; r: number }[] = [];
 
   private home = V();
@@ -96,6 +99,10 @@ export class Beike {
   fetched = 0;
   /** Called when he barks (the island plays the sound). */
   onBark?: () => void;
+  /** His way in to the lighthouse when it rains, from his meadow to just inside the door (shelter.ts). */
+  shelterRoute?: Waypoint[];
+  /** Whether it's raining hard enough to go in (set every frame). */
+  sheltering = false;
 
   constructor(island: Island) {
     this.ground = new Ground(island.terrain, island.info.cell);
@@ -147,6 +154,21 @@ export class Beike {
     return this.mood.kind === 'offer';
   }
 
+  /** Whether he's indoors, out of the rain. */
+  get inside() {
+    return this.mood.kind === 'inside';
+  }
+
+  /** Straight in (or out) with his ball, no running: on arrival, or with reduced motion. */
+  snap(inside: boolean) {
+    if (!this.root || !this.shelterRoute) return;
+    if (!this.inMouth) this.pickUp();
+    this.root.position.copy(inside ? this.shelterRoute[this.shelterRoute.length - 1].at : this.home);
+    this.root.visible = !inside;
+    this.sheltering = inside;
+    this.mood = inside ? { kind: 'inside' } : { kind: 'idle', until: this.clock + 2 };
+  }
+
   /** Where he is right now (for the camera and the hover label). */
   get position() {
     return this.root?.position.clone() ?? V();
@@ -154,7 +176,7 @@ export class Beike {
 
   /** The tip of his nose and the way it points, in world space (for his breath on a cold day). False if he isn't there. */
   muzzle(at: THREE.Vector3, facing: THREE.Vector3) {
-    if (!this.head) return false;
+    if (!this.head || !this.root?.visible) return false;
     this.head.localToWorld(at.set(0.32, 0, -0.01));
     facing.set(1, 0, 0).transformDirection(this.head.matrixWorld);
     return true;
@@ -194,6 +216,7 @@ export class Beike {
   update(dt: number) {
     if (!this.root) return;
     this.clock += dt;
+    this.weather();
     const m = this.mood;
     let target: THREE.Vector3 | null = null;
     let pace = 0;
@@ -250,17 +273,57 @@ export class Beike {
           this.mood = { kind: 'offer', t: 0 };
         }
         break;
+      case 'trip': {
+        target = m.path[m.leg].at;
+        pace = RUN * 0.7;
+        if (this.flatDistance(target) > 0.3) break;
+        if (m.leg < m.path.length - 1) m.leg++;
+        else if (m.indoors) {
+          this.mood = { kind: 'inside' };
+          this.root.visible = false;
+        } else this.mood = { kind: 'idle', until: this.clock + rand(2, 5) };
+        break;
+      }
+      case 'inside':
+        break;
     }
 
     this.speed = damp(this.speed, pace, 6, dt);
     if (target) this.moveTo(target, dt);
-    this.root.position.y = this.ground.at(this.root.position.x, this.root.position.z) || this.root.position.y;
+    const p = this.root.position;
+    const on = this.mood.kind === 'trip' ? this.mood : null;
+    p.y = (on ? heightBetween(on.path[on.leg - 1], on.path[on.leg], p, this.ground) : this.ground.at(p.x, p.z)) || p.y;
     this.root.rotation.y = this.heading;
 
     const excited = m.kind !== 'idle' && m.kind !== 'wander';
     this.joy = damp(this.joy, excited ? 1 : 0.25, 0.8, dt);
     this.updateBall(dt);
     this.pose();
+  }
+
+  /**
+   * Rain: he fetches his ball if it's lying about, then runs in to the lighthouse after the cats.
+   * Dry again: back out to his meadow. Change of weather halfway: he turns round.
+   */
+  private weather() {
+    const route = this.shelterRoute;
+    if (!route || !this.root) return;
+    const m = this.mood;
+    const here: Waypoint = { at: this.root.position.clone(), fixed: false };
+    const turnRound = (trip: Extract<Mood, { kind: 'trip' }>) =>
+      ({ kind: 'trip', path: [here, ...trip.path.slice(0, trip.leg).reverse()], leg: 1, indoors: !trip.indoors }) as Mood;
+    if (this.sheltering) {
+      if (m.kind === 'inside' || (m.kind === 'trip' && m.indoors)) return;
+      if (m.kind === 'trip') this.mood = turnRound(m);
+      else if (!this.inMouth) {
+        if (m.kind !== 'chase' && m.kind !== 'pickup') this.mood = { kind: 'chase' }; // not without his ball
+      } else if (m.kind !== 'pickup') this.mood = { kind: 'trip', path: [here, ...route], leg: 1, indoors: true };
+    } else if (m.kind === 'inside') {
+      this.root.visible = true;
+      this.mood = { kind: 'trip', path: [...route].reverse().concat({ at: this.home.clone(), fixed: false }), leg: 1, indoors: false };
+    } else if (m.kind === 'trip' && m.indoors) {
+      this.mood = turnRound(m);
+    }
   }
 
   // --- moving about ---------------------------------------------------------------

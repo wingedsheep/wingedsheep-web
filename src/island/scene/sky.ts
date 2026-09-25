@@ -23,8 +23,8 @@ interface Mood {
 
 const NIGHT: Mood = { sun: '#9fb2ff', sunI: 1.5, sky: '#6a7cc4', ground: '#34325a', hemiI: 1.25, fog: '#1a2244', lamps: 1, grade: [0.9, 1.05, 1.0], shade: '#c8d4ff', light: '#ffe6c0' };
 const DAWN: Mood = { sun: '#ffb38a', sunI: 1.3, sky: '#c29ac4', ground: '#5a4660', hemiI: 0.8, fog: '#d9a3b0', lamps: 0.45, grade: [1.0, 1.02, 1.0], shade: '#d2c8ff', light: '#fff0e0' };
-const DAY: Mood = { sun: '#fff4dc', sunI: 2.9, sky: '#c4dcff', ground: '#7d8a58', hemiI: 0.9, fog: '#b4dcee', lamps: 0, grade: [1.1, 1.09, 1.03], shade: '#ccd6ff', light: '#fff2dc' };
-const GOLDEN: Mood = { sun: '#ffaa5c', sunI: 3.1, sky: '#aaa8e0', ground: '#7a5a64', hemiI: 1.1, fog: '#f2b184', lamps: 0.25, grade: [1.12, 1.1, 1.04], shade: '#bcb8ff', light: '#ffe4bc' };
+const DAY: Mood = { sun: '#fff4e2', sunI: 2.45, sky: '#cad9f2', ground: '#838a68', hemiI: 1.15, fog: '#b4dcee', lamps: 0, grade: [0.97, 1.02, 1.02], shade: '#d4dcff', light: '#fff4e2' };
+const GOLDEN: Mood = { sun: '#ffaa5c', sunI: 3.1, sky: '#aaa8e0', ground: '#7a5a64', hemiI: 1.1, fog: '#f2b184', lamps: 0.25, grade: [1.05, 1.06, 1.03], shade: '#bcb8ff', light: '#ffe4bc' };
 const DUSK: Mood = { sun: '#e07a9a', sunI: 1.1, sky: '#7a6ab4', ground: '#3a2c50', hemiI: 0.95, fog: '#5a4a80', lamps: 0.8, grade: [1.0, 1.05, 1.0], shade: '#b4bcff', light: '#ffe4dc' };
 
 // keyed by the sun's elevation in degrees; mornings and evenings get different colours
@@ -202,9 +202,14 @@ export class Sky {
     scene.add(this.beam);
   }
 
+  /** The time it is on the island: now, or the hour ?time= asked for. */
+  get time() {
+    return Date.now() + this.shift;
+  }
+
   update(dt: number) {
     this.clock += dt;
-    const now = Date.now() + this.shift;
+    const now = this.time;
     const { lat, lon } = this.where;
     const { alt, az } = sunPosition(now, lat, lon);
     const climb = sunPosition(now + 6e5, lat, lon).alt - sunPosition(now - 6e5, lat, lon).alt;

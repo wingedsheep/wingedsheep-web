@@ -357,6 +357,120 @@ function destination(): Painter {
   };
 }
 
+/**
+ * The energy diorama's day, shared by its three screens so they agree: one simulated day every
+ * DAY_SECONDS, starting at dawn. A street of solar roofs feeds in at noon and draws in the
+ * evening; the transformer can take CAP either way. The battery soaks up what's over the line at
+ * noon and hands it back at the evening peak.
+ */
+const DAY_SECONDS = 30;
+const STEPS = 96;
+const CAP = 0.55;
+const hourAt = (t: number) => ((t / DAY_SECONDS) * 24 + 6) % 24;
+
+const grid = (() => {
+  const sun = (h: number) => Math.max(0, Math.sin((Math.PI * (h - 6.5)) / 13));
+  const demand = (h: number) => 0.28 + 0.18 * Math.exp(-((h - 8) ** 2) / 3) + 0.38 * Math.exp(-((h - 19) ** 2) / 4);
+  const hours = Array.from({ length: STEPS }, (_, i) => (i * 24) / STEPS);
+  const net = hours.map((h) => demand(h) - 1.25 * sun(h));
+  const charge = net.map((n) => Math.max(0, -n - CAP * 0.8));
+  const size = charge.reduce((a, c) => a + c, 0) * 1.05;
+  const soc: number[] = [];
+  const flex: number[] = [];
+  let e = size * 0.15;
+  for (let i = 0; i < STEPS; i++) {
+    const out = Math.min(e, Math.max(0, net[i] - CAP * 0.8));
+    e = Math.min(size, e + charge[i] - out);
+    soc.push(e / size);
+    flex.push(net[i] + charge[i] - out);
+  }
+  // euros per MWh on the day-ahead market: below zero when the sun floods it
+  const price = Array.from({ length: 24 }, (_, h) => Math.round(20 + 120 * demand(h + 0.5) - 95 * sun(h + 0.5)));
+  return { net, flex, soc, charge, price };
+})();
+
+const stepAt = (t: number) => Math.floor((hourAt(t) / 24) * STEPS) % STEPS;
+
+/** A little sun by day, a moon by night, in the top corner of a screen. */
+function sky(g: CanvasRenderingContext2D, t: number, x: number) {
+  const h = hourAt(t);
+  g.fillStyle = h > 6.5 && h < 19.5 ? '#ffd84a' : '#c9d6e6';
+  g.fillRect(x, 1, 2, 2);
+}
+
+/**
+ * The transformer kiosk: one big gauge of how hard it's working right now, feeding the sun out
+ * (bar grows right) or taking power in (the same, in amber), with the red mark it can't pass.
+ * Where the street on its own would blow through the mark, the overshoot shows in dull red; the
+ * bar itself, with the battery doing its bit, stops short of it.
+ */
+function gridLoad(): Painter {
+  const W = 16, H = 10, x0 = 1, full = 13;
+  const len = (v: number) => Math.min(full + 1, Math.round((Math.abs(v) / 1.0) * full));
+  return (g, t) => {
+    const i = stepAt(t), net = grid.net[i], flex = grid.flex[i];
+    g.fillStyle = '#0d1a22';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#1c323b';
+    g.fillRect(x0, 4, full + 1, 4);
+    if (Math.abs(net) > CAP) {
+      g.fillStyle = '#7a2e2a';
+      g.fillRect(x0, 4, len(net), 4);
+    }
+    g.fillStyle = flex < 0 ? '#6fe0d6' : '#f0b42a';
+    g.fillRect(x0, 4, len(flex), 4);
+    g.fillStyle = '#e0503a';
+    g.fillRect(x0 + len(CAP), 3, 1, 6);
+    sky(g, t, W - 3);
+    return 1 / 6;
+  };
+}
+
+/** The battery's side: how full it is, with an arrow while it charges or gives back. */
+function batteryCharge(): Painter {
+  return (g, t) => {
+    const W = 15, H = 10, i = stepAt(t), soc = grid.soc[i];
+    g.fillStyle = '#0d1a22';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#6fe0d6';
+    g.fillRect(1, 2, 11, 6);
+    g.fillRect(12, 4, 1, 2);
+    g.fillStyle = '#0d1a22';
+    g.fillRect(2, 3, 9, 4);
+    g.fillStyle = soc < 0.2 ? '#e0503a' : '#4fdc5a';
+    g.fillRect(2, 3, Math.max(1, Math.round(9 * soc)), 4);
+    const charging = grid.charge[i] > 0, giving = grid.flex[i] < grid.net[i];
+    if ((charging || giving) && Math.floor(t * 2) % 2) {
+      g.fillStyle = '#ffd84a';
+      g.fillRect(13, charging ? 0 : 8, 2, 2);
+    }
+    return 1 / 4;
+  };
+}
+
+/**
+ * Direct+ on Vincent's screen: the day-ahead price for every two hours on the power exchange,
+ * green where it drops below zero around noon, amber at the evening peak, the hour we're in lit
+ * white, under a header in Direct+ blue.
+ */
+function dayAhead(): Painter {
+  const W = 16, H = 10, zero = 7, k = 0.045;
+  return (g, t) => {
+    const h = Math.floor(hourAt(t) / 2);
+    g.fillStyle = '#0b1026';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#136aff';
+    g.fillRect(0, 0, W, 1);
+    for (let i = 0; i < 12; i++) {
+      const p = (grid.price[i * 2] + grid.price[i * 2 + 1]) / 2;
+      const hgt = Math.max(1, Math.round(Math.abs(p) * k));
+      g.fillStyle = i === h ? '#ffffff' : p < 0 ? '#4fdc5a' : p > 90 ? '#f0b42a' : '#6aa0ff';
+      g.fillRect(2 + i, p < 0 ? zero + 1 : zero + 1 - hgt, 1, hgt);
+    }
+    return 1 / 4;
+  };
+}
+
 interface ScreenKind {
   make: () => Painter;
   /** Canvas pixels; 48 × 32 unless the screen is shaped otherwise. */
@@ -367,4 +481,7 @@ const SCREENS: Record<string, ScreenKind> = {
   lander: { make: lunarLander },
   fleet: { make: fleetMap, size: [64, 40] },
   route: { make: destination, size: [64, 9] },
+  grid: { make: gridLoad, size: [16, 10] },
+  soc: { make: batteryCharge, size: [15, 10] },
+  market: { make: dayAhead, size: [16, 10] },
 };

@@ -4,12 +4,16 @@ import { toonIndoors } from './interior';
 import { Particles } from './particles';
 import { Picker } from './picking';
 import { RoomCamera } from './room-camera';
+import { Guests } from './guests';
 import { haloTexture } from './sky';
+import { type Outside, Windows } from './windows';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+/** Whether an object and everything it hangs from is showing. */
+const shown = (o: THREE.Object3D | null): boolean => !o || (o.visible && shown(o.parent));
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 interface Lamp {
@@ -39,9 +43,16 @@ export class HutRoom {
   private hemi = new THREE.HemisphereLight('#e0d6e6', '#4a3226', 1.2);
   private key = new THREE.DirectionalLight('#ffe9cc', 1);
   private particles = new Particles(200);
-  private steam: THREE.Vector3[] = [];
+  /** Where steam rises, and the thing it rises from (the pie only steams while she's here). */
+  private steam: { at: THREE.Vector3; from: THREE.Object3D }[] = [];
   private clock = 0;
+  /** Who's in out of the rain (shelter.ts): shown only while they're indoors. */
+  readonly guests: Guests;
+  /** Rain on the glass and lightning in the panes. */
+  private windows: Windows;
   private timers = new Map<string, number>();
+  /** Her page in bed: how far over (0..1), and how long until she turns the next. */
+  private page = { t: 0, next: rand(4, 9) };
 
   static async load(base = '/models/'): Promise<HutRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}hut.glb`);
@@ -54,16 +65,20 @@ export class HutRoom {
     root.updateMatrixWorld(true);
 
     const halo = haloTexture();
+    const guests: THREE.Object3D[] = [];
+    const panes: THREE.Mesh[] = [];
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
-      if (x.emit === 'steam') this.steam.push(o.getWorldPosition(V()));
+      if (x.guests) guests.push(...o.children);
+      if (x.emit === 'steam') this.steam.push({ at: o.getWorldPosition(V()), from: o });
       if (x.light) this.addLamp(o.getWorldPosition(V()), x, halo);
       if ((o as THREE.Mesh).isMesh) {
         const mesh = o as THREE.Mesh;
         const src = mesh.material as THREE.MeshStandardMaterial;
         const glass = o.name.startsWith('window_glass') || o.parent?.name.startsWith('window_glass');
         const glow = src.name.startsWith('glow_');
+        if (glass) panes.push(mesh);
         mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
         mesh.castShadow = !glass && !glow;
         mesh.receiveShadow = true;
@@ -71,6 +86,9 @@ export class HutRoom {
     });
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
+    this.guests = new Guests(this.scene, guests);
+    for (const a of this.guests.animals) this.named.set(a.userData.id, a);
+    this.windows = new Windows(this.scene, panes, this.glass, this.bounds);
 
     this.key.position.set(9, 16, 11);
     this.key.castShadow = true;
@@ -92,8 +110,10 @@ export class HutRoom {
     this.view.frame(width, height, free);
   }
 
-  update(dt: number, night: number) {
+  /** `out` is the weather outside (weather.ts `now`): rain on the windows, lightning, a greyer day. */
+  update(dt: number, night: number, out?: Outside) {
     this.clock += dt;
+    this.guests.update(dt);
     const t = this.clock;
     for (const l of this.lamps) {
       const f = l.flicker ? 1 - l.flicker * 0.25 * (Math.sin(t * 13 + l.seed) * 0.5 + Math.sin(t * 7.7 + l.seed * 3) * 0.5 + 0.5) : 1;
@@ -104,11 +124,17 @@ export class HutRoom {
     this.glass.color.copy(SKY_NIGHT).lerp(SKY_DAY, day);
     this.hemi.intensity = 0.85 + day * 0.5;
     this.key.intensity = 0.3 + day * 0.75;
+    if (out) {
+      this.windows.tint(this.glass.color, out);
+      this.key.intensity *= 1 - out.cloud * 0.35; // a dull day comes in through the windows…
+      this.key.intensity += out.flash * 2.5; // …and lightning lights up the whole room for a moment
+      this.hemi.intensity += out.flash * 1.2;
+    }
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
 
     // the kettle and the soup never come off the stove up here
-    for (const [i, at] of this.steam.entries()) {
-      if (this.every(`steam${i}`, 0.3, dt)) {
+    for (const [i, { at, from }] of this.steam.entries()) {
+      if (shown(from) && this.every(`steam${i}`, 0.3, dt)) {
         this.particles.emit({
           position: at.clone().add(V(rand(-0.04, 0.04), 0, rand(-0.04, 0.04))),
           velocity: V(rand(-0.03, 0.03), rand(0.2, 0.32), rand(-0.03, 0.03)),
@@ -117,6 +143,42 @@ export class HutRoom {
       }
     }
     this.particles.update(dt);
+    if (out) this.windows.update(dt, out);
+    this.waiting(t);
+    this.reader(t, dt);
+  }
+
+  /**
+   * Her, if she's up here (companion.ts): at the table with her tea while the pie bakes, a sip
+   * now and then, and every so often a look over her right shoulder at the oven.
+   */
+  private waiting(t: number) {
+    const mug = this.scene.getObjectByName('companion_hut_mug');
+    const head = this.scene.getObjectByName('companion_bake_head');
+    if (!mug?.parent?.parent?.visible) return;
+    const k = t % 9;
+    const sip = k > 5 && k < 7 ? Math.sin(((k - 5) / 2) * Math.PI) : 0;
+    mug.rotation.x = -sip * 0.55;
+    const g = t % 14;
+    const glance = g < 2.5 ? Math.sin((g / 2.5) * Math.PI) : 0; // is it done yet?
+    head?.rotation.set(-sip * 0.15, -glance * 1.0 + Math.sin(t * 0.3) * 0.1, 0);
+  }
+
+  /** Her, reading in bed (companion.ts): a page turned now and then, her head following the lines. */
+  private reader(t: number, dt: number) {
+    const page = this.scene.getObjectByName('companion_bed_page');
+    const head = this.scene.getObjectByName('companion_bed_head');
+    if (!page || !shown(page)) return;
+    const p = this.page;
+    if ((p.next -= dt) < 0) {
+      p.t = Math.min(1, p.t + dt / 0.8);
+      if (p.t >= 1) Object.assign(p, { t: 0, next: rand(6, 14) });
+    }
+    page.rotation.z = THREE.MathUtils.smootherstep(p.t, 0, 1) * Math.PI;
+    if (head) {
+      const rest = (head.userData.rest ??= head.rotation.clone()) as THREE.Euler;
+      head.rotation.set(rest.x + Math.sin(t * 0.7) * 0.03, rest.y + Math.sin(t * 0.35) * 0.1, rest.z + Math.sin(t * 0.5) * 0.04);
+    }
   }
 
   private addLamp(position: THREE.Vector3, x: Record<string, number | string>, halo: THREE.Texture) {

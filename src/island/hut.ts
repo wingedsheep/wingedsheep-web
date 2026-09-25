@@ -12,6 +12,9 @@ import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
 const NO_SHIFT = new THREE.Vector2();
+const BANNER = 'Nearly at the top. The stove\'s lit, the soup\'s on, and there\'s a bed made up in the corner.';
+/** When it's raining and the dock cat has come all the way up to get out of it. */
+const RAINY = 'Nearly at the top. Rain on the roof, the stove\'s lit, and someone has already taken the bed.';
 
 export class Hut implements RoomInput {
   /** Whether the room (rather than the island) is on screen. */
@@ -90,6 +93,7 @@ export class Hut implements RoomInput {
     const place = hit ? HUT_PLACES[hit.id] : undefined;
     if (!hit || !place) return;
     this.ui.tooltip(null);
+    room.guests.pet(hit.id, hit.point);
     place.activate?.(this.ctx, hit.point);
   }
 
@@ -104,7 +108,7 @@ export class Hut implements RoomInput {
       this.fade = Math.max(0, this.fade - step);
     }
     this.pixels.uniforms.uFade.value = this.fade;
-    if (this.inside && this.room) this.room.update(this.reducedMotion ? 0 : dt, night);
+    if (this.inside && this.room) this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
   }
 
   render() {
@@ -120,6 +124,8 @@ export class Hut implements RoomInput {
     this.inside = this.want;
     this.ctx.sound.indoors = this.inside;
     if (this.inside) {
+      const banner = document.querySelector('[data-panel="hut"] .workshop-banner p');
+      if (banner) banner.textContent = this.room?.guests.anyone ? RAINY : BANNER;
       this.ctx.rig.room = this;
       this.room?.view.reset();
       this.resize();

@@ -5,9 +5,10 @@ To add a chapter: write career/<id>.py with a build() (career/base.py has the fl
 people, bikes and lettering), list it in SCENES, and give the chapter `scene: '<id>'` in
 src/data/career.ts. What its things say when clicked lives in src/data/career.ts too.
 """
-from career import backbone, student
+from career import backbone, entrnce, student
 
 SCENES = {
     "student": student.build,
     "backbone": backbone.build,
+    "entrnce": entrnce.build,
 }

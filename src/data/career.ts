@@ -131,7 +131,7 @@ export const chapters: Chapter[] = [
     years: '2013 – 2020',
     title: 'Routes, buses and trains',
     where: 'Amersfoort · Ruurlo · Lochem · Berlin',
-    text: 'It started with a thesis on route planning and turned into seven years at Backbone Systems, designing software mostly for (public) transport: for Qbuzz, for Eijgenhuijsen, and a car-sharing service with Going Dutch. For half a year I lived in Berlin, building a dynamic planner for package deliveries from a startup workspace, the Rainmaking Loft. That was a lot of fun.',
+    text: 'It started with a thesis on route planning and turned into seven years at Backbone Systems, designing software mostly for (public) transport. At Qbuzz I was part of a team working on both ends of the bus: planning and monitoring software for traffic control, and the computers and screens inside the buses themselves, including a system I created to update and keep an eye on the whole fleet remotely. At Eijgenhuijsen, a transport company in Ruurlo, I worked closely with their product owner, sometimes alongside a frontend developer, on software for the drivers, the warehouse and planning the routes. And for Going Dutch, on the apps and servers behind a car-sharing service. For half a year I lived in Berlin, building a dynamic planner for package deliveries from a startup workspace, the Rainmaking Loft. That was a lot of fun.',
     roles: [
       {
         years: '2013 – 2014',
@@ -143,7 +143,7 @@ export const chapters: Chapter[] = [
         years: '2014 – 2020',
         role: 'Solutions architect',
         org: 'Backbone Systems · Amersfoort and Berlin',
-        text: 'Designed and built server, Android and web applications, mostly for (public) transport, to automate processes and show what the data says. Projects for Qbuzz and Eijgenhuijsen, and half a year in Berlin on a dynamic planner for package deliveries.',
+        text: 'Designed and built server, Android and web applications, mostly for (public) transport, to automate processes and show what the data says. For Qbuzz: planning and monitoring for traffic control, the on-board computers and screens, and a system to update and monitor every bus remotely. For Eijgenhuijsen: software for the drivers, the warehouse and route planning. And half a year in Berlin on a dynamic planner for package deliveries.',
       },
       {
         years: '2017 – 2020',
@@ -169,7 +169,7 @@ export const chapters: Chapter[] = [
         label: 'A streekBuzz bus · Qbuzz',
         text: [
           'For Qbuzz I worked on what’s inside the bus: the displays the passengers read, and the systems on board that drive them.',
-          'All of it had to be updated and tracked remotely, across the whole fleet. What the buses report then feeds the planning and the real-time verkeersleiding.',
+          'All of it had to be updated and tracked remotely, across the whole fleet, so I built a system for that. What the buses report then feeds the planning and the real-time verkeersleiding.',
         ],
       },
       verkeersleiding: {
@@ -197,15 +197,86 @@ export const chapters: Chapter[] = [
     years: '2020 – now',
     title: 'Trading power',
     where: 'Arnhem',
-    text: 'Software for the energy market at ENTRNCE. First I was a developer on the ENTRNCE Trader, for peer-to-peer energy trading between individual grid connections, and now I lead development of Direct+, which gives smaller parties direct access to the wholesale power exchange.',
+    text: 'I would like to live in a solarpunk world, and we’re building towards it: solar panels on every roof, wind turbines on the horizon. But the grid is full. At the end of 2025 more than fifteen thousand Dutch companies were waiting in line for a connection, and cables can’t be laid fast enough to catch up. So the grid we have has to be used more cleverly. There’s plenty of flexibility out there, in batteries, heat pumps, electric cars and factories, that could take power when there’s lots of it and hold back when there isn’t, if a market made it worth their while. That’s what ENTRNCE, part of Alliander, is for: making it easier for more parties to trade on the energy and flexibility markets. I was a developer on the ENTRNCE Trader, for peer-to-peer trading between individual grid connections, and now I lead development of Direct+, which gives smaller parties direct access to the wholesale power exchange.',
     roles: [
       {
         years: '2020 – now',
         role: 'Lead developer',
         org: 'ENTRNCE · Arnhem',
-        text: 'Technical direction and architecture for Direct+, built with EPEX SPOT so smaller parties can trade directly on the wholesale power market. A modular monolith in Kotlin, Spring Boot, PostgreSQL and React. I also help shape how our teams build with AI. Before that I was a developer on the ENTRNCE Trader, for peer-to-peer energy trading between individual grid connections.',
+        text: 'Technical direction and architecture for Direct+, built with EPEX SPOT so smaller parties can trade directly on the wholesale power market: exchange access, BRP-as-a-service and prepaid clearing in one setup. A modular monolith in Kotlin, Spring Boot, PostgreSQL and React. I also help shape how our teams build with AI. Before that I was a developer on the ENTRNCE Trader, for peer-to-peer energy trading between individual grid connections.',
       },
     ],
+    scene: true,
+    things: {
+      grid: {
+        label: 'The transformer kiosk · a full grid',
+        text: [
+          'Everything the street makes and uses runs through this little green box, and on a sunny afternoon it’s full. The gauge on its door shows how hard it’s working. The red mark is as far as it can go.',
+          'On its own the street would blow straight past the mark (that’s the dull red). Heavier cables take years to lay. Changing when the power flows only takes a battery and a price, and then the bar stops just short.',
+        ],
+        zoom: 4,
+      },
+      battery: {
+        label: 'The neighbourhood battery',
+        text: 'It fills up with the midday sun the cables can’t carry away, and gives it back in the evening, when everyone is home and cooking. The screen on its side shows how full it is right now.',
+      },
+      flex: {
+        label: 'A heat pump, and a car on the charger',
+        text: 'Most flexibility is just things that don’t mind waiting. The car only has to be full by morning, and the house only has to stay warm. Give them a price and they’ll happily take the cheap, sunny hours.',
+      },
+      trader: {
+        label: 'Solar roofs · the ENTRNCE Trader',
+        text: [
+          'The ENTRNCE Trader, which I worked on first: power traded peer-to-peer, from one grid connection to the next. Supply and demand are matched as closely as possible, so the sun from one roof is used next door at the same moment, and whatever is left over or short goes to the day-ahead and intraday markets by itself. Every connection can see its own flows and what they cost.',
+          'Power used close to where it’s made, when it’s made, stays off the busy parts of the grid. In Friesland, sixteen municipalities, the province and the water board run their own regional energy market on it, using the power from their own sun and wind.',
+        ],
+      },
+      turbine: {
+        label: 'A wind turbine',
+        text: 'It turns when it’s windy, whatever the clock says. Sun and wind come when they come, so everything else has to learn to move around them. That’s the whole puzzle.',
+      },
+      solarfield: {
+        label: 'A meadow of solar panels',
+        text: 'Solar panels in rows, and sheep keeping the grass down between them. The sheep aren’t in it for the money.',
+      },
+      directplus: {
+        label: 'Direct+ · straight to the power exchange',
+        text: [
+          'Direct+, which I lead development of, launched with EPEX SPOT in September 2026: one membership that lets a smaller party (a regional supplier, a solar park, a battery) trade on the Dutch day-ahead and intraday markets itself.',
+          'Normally that takes your own balance responsibility and a bank guarantee. With Direct+ the balance responsibility is taken care of and you trade from a prepaid e-wallet, so you can be up and running within two months.',
+          'On the screen: the price for every hour. Around noon it drops below zero, the market’s way of asking anyone at all to please use some power. A battery that listens gets paid to charge.',
+          'Under the hood: a modular monolith in Kotlin, Spring Boot, PostgreSQL and React, more and more of it built together with AI.',
+        ],
+        zoom: 4,
+        read: { slug: 'building-a-modular-monolith', label: 'Read about the modular monolith' },
+      },
+      vincent: {
+        label: 'Vincent, lead developer',
+        text: [
+          'Black coffee, a screen full of prices, vines overhead. If you want a solarpunk future, you might as well start with the office.',
+          'The idea behind it all: the more parties that can trade, the more flexibility gets used, and the more sun and wind fit through the cables we already have.',
+        ],
+      },
+      hut: {
+        label: 'A hut in Austria · the huttentocht',
+        text: [
+          'A few times now a group of us from ENTRNCE has gone to Austria for a huttentocht: days of hiking through the mountains, from one hut to the next.',
+          'Up here a hut has to get by on its own: panels on the roof, a battery in the cellar, and a close eye on how much is left. A small off-grid solarpunk world, with Kaiserschmarrn.',
+        ],
+      },
+      colleagues: {
+        label: 'Colleagues, on the way up',
+        text: 'Colleagues on the last stretch to the hut. Nobody says much on the steep bits.',
+      },
+      bald: {
+        label: 'A colleague, already at the hut',
+        text: 'First up the mountain, first to the beer. Prost!',
+      },
+      summit: {
+        label: 'The summit cross',
+        text: 'Every Austrian summit has its cross, and usually a little tin with a book to write your name in.',
+      },
+    },
   },
 ];
 

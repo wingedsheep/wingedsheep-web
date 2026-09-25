@@ -164,3 +164,45 @@ def fleece(root):
     for x in (-0.2, 0.75):
         m.ball(0.12, (x, 0.02, 0.555), P.FLEECE, subdiv=1, scale=(1.4, 1.2, 0.3), jitter=0.01)  # rumples
     m.build(root)
+
+
+def walker(root, name: str, coat: str, patch: str | None, cap: str, tail: str, size=1.0, socks: str | None = None,
+           bib: str | None = None, eyes: str = "#b8c98f"):
+    """A cat up on its feet, for trotting in out of the rain and back out again. The runtime
+    (src/island/scene/shelter.ts) swaps it in for the sleeping one and moves the parts: it faces
+    +x, y is its left, z = 0 is the ground. Legs, head and tail pivot where they join the body."""
+    root.scale = (size,) * 3
+    b = Model(f"{name}_walk_body")
+    b.ball(0.2, (0, 0, 0), coat, subdiv=2, scale=(1.6, 0.8, 0.78))
+    if patch:
+        b.ball(0.17, (-0.08, 0, 0.05), patch, subdiv=2, scale=(1.35, 0.85, 0.72))      # saddle
+        b.ball(0.12, (-0.22, 0, 0.02), patch, subdiv=1, scale=(1.0, 0.95, 0.9))        # rump
+    if bib:
+        b.ball(0.1, (0.26, 0, -0.03), bib, subdiv=1, scale=(0.9, 1.1, 1.1))
+    body = b.build(root, loc=(0, 0, 0.3))
+
+    h = Model(f"{name}_walk_head")
+    h.ball(0.12, (0.06, 0, 0), coat, subdiv=2, scale=(1.0, 1.05, 0.9))
+    h.ball(0.1, (0.04, 0, 0.04), cap, subdiv=2, scale=(1.0, 1.08, 0.8))                  # the cap (or all of it)
+    h.ball(0.05, (0.15, 0, -0.035), bib or P.CAT_WHITE, subdiv=1, scale=(0.8, 1.3, 0.8))  # muzzle
+    h.box((0.02, 0.034, 0.024), (0.19, 0, -0.01), P.CAT_NOSE)
+    for y in (-0.05, 0.05):
+        h.box((0.02, 0.036, 0.03), (0.155, y, 0.03), eyes)                              # awake, for once
+        h.box((0.022, 0.012, 0.028), (0.16, y, 0.03), P.INK)
+    for side in (1, -1):
+        h.cyl(0.045, 0.08, (0.03, side * 0.06, 0.08), cap, segs=4, r_top=0.0, rot=(-side * 0.25, 0, 0.785))
+        h.cyl(0.026, 0.05, (0.045, side * 0.06, 0.08), P.EAR_PINK, segs=3, r_top=0.0, rot=(-side * 0.25, 0, 0.785))
+    h.build(body, loc=(0.3, 0, 0.12))
+
+    for leg, x, y in (("fl", 0.2, 0.07), ("fr", 0.2, -0.07), ("bl", -0.2, 0.07), ("br", -0.2, -0.07)):
+        g = Model(f"{name}_walk_leg_{leg}")
+        _limb(g, (0, 0, 0), (0, 0, -0.26), 0.042, 0.032, coat if x > 0 or not patch else patch)
+        g.ball(0.036, (0.012, 0, -0.27), socks or coat, subdiv=1, scale=(1.3, 1.0, 0.6))  # paw
+        g.build(body, loc=(x, y, -0.04))
+
+    # the tail held up like a question mark, which is how a cat says it's coming home
+    t = Model(f"{name}_walk_tail")
+    _limb(t, (0, 0, 0), (-0.1, 0, 0.2), 0.034, 0.03, tail)
+    _limb(t, (-0.1, 0, 0.2), (-0.06, 0, 0.34), 0.03, 0.026, tail)
+    t.ball(0.028, (-0.06, 0, 0.34), P.GINGER_DARK if tail == P.GINGER else tail, subdiv=1)
+    t.build(body, loc=(-0.3, 0, 0.04))

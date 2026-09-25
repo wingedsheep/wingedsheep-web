@@ -69,6 +69,7 @@ export class Sound {
   private seaLfo?: OscillatorNode;
   private fireGain?: GainNode;
   private rainGain?: GainNode;
+  private roofGain?: GainNode;
   /** Where songs enter the outdoor chain, and the lowpass that dulls them with distance. */
   private songBus?: GainNode;
   private songAir?: BiquadFilterNode;
@@ -82,6 +83,8 @@ export class Sound {
   cicadas = 0;
   /** In the library: the outdoors is muffled by the walls. */
   indoors = false;
+  /** Whether Vincent is at the campfire to play at all (he isn't when he's out in the kayak, or in bed). */
+  guitarist = true;
   /** Told whenever the piano starts or stops (null). */
   onPiano?: (piece: Piece | null) => void;
   private pianoBus?: GainNode;
@@ -251,8 +254,8 @@ export class Sound {
 
   /**
    * An animal's call, synthesised: a robin's chirps, a gull's cry, a tawny owl's hoo-hoo, a
-   * quack, geese honking overhead, the whale's blow and splash, Rocky's chords and the Super
-   * Sheep going off. `volume` falls off with distance.
+   * quack, geese honking overhead, the whale's blow and splash, the sea serpent's roar, Rocky's chords, the Super
+   * Sheep going off and Gandalf's fireworks. `volume` falls off with distance.
    */
   call(kind: Call, volume = 1) {
     if (kind === 'baa') return this.clip('baa', 0.5 * volume);
@@ -310,6 +313,13 @@ export class Sound {
         for (let i = 0; i < 3; i++) tone('sine', 1.1 + i * 0.16, [[0, 400], [0.1, 390]], 0.18, 0.14);
         tone('sine', 1.6, [[0, 410], [0.8, 360]], 0.22, 1.0);
         break;
+      case 'tap': // the kitchen tap, running for a moment
+        hiss(0, 2.2, 2600, 0.08);
+        hiss(0.05, 2.1, 900, 0.05);
+        break;
+      case 'mew': // Charlie's one small warning, before the claws
+        tone('triangle', 0, [[0, 780], [0.09, 1150], [0.3, 640]], 0.1, 0.34, 1300);
+        break;
       case 'quack':
         for (let i = 0; i < 2; i++) tone('sawtooth', i * 0.22, [[0, 520], [0.12, 380]], 0.12, 0.16, 900);
         break;
@@ -337,6 +347,19 @@ export class Sound {
         hiss(0, 1.2, 150, 0.6);
         hiss(0, 0.4, 900, 0.3);
         tone('sine', 0, [[0, 110], [0.4, 40]], 0.4, 0.6);
+        break;
+      case 'roar': // the sea serpent: a deep, rasping bellow that swells and dies away over the water
+        tone('sawtooth', 0, [[0, 62], [0.5, 92], [2.4, 42]], 0.4, 2.8, 170);
+        tone('sawtooth', 0.04, [[0, 98], [0.6, 138], [2.2, 58]], 0.22, 2.5, 320);
+        tone('square', 0.1, [[0, 31], [1.5, 26]], 0.18, 2.2, 90);
+        hiss(0, 2.6, 260, 0.45);
+        hiss(0.15, 1.7, 1000, 0.12);
+        break;
+      case 'firework': // Gandalf's: a whistle up, a bang, and a crackle as it falls
+        tone('sine', 0, [[0, 700], [0.65, 2600]], 0.05, 0.7);
+        hiss(0.7, 0.9, 300, 0.45);
+        tone('sine', 0.7, [[0, 90], [0.3, 40]], 0.3, 0.5);
+        for (let i = 0; i < 10; i++) hiss(0.9 + r(0, 0.9), 0.06, 3500, 0.12);
         break;
     }
   }
@@ -425,8 +448,10 @@ export class Sound {
     this.fireGain?.gain.setTargetAtTime(near * 0.5, t, 0.2);
     this.seaGain?.gain.setTargetAtTime((0.28 + this.sea * 0.3 - near * 0.12) * walls, t, 0.5);
     this.seaLfo?.frequency.setTargetAtTime(0.11 + this.sea * 0.12, t, 2);
-    this.rainGain?.gain.setTargetAtTime(this.rain * 0.22 * (this.indoors ? 0.55 : 1), t, 1); // rain on the roof
-    this.windGain?.gain.setTargetAtTime(this.wind * 0.35 * walls, t, 1);
+    this.rainGain?.gain.setTargetAtTime(this.rain * 0.22 * (this.indoors ? 0.25 : 1), t, 1);
+    this.roofGain?.gain.setTargetAtTime(this.indoors ? this.rain * 0.5 : 0, t, 0.6); // indoors, it drums on the roof
+    // squared, so a breeze on a fair day is a whisper and only real wind howls
+    this.windGain?.gain.setTargetAtTime(this.wind * this.wind * 0.35 * walls, t, 1);
     this.cicadaGain?.gain.setTargetAtTime(this.cicadas * 0.05 * walls, t, 1.5);
     if (near > 0 && t > this.nextCrackle) this.crackle(near);
 
@@ -441,7 +466,7 @@ export class Sound {
 
     // the guitar only carries when you're zoomed right in on the fire
     const close = Math.max(0, Math.min(1, (24 - view) / 10));
-    this.loudness = this.asked ? near * close : 0;
+    this.loudness = this.asked && this.guitarist ? near * close : 0;
     if (this.loudness > 0.02 && !this.song) this.joinSong();
     if (this.song) this.song.gain.gain.setTargetAtTime(this.loudness * 0.9, t, 0.6);
     // air eats the highs first: muffled from the edge of earshot, clear up close
@@ -525,7 +550,7 @@ export class Sound {
     const lfo = ctx.createOscillator();
     lfo.frequency.value = 0.11;
     const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = 0.4;
+    lfoDepth.gain.value = 0.25; // 0.35..0.85: the waves come and go but never fall silent
     lfo.connect(lfoDepth).connect(swell.gain);
     this.seaLfo = lfo;
     this.seaGain = ctx.createGain();
@@ -556,6 +581,22 @@ export class Sound {
     this.rainGain = ctx.createGain();
     this.rainGain.gain.value = 0;
     rain.connect(hiss).connect(this.rainGain).connect(this.master);
+    // the same rain heard from indoors: the hiss muffled by the roof into a soft, uneven drumming
+    const roof = ctx.createBiquadFilter();
+    roof.type = 'lowpass';
+    roof.frequency.value = 700;
+    roof.Q.value = 0.7;
+    const patter = ctx.createGain();
+    patter.gain.value = 0.75;
+    const unevenly = ctx.createOscillator();
+    unevenly.frequency.value = 0.37;
+    const depth = ctx.createGain();
+    depth.gain.value = 0.25; // it comes in waves as the wind blows it across the roof
+    unevenly.connect(depth).connect(patter.gain);
+    unevenly.start();
+    this.roofGain = ctx.createGain();
+    this.roofGain.gain.value = 0;
+    rain.connect(roof).connect(patter).connect(this.roofGain).connect(this.master);
     rain.start();
 
     // wind: a low band of noise, gusting on two slow, out-of-step LFOs

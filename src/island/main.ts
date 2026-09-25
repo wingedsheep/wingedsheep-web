@@ -9,6 +9,8 @@ import { bindHud, renderJournal } from './hud';
 import { Journal } from './journal';
 import { Library } from './library';
 import { Hut } from './hut';
+import { Companion, SHOWS, type Show, type Spot } from './scene/companion';
+import { Vincent, type Whereabouts } from './scene/vincent';
 import { Lighthouse } from './lighthouse';
 import { CameraRig } from './scene/camera-rig';
 import { Ambience } from './scene/ambience';
@@ -65,7 +67,10 @@ export async function bootIsland(host: HTMLElement) {
   const sound = new Sound(songs, piano, records);
   life.beike.onBark = () => sound.bark();
   // animals nearer the middle of the view sound louder
-  life.fauna.onCall = (call, at) => sound.call(call, THREE.MathUtils.clamp(1.2 - at.distanceTo(rig.target) / rig.view, 0.15, 1));
+  life.fauna.onCall = (call, at) => {
+    sound.call(call, THREE.MathUtils.clamp(1.2 - at.distanceTo(rig.target) / rig.view, 0.15, 1));
+    if (call === 'roar') weather.bolt(); // in a storm, lightning shows it for what it is
+  };
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
@@ -224,12 +229,30 @@ export async function bootIsland(host: HTMLElement) {
     ctx.forecast = await fetchForecast();
     const f = ctx.forecast;
     if (f && !preview) weather.set(f.kind, f.intensity, { wind: f.wind, gusts: f.gusts, direction: f.direction, lying: f.lying, temperature: f.temperature, instant: first });
+    if (f && !preview && first) {
+      life.shelter.settle(); // raining when you arrive: they're already in
+      life.companion.settle();
+      life.vincent.settle();
+    }
     first = false;
   };
   if (preview) {
     const num = (k: string) => (params.has(k) ? Number(params.get(k)) : undefined);
     weather.set(preview, 0.8, { wind: num('wind'), gusts: num('gusts'), direction: num('dir'), temperature: num('temp'), instant: true });
+    life.shelter.settle();
+    life.companion.settle();
+    life.vincent.settle();
   }
+  // and to see her somewhere in particular: ?companion=reading|fireside|workout|podcast|yoga|baking|watching|bed, with
+  // &show=murder|location|bnb|rail for what's on the telly
+  const spot = params.get('companion') as Spot | null;
+  if (spot && Companion.SPOTS.includes(spot)) {
+    const show = params.get('show') as Show | null;
+    life.companion.put(spot, show && SHOWS.includes(show) ? show : undefined);
+  }
+  // or him: ?vincent=guitar|kayak|yoga|climb|podcast|coding|asleep (and ?time=00:30 to see who's up)
+  const where = params.get('vincent') as Whereabouts | null;
+  if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where);
   void live();
   setInterval(live, 30 * 60 * 1000);
   ui.route(true);
@@ -273,7 +296,20 @@ export async function bootIsland(host: HTMLElement) {
     life.playing = sound.playing !== null;
     life.rhythm = sound.playing ? ((beats as Record<string, Rhythm>)[sound.playing.id] ?? null) : null;
     life.songTime = sound.songTime;
+    life.rain = weather.now.rain + weather.now.hail;
+    life.storm = weather.now.storm;
     if (!reducedMotion) life.update(dt);
+    else life.shelter.update(dt, life.rain, true);
+    const indoorsNow = hut.inside ? 'hut' : lighthouse.inside ? 'lighthouse' : null;
+    life.companion.update(dt, {
+      time: sky.time, night: sky.lamps, rain: life.rain, chill: life.chill, playing: life.playing, camera: rig.camera, room: indoorsNow,
+      yoga: life.vincent.spot === 'yoga' && life.vincent.company ? life.vincent.pose : null,
+    }, reducedMotion);
+    life.vincent.update(dt, {
+      time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, camera: rig.camera,
+      view: rig.view, room: indoorsNow, playing: life.playing,
+    }, reducedMotion);
+    sound.guitarist = life.vincent.atTheFire;
     const near = 1 - rig.target.distanceTo(campfire.clone().setY(1)) / 14;
     sound.update(near, rig.view, dt);
     if (sound.playing && (notes -= dt) < 0) {
@@ -293,6 +329,29 @@ export async function bootIsland(host: HTMLElement) {
 
   host.classList.add('ready');
   greet();
+  missYou();
+}
+
+/** While you're in another tab, the island's tab says what you're missing. */
+function missYou() {
+  const lines = [
+    'George has taken your seat',
+    'Charlie heard a tap',
+    'Your coffee’s getting cold',
+    'Beike is still holding the ball',
+    'Back in five minutes?',
+    'The sheep noticed you left',
+  ];
+  let away: string | null = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      away = document.title;
+      document.title = `${lines[Math.floor(Math.random() * lines.length)]} · wingedsheep`;
+    } else if (away !== null) {
+      document.title = away;
+      away = null;
+    }
+  });
 }
 
 function greet() {

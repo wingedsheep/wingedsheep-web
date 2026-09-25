@@ -15,6 +15,10 @@ from __future__ import annotations
 
 import math
 
+import beike
+import cats
+import characters
+import companion
 import palette as P
 from kit import Model, emitter, group, light
 
@@ -35,6 +39,9 @@ BOARD = 0.06
 STAIR = (-4.1, 2.6)                # the spiral stair's newel post
 TV_Y = 0.2                         # the telly against the west wall
 TABLE = (2.0, -0.5)
+DESK = (0.0, -2.35)                # Vincent's desk, out in the room, his chair on its south side
+MONITOR = (0.25, 0.12, 1.2)        # the screen's middle, from the desk's (it faces south, -y)
+SCREEN = (0.86, 0.46)
 
 
 def shell(root):
@@ -148,11 +155,6 @@ def kitchen(root):
     for k in range(int((x1 - x0) / 0.22)):
         for j in range(4):
             m.box((0.2, 0.02, 0.2), (x0 + 0.11 + k * 0.22, Y1 - 0.04, top + 0.12 + j * 0.22), P.TILE if (k + j) % 2 else P.TILE_BLUE)
-    # the sink under the first porthole
-    m.box((0.7, 0.45, 0.06), (2.5, yc, top + 0.005), P.IRON)
-    m.box((0.6, 0.35, 0.04), (2.5, yc, top + 0.02), "#5d6a74")
-    m.plank_line((2.5, Y1 - 0.1, top), (2.5, Y1 - 0.1, top + 0.4), 0.05, 0.05, P.TUNER)
-    m.plank_line((2.5, Y1 - 0.1, top + 0.4), (2.5, yc - 0.02, top + 0.34), 0.05, 0.05, P.TUNER)
     # the stove, and a shelf of jars and mugs above the counter
     m.box((0.9, 0.55, 0.05), (4.9, yc, top + 0.02), P.IRON)
     for dx in (-0.2, 0.2):
@@ -166,6 +168,16 @@ def kitchen(root):
         else:
             m.cyl(0.08, 0.14, (x, Y1 - 0.15, 3.375), c, segs=6)                          # mugs
     m.build(root)
+
+    # the sink under the first porthole, with its own id so the tap can be turned on (and every
+    # cat in the lighthouse hears it)
+    g = group("sink", parent=root, id="tap")
+    t = Model("sink")
+    t.box((0.7, 0.45, 0.06), (2.5, yc, top + 0.005), P.IRON)
+    t.box((0.6, 0.35, 0.04), (2.5, yc, top + 0.02), "#5d6a74")
+    t.plank_line((2.5, Y1 - 0.1, top), (2.5, Y1 - 0.1, top + 0.4), 0.05, 0.05, P.TUNER)
+    t.plank_line((2.5, Y1 - 0.1, top + 0.4), (2.5, yc - 0.02, top + 0.34), 0.05, 0.05, P.TUNER)
+    t.build(g)
 
     k = Model("kettle")                                                                 # red enamel, on the back ring
     k.cyl(0.17, 0.24, (4.7, yc, top + 0.05), P.RED, segs=8, r_top=0.12)
@@ -463,6 +475,100 @@ def details(root):
     light(root, (3.4, Y1 - 0.8, 3.6), P.WARM_LIGHT, 5, 0.9, flicker=0.1)
 
 
+def guests(root):
+    """Out of the rain (the runtime shows them only while it rains on the island): Charlie and
+    George asleep on the sofa, Beike stretched out on the rug in front of it. She is in here
+    whenever she's watching the telly (src/island/scene/companion.ts), and Vincent whenever he's
+    at his desk making a game (src/island/scene/vincent.ts)."""
+    g = group("guests", parent=root, guests="lighthouse")
+    sx, cy = -1.95, TV_Y - 0.3
+    cats.charlie(group("charlie", (sx, cy - 0.5, 0.59), rot_z=-math.pi / 2, parent=g))
+    cats.george(group("george", (sx, cy + 0.38, 0.6), rot_z=-math.pi / 2, parent=g))
+    beike.asleep(group("beike", (-3.3, 0.5, 0), rot_z=-math.pi / 2 - 0.4, parent=g))
+    # and her, whenever she's in watching the telly (rain or not): on Charlie's end of the sofa,
+    # so when the cats are in too, Charlie moves onto her lap (quarters.ts)
+    companion.on_the_sofa(g, (sx + 0.08, cy - 0.45, 0), rot_z=-math.pi / 2)
+    coding(group("vincent_coding", (*DESK, 0), parent=g, id="vincent_coding"))
+
+
+def desk(root):
+    """Vincent's desk: a wide monitor (dark while he's away), a keyboard and mouse, a mug, a
+    controller for testing, his level sketched out on paper, the tower underneath and a desk
+    chair on wheels."""
+    dx, dy = DESK
+    top = 0.74
+    g = group("desk", (dx, dy, 0), parent=root, id="desk")
+    m = Model("desk_body", seed=69)
+    m.box((1.5, 0.72, 0.06), (0, 0, top - 0.03), P.WOOD_LIGHT)
+    for sx in (-0.68, 0.68):
+        for sy in (-0.3, 0.3):
+            m.box((0.06, 0.06, top - 0.06), (sx, sy, (top - 0.06) / 2), P.WOOD_DARK)
+    m.box((0.22, 0.46, 0.48), (0.5, 0.05, 0.28), "#2c2a33")                              # the tower
+    m.box((0.02, 0.3, 0.02), (0.5, -0.19, 0.44), "#8ff0e0", glow=True)                  # its light
+    mx, my, mz = MONITOR
+    w, h = SCREEN
+    m.box((0.3, 0.2, 0.02), (mx, my + 0.05, top + 0.01), "#2c2a33")                     # the monitor's foot
+    m.box((0.06, 0.05, mz - top - 0.1), (mx, my + 0.08, (top + mz - 0.1) / 2), "#2c2a33")
+    m.box((w + 0.08, 0.05, h + 0.08), (mx, my, mz), "#2c2a33")
+    m.box((w, 0.01, h), (mx, my - 0.026, mz), "#15131c")                                 # the screen, off
+    for k, c in enumerate((P.GOLD, "#ff8fb0")):                                         # sticky notes on its edge
+        m.box((0.08, 0.01, 0.08), (mx + w / 2 + 0.02, my - 0.03, mz + 0.15 - k * 0.11), c, rot=(0, 0.1 - k * 0.2, 0))
+    m.box((0.5, 0.17, 0.03), (-0.05, -0.18, top + 0.015), "#3a3440")                     # keyboard
+    m.box((0.46, 0.13, 0.01), (-0.05, -0.18, top + 0.033), "#8c8793")
+    m.box((0.07, 0.11, 0.035), (0.35, -0.17, top + 0.017), "#3a3440")                    # mouse
+    m.cyl(0.07, 0.15, (-0.55, 0.05, top), P.RED, segs=8)                                 # a mug
+    m.cyl(0.058, 0.01, (-0.55, 0.05, top + 0.14), P.COFFEE, segs=8)
+    m.box((0.22, 0.13, 0.05), (-0.45, -0.22, top + 0.025), "#d9d5cf", rot=(0, 0, 0.5))   # the controller
+    m.box((0.36, 0.26, 0.01), (-0.35, 0.18, top + 0.005), P.WHITE, rot=(0, 0, -0.2))     # the level, on paper
+    for k in range(4):
+        m.box((0.08, 0.02, 0.003), (-0.45 + k * 0.08, 0.13 + (k % 2) * 0.06, top + 0.012), P.INK, rot=(0, 0, -0.2))
+    m.build(g)
+
+    c = Model("desk_chair")
+    cy, seat = -0.75, 0.5
+    c.box((0.52, 0.5, 0.08), (-0.1, cy, seat - 0.04), "#3a3440")
+    c.box((0.48, 0.08, 0.5), (-0.1, cy - 0.28, seat + 0.32), "#3a3440", rot=(0.12, 0, 0))
+    c.box((0.06, 0.06, 0.3), (-0.1, cy - 0.26, seat + 0.02), P.IRON)
+    c.cyl(0.04, seat - 0.12, (-0.1, cy, 0.08), P.IRON, segs=6)
+    for k in range(5):
+        a = k / 5 * math.tau + 0.3
+        c.plank_line((-0.1, cy, 0.07), (-0.1 + math.cos(a) * 0.3, cy + math.sin(a) * 0.3, 0.05), 0.05, 0.04, P.IRON)
+    c.build(g)
+
+
+def coding(g):
+    """Vincent at the desk (it stands at the group's origin), and what's on his screen while he's
+    there: his code on the left, and the game on the right, a little hero (`desk_hero`, which
+    the runtime makes run and jump) in a level of grass and floating platforms."""
+    characters.vincent_coding(group("vincent_at_desk", (-0.1, -0.75, 0), rot_z=math.pi, parent=g))
+    mx, my, mz = MONITOR
+    w, h = SCREEN
+    y = my - 0.033
+    m = Model("desk_screen")
+    split = mx - w / 2 + w * 0.38                                                        # code | game
+    for i, (indent, length, c) in enumerate([(0, 0.2, "#ff8fb0"), (1, 0.16, "#8ff0e0"), (1, 0.22, P.WHITE),
+                                              (2, 0.12, P.GOLD), (2, 0.18, P.WHITE), (1, 0.08, "#8ff0e0"),
+                                              (0, 0.05, "#ff8fb0"), (0, 0.14, P.WHITE), (1, 0.2, "#b7a6ff")]):
+        x0 = mx - w / 2 + 0.03 + indent * 0.03
+        m.box((length, 0.004, 0.022), (x0 + length / 2, y, mz + h / 2 - 0.04 - i * 0.045), c, glow=True)
+    gw = mx + w / 2 - split
+    gx = split + gw / 2
+    m.box((gw, 0.004, h), (gx, y, mz), "#8fd3ff", glow=True)                               # the sky
+    m.box((gw, 0.006, 0.08), (gx, y, mz - h / 2 + 0.04), "#7a4f2e", glow=True)             # the ground
+    m.box((gw, 0.007, 0.025), (gx, y, mz - h / 2 + 0.07), "#5fc05a", glow=True)            # and its grass
+    for px, pz, pw in ((0.08, 0.02, 0.14), (0.3, 0.11, 0.12), (0.18, -0.09, 0.08)):      # floating platforms
+        m.box((pw, 0.007, 0.03), (split + px, y, mz + pz), "#c98a4a", glow=True)
+        m.box((pw, 0.008, 0.01), (split + px, y, mz + pz + 0.015), "#5fc05a", glow=True)
+    m.box((0.03, 0.008, 0.03), (split + 0.3, y, mz + 0.16), P.GOLD, glow=True)            # a coin
+    m.box((0.06, 0.008, 0.03), (split + 0.1, y, mz + 0.17), P.WHITE, glow=True)           # a cloud
+    m.build(g)
+    hero = Model("desk_hero")                                                            # red cap, blue dungarees
+    hero.box((0.028, 0.008, 0.02), (0, 0, 0.01), "#2a5da8", glow=True)
+    hero.box((0.028, 0.009, 0.018), (0, 0, 0.029), "#f0c8a0", glow=True)
+    hero.box((0.032, 0.01, 0.01), (0, 0, 0.042), P.RED, glow=True)
+    hero.build(g, loc=(split + 0.05, y - 0.002, mz - h / 2 + 0.083))
+
+
 def build():
     root = group("lighthouse_interior")
     shell(root)
@@ -475,5 +581,7 @@ def build():
     table(root)
     gear(root)
     easel(root)
+    desk(root)
     details(root)
+    guests(root)
     return root

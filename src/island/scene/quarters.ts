@@ -5,9 +5,14 @@ import { hash } from '../../data/subjects';
 import { toonIndoors } from './interior';
 import { Particles } from './particles';
 import { Picker } from './picking';
+import { drawProgramme } from './programmes';
 import { RoomCamera } from './room-camera';
+import { telly } from './companion';
+import { Guests } from './guests';
+import { ambush, indoors } from './shelter';
 import { haloTexture } from './sky';
 import { GRADIENT } from './toon';
+import { type Outside, Windows } from './windows';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -33,6 +38,8 @@ interface Spine {
   color: THREE.Color;
   out: number;
 }
+
+type Ambush = 'wait' | 'mew' | 'up' | 'on' | 'down';
 
 interface Lamp {
   light: THREE.PointLight;
@@ -68,7 +75,21 @@ export class QuartersRoom {
   private screen?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; next: number };
   private painting?: THREE.MeshBasicMaterial;
   private clock = 0;
+  /** Who's in out of the rain (shelter.ts): each shown only while they're indoors. */
+  readonly guests: Guests;
+  /** Rain on the glass and lightning in the panes. */
+  private windows: Windows;
   private timers = new Map<string, number>();
+  /** Her on the sofa, and Charlie's cushion (watcher()), looked up once. */
+  private sofa?: Record<'her' | 'snack' | 'head' | 'bowl' | 'lap' | 'charlie', THREE.Object3D | undefined> & { home?: THREE.Vector3 };
+  private desk?: Record<'him' | 'left' | 'right' | 'head' | 'hero', THREE.Object3D | undefined>;
+  /** Charlie's ambush (pounce()): what he's up to, how long he's been at it, and how long it lasts. */
+  private stalk = { phase: 'wait' as Ambush, t: 0, next: rand(20, 45), stay: 0, flinch: 0 };
+  /** Seconds left of the cats drinking from the tap (tap()), and where they stand on the counter. */
+  private drinking = 0;
+  private sink?: { charlie: THREE.Vector3; george: THREE.Vector3; home: THREE.Vector3 };
+  /** Charlie gives his one small warning (lighthouse.ts makes the sound). */
+  onMew?: () => void;
 
   static async load(base = '/models/'): Promise<QuartersRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}lighthouse.glb`);
@@ -82,6 +103,8 @@ export class QuartersRoom {
 
     const rows: Row[] = [];
     const halo = haloTexture();
+    const guests: THREE.Object3D[] = [];
+    const panes: THREE.Mesh[] = [];
     let screen: THREE.Mesh | undefined;
     let canvas: THREE.Mesh | undefined;
     root.traverse((o) => {
@@ -90,6 +113,7 @@ export class QuartersRoom {
       if (x.shelf !== undefined) {
         rows.push({ index: x.shelf, origin: o.getWorldPosition(V()), width: x.width, depth: x.depth, clear: x.clear });
       }
+      if (x.guests) guests.push(...o.children);
       if (x.emit === 'steam') this.steam.push(o.getWorldPosition(V()));
       if (x.light) this.addLamp(o.getWorldPosition(V()), x, halo);
       if ((o as THREE.Mesh).isMesh) {
@@ -99,6 +123,7 @@ export class QuartersRoom {
         if (o.name.startsWith('tv_screen') || o.parent?.name.startsWith('tv_screen')) screen = mesh;
         if (o.name.startsWith('painting_canvas') || o.parent?.name.startsWith('painting_canvas')) canvas = mesh;
         const glow = src.name.startsWith('glow_');
+        if (glass) panes.push(mesh);
         mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
         mesh.castShadow = !glass && !glow;
         mesh.receiveShadow = true;
@@ -106,6 +131,9 @@ export class QuartersRoom {
     });
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
+    this.guests = new Guests(this.scene, guests);
+    for (const a of this.guests.animals) this.named.set(a.userData.id, a);
+    this.windows = new Windows(this.scene, panes, this.glass, this.bounds);
     if (screen) this.tv(screen);
     if (canvas) this.hang(canvas, '/drawings/painting.png');
 
@@ -135,8 +163,10 @@ export class QuartersRoom {
     this.hot = id;
   }
 
-  update(dt: number, night: number) {
+  /** `out` is the weather outside (weather.ts `now`): rain on the windows, lightning, a greyer day. */
+  update(dt: number, night: number, out?: Outside) {
     this.clock += dt;
+    this.guests.update(dt);
     const t = this.clock;
     for (const l of this.lamps) {
       const f = l.flicker ? 1 - l.flicker * 0.25 * (Math.sin(t * 13 + l.seed) * 0.5 + Math.sin(t * 7.7 + l.seed * 3) * 0.5 + 0.5) : 1;
@@ -147,6 +177,12 @@ export class QuartersRoom {
     this.glass.color.copy(SKY_NIGHT).lerp(SKY_DAY, day);
     this.hemi.intensity = 0.9 + day * 0.5;
     this.key.intensity = 0.35 + day * 0.75;
+    if (out) {
+      this.windows.tint(this.glass.color, out);
+      this.key.intensity *= 1 - out.cloud * 0.35; // a dull day comes in through the windows…
+      this.key.intensity += out.flash * 2.5; // …and lightning lights up the whole room for a moment
+      this.hemi.intensity += out.flash * 1.2;
+    }
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
     this.painting?.color.setScalar(0.8 + day * 0.2);
 
@@ -161,6 +197,10 @@ export class QuartersRoom {
       }
     }
     this.drawScreen();
+    this.watcher(t);
+    this.pounce(dt);
+    this.drink(dt);
+    this.coder(t);
 
     for (const [id, s] of this.spines) {
       s.out = THREE.MathUtils.damp(s.out, id === this.hot ? 1 : 0, 12, dt);
@@ -168,6 +208,161 @@ export class QuartersRoom {
       s.cover.emissive.copy(s.color).multiplyScalar(id === this.hot ? 0.45 : 0);
     }
     this.particles.update(dt);
+    if (out) this.windows.update(dt, out);
+  }
+
+  /**
+   * Her on the sofa, if she's in (companion.ts): a handful of popcorn now and then, and a laugh.
+   * If the cats are in out of the rain too, Charlie has her lap instead of the popcorn, and she
+   * strokes him.
+   */
+  private watcher(t: number) {
+    const w = (this.sofa ??= {
+      her: this.scene.getObjectByName('companion_lighthouse'),
+      snack: this.scene.getObjectByName('companion_snack'),
+      head: this.scene.getObjectByName('companion_tv_head'),
+      bowl: this.scene.getObjectByName('companion_bowl'),
+      lap: this.scene.getObjectByName('companion_lap'),
+      charlie: this.scene.getObjectByName('charlie'),
+    });
+    const { her, snack, head, bowl, lap, charlie } = w;
+    const cat = !!(her?.visible && charlie?.visible && lap);
+    if (charlie) {
+      w.home ??= charlie.position.clone();
+      if (cat) charlie.position.copy(charlie.parent!.worldToLocal(lap!.getWorldPosition(new THREE.Vector3())));
+      else charlie.position.copy(w.home);
+    }
+    if (!her?.visible) return;
+    if (bowl) bowl.visible = !cat;
+    let eat = 0;
+    if (cat) {
+      snack?.rotation.set(-0.35 + Math.sin(t * 1.8) * 0.12, 0, 0.25); // slow strokes, head to tail
+    } else {
+      const k = t % 5.5;
+      eat = k < 1.6 ? Math.sin((k / 1.6) * Math.PI) : 0; // up to her mouth and back to the bowl
+      snack?.rotation.set(-eat * 1.4, 0, eat * 0.5);
+    }
+    const laugh = t % 17 < 1.4 ? Math.abs(Math.sin(t * 9)) * 0.1 : 0;
+    // with the cat, she looks down at him every so often
+    const fond = cat && t % 11 < 3 ? 0.25 : 0;
+    head?.rotation.set(-laugh - eat * 0.08 + fond, Math.sin(t * 0.21) * 0.08, 0);
+  }
+
+  /**
+   * Vincent at his desk, if he's in (vincent.ts): typing in bursts, a look at the game now and
+   * then, and on the screen his little hero running along the grass and hopping up onto a
+   * platform and back, over and over, the way you test a jump.
+   */
+  private coder(t: number) {
+    const at = (this.desk ??= {
+      him: this.scene.getObjectByName('vincent_coding'),
+      left: this.scene.getObjectByName('type_l'),
+      right: this.scene.getObjectByName('type_r'),
+      head: this.scene.getObjectByName('code_head'),
+      hero: this.scene.getObjectByName('desk_hero'),
+    });
+    const { him, left, right, head, hero } = at;
+    if (!him?.visible) return;
+    const flinch = this.stalk.flinch;
+    const burst = Math.sin(t * 0.6) > -0.3 && flinch < 0.2; // typing, then a pause to think
+    for (const [arm, k] of [[left, 0], [right, 1.7]] as const) {
+      if (!arm) continue;
+      const rest = (arm.userData.rest ??= arm.rotation.clone()) as THREE.Euler;
+      arm.rotation.set(rest.x + (burst ? Math.max(0, Math.sin(t * 17 + k)) * 0.08 : 0), rest.y, rest.z);
+    }
+    if (head) {
+      const rest = (head.userData.rest ??= head.rotation.clone()) as THREE.Euler;
+      head.rotation.set(rest.x + (burst ? 0.08 : 0) - flinch * 0.35, rest.y + (burst ? 0 : Math.sin(t * 0.8) * 0.15), rest.z);
+    }
+    if (hero) {
+      const home = (hero.userData.home ??= hero.position.clone()) as THREE.Vector3;
+      const k = (t % 4) / 4; // run right, jump, run back
+      const x = k < 0.5 ? k * 2 : 2 - k * 2;
+      const hop = Math.max(0, Math.sin(((k - 0.35) / 0.3) * Math.PI)) * (k > 0.35 && k < 0.65 ? 1 : 0);
+      hero.position.set(home.x + x * 0.3, home.y + hop * 0.1, home.z);
+    }
+  }
+
+  /**
+   * Charlie, when Vincent's at his desk and the sofa isn't taken: he wakes, gives one tiny mew,
+   * and a moment later he's up on Vincent's back. Vincent jerks upright, then types on, very
+   * carefully, until Charlie decides he's done and hops back down to the sofa.
+   */
+  private pounce(dt: number) {
+    const a = this.stalk;
+    a.flinch = Math.max(0, a.flinch - dt / 1.2);
+    const { him, head } = this.desk ?? {};
+    const charlie = this.sofa?.charlie;
+    const free = !!(him?.visible && head && charlie?.visible && !indoors.has('companion_lighthouse'));
+    if (!free) {
+      if (a.phase !== 'wait') Object.assign(a, { phase: 'wait', next: rand(20, 45) });
+      ambush.on = false;
+      return;
+    }
+    a.t += dt;
+    const home = charlie!.position.clone(); // wherever the sofa (watcher()) has him
+    // on his back: behind his head (away from the desk) and down to the shoulders
+    const back = () => {
+      const top = head!.getWorldPosition(V());
+      const away = top.clone().sub(him!.getWorldPosition(V())); // the desk stands where he's placed from
+      away.y = 0;
+      away.setLength(0.24);
+      return charlie!.parent!.worldToLocal(top.add(away).add(V(0, -0.28, 0)));
+    };
+    const leap = (from: THREE.Vector3, to: THREE.Vector3, k: number) =>
+      charlie!.position.lerpVectors(from, to, k).add(V(0, Math.sin(k * Math.PI) * 0.45, 0));
+    switch (a.phase) {
+      case 'wait':
+        if ((a.next -= dt) > 0) return;
+        Object.assign(a, { phase: 'mew', t: 0 });
+        this.guests.stir('charlie');
+        this.onMew?.();
+        return;
+      case 'mew': // the warning, and then a moment's wiggle
+        if (a.t > 1.3) Object.assign(a, { phase: 'up', t: 0 });
+        return;
+      case 'up':
+        leap(home, back(), Math.min(1, a.t / 0.5));
+        if (a.t >= 0.5) Object.assign(a, { phase: 'on', t: 0, stay: rand(10, 18), flinch: 1 });
+        return;
+      case 'on':
+        ambush.on = true;
+        charlie!.position.copy(back());
+        if (a.t >= a.stay) Object.assign(a, { phase: 'down', t: 0 });
+        return;
+      case 'down':
+        ambush.on = false;
+        leap(back(), home, Math.min(1, a.t / 0.5));
+        if (a.t >= 0.5) Object.assign(a, { phase: 'wait', t: 0, next: rand(45, 90) });
+    }
+  }
+
+  /**
+   * The tap's on: whichever cats are in are up on the counter by the sink before it's run for
+   * a second, taking turns. The water bowl by the door is right there. It doesn't count.
+   */
+  tap() {
+    this.drinking = 9;
+  }
+
+  private drink(dt: number) {
+    const charlie = this.scene.getObjectByName('charlie');
+    const george = this.scene.getObjectByName('george');
+    const tap = this.named.get('tap');
+    if (!charlie || !george || !tap) return;
+    if (!this.sink) {
+      const box = new THREE.Box3().setFromObject(tap);
+      const at = box.getCenter(V()).setY(box.min.y + 0.02);
+      const local = (dx: number) => charlie.parent!.worldToLocal(at.clone().add(V(dx, 0, 0)));
+      this.sink = { charlie: local(-0.5), george: local(0.5), home: george.position.clone() };
+    }
+    this.drinking = Math.max(0, this.drinking - dt);
+    if (this.drinking > 0) {
+      Object.assign(this.stalk, { phase: 'wait', t: 0 }); // nobody's pouncing: there's water
+      ambush.on = false;
+      charlie.position.copy(this.sink.charlie);
+    }
+    george.position.copy(this.drinking > 0 ? this.sink.george : this.sink.home);
   }
 
   // --- the telly -------------------------------------------------------------------------
@@ -204,6 +399,12 @@ export class QuartersRoom {
     if (!s || this.clock < s.next) return;
     s.next = this.clock + 1 / 12; // a jerky twelve frames a second, like it should be
     const ctx = s.canvas.getContext('2d')!;
+    // with her on the sofa, it's her programme on (companion.ts), not the game
+    if (telly.show && indoors.has('companion_lighthouse')) {
+      drawProgramme(ctx, telly.show, this.clock);
+      s.texture.needsUpdate = true;
+      return;
+    }
     const { width: w, height: h } = s.canvas;
     const horizon = 13;
     ctx.fillStyle = '#7fc8f0';

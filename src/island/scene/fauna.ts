@@ -23,13 +23,14 @@ export interface Env {
   night: number; // 0 day … 1 night (the Sky's lamps)
   season: Season;
   wet: number; // 0 dry … 1 pouring
+  storm: number; // 0 … 1 a thunderstorm
 }
 const dusky = (e: Env) => e.night > 0.12 && e.night < 0.9;
 const dark = (e: Env) => e.night > 0.55;
 const daylit = (e: Env) => e.night < 0.35;
 
 /** Sounds the animals make (the island plays them; silent while sound is off). */
-export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom';
+export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap';
 
 /** Who's out on this visit: some animals only turn up now and then. */
 const LUCK = (() => {
@@ -44,9 +45,12 @@ const LUCK = (() => {
     // the very rare ones
     starsheep: want('starsheep') || chance(1 / 20),
     rocky: want('rocky') || chance(1 / 25),
+    gandalf: want('gandalf') || chance(1 / 30),
+    gandalfSoon: want('gandalf'),
     supersheep: want('supersheep') || chance(1 / 30),
     supersheepSoon: want('supersheep'),
     whaleSoon: want('whale'),
+    serpentSoon: want('serpent'),
     dolphinsSoon: want('dolphins'),
     geeseSoon: want('geese'),
     /** `?animal=badger` wakes the badger at any hour. */
@@ -1029,6 +1033,209 @@ class Whale {
   }
 }
 
+const SERPENT_SEGS = 16; // as tools/models/fauna.py builds it
+const SERPENT_STEP = 1.3;
+
+/**
+ * The sea serpent. Hardly ever in fair weather, now and then in the rain, and in a thunderstorm
+ * every few minutes: its humps roll through the waves offshore, then it rears up out of the sea,
+ * turns to look at the island and roars, and dives back under, its tail last, with a slap.
+ *
+ * The model is a head and a string of segments; the spine is a curve worked out every frame
+ * (in the serpent's own frame: x ahead, y up): a neck from the head down to where it meets the
+ * water, then humps travelling back along the body. The segments are strung along it evenly.
+ */
+class Serpent {
+  readonly body: Body;
+  private t = -1;
+  private wait = LUCK.serpentSoon ? 3 : 60; // never in the first minute
+  private heading = 0;
+  private hx = 0; // how far the head has come
+  private look = 0; // the head turned towards the island
+  private toIsland = 0;
+  private cues = new Set<string>();
+  private segs: THREE.Object3D[];
+  private curve: THREE.Vector2[] = [];
+  private lengths: number[] = [];
+  onCall?: (call: Call, at: THREE.Vector3) => void;
+
+  constructor(template: THREE.Object3D, scene: THREE.Scene, private deep: (x: number, z: number) => boolean, private particles: Particles) {
+    this.body = new Body('serpent', template, scene);
+    this.segs = Array.from({ length: SERPENT_SEGS }, (_, i) => this.body.part(`seg_${String(i).padStart(2, '0')}`)!);
+  }
+
+  /** Clicked: if it's only swimming, it rears up at you. */
+  poke() {
+    if (this.t > 4 && this.t < 11) this.t = 11;
+  }
+
+  update(dt: number, e: Env) {
+    if (this.t < 0) {
+      this.wait -= dt;
+      if (this.wait > 0) return;
+      // chances per second: once in an hour and a half when it's fine, every twenty minutes of
+      // rain, every six of a thunderstorm (and they add up)
+      const rate = 1 / 5400 + e.wet / 1200 + e.storm / 360;
+      if (!LUCK.serpentSoon && !chance(rate * dt)) return;
+      if (!this.start()) {
+        this.wait = 20;
+        return;
+      }
+    }
+    this.t += dt;
+    this.swim(dt);
+    if (this.t > 30) {
+      this.body.hide();
+      this.t = -1;
+      this.wait = LUCK.serpentSoon ? 60 : rand(600, 900);
+    }
+  }
+
+  /** Somewhere offshore, in deep water the whole length of its swim, mostly off the south shore. */
+  private start() {
+    for (let i = 0; i < 30; i++) {
+      const a = chance(0.7) ? rand(0.15, 0.85) * Math.PI : rand(0, Math.PI * 2);
+      const at = V(Math.cos(a) * rand(40, 48), 0, Math.sin(a) * rand(31, 37));
+      const heading = headingOf(-at.z, at.x) + (chance(0.5) ? Math.PI : 0) + rand(-0.2, 0.2);
+      const fwd = V(Math.cos(heading), 0, -Math.sin(heading));
+      // deep water all along its swim, and well to either side: its head turns and its body sways
+      let ok = true;
+      for (let d = -48; d <= 36 && ok; d += 3) {
+        for (const side of [-10, 0, 10]) ok &&= this.deep(at.x + fwd.x * d + fwd.z * side, at.z + fwd.z * d - fwd.x * side);
+      }
+      if (!ok) continue;
+      this.heading = heading;
+      this.hx = 0;
+      this.t = 0;
+      this.cues.clear();
+      // which way it will turn its head to face the island (round to the nearer side)
+      const home = headingOf(-at.x, -at.z);
+      this.toIsland = clamp(Math.atan2(Math.sin(home - heading), Math.cos(home - heading)), -1.3, 1.3);
+      this.body.show(at);
+      orient(this.body.root, heading);
+      return true;
+    }
+    return false;
+  }
+
+  /** True the first time it's asked about a moment in this appearance. */
+  private once(cue: string) {
+    if (this.cues.has(cue)) return false;
+    this.cues.add(cue);
+    return true;
+  }
+
+  private swim(dt: number) {
+    const t = this.t;
+    const b = this.body;
+    const ss = THREE.MathUtils.smoothstep;
+    const rise = ss(t, 0, 4); // up from the deep
+    const rear = ss(t, 11, 14) * (1 - ss(t, 19, 21.5)); // neck up out of the sea
+    const dive = Math.max(0, t - 19); // seconds since it went back under
+    const roar = ss(t, 15, 15.4) * (1 - ss(t, 17.8, 18.6));
+    const speed = t < 11 ? 1.1 : t < 19 ? 1.1 * (1 - ss(t, 11, 13)) : 2.2;
+    this.hx += speed * dt;
+
+    // the head: bobbing along above the waves, then high, then down into the sea
+    const sink = (1 - rise) * 4;
+    const plunge = ss(dive, 0, 2.5);
+    const hy = (1.2 + Math.sin(t * 1.3) * 0.25) * (1 - rear) + 7.5 * rear - sink - plunge * 5;
+    const head = new THREE.Vector2(this.hx + plunge * 3, hy);
+    const joint = new THREE.Vector2(this.hx - 2.8 + rear * 0.9, -0.4 - sink);
+
+    // the neck, a curve from the water up to the head…
+    const lift = head.y - joint.y;
+    const p1 = joint.clone().add(new THREE.Vector2(0.9, lift * 0.45));
+    const p2 = head.clone().sub(new THREE.Vector2(1.1 - rear * 0.5, lift * 0.2 - plunge * 1.5));
+    this.curve.length = 0;
+    const bez = new THREE.CubicBezierCurve(joint, p1, p2, head);
+    for (let i = 16; i >= 0; i--) this.curve.push(bez.getPoint(i / 16));
+    // …then the body, humps rolling back along it, sinking front first once it dives
+    for (let u = 0.5; u <= 40; u += 0.5) {
+      const humps = -0.9 + 1.5 * Math.sin(u * 0.95 - t * 1.6) * ss(u, 0, 3);
+      const under = sink + ss(dive * 5 - u, 0, 4) * 6 + Math.max(0, u - 17) * 0.35;
+      this.curve.push(new THREE.Vector2(joint.x - u, THREE.MathUtils.lerp(joint.y, humps - under, ss(u, 0, 2))));
+    }
+    this.lengths.length = 0;
+    let run = 0;
+    this.curve.forEach((p, i) => this.lengths.push((run += i ? p.distanceTo(this.curve[i - 1]) : 0)));
+
+    b.relax();
+    const h = b.part('head');
+    if (h) {
+      h.position.set(head.x, head.y, 0);
+      this.look = damp(this.look, rear > 0.5 && dive < 1 ? this.toIsland : Math.sin(t * 0.5) * 0.3, 1.5, dt);
+      const shake = roar * Math.sin(t * 18) * 0.06;
+      const pitch = 0.1 + Math.sin(t * 1.3 + 1) * 0.08 - rear * 0.45 + roar * 0.7 - plunge * 1.3;
+      h.rotation.set(shake, this.look, pitch, 'YZX');
+    }
+    const jaw = b.part('jaw');
+    if (jaw) jaw.rotation.z -= roar * (0.75 + Math.sin(t * 9) * 0.08) + (rear > 0.5 ? 0 : Math.max(0, Math.sin(t * 0.7)) * 0.15);
+    const at = new THREE.Vector2();
+    const ahead = new THREE.Vector2();
+    this.segs.forEach((seg, i) => {
+      const d = (i + 0.8) * SERPENT_STEP;
+      this.along(d, at);
+      this.along(d - 0.4, ahead);
+      const sway = Math.sin(d * 0.35 - t * 1.2) * 0.4 * (1 - rear * 0.6);
+      seg.position.set(at.x, at.y, sway);
+      seg.rotation.set(0, 0, Math.atan2(ahead.y - at.y, ahead.x - at.x), 'YZX');
+    });
+    const tail = b.part('tail');
+    if (tail) {
+      // it goes under last, lifting its fin clear of the water and slapping it down
+      const k = clamp((dive - 5) / 2, 0, 1);
+      const flick = Math.sin(k * Math.PI);
+      this.along((SERPENT_SEGS + 0.6) * SERPENT_STEP, at);
+      tail.position.set(at.x, at.y * (1 - flick) - flick * 0.3, 0);
+      tail.rotation.set(0, 0, -flick * 1.2, 'YZX');
+      if (k >= 1 && this.once('slap')) this.splashAt(tail, 3.5, true);
+    }
+
+    // the sea around it: a splash as it comes up, water streaming off its neck, a wake where
+    // the humps cut the surface, and a great splash as it dives
+    if (h) {
+      if (t > 2.2 && this.once('surface')) this.splashAt(h, 2.5, true);
+      if (rear > 0.2 && rear < 0.95 && dive === 0 && chance(dt * 30)) this.drip(h);
+      if (t > 15 && this.once('roar')) this.onCall?.('roar', h.getWorldPosition(V()));
+      if (dive > 0 && head.y < 0.3 && this.once('dive')) this.splashAt(h, 6, true);
+    }
+    if (chance(dt * 12)) this.wake();
+  }
+
+  /** The point `d` along the spine from the head (and so where each segment goes). */
+  private along(d: number, out: THREE.Vector2) {
+    const L = this.lengths;
+    let i = 1;
+    while (i < L.length - 1 && L[i] < d) i++;
+    const k = clamp((d - L[i - 1]) / Math.max(1e-6, L[i] - L[i - 1]), 0, 1);
+    return out.lerpVectors(this.curve[i - 1], this.curve[i], k);
+  }
+
+  private splashAt(part: THREE.Object3D, size: number, loud: boolean) {
+    const at = part.getWorldPosition(V()).setY(0);
+    splash(this.particles, at, size);
+    if (loud) this.onCall?.('splash', at);
+  }
+
+  /** Sea water pouring off the head and neck as it rears. */
+  private drip(head: THREE.Object3D) {
+    const at = head.getWorldPosition(V()).add(V(rand(-1, 1), rand(-3, 0), rand(-1, 1)));
+    this.particles.emit({ position: at, velocity: V(rand(-0.3, 0.3), rand(-1, 0), rand(-0.3, 0.3)), color: pick(['#e2f2fa', '#bfe3f0', '#ffffff']), life: rand(0.6, 1.2), gravity: -9 });
+  }
+
+  /** White water where a hump breaks the surface. */
+  private wake() {
+    const c = this.curve;
+    const crossings = c.filter((p, i) => i > 0 && p.y > -0.2 !== c[i - 1].y > -0.2);
+    if (!crossings.length) return;
+    const p = pick(crossings);
+    const local = V(p.x, 0.05, rand(-0.6, 0.6));
+    const at = this.body.root.localToWorld(local).setY(0.05);
+    this.particles.emit({ position: at, velocity: V(rand(-0.4, 0.4), rand(0.6, 1.4), rand(-0.4, 0.4)), color: pick(['#ffffff', '#e2f2fa']), life: rand(0.4, 0.8), gravity: -6, size: chance(0.3) ? 2 : 1 });
+  }
+}
+
 /** A mallard paddling round the bay, with a line of ducklings in spring and early summer. */
 class Ducks {
   private drake: Body;
@@ -1247,6 +1454,132 @@ class Wanderer {
 }
 
 /**
+ * Gandalf the Grey. Very rarely he comes up from the dock, staff tapping, to stand by the fire and
+ * blow smoke rings for a while. He is never late, nor is he early: he steps onto the dock exactly
+ * on the minute, by the visitor's own clock. Clicked, he sends a firework up from his staff.
+ */
+class Gandalf {
+  readonly body: Body;
+  private route: THREE.Vector3[];
+  private t = 0;
+  private phase: 'waiting' | 'in' | 'stand' | 'out' | 'gone' = 'waiting';
+  private wait = LUCK.gandalfSoon ? 0 : rand(40, 160);
+  private pos = V();
+  private heading = Math.PI / 2;
+  private clock = 0;
+  private puff = 3;
+  private rocket = -1; // seconds since a firework went up, or -1
+  private due = 0;
+  onCall?: (call: Call, at: THREE.Vector3) => void;
+
+  constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, route: THREE.Vector3[], private particles: Particles) {
+    this.body = new Body('gandalf', template, scene);
+    this.route = route;
+  }
+
+  /** Clicked: a firework whistles up from the end of his staff. */
+  firework() {
+    if (this.phase === 'waiting' || this.phase === 'gone' || this.rocket >= 0) return;
+    this.rocket = 0;
+    this.onCall?.('firework', this.pos);
+  }
+
+  private get pipe() {
+    const h = this.phase === 'stand' ? headingOf(3.4, -2.4) : this.heading;
+    return this.body.root.position.clone().add(V(Math.cos(h) * 0.52, 1.6, -Math.sin(h) * 0.52));
+  }
+
+  update(dt: number, enabled: boolean) {
+    const b = this.body;
+    this.clock += dt;
+    if (this.phase === 'waiting') {
+      if (!enabled || (this.wait -= dt) > 0) return;
+      this.due ||= Math.ceil(Date.now() / 60000) * 60000; // precisely when he means to: on the minute
+      if (Date.now() < this.due) return;
+      this.phase = 'in';
+      this.t = 0;
+      this.pos.copy(this.route[0]);
+      b.show(this.pos);
+    }
+    if (this.phase === 'gone') return;
+    const walk = this.phase === 'in' || this.phase === 'out';
+    if (walk) {
+      const path = this.phase === 'in' ? this.route : [...this.route].reverse();
+      this.t += dt * 0.9;
+      let d = this.t;
+      let i = 0;
+      while (i < path.length - 1 && d > path[i].distanceTo(path[i + 1])) {
+        d -= path[i].distanceTo(path[i + 1]);
+        i++;
+      }
+      if (i >= path.length - 1) {
+        if (this.phase === 'in') {
+          this.phase = 'stand';
+          this.wait = rand(100, 180);
+        } else {
+          this.phase = 'gone';
+          b.hide();
+          return;
+        }
+      } else {
+        const a = path[i];
+        const c = path[i + 1];
+        this.pos.lerpVectors(a, c, d / a.distanceTo(c));
+        this.heading = turnTo(this.heading, headingOf(c.x - a.x, c.z - a.z), 4, dt);
+      }
+    } else if (this.phase === 'stand' && (this.wait -= dt) < 0 && this.rocket < 0) {
+      this.phase = 'out';
+      this.t = 0;
+    }
+    const h = this.ground.at(this.pos.x, this.pos.z);
+    b.relax();
+    const onDock = this.pos.z > 16.8 && Math.abs(this.pos.x) < 1.2;
+    b.root.position.copy(this.pos).setY(onDock || Number.isNaN(h) ? Math.max(DECK, h || 0) : h);
+    orient(b.root, this.phase === 'stand' ? headingOf(3.4, -2.4) : this.heading); // facing the fire
+    const trunk = b.part('body');
+    const head = b.part('head');
+    const staff = b.part('staff');
+    if (walk) {
+      // an old man's unhurried stride, planting the staff every other step
+      if (trunk) trunk.position.y += Math.abs(Math.sin(this.clock * 5)) * 0.03;
+      if (staff) staff.rotation.z += Math.sin(this.clock * 2.5) * 0.25;
+    }
+    if (this.phase === 'stand') {
+      if (head) head.rotation.z += Math.sin(this.clock * 0.7) * 0.05;
+      // now and then, a smoke ring
+      if ((this.puff -= dt) < 0 && this.rocket < 0) {
+        this.puff = rand(5, 9);
+        const at = this.pipe.add(V(0, 0.15, 0));
+        for (let k = 0; k < 14; k++) {
+          const a = (k / 14) * Math.PI * 2;
+          const out = V(Math.cos(a), Math.sin(a) * 0.5, Math.sin(a) * 0.8).multiplyScalar(0.08);
+          this.particles.emit({ position: at.clone().add(out), velocity: out.clone().multiplyScalar(2.5).add(V(0, 0.45, 0)), color: '#d8d4cc', life: 3.2, wobble: 0.05 });
+        }
+      }
+    }
+    if (this.rocket >= 0) {
+      const r = this.rocket;
+      this.rocket += dt;
+      if (staff) staff.position.y += 0.25 * Math.min(1, r * 6) * (r < 2 ? 1 : Math.max(0, 1 - (r - 2) * 3));
+      const top = b.root.position.clone().add(V(0, 1.85, 0));
+      const up = 7;
+      if (r < 0.7) {
+        // the rocket climbs, trailing sparks
+        this.particles.emit({ position: top.clone().add(V(0, r * up, 0)), velocity: V(rand(-0.2, 0.2), -0.5, rand(-0.2, 0.2)), color: pick(['#ffd070', '#ff9a3c']), life: 0.5 });
+      } else if (r - dt < 0.7) {
+        const burst = top.clone().add(V(0, 0.7 * up, 0));
+        const colors = pick([['#6ee06a', '#f4d35e', '#ffffff'], ['#ff5a4e', '#ffd070', '#ffffff'], ['#6ab0ff', '#e8f0ff', '#f4d35e']]);
+        for (let k = 0; k < 70; k++) {
+          const v = V(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize().multiplyScalar(rand(2.5, 4));
+          this.particles.emit({ position: burst.clone(), velocity: v, color: pick(colors), life: rand(1, 1.8), gravity: -2, size: chance(0.3) ? 2 : 1 });
+        }
+      }
+      if (r > 2.4) this.rocket = -1;
+    }
+  }
+}
+
+/**
  * Rocky, from 40 Eridani (Project Hail Mary): five legs round a rocky carapace, no face. He comes
  * out of the workshop, potters about tapping at things, and talks back in chords when clicked.
  */
@@ -1407,7 +1740,8 @@ export interface Critter {
  * Around at the right time of day: deer at dusk, bats, the owl, the hedgehog, the badger
  * and its sett, the fox. Rare: dolphins passing, a whale, geese in a V in autumn and spring,
  * the stag, the black sheep, and one very small, very occasional visitor. Very rare: a sheep
- * with a star on its back, Rocky from Project Hail Mary, and a Super Sheep.
+ * with a star on its back, Rocky from Project Hail Mary, a Super Sheep, Gandalf, and (likelier in
+ * a storm) the sea serpent.
  */
 export class Fauna {
   private walkers: Walker[] = [];
@@ -1419,9 +1753,11 @@ export class Fauna {
   private leapers: Leaper[] = [];
   private pod?: Pod;
   private whale?: Whale;
+  private serpent?: Serpent;
   private ducks?: Ducks;
   private heron?: Heron;
   private wanderer?: Wanderer;
+  private gandalf?: Gandalf;
   private superSheep?: SuperSheep;
   private clock = 0;
   private ground: Ground;
@@ -1561,6 +1897,15 @@ export class Fauna {
       this.whale.onSplash = () => this.onCall?.('splash', this.whale!.body.root.position);
       this.all.push({ species: 'whale', body: this.whale.body });
     }
+    const serpent = T('serpent');
+    if (serpent) {
+      this.serpent = new Serpent(serpent, scene, (x, z) => {
+        const h = this.ground.at(x, z);
+        return Number.isNaN(h) || h < -1.5;
+      }, particles);
+      this.serpent.onCall = (call, at) => this.onCall?.(call, at);
+      this.all.push({ species: 'serpent', body: this.serpent.body });
+    }
     const duck = T('duck');
     const duckling = T('duckling');
     if (duck && duckling) {
@@ -1579,6 +1924,13 @@ export class Fauna {
       const route = [B(-0.5, -26.5), B(-0.3, -17), B(0, -12.5), B(3.6, -9.5), B(9, -11), B(15, -10.5), B(21, -6), B(24.8, -3.6), B(26.9, -3.3)]; // ends by the fire, on the near side
       this.wanderer = new Wanderer(wanderer, scene, this.ground, route, particles);
       this.all.push({ species: 'wanderer', body: this.wanderer.body });
+    }
+    const gandalf = T('gandalf');
+    if (gandalf && dock && LUCK.gandalf) {
+      const route = [B(-0.5, -26.5), B(-0.3, -17), B(0, -12.5), B(3.6, -9.5), B(9, -11), B(15, -10.5), B(21, -6), B(23.6, -3.4)]; // ends by the fire, west of it
+      this.gandalf = new Gandalf(gandalf, scene, this.ground, route, particles);
+      this.gandalf.onCall = (call, at) => this.onCall?.(call, at);
+      this.all.push({ species: 'gandalf', body: this.gandalf.body });
     }
     const supersheep = T('supersheep');
     if (supersheep && LUCK.supersheep) {
@@ -1639,7 +1991,9 @@ export class Fauna {
       this.onCall?.('quack', at);
     }
     if (species === 'heron') this.heron?.poke();
+    if (species === 'serpent') this.serpent?.poke();
     if (species === 'wanderer') this.wanderer?.dash();
+    if (species === 'gandalf') this.gandalf?.firework();
     if (species === 'supersheep') this.superSheep?.boom();
   }
 
@@ -1690,9 +2044,11 @@ export class Fauna {
     this.leapers.forEach((l) => l.update(dt));
     this.pod?.update(dt, e);
     this.whale?.update(dt);
+    this.serpent?.update(dt, e);
     this.ducks?.update(dt, e);
     this.heron?.update(dt, e);
     this.wanderer?.update(dt, e.night < 0.9);
+    this.gandalf?.update(dt, true);
     this.superSheep?.update(dt, (e.night < 0.6 && e.wet < 0.7) || LUCK.supersheepSoon);
   }
 }

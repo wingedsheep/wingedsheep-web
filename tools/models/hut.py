@@ -5,8 +5,8 @@ Like the lighthouse the camera looks in from the south-east, so the north and we
 full height (the north one is the gable end, rising to the ridge) and the south and east walls
 are sawn off low. x = east, y = north, z = up, the floor at z = 0.
 
-Vincent's bed is in the north-west corner, under the little west window, with a candle on the
-nightstand. The stove is lit along the north wall, the long table is laid for soup, and the
+Vincent's bed, a double he shares with her, is in the north-west corner under the little west
+window, with a candle on the nightstand. The stove is lit along the north wall, the long table is laid for soup, and the
 boots wait in a row by the door. The runtime (src/island/scene/hut-room.ts) drives:
   window_glass  the sky outside          steam  rises from the kettle and the soup pot
   the rest      things you can click (ids)
@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import math
 
+import characters
+import companion
 import palette as P
 from kit import Model, emitter, group, light
 
@@ -25,7 +27,11 @@ X0, X1 = -W / 2, W / 2
 Y0, Y1 = -D / 2, D / 2
 CUT = 0.5
 
-BED = (X0 + 0.62, Y1 - 1.12)       # the middle of Vincent's bed
+BED = (X0 + 0.86, Y1 - 1.12)       # the middle of the bed
+BED_SIZE = (1.6, 2.1)              # width, length
+CHECKS = (7, 7, 1.45)              # the duvet: columns, rows, and how far up the bed it comes
+CELL = ((BED_SIZE[0] - 0.02) / CHECKS[0], CHECKS[2] / CHECKS[1])
+SIDES = (-2 * CELL[0], 2 * CELL[0])  # where Vincent and she sleep: the middle of three checks each
 STOVE = (-1.3, Y1 - 0.5)
 TABLE = (2.0, -0.4)
 DOOR_Y = -2.5                      # the door out, in the west wall
@@ -122,10 +128,11 @@ def windows(root):
 
 
 def bed(root):
-    """Vincent's bed: a carved pine box bed in the corner, made up with a red check duvet, his name
-    on a board over it, and on the nightstand a candle, an alarm clock and a notebook."""
+    """Vincent's bed: a carved pine box bed for two in the corner, made up with a red check duvet,
+    his name on a board over it, and on the nightstand (her side) a candle, an alarm clock and a
+    notebook."""
     bx, by = BED
-    length, width = 2.1, 1.1
+    width, length = BED_SIZE
     g = group("bed", parent=root, id="bed")
     m = Model("bed_frame", seed=82)
     for dx in (-width / 2, width / 2):                                                  # posts
@@ -138,10 +145,11 @@ def bed(root):
         m.ball(0.09, (bx + dx, by + length / 2 - 0.035, 0.97), P.WOOD_DARK, subdiv=1, scale=(1, 0.3, 1))
     m.box((0.14, 0.03, 0.14), (bx, by + length / 2 - 0.035, 0.89), P.WOOD_DARK, rot=(0, math.pi / 4, 0))
     m.box((width - 0.08, length - 0.1, 0.18), (bx, by, 0.46), P.WHITE)                  # mattress
-    m.ball(0.2, (bx, by + length / 2 - 0.3, 0.6), P.WHITE, subdiv=2, scale=(2.2, 1.1, 0.5))  # pillow
+    for dx in SIDES:
+        m.ball(0.2, (bx + dx, by + length / 2 - 0.3, 0.6), P.WHITE, subdiv=2, scale=(1.6, 1.1, 0.5))  # pillows
     # the duvet, in red and white checks, turned back at the top
-    n, cols = 7, 5
-    cw, cl = (width - 0.02) / cols, 1.45 / n
+    cols, n, _ = CHECKS
+    cw, cl = CELL
     for i in range(n):
         for j in range(cols):
             c = P.RED if (i + j) % 2 else P.WHITE
@@ -164,7 +172,7 @@ def bed(root):
               [P.TILE_BLUE, P.CANVAS, P.RUG, P.CANVAS, P.TENT_GREEN, P.CANVAS][k])
     r.build(root)
 
-    nx, ny = bx + width / 2 + 0.4, Y1 - 0.3
+    nx, ny = bx + width / 2 + 0.33, Y1 - 0.3
     s = Model("nightstand")
     s.box((0.5, 0.45, 0.55), (nx, ny, 0.275), P.WOOD)
     s.box((0.56, 0.5, 0.05), (nx, ny, 0.575), P.WOOD_LIGHT)
@@ -500,6 +508,21 @@ def corner(root):
     w.build(root)
 
 
+def guest(root):
+    """The black cat off the pier, curled up at the foot of the bed out of the rain; her, baking at
+    the stove; and at night the two of them in bed: her reading, then both asleep (the runtime
+    shows each only while they're up here)."""
+    bx, by = BED
+    g = group("guests", parent=root, guests="hut")
+    characters.cat(group("cat", (bx - 0.05, by - 0.78, 0.74), rot_z=0.25, parent=g))
+    companion.at_the_hut(g, (TABLE[0] + 0.35, TABLE[1] + 1.0, 0), STOVE)            # on the north bench
+    top = by - BED_SIZE[1] / 2 + 0.07 + CHECKS[2]                                       # where the duvet's turned back
+    neck, sit = by + 0.58, by + 0.63
+    characters.vincent_asleep(group("vincent_asleep", (bx + SIDES[0], neck, 0.75), parent=g), top - neck, CELL)
+    companion.bed_reading(group("companion_bed_reading", (bx + SIDES[1], sit, 0.55), parent=g, id="companion_bed_reading"), top - sit, CELL)
+    companion.bed_asleep(group("companion_bed_asleep", (bx + SIDES[1], neck, 0.75), parent=g), top - neck, CELL)
+
+
 def build():
     root = group("hut_interior")
     shell(root)
@@ -510,4 +533,5 @@ def build():
     table(root)
     door(root)
     corner(root)
+    guest(root)
     return root

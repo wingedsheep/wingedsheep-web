@@ -18,6 +18,9 @@ const BANNER = {
   lamp: 'The lamp room, at the top of the tower. Mind the lens.',
 };
 
+/** The quarters when it's raining and the animals have come in. */
+const RAINY = 'The keeper\'s quarters. Rain on the windows, the cats on the sofa, a damp dog on the rug.';
+
 export type Floor = keyof typeof BANNER;
 type Room = QuartersRoom | LampRoom;
 
@@ -54,6 +57,7 @@ export class Lighthouse implements RoomInput {
     this.loading[floor] ??= (floor === 'lamp' ? LampRoom.load() : QuartersRoom.load())
       .then((room) => {
         (this.rooms as Record<Floor, Room>)[floor] = room;
+        if (room instanceof QuartersRoom) room.onMew = () => this.ctx.sound.call('mew');
         this.resize();
         return room;
       })
@@ -124,6 +128,8 @@ export class Lighthouse implements RoomInput {
     if (!hit || !place) return;
     this.ui.tooltip(null);
     if (hit.id === 'stairs') return this.climb(this.floor === 'lamp' ? 'quarters' : 'lamp');
+    if (room instanceof QuartersRoom) room.guests.pet(hit.id, hit.point);
+    if (room instanceof QuartersRoom && hit.id === 'tap') room.tap();
     place.activate?.(this.ctx, hit.point);
   }
 
@@ -138,7 +144,7 @@ export class Lighthouse implements RoomInput {
       this.fade = Math.max(0, this.fade - step);
     }
     this.pixels.uniforms.uFade.value = this.fade;
-    if (this.inside && this.room) this.room.update(this.reducedMotion ? 0 : dt, night);
+    if (this.inside && this.room) this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
   }
 
   render() {
@@ -156,7 +162,8 @@ export class Lighthouse implements RoomInput {
     if (this.inside) {
       this.floor = this.wantFloor;
       const banner = document.querySelector('[data-panel="lighthouse"] .workshop-banner p');
-      if (banner) banner.textContent = BANNER[this.floor];
+      const rainy = this.room instanceof QuartersRoom && this.room.guests.anyone;
+      if (banner) banner.textContent = rainy ? RAINY : BANNER[this.floor];
       if (this.floor === 'quarters') void this.load('lamp'); // the next thing anyone does is climb
       this.ctx.rig.room = this;
       this.room?.view.reset();

@@ -33,6 +33,11 @@ LIGHTHOUSE = (-31.5, -3)
 CAMPFIRE = (27, -1)
 WELL = (20, -14)
 BENCH = (-17, -11)
+READING = (22.9, -14.0)            # a picnic blanket under the blossom tree, by the well
+WORKOUT = (-4.4, -12.6)            # her exercise mat, on the grass above the beach west of the pier
+PIER_SEAT = (-1.0, -21.5)          # her, with a podcast: on the pier's west edge between two posts, legs over the water
+# Vincent with a podcast: pacing up and down the path from the plaza towards the well
+PODCAST_WALK = [(3.0, -10.3), (8.0, -12.0), (12.5, -13.1), (17.2, -13.9)]
 BEIKE = (-12.5, -12.5)             # Beike's spot in the meadow; he fetches the ball around it
 SIGNPOST = (-2.6, -15.5)
 BOULDER = (19, 6)
@@ -41,6 +46,26 @@ SUMMIT = (5.0, 18.6)
 # The peak rises from the upper terrace: centre, radius, height of the top ledge
 PEAK = ((5.0, 18.6), 6.0, 13.5)
 KAYAK = (2.6, -24)
+KAYAK_LOOP = ((9.0, -27.0), 6.0, 3.5)  # where Vincent paddles about: the middle, and the radii east-west and north-south
+YOGA = (9.0, -14.2)                # his yoga mat on the grass above the beach east of the pier; hers is just east of it
+# Up the mountain: from the foot of the trail at the plaza, up the stairs and the switchbacks to
+# the summit flag (and back down the same way)
+CLIMB = [(0.0, -4.0), (0.5, -1.0), (-2.0, 2.5), (-5.0, 5.0), (-6.5, 6.2), (-6.5, 8.2), (0.0, 10.4), (6.0, 11.2),
+         (10.5, 11.6), (10.5, 14.2), (8.0, 13.6), (5.0, 13.4), (8.2, 14.7), (2.6, 16.0), (7.0, 17.3), (5.6, 18.0)]
+
+# Out of the rain (src/island/scene/shelter.ts): each route runs from where they doze to just
+# inside a door. Charlie and George, and Beike, go home to the lighthouse; the dock cat goes all
+# the way up the trail to the hut, to sleep on Vincent's bed. "deck" points are on the pier;
+# "floor" points are up on the lighthouse's plinth.
+SHELTER = {
+    "bench": [(-16.8, -11.8), (-19.5, -8.4), (-23.5, -5.8), (-26.2, -4.3), (-28.4, -4.6),
+              (-30.3, -4.9), (-31.5, -4.5, "floor"), (-31.5, -3.4, "floor")],
+    "beike": [(-14.8, -9.8), (-19.5, -8.4), (-23.5, -5.8), (-26.2, -4.3), (-28.4, -4.6),
+              (-30.3, -4.9), (-31.5, -4.5, "floor"), (-31.5, -3.4, "floor")],
+    "dock": [(0.4, -25.4, "deck"), (0.2, -18.4, "deck"), (0.0, -15.6), (0.0, -4.0), (0.5, -1.0),
+             (-2.0, 2.5), (-5.0, 5.0), (-6.5, 6.2), (-6.5, 8.2), (0.0, 10.4), (6.0, 11.2), (10.5, 11.6),
+             (10.5, 14.2), (13.2, 14.4), (14.2, 14.7), (14.2, 15.9)],
+}
 
 # Paths: polylines with a width in metres
 PATHS = [

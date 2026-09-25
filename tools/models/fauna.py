@@ -411,6 +411,52 @@ def wanderer(root):
     n.build(body, loc=(0.02, -0.15, 0.08)).rotation_euler = (0.3, -0.5, 0)
 
 
+def gandalf(root):
+    """Gandalf the Grey: long grey robe, a tall hat with a wide, floppy brim, a beard to his belt,
+    a gnarled staff in his right hand (-y) and a long pipe. He arrives precisely when he means to.
+    The runtime swings the staff (`staff`, pivoting in his hand) and nods the head."""
+    b = Model("gandalf_body", seed=3)
+    b.cyl(0.36, 1.05, (0, 0, 0.0), P.WIZARD, segs=8, r_top=0.22)                          # robe
+    b.cyl(0.37, 0.08, (0, 0, 0.0), P.WIZARD_DARK, segs=8, r_top=0.36)                     # muddy hem
+    b.box((0.44, 0.44, 0.42), (0, 0, 1.18), P.WIZARD)                                     # chest
+    b.cyl(0.25, 0.07, (0, 0, 0.9), P.WIZARD_DARK, segs=8)                                 # belt
+    for s in (1, -1):
+        b.box((0.16, 0.12, 0.06), (0.24, s * 0.12, 0.03), P.INK)                           # boots poking out
+    # the left arm hangs by his side, a big sleeve; the right comes forward to hold the staff
+    b.plank_line((0, 0.27, 1.34), (0.04, 0.3, 0.86), 0.17, 0.17, P.WIZARD)
+    b.box((0.1, 0.1, 0.11), (0.05, 0.3, 0.78), P.WIZARD_SKIN)
+    b.plank_line((0, -0.27, 1.34), (0.2, -0.32, 1.02), 0.17, 0.17, P.WIZARD)
+    b.box((0.12, 0.12, 0.12), (0.26, -0.33, 0.98), P.WIZARD_SKIN)                         # right hand
+    b.box((0.24, 0.3, 0.1), (-0.02, 0, 1.42), P.WIZARD_DARK)                              # grey scarf
+    body = b.build(root)
+    h = Model("gandalf_head")  # pivots at the neck
+    h.box((0.36, 0.36, 0.38), (0, 0, 0.19), P.WIZARD_SKIN)
+    h.box((0.06, 0.05, 0.08), (0.2, 0, 0.18), P.WIZARD_SKIN)                               # nose
+    for s in (1, -1):
+        h.box((0.02, 0.06, 0.05), (0.185, s * 0.09, 0.23), P.INK)                          # eyes
+        h.box((0.03, 0.11, 0.035), (0.19, s * 0.09, 0.285), P.WIZARD_BEARD)               # bushy brows
+        h.box((0.3, 0.05, 0.36), (-0.02, s * 0.2, 0.14), P.WIZARD_BEARD)                  # long hair at the sides
+    h.box((0.06, 0.38, 0.4), (-0.19, 0, 0.12), P.WIZARD_BEARD)                            # …and behind
+    h.box((0.06, 0.24, 0.05), (0.2, 0, 0.1), P.WIZARD_BEARD)                               # moustache
+    h.box((0.14, 0.34, 0.36), (0.22, 0, -0.06), P.WIZARD_BEARD)                           # the beard, down his chest
+    h.box((0.12, 0.24, 0.26), (0.26, 0, -0.36), P.WIZARD_BEARD)
+    h.box((0.1, 0.12, 0.12), (0.28, 0, -0.54), P.WIZARD_BEARD)
+    # the long pipe, from the corner of his mouth, bowl hanging down
+    _limb(h, (0.2, -0.08, 0.08), (0.44, -0.2, 0.02), 0.018, 0.018, P.PIPE, segs=4)
+    h.cyl(0.035, 0.08, (0.45, -0.2, 0.01), P.PIPE, segs=5)
+    # the hat: a wide, floppy brim and a tall cone that bends back at the tip
+    h.cyl(0.46, 0.04, (0, 0, 0.38), P.WIZARD_DARK, segs=10, r_top=0.4)
+    h.cyl(0.22, 0.4, (-0.02, 0, 0.4), P.WIZARD, segs=8, r_top=0.12)
+    _limb(h, (-0.04, 0, 0.78), (-0.2, 0, 1.02), 0.12, 0.02, P.WIZARD, segs=8)
+    h.build(body, loc=(0, 0, 1.4))
+    st = Model("gandalf_staff")  # a gnarled staff, pivoting in his right hand
+    _limb(st, (0, 0, -0.96), (0, 0, 0.6), 0.035, 0.035, P.STAFF, segs=5)
+    for i in range(4):  # the knotted head, crooked round
+        a = i * 1.4
+        st.ball(0.06, (math.cos(a) * 0.05, math.sin(a) * 0.05, 0.62 + i * 0.05), P.STAFF, jitter=0.01)
+    st.build(body, loc=(0.27, -0.33, 0.98))
+
+
 def rocky(root):
     """An engineer from 40 Eridani (Project Hail Mary): a rocky five-sided carapace on five
     jointed legs, each ending in a three-fingered hand. No eyes, no face; talks in chords."""
@@ -485,6 +531,62 @@ def whale(root):
     t.build(body, loc=(-3.2, 0, 0.0))
 
 
+SERPENT_SEGS = 16
+SERPENT_STEP = 1.3   # metres between segments along the spine
+
+
+def _serpent_radius(i: int) -> float:
+    """Thin at the neck, thickest a third of the way down, tapering to the tail."""
+    k = i / (SERPENT_SEGS - 1)
+    return 0.55 + 0.6 * math.sin(min(1.0, k * 1.6) * math.pi / 2) - max(0.0, k - 0.55) * 1.6
+
+
+def serpent(root):
+    """The sea serpent: a dragon's head, a long body in segments and a crest of red spines.
+    Every part hangs straight off the root and faces +x (the head leads), so the runtime can lay
+    the segments along whatever curve the spine is making: humps through the waves, or a neck
+    reared up out of the sea. `jaw` is the head's child, hinged to open."""
+    h = Model("serpent_head", seed=13)
+    h.ball(0.7, (0.3, 0, 0.3), P.SERPENT, subdiv=1, scale=(1.2, 0.9, 0.85))                # skull
+    h.ball(0.5, (1.55, 0, 0.12), P.SERPENT, subdiv=1, scale=(2.4, 0.95, 0.65))              # long snout
+    h.box((1.9, 0.7, 0.06), (1.4, 0, -0.16), P.SERPENT_MOUTH)                               # the roof of the mouth
+    for s in (1, -1):
+        h.box((0.5, 0.26, 0.14), (0.95, s * 0.38, 0.72), P.SERPENT_DARK, rot=(s * -0.35, 0, -0.15))  # heavy brow
+        h.box((0.32, 0.16, 0.22), (0.95, s * 0.44, 0.52), P.SERPENT_EYE, glow=True)        # eyes that glow
+        h.box((0.07, 0.17, 0.2), (0.97, s * 0.45, 0.52), P.INK)                           # slit pupil
+        h.box((0.12, 0.1, 0.08), (2.45, s * 0.14, 0.24), P.INK)                           # nostrils
+        for i in range(6):  # teeth along the upper jaw, pointing down
+            h.cyl(0.07, 0.26, (0.75 + i * 0.3, s * (0.36 - i * 0.03), -0.12), P.SERPENT_TOOTH, segs=4, r_top=0.0, rot=(math.pi, 0, 0))
+        # swept-back horns, and a fan of red spines behind the jaw
+        _limb(h, (0.35, s * 0.3, 0.8), (-0.8, s * 0.6, 1.5), 0.16, 0.02, P.SERPENT_HORN, segs=5)
+        for i in range(3):
+            _limb(h, (-0.05, s * 0.5, 0.1 + i * 0.22), (-0.8, s * (1.05 + i * 0.1), -0.05 + i * 0.45), 0.08, 0.01, P.SERPENT_FIN, segs=4)
+    for i in range(4):  # a ridge of knobs down the snout
+        h.box((0.18, 0.16, 0.12), (2.2 - i * 0.35, 0, 0.44 + i * 0.07), P.SERPENT_DARK)
+    head = h.build(root)
+    j = Model("serpent_jaw")  # hinged at the back of the mouth
+    j.ball(0.42, (1.0, 0, -0.12), P.SERPENT_BELLY, subdiv=1, scale=(2.7, 0.85, 0.45))
+    j.box((2.0, 0.6, 0.06), (1.0, 0, 0.02), P.SERPENT_MOUTH)
+    for s in (1, -1):
+        for i in range(5):
+            j.cyl(0.06, 0.22, (0.5 + i * 0.32, s * (0.3 - i * 0.025), 0.0), P.SERPENT_TOOTH, segs=4, r_top=0.0)
+    j.build(head, loc=(0.35, 0, -0.14))
+    for i in range(SERPENT_SEGS):
+        r = _serpent_radius(i)
+        g = Model(f"serpent_seg_{i:02d}", seed=40 + i)
+        g.ball(r, (0, 0, 0), P.SERPENT, subdiv=1, scale=(SERPENT_STEP * 0.95 / r, 1.0, 0.92))
+        g.ball(r * 0.85, (0, 0, -r * 0.3), P.SERPENT_BELLY, subdiv=1, scale=(SERPENT_STEP * 0.9 / r, 0.95, 0.75))
+        for s in (1, -1):  # a few darker scutes along the flanks
+            g.box((r * 0.5, 0.1, r * 0.35), (g.rng.uniform(-0.3, 0.3), s * r * 0.9, r * 0.25), P.SERPENT_DARK, rot=(s * 0.35, 0, 0))
+        # a red spine standing up from the crest of the back
+        g.prism([(-0.35, 0), (0.25, 0), (-0.45, 0.55 + r * 0.45)], 0.08, (0, 0, r * 0.8), P.SERPENT_FIN)
+        g.build(root, loc=(-(i + 0.8) * SERPENT_STEP, 0, 0))
+    t = Model("serpent_tail")  # a tall fin, like an eel's
+    t.prism([(0.3, 0), (-1.8, 0.9), (-1.2, 0), (-1.8, -0.9)], 0.06, (0, 0, 0), P.SERPENT_FIN)
+    t.ball(0.28, (0, 0, 0), P.SERPENT, subdiv=1, scale=(1.8, 1, 1))
+    t.build(root, loc=(-(SERPENT_SEGS + 0.6) * SERPENT_STEP, 0, 0))
+
+
 ALL = {
     "gull": (gull, 1.4), "songbird": (songbird, 1.7), "goose": (goose, 1.4), "owl": (owl, 1.5),
     "heron": (heron, 1.2), "duck": (duck, 1.3), "duckling": (duckling, 1.3), "bat": (bat, 1.8),
@@ -492,8 +594,9 @@ ALL = {
     "fox": (fox, 1.25), "badger": (badger, 1.55), "hedgehog": (hedgehog, 1.5), "squirrel": (squirrel, 1.6), "crab": (crab, 1.6),
     "sheep": (sheep, 1.0), "blacksheep": (lambda r: sheep(r, "blacksheep"), 1.0),
     "starsheep": (lambda r: sheep(r, "starsheep"), 1.0), "supersheep": (lambda r: sheep(r, "supersheep"), 1.3),
-    "wanderer": (wanderer, 1.3), "rocky": (rocky, 1.6),
+    "wanderer": (wanderer, 1.3), "rocky": (rocky, 1.6), "gandalf": (gandalf, 1.15),
     "fish": (fish, 1.6), "dolphin": (dolphin, 1.0), "whale": (whale, 1.0),
+    "serpent": (serpent, 1.9),
 }
 
 
@@ -508,7 +611,7 @@ def lineup(spacing=2.4):
     x = 0.0
     roots = []
     for species, (build, scale) in ALL.items():
-        big = {"whale": 6, "dolphin": 2.4, "heron": 1.4, "deer": 1.8, "stag": 1.8}.get(species, 1.0)
+        big = {"serpent": 16, "whale": 6, "dolphin": 2.4, "heron": 1.4, "deer": 1.8, "stag": 1.8}.get(species, 1.0)
         x += spacing * big / 2
         root = group(f"fauna_{species}", (x, 0, 0), fauna=species)
         root.scale = (scale,) * 3

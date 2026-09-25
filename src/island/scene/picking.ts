@@ -22,7 +22,7 @@ export class Picker {
   pick(ndc: THREE.Vector2): { id: string; point: THREE.Vector3 } | null {
     this.ray.setFromCamera(ndc, this.camera);
     for (const hit of this.ray.intersectObjects(this.targets, true)) {
-      if (!hit.object.visible) continue;
+      if (!shown(hit.object)) continue; // e.g. the cats in the lighthouse, when it's dry and they're out
       const id = idOf(hit.object);
       if (id) return { id, point: hit.point };
     }
@@ -57,6 +57,12 @@ export class Picker {
       }
     });
   }
+}
+
+/** Whether an object and everything it hangs from is showing (the raycaster doesn't ask). */
+function shown(o: THREE.Object3D | null): boolean {
+  for (let p = o; p; p = p.parent) if (!p.visible) return false;
+  return true;
 }
 
 export function idOf(o: THREE.Object3D | null): string | undefined {

@@ -88,3 +88,17 @@ def beike(root):
     for (x, z, r), c in zip(arc, colors):
         tl.ball(r, (x, 0, z), c, subdiv=1, scale=(1.0, 0.85, 1.0), jitter=0.01)
     tl.build(body, loc=(-0.34, 0, 0.1))
+
+
+def asleep(root):
+    """Beike indoors, out of the rain: lying down, front paws out, chin low, ball still in his
+    mouth. The runtime shows him in the keeper's quarters while it rains outside."""
+    beike(root)
+    body = next(o for o in root.children if o.name.startswith("beike_body"))
+    body.location.z = BODY_Z - 0.24
+    for o in body.children:
+        if "_leg_" in o.name:
+            front = o.location.x > 0
+            o.rotation_euler = (0, -1.5 if front else 1.45, 0)                  # paws forward, hind legs tucked back
+        elif o.name.startswith("beike_head"):
+            o.rotation_euler = (0, 0.3, 0)

@@ -11,6 +11,9 @@ import { chapters } from '../data/career';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { travels, yearsOf } from '../data/travels';
+import { hourOf } from './scene/bedtime';
+import { type Show, telly } from './scene/companion';
+import { ambush, indoors } from './scene/shelter';
 import type { Forecast } from './forecast';
 import type { Journal } from './journal';
 import type { CameraRig } from './scene/camera-rig';
@@ -93,16 +96,46 @@ export const SECRETS = {
   stag: { title: 'The stag', hint: 'Now and then the deer bring someone wearing a crown.' },
   dolphins: { title: 'Dolphins', hint: 'Sometimes a pod passes the south of the island.' },
   whale: { title: 'The whale', hint: 'Watch the sea for a while. A long while.' },
+  serpent: { title: 'Here be dragons', hint: 'The old sailors swore the deep only shows itself in foul weather.' },
   geese: { title: 'The skein', hint: 'Look up in autumn and in spring.' },
   blacksheep: { title: 'The black sheep', hint: 'Every flock has one. Not on every visit.' },
   wanderer: { title: 'A small wanderer', hint: 'Someone very small, very rarely, comes ashore at the dock.' },
   starsheep: { title: 'A wild sheep chase', hint: 'Very rarely, one of the flock has a mark on its back.' },
   rocky: { title: 'Fist my bump', hint: 'Someone with five legs and no face very rarely drops by the workshop.' },
+  gandalf: { title: 'Precisely when he means to', hint: 'Someone grey, with a staff and a tall pointed hat, very rarely comes up from the dock. Never late.' },
   supersheep: { title: 'Super Sheep', hint: 'Once in a long while, one of the flock has somewhere to be. Fast.' },
 } as const;
 
 let logPage = -1;
 const say = (text: string) => (ctx: IslandContext) => ctx.toast(text);
+/**
+ * The same line every click, except that on the nth click (counting from 1) the thing has had
+ * enough and says something else: for things people click over and over just to see.
+ */
+const keepsOn = (usual: string, nth: Record<number, string>) => {
+  let n = 0;
+  return () => nth[++n] ?? usual;
+};
+/** Lines said in turn, so clicking again says something new. */
+const inTurn = (lines: string[]) => {
+  let n = 0;
+  return () => lines[n++ % lines.length];
+};
+
+/**
+ * Her, out on the island (src/island/scene/companion.ts): she looks up, or raises her mug, and
+ * you get a line. Never her name: she's just there.
+ */
+function withHer(label: string, line: (ctx: IslandContext) => string): Place {
+  return {
+    label,
+    activate(ctx, at) {
+      ctx.life.companion.notice();
+      ctx.life.burst('hearts', at);
+      ctx.toast(line(ctx));
+    },
+  };
+}
 
 /**
  * An animal: it reacts (bolts, curls up, calls…, see fauna.ts), and you get a line about it.
@@ -116,6 +149,22 @@ function animal(species: string, label: Place['label'], lines: string[], secret?
       ctx.life.fauna.poke(species, at, ctx.rig.camera.position);
       ctx.toast(lines[n++ % lines.length]);
       if (secret) ctx.discover(secret);
+    },
+  };
+}
+
+/**
+ * A cat asleep indoors out of the rain: it purrs, and stirs (the room makes the hearts, see
+ * scene/guests.ts). Lines are picked in turn.
+ */
+function indoorPet(label: string, lines: string[], secret: keyof typeof SECRETS): Place {
+  let n = 0;
+  return {
+    label,
+    activate(ctx) {
+      ctx.sound.purr();
+      ctx.toast(lines[n++ % lines.length]);
+      ctx.discover(secret);
     },
   };
 }
@@ -159,6 +208,11 @@ const WILDLIFE: Record<string, Place> = {
   ], 'geese'),
   dolphin: animal('dolphin', 'Dolphins!', ['A pod of dolphins, passing the island without stopping. They seem to be having a great time.'], 'dolphins'),
   whale: animal('whale', 'A humpback whale', ['A humpback! One slow breath at the surface, and it’s gone again. It might be a long time before it comes back.'], 'whale'),
+  serpent: animal('serpent', (ctx) => (ctx.journal.has('serpent') ? 'The sea serpent' : 'Something in the sea. Something big'), [
+    'A sea serpent! It looks straight at the island, and for a long moment nobody on it breathes.',
+    'The old charts had it right, then. Here be dragons.',
+    'It rolls on through the waves, in no hurry at all. The sea is its and always was.',
+  ], 'serpent'),
   duck: animal('duck', 'A mallard', ['Quack. It paddles on, very much in charge.']),
   duckling: animal('duckling', 'A duckling', ['Tiny, fluffy, and paddling as hard as it possibly can to keep up.']),
   heron: animal('heron', 'A grey heron', ['It unfolds itself, flaps off low over the water with a grumpy croak, and will be back the moment you’ve gone.']),
@@ -174,13 +228,117 @@ const WILDLIFE: Record<string, Place> = {
   supersheep: animal('supersheep', '…is that a sheep?', [
     'BAAA-BOOM. Wool everywhere, sheep nowhere. Somewhere, a worm nods approvingly.',
   ], 'supersheep'),
+  gandalf: animal('gandalf', (ctx) => (ctx.journal.has('gandalf') ? 'Gandalf the Grey' : 'An old man in grey, with a staff'), [
+    '“A wizard is never late, nor is he early. He arrives precisely when he means to.”',
+    'A firework whistles up from the end of his staff and bursts over the island. Somewhere, a hobbit cheers.',
+    '“All we have to decide is what to do with the time that is given us.” He puffs on his pipe and looks into the fire.',
+  ], 'gandalf'),
   wanderer: animal('wanderer', '???', [
     'A small masked wanderer in a red cloak. It bows, needle raised, and is gone in a dash. It seems to know exactly where it’s going.',
   ], 'wanderer'),
 };
 
+// Harry Potter, taking turns with the twentieth century (and a feminist classic)
+const wellLine = keepsOn('It is very deep. Far below, something winds a spring: kriiik, kriiik.', {
+  5: 'Kriiik, kriiik… kriiik?',
+  9: 'From far below, a small, tired voice: “Some of us are trying to wind a spring down here.”',
+  16: 'You drop a coin in. A long time later: plink. Then, even fainter: “thank you.”',
+});
+const benchLine = keepsOn('You squeeze onto the end, next to the cats. Progress saved.', {
+  4: 'Progress saved. Nothing has happened since, but it’s saved.',
+  8: 'George has moved one paw onto your end of the bench. This is a warning.',
+  14: 'You have rested enough for three journeys. The cats have not moved at all, and are more rested than you.',
+});
+const boulderLine = keepsOn('Yellow holds, V4. You send it on the third try.', {
+  3: 'You send it again. Nobody was watching, so it doesn’t count.',
+  6: 'Again, first go. At this point you’re just showing off to the sheep.',
+  10: 'The holds have gone shiny where you keep grabbing them. The boulder would like a rest day.',
+});
+const coffeeLine = keepsOn('The most important machine in the lighthouse. The light on the front is never off.', {
+  3: 'Another one. It’s black, so it doesn’t count.',
+  6: 'Coffee number six. Your left eye has started to blink on and off, gently, like a lighthouse.',
+  10: 'The machine starts pouring before you reach it. It knows.',
+});
+
+const reading = inTurn([
+  'Prisoner of Azkaban, for the ninth time. She still gasps at the Shrieking Shack.',
+  'The Rise and Fall of the Third Reich. She’s at the rise, so she’s in a mood. Ask again at the fall.',
+  'She’s explaining, unprompted, why Snape is not a hero. Allow about forty minutes.',
+  'Volume two of a three-volume life of Stalin. Plenty of people never made it to volume three; she intends to.',
+  'She has been sorted, re-sorted, and has settled it: Ravenclaw. Don’t mention the other quiz.',
+  'How Democracies Die. She reads the good bits out loud, then looks pointedly at the news.',
+  'Half-Blood Prince. She’s at the bit on the tower and has asked not to be spoken to.',
+  'A history of the Cold War, full of pencil notes. The margins are winning the arms race.',
+  'Invisible Women. She’s just found out crash-test dummies are built like men, and the whole island is going to hear about it.',
+  'A book on taxing the rich. In fifties America the top rate was ninety-one percent, and the economy boomed anyway. She has folded down the corner of that page.',
+]);
+const fireside = inTurn([
+  'She raises her mug at you. Tea. The schnapps is for later.',
+  'She has a request. He claims not to know it. He knows it.',
+  'Toes towards the fire, hands round the mug. This is the good log, and it’s taken.',
+]);
+const workout = inTurn([
+  'She waves without missing a beat. Nobody else on this island can do jumping jacks and wave.',
+  'Rep eleven. Or twelve. She’s lost count, so she starts again from one, on principle.',
+  'She says you can join in. She says it without stopping, which makes it sound less like an invitation and more like a dare.',
+]);
+
+const yoga = inTurn([
+  'She opens one eye, sees him wobbling in tree pose, and very nearly loses her balance laughing.',
+  'Deep breath in. Deep breath out. Somewhere behind her, a gull disagrees.',
+  'She’s better at this than him, and has been kind enough to mention it only twice.',
+]);
+const hisYoga = inTurn([
+  'Tree pose. The tree is swaying a bit. It’s the wind, he says.',
+  'He breathes out very slowly and pretends not to have noticed you watching.',
+  'Downward dog. Beike, from across the island, takes this as an invitation.',
+]);
+const climbing = inTurn([
+  'Off to the summit, pack on, no reason. He’ll be back for the guitar.',
+  'He points up at the flag, then at his boots, then at the flag again. Right.',
+  'Up top, arms in the air as if it were Everest. It’s a thirteen-metre hill. It still counts.',
+]);
+
+// him: AI, mostly, and Sam Harris for everything else; big black noise-cancellers, pacing
+const listening = inTurn([
+  'Dwarkesh Patel, hour three with an AI researcher. He has paced to the well and back eleven times and is now explaining scaling laws to a gull.',
+  'Sam Harris, on free will. He stops, frowns, decides he didn’t decide to stop, and walks on.',
+  'AI Explained, on this week’s new model. It’s already out of date. So is the one before it. He walks faster.',
+  '“Sorry, what?” Noise-cancelling on. He gives you a thumbs up for something you didn’t say.',
+  'He stops dead, raises one finger, and makes an excellent point. The podcast carries on without him.',
+]);
+// her: politics, some history, and a lot of the Dutch kind; little white in-ears, the end of the pier
+const hearing = inTurn([
+  'The Rest Is Politics. Rory and Alastair disagree politely. She disagrees with both of them, less politely.',
+  'A Dutch politics podcast, week nineteen of forming a cabinet. She’s running a sweepstake on week forty.',
+  'The Rest Is History, part four of six on the fall of the Berlin Wall. She knows how it ends. She’s tense anyway.',
+  'One earbud comes out. “What?” It goes straight back in. Whatever it was, it wasn’t coalition maths.',
+  'She shakes her head at the sea. The sea, to be fair, did not vote for any of them.',
+  'A guest with three holiday homes calls the last few years “a real struggle”. She rewinds it, just to hear it again.',
+]);
+
 export const PLACES: Record<string, Place> = {
-  dock: { label: 'The dock', activate: say('Every visitor arrives here. The water is calm today.') },
+  vincent_podcast: {
+    label: 'Vincent · pacing with a podcast',
+    activate: (ctx) => ctx.toast(listening()), // no hearts: he can't hear you, noise-cancelling
+  },
+  companion_podcast: withHer('Feet over the water, a podcast in', hearing),
+  companion_reading: withHer('Deep in a book', reading),
+  companion_fireside: withHer('By the fire, with tea', (ctx) =>
+    ctx.sound.playing ? 'She’s singing along, a word or two ahead of him. He’s pretending not to notice.' : fireside()),
+  companion_workout: withHer('Working out above the beach', workout),
+  companion_yoga: withHer('Yoga, on the next mat along', yoga),
+  vincent_yoga: { label: 'Vincent · yoga by the beach', activate: (ctx) => ctx.toast(hisYoga()) },
+  vincent_hiking: { label: 'Vincent · off up the mountain', activate: (ctx) => ctx.toast(climbing()) },
+  dock: (() => {
+    const line = keepsOn('Every visitor arrives here. The water is calm today.', {
+      6: 'Still the dock. Still calm. Still here.',
+      12: 'The dock would like you to know that it has other visitors.',
+      20: 'Twenty times. The dock cat has opened both eyes to look at you.',
+      35: 'The planks creak, very slowly, in what might be Morse. You think it says “boat”.',
+    });
+    return { label: 'The dock', activate: (ctx: IslandContext) => ctx.toast(line()) };
+  })(),
   signpost: { label: 'Signpost · where to?', panel: 'places' },
   library: { label: 'The library · blog', panel: 'library' },
   workshop: { label: 'The workshop · projects', panel: 'workshop' },
@@ -260,7 +418,7 @@ export const PLACES: Record<string, Place> = {
   well: {
     label: 'An old well',
     activate(ctx) {
-      ctx.toast('It is very deep. Far below, something winds a spring: kriiik, kriiik.');
+      ctx.toast(wellLine());
       ctx.discover('well');
     },
   },
@@ -300,7 +458,7 @@ export const PLACES: Record<string, Place> = {
     label: 'A bench',
     activate(ctx, at) {
       ctx.life.burst('silk', at);
-      ctx.toast('You squeeze onto the end, next to the cats. Progress saved.');
+      ctx.toast(benchLine());
       ctx.discover('bench');
     },
   },
@@ -308,7 +466,7 @@ export const PLACES: Record<string, Place> = {
     label: 'A boulder with holds',
     activate(ctx, at) {
       ctx.life.burst('chalk', at);
-      ctx.toast('Yellow holds, V4. You send it on the third try.');
+      ctx.toast(boulderLine());
       ctx.discover('boulder');
     },
   },
@@ -326,12 +484,29 @@ export const PLACES: Record<string, Place> = {
   kayak: {
     label: 'A kayak',
     activate(ctx) {
-      // after the cartridge, the kayak has something to add
-      ctx.toast(ctx.journal.has('cartridge') && ctx.journal.has('kayak')
-        ? 'A strip of masking tape inside the cockpit. In marker: “level 1?”'
-        : 'The seat is still wet. Someone has been paddling around the island.');
+      // in a storm nobody's going out; after the cartridge, the kayak has something to add
+      ctx.toast(ctx.weather.now.storm > 0.5
+        ? 'The kayak bucks and tugs at its rope in the waves. You hope someone tied it up well.'
+        : ctx.journal.has('cartridge') && ctx.journal.has('kayak')
+          ? 'A strip of masking tape inside the cockpit. In marker: “level 1?”'
+          : 'The seat is still wet. Someone has been paddling around the island.');
       ctx.discover('kayak');
     },
+  },
+  vincent_kayak: {
+    label: 'Vincent · out in the kayak',
+    activate: (() => {
+      const lines = [
+        'He lifts the paddle to wave, drips all down his sleeve, and nearly goes in. Worth it.',
+        'Round the pier and back, just to see the island from the water for a bit.',
+        'He says the fish are right there. He has never once seen a fish.',
+      ];
+      let n = 0;
+      return (ctx: IslandContext) => {
+        ctx.toast(lines[n++ % lines.length]);
+        ctx.discover('kayak');
+      };
+    })(),
   },
   ufo: {
     label: '???',
@@ -484,23 +659,105 @@ const GAMES: Record<string, { label: string; text: string }> = {
   'next-station': { label: 'Next Station: London and Tokyo', text: 'Next Station: London and Tokyo. Draw your own underground line, one flip of a card at a time.' },
 };
 
+/**
+ * What's on the telly when someone's already on the sofa (src/island/scene/companion.ts), and
+ * what the screen shows (src/island/scene/programmes.ts). She has the remote.
+ */
+const PROGRAMMES: Record<Show, { label: string; text: string; play: string; stay: string; her: string }> = {
+  murder: {
+    label: 'The telly · a British murder mystery',
+    text: 'A British murder mystery. A thatched village of forty people, a vicar with a past, and a detective who takes two more deaths than strictly necessary to crack it. Check the sign by the road: at this rate the village is gone by the second series.',
+    play: 'Take the controller (someone will notice) ↗',
+    stay: 'It was the vicar. Stay and watch',
+    her: 'She’s narrowed it down to the vicar or the vicar’s twin. There’s always a twin.',
+  },
+  location: {
+    label: 'The telly · Location, Location, Location',
+    text: 'Location, Location, Location. The couple want five bedrooms, a garden, a village pub and a station within walking distance, and a budget that would get you a nice shed. Phil has found them a nice shed. They’ll “have a think”.',
+    play: 'Make an offer on the controller ↗',
+    stay: 'Keep watching: they’re about to see the kitchen',
+    her: '“They’re going to say no to the kitchen.” They say no to the kitchen.',
+  },
+  bnb: {
+    label: 'The telly · B&B vol liefde',
+    text: 'B&B vol liefde. A Dutchman has opened a B&B in Provence to find love, and three guests have come to stay. Someone has already cried over a croissant. Someone always cries over a croissant.',
+    play: 'Check out early ↗',
+    stay: 'Stay for breakfast',
+    her: 'She picked who goes home before the first breakfast was served. She is never wrong.',
+  },
+  rail: {
+    label: 'The telly · Rail Away',
+    text: 'Rail Away. A train goes through the Alps. A calm voice says “on the left, a viaduct”. Then, a bit later, another viaduct. Nothing else happens for forty-five minutes, and it is perfect.',
+    play: 'Get off at the next station ↗',
+    stay: 'Stay on till the end of the line',
+    her: 'Eyes closed? No, she’s “resting them through the tunnel”. It’s a long tunnel.',
+  },
+};
+
+/** Vincent's desk in the quarters, and him at it when he's making his game (src/island/scene/vincent.ts). */
+const DESK: Place = {
+  label: () => (!indoors.has('vincent_coding') ? 'Vincent’s desk · a game in the making'
+    : ambush.on ? 'Vincent · wearing Charlie' : 'Vincent · making a game'),
+  activate: (() => {
+    const busy = inTurn([
+      'He doesn’t look round. “Nearly got the jump right. Two minutes.” It has been two minutes for an hour.',
+      'The little hero jumps, misses the platform, and falls through the floor. He writes something on a sticky note.',
+      'He turns the screen so you can see: a level, a coin, a winged sheep somewhere up in the clouds. “Don’t tell anyone yet.”',
+      'His phone lights up: “you’re still coming, right?” He types “omw!!” and goes back to the jump. On his way, in the loosest possible sense.',
+    ]);
+    // small hours: he said he'd stop at eleven
+    const small = inTurn([
+      '“One more prompt, then bed.” That was forty prompts ago.',
+      'The game now has weather, a day-night cycle and a fishing minigame. The jump still doesn’t feel right.',
+      'He glances at the clock, decides it must be wrong, and carries on.',
+      '“I’ll just fix this one thing.” The one thing has become six things, and a new branch called final-final.',
+    ]);
+    const clawed = inTurn([
+      'There was one tiny mew, and then there was a cat. Every claw is in. Vincent types on, very upright, very carefully.',
+      '“He’s helping,” says Vincent, through his teeth. He can no longer lean back in his chair.',
+      'Charlie is on his shoulders, surveying the code. He does not approve of the indentation.',
+    ]);
+    return (ctx: IslandContext) => {
+      if (!indoors.has('vincent_coding')) {
+        return ctx.toast('The screen’s asleep. On the paper by the keyboard, a level sketched in pencil, and in the margin: “level 1?”');
+      }
+      if (ambush.on) return ctx.toast(clawed());
+      const hour = hourOf(ctx.sky.time);
+      if (hour >= 0.5 && hour < 5) {
+        const clock = `${Math.floor(hour)}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`;
+        return ctx.toast(`It’s ${clock} in the morning. ${small()}`);
+      }
+      ctx.toast(busy());
+    };
+  })(),
+};
+
 /** Things in the keeper's quarters, inside the lighthouse. */
 export const LIGHTHOUSE_PLACES: Record<string, Place> = {
+  companion_watching: {
+    label: 'On the sofa, remote in hand',
+    activate(ctx) {
+      if (indoors.has('charlie')) ctx.toast('Charlie has her lap, and is purring louder than the telly. She shushes him. It doesn’t work.');
+      else ctx.toast(telly.show ? PROGRAMMES[telly.show].her : 'She shuffles the popcorn over so you can reach. Shh, though.');
+    },
+  },
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
+  desk: DESK,
+  vincent_coding: DESK,
   stairs: { label: 'The stairs · up to the lamp' }, // src/island/lighthouse.ts does the climbing
   console: {
-    label: 'The telly · play GTA Arnhem',
+    label: () => (telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show].label : 'The telly · play GTA Arnhem'),
     activate(ctx) {
-      ctx.ask('GTA Arnhem: drive around Arnhem, where Vincent grew up. It opens in a new tab.', [
-        {
-          label: 'Play ↗',
-          pick() {
-            window.open('https://racer.wingedsheep.com/', '_blank', 'noopener');
-            ctx.discover('arnhem');
-          },
+      const play = {
+        label: 'Play ↗',
+        pick() {
+          window.open('https://racer.wingedsheep.com/', '_blank', 'noopener');
+          ctx.discover('arnhem');
         },
-        { label: 'Not now' },
-      ]);
+      };
+      const on = telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show] : null;
+      if (on) ctx.ask(on.text, [{ ...play, label: on.play }, { label: on.stay }]);
+      else ctx.ask('GTA Arnhem: drive around Arnhem, where Vincent grew up. It opens in a new tab.', [play, { label: 'Not now' }]);
     },
   },
   cartridge: {
@@ -516,7 +773,17 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
       ? 'Black, and stone cold. Someone said they’d be right there. About three hours ago.'
       : 'Black, no sugar, still hot. Someone said they’d be right there.'),
   },
-  coffee_machine: { label: 'The coffee machine', activate: say('The most important machine in the lighthouse. The light on the front is never off.') },
+  coffee_machine: { label: 'The coffee machine', activate: (ctx) => ctx.toast(coffeeLine()) },
+  tap: {
+    label: 'The kitchen tap',
+    activate(ctx) {
+      ctx.sound.call('tap');
+      const cats = indoors.has('charlie') || indoors.has('george');
+      ctx.toast(cats
+        ? 'You turn on the tap. Two cats who were fast asleep on the sofa a second ago are already on the counter, taking turns. Their water bowl is full. It doesn’t count.'
+        : 'You turn on the tap. Somewhere out on the island, two cats sit bolt upright.');
+    },
+  },
   wrap: { label: 'A wrap on a plate', activate: say('Hummus, tuna and whatever vegetables were left: dinner for an evening when cooking is too much.') },
   sketchbook: {
     label: 'A sketchbook',
@@ -534,6 +801,32 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
       ctx.toast(`Keeper's log: ${interests[logPage].text}`);
     },
   },
+  // in out of the rain (shelter.ts): shown, and clickable, only while they're indoors
+  charlie: indoorPet('Charlie · warm and dry on the sofa', [
+    'Charlie uncurls just enough to push a head into your hand, then curls back up tighter than before.',
+    'A purr starts somewhere deep inside the ball of cat. The rain can do what it likes.',
+    'One eye opens, checks the window, sees it’s still raining, and closes again.',
+  ], 'cats'),
+  george: indoorPet('George · the good end of the sofa', [
+    'George rolls over for a belly rub. It is a trap. It is always a trap. The purring starts anyway.',
+    'George has taken most of the sofa, and would like it noted who got here first.',
+    'A heavy, contented purr, like a small engine idling. Nobody is going back out in that.',
+  ], 'cats'),
+  beike: {
+    label: 'Beike · drying off on the rug',
+    activate: (() => {
+      const lines = [
+        'Thump, thump, thump: his tail on the rug. He doesn’t open his eyes. He doesn’t let go of the ball.',
+        'Beike smells of wet dog and is extremely pleased with himself about it.',
+        'A long, happy sigh. The ball stays in his mouth, just in case the rain stops.',
+      ];
+      let n = 0;
+      return (ctx: IslandContext) => {
+        ctx.toast(lines[n++ % lines.length]);
+        ctx.discover('beike');
+      };
+    })(),
+  },
   bowls: { label: 'Two cat bowls', activate: say('One for Charlie, one for George. Both empty, according to Charlie and George.') },
   surfboard: { label: 'A surfboard', activate: say('It’s been out on the Atlantic: Mimizan, and the surf on the south-west coast of France.') },
   backpack: { label: 'A pack and boots', activate: say('Boots by the door and a little green tent strapped to the pack. It has slept on a few mountain tops.') },
@@ -546,13 +839,51 @@ let guestPage = -1;
 let dreamPage = -1;
 
 /** Things in the mountain hut. */
+// she's a feminist; the pie is a bit
+const waiting = inTurn([
+  '“Look at me, a proper tradwife.” She says it with The Second Sex open next to the pie tin.',
+  'The timer says twenty minutes. She says eighteen, and she’s never wrong about pie.',
+  'Tradwife hour, she announces. It lasts exactly as long as the pie is in the oven, not a minute longer.',
+  'She offers you the first slice. Whoever says “a woman’s place” does the washing up.',
+]);
+
 export const HUT_PLACES: Record<string, Place> = {
+  companion_baking: { label: 'Tea, while the pie bakes', activate: (ctx) => ctx.toast(waiting()) },
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
+  pie: { label: 'A pie in the oven', activate: (ctx) => ctx.toast('A cherry pie, baking. Twenty minutes to go, and the whole hut already smells of it.') },
   bed: {
     label: 'Vincent’s bed',
-    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
-      ? 'Turned down, the candle lit, and nobody in it. He said he’d be right up.'
-      : 'Made up with the red check duvet. His name is on the board over it, so nobody else gets the corner by the window.'),
+    activate(ctx) {
+      const him = indoors.has('vincent_asleep');
+      const her = indoors.has('companion_bed_reading') || indoors.has('companion_bed_asleep');
+      ctx.toast(her && !him
+        ? 'Her side’s taken. His is turned down, and he said he’d be right up. He said that an hour ago.'
+        : him || her
+          ? 'Two under the red check duvet, and the stove ticking as it cools. Shh.'
+          : ctx.sky.lamps > 0.6
+            ? 'Turned down, the candle lit, and nobody in it yet.'
+            : 'Made up with the red check duvet. His name is on the board over it; hers is on the pillow she always takes, by the candle.');
+    },
+  },
+  vincent_asleep: {
+    label: 'Vincent · fast asleep',
+    activate: (() => {
+      const lines = [
+        'He mumbles something about a double jump, smiles, and rolls over.',
+        'Out like a light. The alarm is set for the sunrise; the alarm is going to lose.',
+        'A small snore. Then a bigger one. Nobody up here is going to mention it in the morning.',
+      ];
+      let n = 0;
+      return (ctx: IslandContext) => ctx.toast(lines[n++ % lines.length]);
+    })(),
+  },
+  companion_bed_reading: {
+    label: 'Reading in bed · one more chapter',
+    activate: say('She holds up a finger without looking up: one more chapter. It is never one more chapter.'),
+  },
+  companion_bed_asleep: {
+    label: 'Asleep, the book on the duvet',
+    activate: say('Asleep, a finger still keeping her page. The candle can stay lit a bit longer.'),
   },
   dream_journal: {
     label: 'A notebook by the bed',
@@ -599,6 +930,11 @@ export const HUT_PLACES: Record<string, Place> = {
     activate: say('A stamp from every hut he’s slept in: the Tour du Mont Blanc, La Fouly, Gavarnie, the Dolomites, Ramsau am Dachstein, and fresh ink from the Peaks of the Balkans.'),
   },
   boots: { label: 'A row of boots', activate: say('Lined up by the door, still drying out. The muddiest pair has just done the Peaks of the Balkans.') },
+  cat: indoorPet('The dock cat · on Vincent’s bed', [
+    'She came all the way up the trail to sleep on the red check duvet. Mrrp. She is not getting off it.',
+    'A slow blink, a purr, and she tucks her white paws back under her chin. The stove ticks. The rain keeps on.',
+    'Paw prints across the duvet, still a little damp. Nobody is going to say anything about it.',
+  ], 'cat'),
   rope: { label: 'A rope and an ice axe', activate: say('For the stretch above the hut, where the trail stops being a trail.') },
 };
 

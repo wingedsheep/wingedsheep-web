@@ -177,7 +177,9 @@ def build_lighthouse(a):
     print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'lighthouse.glb'}")
 
     if a.preview and a.only == "lighthouse":
-        preview(a.preview, a.night, -22.0, (0.0, 0.3), 16.0, sea=False)
+        close = a.focus != "0,1"
+        fx, fy = (float(v) for v in a.focus.split(",")) if close else (0.0, 0.3)
+        preview(a.preview, a.night, -22.0, (fx, fy), a.span if close else 16.0, sea=False)
 
 
 def build_lamproom(a):

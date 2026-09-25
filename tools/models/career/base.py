@@ -93,9 +93,9 @@ class Look:
     """How someone is dressed. Hair, top and legs are colours; `beard` may be None."""
 
     def __init__(self, hair=P.HAIR, top=P.TEE, legs=P.SHORTS, shoes=P.SHOE, skin=P.SKIN, beard=None,
-                 long_hair=False, cap=None):
+                 long_hair=False, cap=None, bald=False):
         self.hair, self.top, self.legs, self.shoes, self.skin = hair, top, legs, shoes, skin
-        self.beard, self.long_hair, self.cap = beard, long_hair, cap
+        self.beard, self.long_hair, self.cap, self.bald = beard, long_hair, cap, bald
 
 
 YOUNG_VINCENT = Look(hair="#4a3322", top="#2f6f73", legs="#3a4a6e", shoes="#3b3a42")
@@ -115,6 +115,9 @@ def _head(m: Model, z: float, look: Look):
         m.box((0.06, 0.02, 0.06), (x, -0.205, hz + 0.04), P.INK)                          # eyes
         m.box((0.1, 0.02, 0.025), (x, -0.205, hz + 0.095), look.hair)                     # brows
         m.box((0.04, 0.1, 0.12), (x * 2.2, 0.02, hz), look.skin)                          # ears
+    if look.bald:
+        m.box((0.4, 0.38, 0.06), (0, 0.0, hz + 0.24), look.skin)                          # a shiny dome
+        return
     m.box((0.46, 0.44, 0.13), (0, 0.01, hz + 0.26), look.hair)                            # hair on top
     m.box((0.44, 0.1, 0.1), (0, -0.17, hz + 0.19), look.hair)                             # fringe
     m.box((0.44, 0.06, 0.3 if not look.long_hair else 0.62), (0, 0.21, hz + (0.1 if not look.long_hair else -0.06)), look.hair)
@@ -199,6 +202,7 @@ def bike(root, name: str, loc, rot_z: float = 0.0, frame: str = "#2f3a3a", scale
 # 5 wide, 7 tall; enough letters for the signs so far
 GLYPHS = {
     "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+    "C": ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
     "E": ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
     "I": ["00100"] * 7,
     "M": ["10001", "11011", "10101", "10001", "10001", "10001", "10001"],

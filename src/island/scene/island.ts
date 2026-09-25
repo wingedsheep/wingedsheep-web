@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { toon } from './toon';
+import type { Waypoint } from './shelter';
 
 export interface LightMarker {
   position: THREE.Vector3; // world
@@ -49,6 +50,8 @@ export class Island {
   readonly canopies: CanopyMarker[] = [];
   readonly emitters: Emitter[] = [];
   readonly eaves: Eave[] = [];
+  /** The ways indoors out of the rain (layout.py SHELTER), by name, in order. */
+  readonly routes = new Map<string, Waypoint[]>();
   /** Keyframed clips from Blender: "<id>_idle" loops, others play on demand (e.g. "george_pet"). */
   readonly clips: THREE.AnimationClip[];
   readonly shore: THREE.Texture;
@@ -87,6 +90,11 @@ export class Island {
         });
       }
       if (x.emit) this.emitters.push({ kind: x.emit, position: o.getWorldPosition(new THREE.Vector3()) });
+      if (x.route) {
+        const route = this.routes.get(x.route) ?? [];
+        route[x.step] = { at: o.getWorldPosition(new THREE.Vector3()), fixed: Boolean(x.fixed) };
+        this.routes.set(x.route, route);
+      }
       if (x.icicles) this.eaves.push({ matrix: o.matrixWorld.clone(), length: x.icicles });
       if (x.terrain) terrain = o as THREE.Mesh;
 

@@ -10,6 +10,7 @@ import beike
 import buildings
 import cats
 import characters
+import companion
 import fauna
 import layout as L
 import nature
@@ -40,9 +41,32 @@ def landmarks(t: Terrain):
     place(t, "campfire", cx, cy, props.campfire, id="campfire")
     # Vincent sits on the far side of the fire, facing it and the default camera, clear of the trees
     place(t, "vincent", cx + 0.2, cy + 2.2, characters.vincent, rot_z=-0.1, id="vincent")
+    place(t, "log", cx + 0.2, cy + 2.2, characters.log, rot_z=-0.1)                  # his seat, there when he isn't
+    # out in the kayak (the runtime paddles him round the loop, and hides the moored one)
+    (kx, ky), rx, ry = L.KAYAK_LOOP
+    place(t, "vincent_kayak", kx, ky, characters.vincent_kayak, z=0.05, id="vincent_kayak", loop_rx=rx, loop_ry=ry)
+    # doing yoga on the grass by the beach, sometimes with her on the next mat
+    # (facing east, side-on to the default camera, so you can see a downward dog for what it is)
+    place(t, "vincent_yoga", *L.YOGA, characters.vincent_yoga, rot_z=math.pi / 2, id="vincent_yoga")
+    place(t, "companion_yoga", L.YOGA[0] + 0.6, L.YOGA[1] + 1.1, companion.yoga, rot_z=math.pi / 2, id="companion_yoga")
+    # and climbing the mountain: parked under the island till he sets off up the trail
+    characters.vincent_hiking(group("vincent_hiking", (0, 0, -20), id="vincent_hiking"))
+    for i, (x, y) in enumerate(L.CLIMB):
+        group(f"route_climb_{i}", (x, y, t.sample(x, y)), route="climb", step=i, fixed=0)
     place(t, "guitar_case", cx + 2.5, cy + 3.0, props.guitar_case, rot_z=-0.4, id="guitar_case")
     place(t, "log", cx + 2.0, cy - 0.4, props.log_seat, rot_z=1.9)
     place(t, "log", cx - 2.2, cy + 0.6, props.log_seat, rot_z=-1.3)
+    # her spots: on the east log, facing the fire, on a blanket under the blossom, and on an
+    # exercise mat above the beach (the runtime shows her at one of them, or indoors)
+    place(t, "companion_fireside", cx + 2.0, cy - 0.4, companion.fireside, rot_z=-1.5, id="companion_fireside")
+    place(t, "companion_reading", *L.READING, companion.reading, rot_z=0.25, id="companion_reading")
+    place(t, "companion_workout", *L.WORKOUT, companion.workout, rot_z=0.15, id="companion_workout")
+    # with a podcast: her on the edge of the pier facing out west, legs over the water, and him
+    # pacing the path east of the plaza (parked under the island till he puts his headphones on)
+    place(t, "companion_podcast", *L.PIER_SEAT, companion.podcast, rot_z=-math.pi / 2, z=0.0, id="companion_podcast")
+    characters.vincent_podcast(group("vincent_podcast", (0, 0, -20), id="vincent_podcast"))
+    for i, (x, y) in enumerate(L.PODCAST_WALK):
+        group(f"route_podcast_{i}", (x, y, t.sample(x, y)), route="podcast", step=i, fixed=0)
     place(t, "well", *L.WELL, props.well, id="well")
     place(t, "blossom", L.WELL[0] + 2.8, L.WELL[1] + 1.8, nature.blossom, id="blossom")
     bench = place(t, "bench", *L.BENCH, lambda r: (props.bench(r), cats.fleece(r)), rot_z=0.3, id="bench")
@@ -70,6 +94,26 @@ def landmarks(t: Terrain):
     # things the runtime moves around; parked out of sight
     characters.sheep(group("sheep", (0, 0, 30), id="sheep"))
     props.ufo(group("ufo", (0, 0, 40), id="ufo"))
+    shelter(t)
+
+
+def shelter(t: Terrain):
+    """For when it rains: the cats on their feet (swapped in for the sleeping ones, parked under
+    the island till then) and the routes they and Beike take indoors, as markers."""
+    white = dict(coat=cats.P.CAT_WHITE, patch=cats.P.GINGER, cap=cats.P.GINGER, tail=cats.P.GINGER, socks=cats.P.CAT_WHITE)
+    cats.walker(group("charlie_walk", (0, 0, -20)), "charlie", size=0.9, **white)
+    cats.walker(group("george_walk", (0, 0, -20)), "george", size=1.1, eyes="#c9b560", **white)
+    cats.walker(group("cat_walk", (0, 0, -20)), "cat", coat=cats.P.CAT, patch=None, cap=cats.P.CAT, tail=cats.P.CAT,
+                socks=cats.P.CAT_WHITE, bib=cats.P.CAT_WHITE, eyes="#e0c050")
+    for name, points in L.SHELTER.items():
+        for i, (x, y, *on) in enumerate(points):
+            if on == ["deck"]:
+                z = 0.84                                                # the pier's boards
+            elif on == ["floor"]:
+                z = t.sample(*L.LIGHTHOUSE) + 0.4                       # up on the lighthouse's plinth
+            else:
+                z = t.sample(x, y)
+            group(f"route_{name}_{i}", (x, y, z), route=name, step=i, fixed=int(bool(on)))
 
 
 def _along(polyline, every):
