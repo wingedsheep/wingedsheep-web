@@ -7,8 +7,13 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
+  /** set on blog posts: marks the page as an article for search engines and link previews */
+  published?: Date;
+  /** structured data (schema.org) for this page */
+  jsonLd?: object;
+  noindex?: boolean;
 }
-const { title, description = site.description, image } = Astro.props;
+const { title, description = site.description, image, published, jsonLd, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} · ${site.handle}` : `${site.handle} · ${site.name}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
@@ -19,7 +24,8 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    <meta name="author" content={site.name} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -27,7 +33,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:site_name" content={site.handle} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={published ? 'article' : 'website'} />
+    {published && <meta property="article:published_time" content={published.toISOString()} />}
+    {published && <meta property="article:author" content={site.name} />}
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={new URL(image ?? '/og.png', Astro.site)} />
     {!image && (
@@ -39,6 +47,8 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     )}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#17466a" />
+    <link rel="sitemap" href="/sitemap.xml" />
+    {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd).replace(/</g, '\\u003c')} />}
   </head>
   <body data-title={`${site.handle} · ${site.name}`}>
     <slot />

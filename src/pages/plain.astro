@@ -7,7 +7,7 @@ import Base from '../layouts/Base.astro';
 
 const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
-<Base title="Just the facts">
+<Base title="Just the facts" description={`${site.name}: projects, career and every blog post on one plain page.`}>
   <main class="plain">
     <p><a href="/">← back to the island</a></p>
     <h1>{site.name}</h1>

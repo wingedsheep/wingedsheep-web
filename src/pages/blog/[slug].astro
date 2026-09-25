@@ -3,6 +3,7 @@ import 'katex/dist/katex.min.css';
 import { getCollection, render } from 'astro:content';
 import IslandShell from '../../components/IslandShell.astro';
 import { SUBJECTS, spineColor } from '../../data/subjects';
+import { site } from '../../data/site';
 import Base from '../../layouts/Base.astro';
 
 export async function getStaticPaths() {
@@ -24,8 +25,23 @@ const minutes = Math.max(1, Math.round(words / 230));
 const ownContents = ((post.body ?? '').match(/\]\(#/g) ?? []).length >= 3;
 const contents = ownContents ? [] : headings.filter((h) => h.depth === 2);
 const subject = SUBJECTS[post.data.shelf];
+const url = new URL(`/blog/${post.id}/`, Astro.site).href;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: post.data.title,
+  description: post.data.excerpt,
+  datePublished: post.data.date.toISOString(),
+  url,
+  mainEntityOfPage: url,
+  image: new URL(post.data.cover ?? '/og.png', Astro.site).href,
+  keywords: post.data.tags.join(', ') || undefined,
+  articleSection: subject.name,
+  wordCount: words,
+  author: { '@type': 'Person', '@id': `${Astro.site!.href}#person`, name: site.name, url: Astro.site!.href },
+};
 ---
-<Base title={post.data.title} description={post.data.excerpt} image={post.data.cover}>
+<Base title={post.data.title} description={post.data.excerpt} image={post.data.cover} published={post.data.date} jsonLd={jsonLd}>
   <IslandShell hasArticle>
     <header class="article-head" style={`--spine:${spineColor(post.id, post.data.shelf)}`}>
       <p class="article-meta">

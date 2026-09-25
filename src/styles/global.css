@@ -38,6 +38,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* --- brand + HUD ---------------------------------------------------------------------- */
 .brand { position: absolute; top: 14px; left: 16px; pointer-events: none; color: var(--paper); text-shadow: 2px 2px 0 var(--ink); }
+.brand-heading { margin: 0; font: inherit; }
 .brand-name { pointer-events: auto; font: 700 30px/1 var(--ui); color: inherit; text-decoration: none; letter-spacing: 0.02em; }
 .brand-tag { margin: 4px 0 0; font: 15px var(--ui); opacity: 0.92; }
 

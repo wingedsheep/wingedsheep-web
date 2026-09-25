@@ -17,6 +17,7 @@ interface Props {
   hasArticle?: boolean;
 }
 const { hasArticle = false } = Astro.props;
+const BrandHeading = hasArticle ? 'p' : 'h1';
 
 // the library: every post is an index card, filed by year, newest first
 const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
@@ -58,7 +59,7 @@ const places = [
   </div>
 
   <header class="brand">
-    <a href="/" class="brand-name">{site.handle}</a>
+    <BrandHeading class="brand-heading"><a href="/" class="brand-name">{site.handle}</a></BrandHeading>
     <p class="brand-tag">{site.name} · {site.tagline}</p>
   </header>
 

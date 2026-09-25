@@ -1,7 +1,25 @@
 ---
 import IslandShell from '../components/IslandShell.astro';
+import { site } from '../data/site';
 import Base from '../layouts/Base.astro';
+
+const url = Astro.site!.href;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    { '@type': 'WebSite', '@id': `${url}#website`, url, name: site.handle, description: site.description, author: { '@id': `${url}#person` } },
+    {
+      '@type': 'Person',
+      '@id': `${url}#person`,
+      name: site.name,
+      alternateName: site.handle,
+      url,
+      description: site.tagline,
+      sameAs: site.links.filter((l) => l.href.startsWith('http')).map((l) => l.href),
+    },
+  ],
+};
 ---
-<Base>
+<Base jsonLd={jsonLd}>
   <IslandShell />
 </Base>
