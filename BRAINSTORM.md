@@ -246,4 +246,4 @@ Some adaptations for the no-avatar model:
 - [ ] Which web server/proxy runs on the server (nginx, Caddy, Traefik, Docker)? Is Ghost in Docker?
 - [ ] Are the five guitar recordings yours to use as audio files (you own them)? Do you have the original files, or should I extract from YouTube?
 - [ ] Should the old post URLs keep working exactly? (I assume yes.)
-- [ ] A pixel/illustrated likeness of you: do you have a photo or description (hair, beard, glasses, usual clothing, guitar type)?
+- [x] A pixel/illustrated likeness of you: do you have a photo or description (hair, beard, glasses, usual clothing, guitar type)? Photos are in `tools/reference`.

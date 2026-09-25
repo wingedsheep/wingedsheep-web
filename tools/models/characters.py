@@ -41,7 +41,8 @@ def guitar(root, loc, tilt):
 
 def vincent(root):
     """Vincent on a log at the campfire with his acoustic. Faces -y; his right hand is -x.
-    The runtime animates `arm_strum`, `arm_fret`, `head` and `foot_tap` while he plays."""
+    The runtime animates `arm_strum`, `arm_fret`, `head` and `foot_tap` while he plays.
+    Reference photos of the real Vincent are in tools/reference."""
     m = Model("vincent")
     m.cyl(0.26, 1.7, (-0.85, 0, 0.26), P.WOOD, segs=7, rot=(0, math.pi / 2, 0))        # the log
     for x in (-0.16, 0.16):
