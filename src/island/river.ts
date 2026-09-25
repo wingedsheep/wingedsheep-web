@@ -25,7 +25,7 @@ function banner(s: Stretch, index: number) {
     case 'gorge': return `Grade ${s.grade} · The gorge`;
     case 'falls': return 'Is that… a waterfall?';
     case 'pool': return index === 0 ? 'A slow green pool. Get the feel of her.' : 'A slow green pool';
-    case 'run': return 'Into the forest';
+    case 'run': return s.fast ? 'The river picks up…' : 'Into the forest';
   }
 }
 
@@ -99,6 +99,7 @@ export class River implements RoomInput {
   private bannerTimer = 0;
   private hintTimer = 0;
   private lastHud = '';
+  private mile = 0;
   private swims = 0;
   private best: Best = readBest();
   private fresh = false; // a new best this run
@@ -113,7 +114,7 @@ export class River implements RoomInput {
     private island: THREE.Scene,
   ) {
     this.el = document.querySelector<HTMLElement>('[data-panel="river"]')!;
-    for (const name of ['metres', 'flow', 'score', 'balls', 'banner', 'hint', 'breath', 'gauge', 'roll', 'praise', 'flash']) {
+    for (const name of ['metres', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'breath', 'gauge', 'roll', 'praise', 'flash']) {
       this.$[name] = this.el.querySelector<HTMLElement>(`[data-river-${name}]`)!;
     }
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-go]')) b.addEventListener('click', () => this.go());
@@ -181,6 +182,7 @@ export class River implements RoomInput {
       game.reset();
       this.fresh = false;
       this.lastHud = '';
+      this.mile = 0;
     }
     if (game.state !== 'ready') return;
     game.go();
@@ -250,6 +252,7 @@ export class River implements RoomInput {
       game?.reset();
       this.fresh = false;
       this.lastHud = '';
+      this.mile = 0;
       game?.controls.enable(true);
       this.resize();
     } else {
@@ -269,13 +272,22 @@ export class River implements RoomInput {
     game.controls.onPause = () => this.pause(!this.game?.paused);
     game.events = {
       stretch: (s, i) => this.say(banner(s, i)),
+      split: (s) => this.say(s.kind === 'bar' ? `A gravel bar · the fast water's on the ${s.hero < 0 ? 'left' : 'right'}` : `The river splits · hero line ${s.hero < 0 ? 'left' : 'right'}, sneak ${s.hero < 0 ? 'right' : 'left'}`),
       praise: (text, big) => this.praise(text, big),
-      broke: (why) => this.praise(`${why} · flow lost`, false, true),
+      broke: (why) => {
+        this.praise(`${why} · flow lost`, false, true);
+        this.bounce(this.$.flow, 'lost');
+      },
+      tier: (flow) => {
+        this.praise(`×${flow} flow!`, true);
+        this.bounce(this.$.flow, 'tier');
+      },
+      ball: () => this.bounce(this.$.balls.parentElement!, 'pop'),
       hint: (kind) => this.hint(HINTS[kind][game.controls.device]),
       start: () => this.go(),
       over: (tally) => this.over(tally),
       say: (text) => this.ctx.toast(text),
-      sound: (kind, volume) => this.ctx.sound.river(kind, volume),
+      sound: (kind, volume, step) => this.ctx.sound.river(kind, volume, step),
       bark: () => this.ctx.sound.bark(),
       baa: () => this.ctx.sound.baa(),
       quack: () => this.ctx.sound.call('quack', 0.6),
@@ -312,12 +324,14 @@ export class River implements RoomInput {
     el.style.top = `${Math.round(at.y - 60)}px`;
     this.$.praise.append(el);
     setTimeout(() => el.remove(), 1100);
-    if (!bad) {
-      const flow = this.$.flow;
-      flow.classList.remove('pop');
-      void flow.offsetWidth;
-      flow.classList.add('pop');
-    }
+    if (!bad) this.bounce(this.$.flow, 'pop');
+  }
+
+  /** Replay a one-off CSS animation on a bit of the HUD. */
+  private bounce(el: HTMLElement, name: string) {
+    el.classList.remove(name);
+    void el.offsetWidth;
+    el.classList.add(name);
   }
 
   /** Show one of the cards (the start, paused, a swim), or none. */
@@ -328,9 +342,20 @@ export class River implements RoomInput {
   }
 
   private hud(t: Tally) {
-    const key = `${t.metres}|${t.balls}|${t.flow}|${Math.round(t.score)}`;
+    const pace = Math.round((t.pace - 1) * 10) * 10;
+    const key = `${t.metres}|${t.balls}|${t.flow}|${Math.round(t.score)}|${pace}`;
     if (key === this.lastHud) return;
     this.lastHud = key;
+    // every 500 m, a moment
+    const mile = Math.floor(t.metres / 500);
+    if (mile > this.mile) {
+      this.mile = mile;
+      this.bounce(this.$.metres.parentElement!, 'pop');
+      this.ctx.sound.river('mile');
+      if (this.bannerTimer <= 0) this.say(`${round(mile * 500)} m down`);
+    }
+    this.$.pace.textContent = pace > 0 ? `+${pace}%` : '';
+    this.$.pace.style.setProperty('--pace', String(pace / 100));
     this.$.metres.textContent = round(t.metres);
     this.$.balls.textContent = String(t.balls);
     this.$.score.textContent = round(t.score);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { haloTexture } from '../scene/sky';
 import { RiverAssets } from './assets';
 import { Controls } from './controls';
-import { Course, type Stretch } from './course';
+import { Course, type Split, type Stretch } from './course';
 import { Kayak } from './kayak';
 import { Land } from './land';
 import { MAX_HOLES, MAX_ROCKS, MAX_TONGUES, riverWater } from './water';
@@ -11,6 +11,9 @@ import { Wildlife } from './wildlife';
 const ELEVATION = THREE.MathUtils.degToRad(48);
 const DISTANCE = 140;
 const FLOW_MAX = 5;
+/** Speed pays: at or below SLOW m/s a metre's worth its flow, at FAST and over twice that. */
+const SLOW = 3;
+const FAST = 9;
 
 export type State = 'ready' | 'running' | 'over';
 
@@ -22,6 +25,8 @@ export interface Tally {
   bestFlow: number;
   score: number;
   speed: number;
+  /** The speed bonus, ×1..×2: drifting earns the least, going like the clappers the most. */
+  pace: number;
 }
 
 /** What the game needs from the island outside: its light and weather. */
@@ -36,23 +41,29 @@ export interface Outside {
   fair: boolean;
 }
 
-export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best';
+export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile';
 export type Hint = 'paddle' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue';
 
 export interface GameEvents {
   /** Into a new stretch of river. */
   stretch?(s: Stretch, index: number): void;
+  /** An island coming up, the river parting round it. */
+  split?(s: Split): void;
   /** Something done well: a word to pop up over the kayak (big: the best kind). */
   praise?(text: string, big: boolean): void;
   /** The flow broke (and why). */
   broke?(why: string): void;
+  /** The flow went up a whole notch (to ×2, ×3…). */
+  tier?(flow: number): void;
+  /** A ball fished out. */
+  ball?(): void;
   /** The first time something comes up, how to deal with it. */
   hint?(kind: Hint): void;
   over?(tally: Tally): void;
   /** Someone reached for the controls while the kayak was waiting at the top. */
   start?(): void;
   say?(text: string): void;
-  sound?(kind: RiverSound, volume?: number): void;
+  sound?(kind: RiverSound, volume?: number, step?: number): void;
   bark?(): void;
   baa?(): void;
   quack?(): void;
@@ -73,7 +84,7 @@ export class RiverGame {
   state: State = 'ready';
   paused = false;
   events: GameEvents = {};
-  tally: Tally = { metres: 0, balls: 0, flow: 1, bestFlow: 1, score: 0, speed: 0 };
+  tally: Tally = { metres: 0, balls: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1 };
   /** 0..1: a flash over the picture, for a knock (red) or a boof (warm white). */
   flash = { amount: 0, color: new THREE.Color() };
 
@@ -91,9 +102,22 @@ export class RiverGame {
   private shake = 0;
   private kick = 0;
   private stretch = -1;
+  /** Nothing's gone wrong since this stretch began. */
+  private clean = true;
+  /** The island coming up or being paddled round, the channel taken (-1 left, 1 right), and whether it's gone cleanly. */
+  private split: Split | null = null;
+  private took = 0;
+  private splitClean = true;
   private overIn = 0;
   private clock = 0;
   private stop = 0; // hitstop: seconds of (almost) frozen time
+  /** Things done well one after another: each chimes a note higher. */
+  private streak = 0;
+  private streakFor = 0;
+  /** Squash and stretch: + squashed flat (a landing, a knock), - stretched long (a stroke). */
+  private squish = 0;
+  private squishV = 0;
+  private size: THREE.Vector3;
   private hinted = new Set<Hint>();
   private rumbleAt = 0;
   private lastMetres = 0;
@@ -113,6 +137,7 @@ export class RiverGame {
     this.scene.add(s, s.target, this.hemi);
     this.kayak = new Kayak(assets);
     this.scene.add(this.kayak.model);
+    this.size = this.kayak.model.scale.clone();
     this.wildlife = new Wildlife(assets, new Course(1));
     this.scene.add(this.wildlife.group);
     this.wire();
@@ -138,13 +163,17 @@ export class RiverGame {
     this.wildlife.ground = (x, z) => this.land.heightAt(x, z);
     this.kayak.launch(this.course, this.start);
     this.kayak.assisted = this.controls.assisted;
-    this.tally = { metres: 0, balls: 0, flow: 1, bestFlow: 1, score: 0, speed: 0 };
+    this.tally = { metres: 0, balls: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1 };
     this.state = 'ready';
     this.paused = false;
     this.stretch = -1;
+    this.clean = true;
+    this.split = null;
     this.overIn = 0;
     this.lastMetres = 0;
     this.stop = 0;
+    this.streak = this.streakFor = 0;
+    this.squish = this.squishV = 0;
     this.zoom = 1;
     this.yaw = this.course.at(this.start + 10).a;
     this.frame(0);
@@ -168,7 +197,7 @@ export class RiverGame {
 
   /** How white the water is where the kayak is. */
   get rough() {
-    return this.kayak.here?.rough ?? 0;
+    return this.kayak.rough;
   }
 
   resize(width: number, height: number) {
@@ -205,6 +234,8 @@ export class RiverGame {
     const running = this.state === 'running';
     if (this.state !== 'ready') this.kayak.update(dt, intent, this.course, running);
     const k = this.kayak;
+    this.wobble(dt);
+    if ((this.streakFor -= realDt) < 0) this.streak = 0;
     this.course.extend(k.s + 300);
     this.land.update(k.pos, this.reach, k.s - 40, k.s + 100);
     this.land.glow(outside.night, this.clock);
@@ -212,7 +243,7 @@ export class RiverGame {
     this.shade(dt);
     this.bob(dt);
 
-    if (running) this.score();
+    if (running) this.score(dt);
     if (running) this.coach();
     if (this.overIn > 0 && (this.overIn -= realDt) <= 0) this.events.over?.(this.tally);
 
@@ -230,20 +261,60 @@ export class RiverGame {
 
   // --- the flow -------------------------------------------------------------------------
 
-  private score() {
+  private score(dt: number) {
     const k = this.kayak;
     const t = this.tally;
     const metres = Math.max(t.metres, Math.floor(k.s - this.start));
     if (metres > this.lastMetres) {
-      t.score += (metres - this.lastMetres) * t.flow;
+      t.score += (metres - this.lastMetres) * t.flow * t.pace;
       this.lastMetres = metres;
     }
     t.metres = metres;
     t.speed = k.speed;
+    // eased, so the readout doesn't flicker with every stroke
+    const pace = 1 + THREE.MathUtils.clamp((k.speed - SLOW) / (FAST - SLOW), 0, 1);
+    t.pace += (pace - t.pace) * (1 - Math.exp(-dt * 3));
     const i = k.here.stretch;
     if (i !== this.stretch) {
+      const was = this.course.stretches[this.stretch];
+      const now = this.course.stretches[i];
       this.stretch = i;
-      this.events.stretch?.(this.course.stretches[i], i);
+      this.events.stretch?.(now, i);
+      // out the bottom of white water without a knock or a swim: that's worth something
+      if (was && white(was) && this.clean) {
+        const grade = was.grade ?? 3;
+        this.well(`${was.name ?? 'The falls'} · clean!`, 0.3 + grade * 0.1, { stop: 0.14, flash: 0.45, sound: 'cleared', rumble: 0.6, kick: 0.5 });
+      }
+      // dropping into it: the water grabs you
+      if (white(now) && (!was || !white(was))) {
+        this.shake = Math.max(this.shake, 0.25 + now.heat * 0.35);
+        this.events.sound?.('dropin', 0.5 + now.heat * 0.5);
+        this.controls.rumble(0.3 + now.heat * 0.4, 0.6, 260);
+      }
+      this.clean = true;
+    }
+    this.round();
+  }
+
+  /**
+   * An island coming up: which way's the fast line. Round it, which channel you took; out the
+   * bottom of the hero line without a knock, a reward.
+   */
+  private round() {
+    const k = this.kayak;
+    const next = this.course.splits.find((x) => k.s > x.s0 - 30 && k.s < x.s0);
+    if (next && next !== this.split) {
+      this.split = next;
+      this.splitClean = true;
+      this.took = 0;
+      this.events.split?.(next);
+    }
+    const sp = this.split;
+    if (!sp) return;
+    if (k.here.isle > 1) this.took = Math.sign(k.side - k.here.isleU);
+    if (k.s > sp.s1) {
+      if (this.took === sp.hero && this.splitClean) this.well('Hero line!', 0.4, { stop: 0.1, flash: 0.35, sound: 'cleared', rumble: 0.5, kick: 0.4 });
+      this.split = null;
     }
   }
 
@@ -251,9 +322,23 @@ export class RiverGame {
   private well(text: string, gain: number, juice: { stop?: number; flash?: number; sound?: RiverSound; rumble?: number; kick?: number } = {}) {
     if (this.state !== 'running') return;
     const t = this.tally;
+    const was = Math.floor(t.flow);
     t.flow = Math.min(FLOW_MAX, Math.round((t.flow + gain) * 100) / 100);
     t.bestFlow = Math.max(t.bestFlow, t.flow);
     this.events.praise?.(text, gain >= 0.5);
+    // one after another, each a note higher
+    this.events.sound?.('chime', 1, this.streak++);
+    this.streakFor = 3;
+    this.squash(-0.12);
+    if (Math.floor(t.flow) > was) {
+      const now = Math.floor(t.flow);
+      this.events.tier?.(now);
+      this.events.sound?.('tier', 1, now - 2);
+      this.wildlife.sparkle(this.kayak.pos, 16 + now * 6, undefined, 0.8 + now * 0.15);
+      this.stop = Math.max(this.stop, 0.12);
+      this.kick = Math.max(this.kick, 0.7);
+      this.controls.rumble(0.6, 0.9, 220);
+    }
     if (juice.stop) this.stop = Math.max(this.stop, juice.stop);
     if (juice.flash) {
       this.flash.amount = juice.flash;
@@ -267,7 +352,13 @@ export class RiverGame {
   /** Something gone wrong: the flow's gone. */
   private broke(why: string) {
     if (this.state !== 'running') return;
-    if (this.tally.flow > 1.2) this.events.broke?.(why);
+    this.clean = false;
+    this.splitClean = false;
+    this.streak = 0;
+    if (this.tally.flow > 1.2) {
+      this.events.broke?.(why);
+      this.events.sound?.('lost', Math.min(1, this.tally.flow / 3));
+    }
     this.tally.flow = 1;
   }
 
@@ -292,6 +383,7 @@ export class RiverGame {
     k.events = {
       hit: (strength, at) => {
         this.shake = Math.min(1, strength / 4);
+        this.squash(Math.min(0.3, strength * 0.07));
         this.wildlife.spray(at, 18, 1);
         this.events.sound?.('hit', Math.min(1, strength / 4));
         this.controls.rumble(0.9, 0.6, 260);
@@ -302,6 +394,7 @@ export class RiverGame {
       bump: (strength, at) => {
         if (strength < 0.6) return;
         this.wildlife.spray(at, 5, 0.6);
+        this.squash(Math.min(0.1, strength * 0.03));
         this.events.sound?.('bump', Math.min(1, strength / 3));
         this.controls.rumble(0.25, 0.2, 80);
       },
@@ -309,6 +402,8 @@ export class RiverGame {
         if (size < 2) return;
         this.shake = Math.max(this.shake, Math.min(1, size / 10));
         this.wildlife.spray(at, Math.min(50, size * 5), Math.min(1.8, size / 5));
+        this.wildlife.ring(at, Math.min(40, 12 + size * 3), Math.min(1.6, 0.6 + size / 10));
+        this.squash(Math.min(0.4, size * 0.05));
         this.events.sound?.('splash', Math.min(1, size / 8));
         this.controls.rumble(Math.min(1, size / 9), 0.4, 200);
       },
@@ -346,6 +441,8 @@ export class RiverGame {
       },
       rolled: () => {
         this.events.sound?.('roll');
+        this.wildlife.spray(k.pos, 20, 0.8);
+        this.squash(-0.2);
         this.events.praise?.('Rolled up!', true);
         this.controls.rumble(0.5, 0.5, 180);
       },
@@ -368,6 +465,8 @@ export class RiverGame {
       spin: (turns) => this.well(`${turns * 360}!`, 0.6 + turns * 0.2, { stop: 0.08, flash: 0.3, sound: 'boof', rumble: 0.7, kick: 0.3 }),
       stroke: (q, back) => {
         this.events.sound?.('stroke', 0.4 + q * 0.6);
+        // a little lunge on each stroke
+        if (!back) this.squash(-0.04 - q * 0.04);
         // drips off the blade coming out of the water
         const hx = Math.sin(k.heading);
         const hz = -Math.cos(k.heading);
@@ -381,6 +480,9 @@ export class RiverGame {
         if (this.state !== 'running') return;
         this.tally.balls++;
         this.events.sound?.('ball');
+        this.events.ball?.();
+        this.wildlife.sparkle(k.pos, 14, BALL);
+        this.squash(0.08);
       },
       gate: (_, through) => {
         if (through) this.well('Clean gate', 0.25, { sound: 'gate', rumble: 0.3 });
@@ -445,7 +547,7 @@ export class RiverGame {
     if (this.state === 'ready') return;
     const hx = Math.sin(k.heading);
     const hz = -Math.cos(k.heading);
-    const rough = k.here.rough;
+    const rough = k.rough;
     if (Math.random() < dt * (rough * 30 + k.speed * 0.8)) {
       const bow = k.pos.clone().add(new THREE.Vector3(hx * 1.8, 0.1, hz * 1.8));
       this.wildlife.spray(bow, 1 + Math.floor(rough * 3 + k.speed / 6), 0.4 + rough * 0.5);
@@ -453,6 +555,11 @@ export class RiverGame {
     // a wake that gets longer the faster you go
     if (Math.random() < dt * (6 + k.speed * 2)) {
       this.wildlife.froth(k.pos.clone().add(new THREE.Vector3(-hx * 2.1 + (Math.random() - 0.5) * 0.5, 0, -hz * 2.1)));
+    }
+    // running hot: the wake glints gold, more of it the higher the flow
+    const hot = this.tally.flow - 2;
+    if (hot > 0 && k.balance === 'up' && Math.random() < dt * hot * 14) {
+      this.wildlife.glint(k.pos.clone().add(new THREE.Vector3(-hx * 2 + (Math.random() - 0.5) * 0.8, 0, -hz * 2 + (Math.random() - 0.5) * 0.8)));
     }
     // mist at the foot of a drop
     for (const t of this.course.near(k.s, k.s + 30)) {
@@ -468,6 +575,21 @@ export class RiverGame {
       this.rumbleAt = 0.18;
       this.controls.rumble(rough * 0.15, rough * 0.35, 120);
     }
+  }
+
+  /** Give the boat a squash (+) or a stretch (-), for the spring to shake out. */
+  private squash(amount: number) {
+    this.squishV += amount * 18;
+  }
+
+  /** The squash-and-stretch spring: quick, and a little bouncy. */
+  private wobble(dt: number) {
+    const step = Math.min(dt, 1 / 30);
+    this.squishV += (-this.squish * 320 - this.squishV * 16) * step;
+    this.squish = THREE.MathUtils.clamp(this.squish + this.squishV * step, -0.3, 0.4);
+    const q = this.squish;
+    // flatter and wider when squashed, longer and thinner when stretched (bow is the model's z)
+    this.kayak.model.scale.set(this.size.x * (1 + q * 0.5), this.size.y * (1 - q), this.size.z * (1 - q * 0.4));
   }
 
   /** Light the river as the island is lit, right now. */
@@ -502,7 +624,8 @@ export class RiverGame {
     this.yaw += (ahead.a - this.yaw) * (dt ? 1 - Math.exp(-dt * 1.2) : 1);
     const fast = THREE.MathUtils.clamp((k.speed - 4) / 8, 0, 1);
     this.zoom += (1 + fast * 0.22 - this.zoom) * (dt ? 1 - Math.exp(-dt * 1.5) : 1);
-    const view = this.view * this.zoom;
+    // a kick (a boof, a tier) punches the view in a touch as well as down
+    const view = this.view * this.zoom * (1 - this.kick * 0.06);
     const h = view / 2;
     const w = h * this.aspect;
     const cam = this.camera;
@@ -513,7 +636,7 @@ export class RiverGame {
     // the kayak sits in the lower part of the screen, so you can see what's coming
     const lead = (view * (0.2 + fast * 0.06)) / Math.sin(ELEVATION);
     const target = new THREE.Vector3(k.pos.x + fx * lead, this.course.heightAt(k.s) - this.kick * 0.6, k.pos.z + fz * lead);
-    const rumble = k.balance === 'up' ? (k.here?.rough ?? 0) * 0.1 : 0;
+    const rumble = k.balance === 'up' ? k.rough * 0.1 : 0;
     const shake = this.shake + rumble;
     if (shake > 0) {
       target.x += (Math.random() - 0.5) * shake * 0.6;
@@ -541,4 +664,10 @@ export class RiverGame {
     cam.updateMatrixWorld();
     this.subTexel.set(-dr, -du);
   }
+}
+
+const BALL = new THREE.Color('#d4dc3c');
+
+function white(s: Stretch) {
+  return s.kind !== 'pool' && s.kind !== 'run';
 }

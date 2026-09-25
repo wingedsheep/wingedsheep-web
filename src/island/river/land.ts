@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { leavesAt, season } from '../scene/season';
 import { toon } from '../scene/toon';
 import type { RiverAssets } from './assets';
-import { type Course, type Obstacle, type Sample, rng } from './course';
+import { type Course, type Obstacle, type Sample, type Split, rng } from './course';
 import { waterRibbon } from './water';
 
 export const CHUNK = 32; // metres of river per chunk of water and furniture
@@ -166,8 +166,10 @@ export class Land {
 
   /** Height and colour of the ground at (x, z). */
   heightAt(x: number, z: number, color?: THREE.Color) {
-    const { sample: p, d } = this.course.nearest(x, z);
-    return shape(p, d - p.width / 2, x, z, color);
+    const { sample: p, d, side } = this.course.nearest(x, z);
+    const h = shape(p, d - p.width / 2, x, z, color);
+    if (p.isle <= 0 || h > p.y) return h;
+    return island(p, this.course.splitAt(p.s)?.kind ?? 'isle', p.isle - Math.abs(side - p.isleU), h, x, z, color);
   }
 
   private tile(tx: number, tz: number) {
@@ -252,6 +254,7 @@ export class Land {
     // a distance post on the bank every 250 m
     for (let s = Math.ceil(s0 / 250) * 250; s < s1; s += 250) if (s > 0) this.post(chunk, s, r);
     this.banks(chunk, s0, s1, r);
+    this.islands(chunk, s0, s1, r);
 
     this.group.add(group);
     this.chunks.set(c, chunk);
@@ -313,6 +316,7 @@ export class Land {
   }
 
   private put(chunk: Chunk, kind: string, at: { x: number; y: number; z: number }, turn: number, scale = 1) {
+    if (!this.assets.has(kind)) return null;
     const m = this.assets.clone(kind);
     m.position.set(at.x, at.y, at.z);
     m.rotation.y = turn;
@@ -349,8 +353,14 @@ export class Land {
     });
   }
 
-  private feature(chunk: Chunk, kind: 'bridge' | 'tent' | 'cabin' | 'sign', s: number, side: number, r: () => number) {
+  private feature(chunk: Chunk, kind: 'bridge' | 'tent' | 'cabin' | 'swing', s: number, side: number, r: () => number) {
     const p = this.course.at(s);
+    if (kind === 'swing') {
+      // an old tree on the bank, its long branch (the model's +x) reaching out over the water
+      const at = this.beside(s, side, 0.9);
+      if (at) this.put(chunk, 'swing', at, toRiver(side, p.a));
+      return;
+    }
     if (kind === 'bridge') {
       const span = this.assets.extras.get('bridge')?.span ?? 20;
       const m = this.assets.clone('bridge');
@@ -375,7 +385,7 @@ export class Land {
     const at = this.beside(s, side, kind === 'cabin' ? 2.2 : 6 + r() * 3);
     if (!at) return;
     const m = this.put(chunk, kind, at, facing(-side * Math.cos(p.a), -side * Math.sin(p.a)));
-    this.glowAt(chunk, m);
+    if (m) this.glowAt(chunk, m);
   }
 
   private post(chunk: Chunk, s: number, r: () => number) {
@@ -385,10 +395,62 @@ export class Land {
     // turned to the river, and a little upstream, so you can read it coming
     const a = at.p.a;
     const m = this.put(chunk, 'sign', at, facing(-side * Math.cos(a) - Math.sin(a) * 0.8, -side * Math.sin(a) + Math.cos(a) * 0.8));
+    if (!m) return;
     // the model's boxes have no UVs: the painted face is a plane just in front of the board
     const face = new THREE.Mesh(BOARD, signMaterial(s >= 1000 ? `${(s / 1000).toFixed(s % 1000 ? 2 : 0)} km` : `${s} m`));
     face.position.set(0, 1.45, 0.125);
     m.add(face);
+  }
+
+  /**
+   * The islands the river parts round: a wooded one, with a jam of bleached driftwood piled on its
+   * head and a gravel tail, or a low gravel bar in a pool with reeds at its ends and, likely as
+   * not, a heron on it.
+   */
+  private islands(chunk: Chunk, s0: number, s1: number, r: () => number) {
+    const course = this.course;
+    for (const split of course.splits) {
+      if (split.s1 < s0 || split.s0 >= s1) continue;
+      const len = split.s1 - split.s0;
+      const onIsle = (s: number, v: number) => {
+        const p = course.at(s);
+        const m = p.isleU + v;
+        const x = p.x + Math.cos(p.a) * m;
+        const z = p.z + Math.sin(p.a) * m;
+        return { x, z, y: this.heightAt(x, z), p };
+      };
+      const head = Math.round(split.s0 + len * 0.05);
+      if (head >= s0 && head < s1) {
+        const p = course.at(head);
+        const up = facing(-Math.sin(p.a), Math.cos(p.a));
+        if (split.kind === 'isle' || r() < 0.4) this.put(chunk, 'driftwood', { ...onIsle(head, 0), y: p.y }, up, Math.min(1.3, 0.5 + split.half * 0.14));
+      }
+      const tail = Math.round(split.s0 + len * 0.85);
+      if (tail >= s0 && tail < s1 && split.kind === 'bar' && r() < 0.7) {
+        const at = onIsle(tail, 0);
+        chunk.spots.push({ kind: 'heron', x: at.x, y: at.y, z: at.z, a: at.p.a, s: tail, side: 1 });
+      }
+      for (let s = Math.max(s0, Math.ceil(split.s0)); s < Math.min(s1, split.s1); s++) {
+        const p = course.at(s);
+        if (p.isle < 0.8) continue;
+        const inner = (margin: number) => (r() * 2 - 1) * Math.max(0, p.isle - margin);
+        if (split.kind === 'bar') {
+          if (r() < 0.14) this.put(chunk, 'gravel', { ...onIsle(s, inner(0.8)), y: p.y }, r() * 6.3, 0.6 + r() * 0.5);
+          if (r() < 0.06 * p.clear) this.put(chunk, `reeds_${Math.floor(r() * 2)}`, { ...onIsle(s, (r() < 0.5 ? -1 : 1) * p.isle * 0.9), y: p.y }, r() * 6.3);
+          if (r() < 0.012) this.put(chunk, 'cairn', onIsle(s, inner(0.6)), r() * 6.3, 0.8);
+          continue;
+        }
+        const t = (s - split.s0) / len;
+        if (t > 0.78 && r() < 0.1) this.put(chunk, 'gravel', { ...onIsle(s, inner(0.5)), y: p.y }, r() * 6.3, 0.7 + r() * 0.5);
+        if (p.isle > 2.2 && r() < 0.22) {
+          const kind = r() < 0.5 ? `pine_${Math.floor(r() * 3)}` : r() < 0.3 ? `birch_${Math.floor(r() * 2)}` : `tree_${Math.floor(r() * 3)}`;
+          this.put(chunk, kind, onIsle(s, inner(1.6)), r() * 6.3, 0.75 + r() * 0.4);
+        }
+        if (r() < 0.3) this.put(chunk, r() < 0.5 ? 'fern' : `bush_${Math.floor(r() * 2)}`, onIsle(s, inner(0.7)), r() * 6.3, 0.7 + r() * 0.5);
+        if (r() < 0.12) this.put(chunk, `flowers_${Math.floor(r() * 3)}`, onIsle(s, inner(0.9)), r() * 6.3, 0.8 + r() * 0.4);
+        if (r() < 0.03 && p.isle > 1.5) this.put(chunk, `rock_${Math.floor(r() * 5)}`, { ...onIsle(s, (r() < 0.5 ? -1 : 1) * (p.isle - 0.2)), y: p.y - 0.2 }, r() * 6.3, 0.8 + r() * 0.6);
+      }
+    }
   }
 
   /**
@@ -424,8 +486,35 @@ export class Land {
           const at = this.beside(s, side, 2.2 + r() * 4);
           if (at) this.put(chunk, `crag_${Math.floor(r() * 2)}`, at, r() * 6.3, 0.6 + r() * 0.6);
         }
-        // reeds at the edges of the slow water, lily pads on it
+        // wildflowers in the clearings, toadstools and old stumps under the trees, a fallen trunk
+        // gone green with moss, and somebody's cairn on a beach
+        const open = 1 - p.gorge * 0.7;
+        if (r() < 0.1 * open) {
+          const at = this.beside(s, side, 0.8 + Math.pow(r(), 1.3) * 10);
+          if (at) this.put(chunk, `flowers_${Math.floor(r() * 3)}`, at, r() * 6.3, 0.8 + r() * 0.5);
+        }
+        if (r() < 0.025) {
+          const at = this.beside(s, side, 3 + r() * 12);
+          if (at) this.put(chunk, `mushroom_${Math.floor(r() * 2)}`, at, r() * 6.3, 0.9 + r() * 0.4);
+        }
+        if (r() < 0.012 * open) {
+          const at = this.beside(s, side, 2 + r() * 10);
+          if (at) this.put(chunk, 'stump', at, r() * 6.3, 0.8 + r() * 0.5);
+        }
+        if (r() < 0.008 * open) {
+          const at = this.beside(s, side, 4 + r() * 12);
+          if (at) this.put(chunk, 'trunk', { ...at, y: at.y - 0.1 }, r() * 6.3, 0.8 + r() * 0.4);
+        }
+        if (r() < 0.008 * p.clear) {
+          const at = this.beside(s, side, 0.6 + r() * 1.5);
+          if (at) this.put(chunk, 'cairn', at, r() * 6.3, 0.8 + r() * 0.4);
+        }
+        // reeds at the edges of the slow water, lily pads on it, a willow trailing its hair in it
         const slow = Math.max(0, 1 - p.speed / 4.5);
+        if (r() < 0.025 * p.clear * (0.3 + slow)) {
+          const at = this.beside(s, side, 0.4 + r() * 1.2);
+          if (at) this.put(chunk, 'willow', at, toRiver(side, p.a) + (r() - 0.5) * 0.6, 0.85 + r() * 0.3);
+        }
         if (r() < p.clear * 0.07 * (0.4 + slow)) {
           const at = this.beside(s, side, -0.2 + r() * 0.8);
           if (at) this.put(chunk, `reeds_${Math.floor(r() * 2)}`, { ...at, y: Math.max(at.y, p.y) }, r() * 6.3);
@@ -497,6 +586,30 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color) 
   }
   return h;
 }
+
+/**
+ * An island, `e` metres in from its edge (negative: in the water beside it), where the rest of the
+ * river would have `h`: shelving up out of the water to a pebbly shore, then moss and forest floor
+ * on a wooded island; a gravel bar only just clears the water.
+ */
+function island(p: Sample, kind: Split['kind'], e: number, h: number, x: number, z: number, color?: THREE.Color) {
+  if (e < 0) return Math.max(h, p.y - 0.4 - Math.min(1.4, -e * 0.45));
+  const n = fbm(x, z);
+  const k = hash2(Math.floor(x), Math.floor(z));
+  if (kind === 'bar') {
+    color?.copy(e < 0.4 ? WET : PEBBLES[Math.floor(k * 3)]).lerp(SAND[1], p.clear * 0.3 * k);
+    return p.y + 0.14 + Math.min(0.22, e * 0.1) + (n - 0.5) * 0.08;
+  }
+  if (color) {
+    if (e < 0.25) color.copy(WET);
+    else if (e < 1.4 || p.isle < 2) color.copy(PEBBLES[Math.floor(k * 3)]);
+    else color.copy(e < 2.6 ? MOSS[Math.max(0, Math.min(4, Math.floor(n * 4.99)))] : FOREST_FLOOR[Math.max(0, Math.min(3, Math.floor(n * 3.99 + (k - 0.5))))]);
+  }
+  return p.y + 0.2 + smooth(0.3, 2.2, e) * 0.9 + smooth(1.5, 4, e) * (n - 0.3) * 1.2;
+}
+
+/** The turn for a model whose +x should point out from the bank on `side` across the river. */
+const toRiver = (side: number, a: number) => Math.atan2(side * Math.sin(a), -side * Math.cos(a));
 
 /** The crown colours for today: fresh green in spring, turning in autumn, none in winter. */
 function crownMaterials(): THREE.Material[] | null {

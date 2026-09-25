@@ -256,7 +256,7 @@ const places = [
     <header class="river-hud">
       <p class="river-stat"><span data-river-metres>0</span><small>m</small></p>
       <p class="river-flow" data-river-flow title="Flow: builds as you paddle well, gone on a knock or a swim">×1.0</p>
-      <p class="river-stat river-score"><span data-river-score>0</span><small>pts</small></p>
+      <p class="river-stat river-score"><span data-river-score>0</span><small>pts</small><em class="river-pace" data-river-pace title="Speed bonus: the faster you go, the more each metre's worth"></em></p>
       <p class="river-stat river-balls" title="Beike's tennis balls, fished out"><i class="river-ball" aria-hidden="true"></i><span data-river-balls>0</span></p>
       <p class="river-stat river-best">best <span data-river-best>0</span></p>
       <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
@@ -276,7 +276,7 @@ const places = [
         <li data-for="pad"><kbd>L2</kbd> <kbd>R2</kbd> paddle on that side (both: straight on)<br><kbd>L1</kbd> <kbd>R1</kbd> brake / reverse sweep / brace · left stick leans</li>
         <li data-for="touch">Hold both sides of the screen to paddle, one side to turn away from it; low down to brake on that side.</li>
       </ul>
-      <p class="river-hint-line">Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow.</p>
+      <p class="river-hint-line">Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, and up to double for speed: don't drift.</p>
       <button class="river-go" data-river-go data-autofocus>Push off</button>
       <p class="river-best-line">Your best: <span data-river-best>0</span></p>
     </div>

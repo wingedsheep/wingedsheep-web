@@ -106,6 +106,8 @@ class Specks {
 const WHITE = new THREE.Color('#f2f7f6');
 const FOAM = new THREE.Color('#d6ecea');
 const DRIP = new THREE.Color('#a8d8e0');
+const GOLD = new THREE.Color('#ffd35a');
+const EMBER = new THREE.Color('#ff9a3c');
 const FIREFLY = new THREE.Color('#fff38a');
 const DRAGONFLY = new THREE.Color('#3fa8d8');
 const RAIN = new THREE.Color('#b8cde0');
@@ -198,6 +200,28 @@ export class Wildlife {
       const v = V(rand(-1, 1), rand(1.5, 3.5) * power, rand(-1, 1)).multiplyScalar(power);
       this.specks.emit(at.clone().add(V(rand(-0.3, 0.3), 0.1, rand(-0.3, 0.3))), v, i % 3 ? WHITE : FOAM, rand(0.4, 0.9));
     }
+  }
+
+  /** A ring of spray thrown out flat across the water: a landing, a big smack. */
+  ring(at: THREE.Vector3, count: number, power = 1) {
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + rand(-0.1, 0.1);
+      const v = V(Math.cos(a) * rand(2.5, 4) * power, rand(0.8, 1.6) * power, Math.sin(a) * rand(2.5, 4) * power);
+      this.specks.emit(at.clone().add(V(Math.cos(a) * 0.8, 0.1, Math.sin(a) * 0.8)), v, i % 2 ? WHITE : FOAM, rand(0.35, 0.6));
+    }
+  }
+
+  /** Glints thrown up round the kayak: a ball fished out, the flow going up a notch. */
+  sparkle(at: THREE.Vector3, count: number, color: THREE.Color = GOLD, power = 1) {
+    for (let i = 0; i < count; i++) {
+      const v = V(rand(-1.5, 1.5), rand(2, 4.5), rand(-1.5, 1.5)).multiplyScalar(power);
+      this.specks.emit(at.clone().add(V(rand(-0.6, 0.6), 0.6, rand(-0.6, 0.6))), v, color, rand(0.5, 1));
+    }
+  }
+
+  /** A glint left floating in the wake, when the flow's running hot. */
+  glint(at: THREE.Vector3) {
+    this.specks.emit(at.clone().setY(at.y + 0.08), V(), Math.random() < 0.5 ? GOLD : EMBER, rand(0.4, 0.9), 1);
   }
 
   /** Drips off the paddle's blade. */

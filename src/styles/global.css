@@ -583,6 +583,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .river-flow.pop { animation: flow-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.6); }
 @keyframes flow-pop { 40% { transform: scale(1.35); } }
+.river-flow.tier { animation: flow-tier 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+@keyframes flow-tier { 0% { transform: scale(1); } 25% { transform: scale(1.6) rotate(-6deg); background: var(--gold); } 45% { transform: scale(1.2) rotate(4deg); } 100% { transform: scale(1); } }
+.river-flow.lost { animation: flow-lost 0.45s steps(6); }
+@keyframes flow-lost { 0%, 100% { translate: 0; } 20%, 60% { translate: -4px; background: #ff5a3c; color: var(--paper); } 40%, 80% { translate: 4px; background: #ff5a3c; color: var(--paper); } }
+.river-stat.pop { animation: flow-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.6); }
+.river-pace { --pace: 0; min-width: 34px; font: 700 13px/1 var(--ui); font-style: normal; color: color-mix(in srgb, var(--ink-soft), #e0582c calc(var(--pace) * 100%)); }
 .river-score span { color: var(--wood); }
 .river-flash { position: absolute; inset: 0; opacity: 0; pointer-events: none; mix-blend-mode: screen; }
 .river-praise { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }

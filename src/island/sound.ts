@@ -403,7 +403,8 @@ export class Sound {
   }
 
   /** The river's own sounds: a paddle stroke, a knock on a rock, landing off a fall, and so on. */
-  river(kind: RiverSound, volume = 1) {
+  /** A river sound; `step` pitches the chime up the scale as a streak goes on. */
+  river(kind: RiverSound, volume = 1, step = 0) {
     if (!this.enabled || !this.ctx || !this.master) return;
     const t = this.ctx.currentTime;
     const r = (a: number, b: number) => a + Math.random() * (b - a);
@@ -460,6 +461,32 @@ export class Sound {
       case 'hole': // the roar of water pouring back on itself
         this.hiss(t, 0.9, 320, 0.4 * volume);
         this.hiss(t, 0.6, 1200, 0.15 * volume);
+        break;
+      case 'cleared': // out the bottom of a rapid clean: a bright run up and a splash
+        [392, 523, 659, 784].forEach((f, i) => this.tone(t + i * 0.07, 'triangle', [[0, f]], 0.08 * volume, i === 3 ? 0.4 : 0.12));
+        this.hiss(t + 0.28, 0.5, 2000, 0.12 * volume);
+        break;
+      case 'dropin': // into white water: a low surge
+        this.hiss(t, 1.1, 350, 0.35 * volume);
+        this.tone(t, 'sine', [[0, 90], [0.5, 55]], 0.25 * volume, 0.6);
+        break;
+      case 'chime': { // something done well, a note higher each time in a streak
+        const f = 523 * 2 ** ([0, 2, 4, 7, 9][step % 5] / 12 + Math.floor(step / 5));
+        this.tone(t, 'triangle', [[0, f]], 0.05 * volume, 0.22);
+        this.tone(t + 0.04, 'sine', [[0, f * 2]], 0.02 * volume, 0.3);
+        break;
+      }
+      case 'tier': { // the flow up a whole notch: a rising arpeggio that climbs with it
+        const base = 392 * 2 ** (Math.min(step, 5) * 2 / 12);
+        [1, 1.26, 1.5, 2].forEach((m, i) => this.tone(t + i * 0.06, 'square', [[0, base * m]], 0.045 * volume, i === 3 ? 0.45 : 0.12, 2600));
+        this.hiss(t + 0.2, 0.4, 3000, 0.08 * volume);
+        break;
+      }
+      case 'lost': // the flow gone: a sad little slide down
+        this.tone(t, 'square', [[0, 392], [0.25, 196]], 0.04 * volume, 0.3, 1200);
+        break;
+      case 'mile': // another stretch of distance put behind you
+        [784, 1047].forEach((f, i) => this.tone(t + i * 0.1, 'triangle', [[0, f]], 0.06 * volume, 0.25));
         break;
       case 'best': // a new best: a little fanfare
         [523, 659, 784, 1047].forEach((f, i) => this.tone(t + i * 0.11, 'square', [[0, f]], 0.05 * volume, i === 3 ? 0.5 : 0.14, 2400));

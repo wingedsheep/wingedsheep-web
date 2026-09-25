@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { RiverAssets } from './assets';
-import type { Course, Gate, Hole, Ledge, Obstacle, Pickup, Sample, Thing, Tongue } from './course';
+import { type Course, type Gate, type Hole, type Ledge, type Obstacle, type Pickup, type Sample, type Thing, type Tongue, channel } from './course';
 import { type Intent, NEUTRAL } from './controls';
 
 const HULL = [1.45, 0, -1.45]; // collision circles along the hull, from the bow (m)
@@ -153,9 +153,12 @@ export class Kayak {
   private effort = 0;
   /** The sideways water on the hull (m/s, + from the right), for tripping over the leading edge. */
   private crossflow = 0;
-  /** A spin: how far round it's gone without stopping. */
+  /** A spin: how far round it's gone without stopping, and the strokes that drove it. */
   private spun = 0;
   private spins = 0;
+  /** Which way (+1 right, -1 left) the last forward stroke and the last reverse sweep turned you. */
+  private spinFwd = 0;
+  private spinRev = 0;
   private difficulty = 0;
 
   constructor(assets: RiverAssets) {
@@ -188,7 +191,7 @@ export class Kayak {
     this.queued = null;
     this.blade = { kind: 'none', side: 1, t: 1, dur: 0.5, power: 0, sweep: false };
     this.pitchNow = this.leanNow = 0;
-    this.spun = this.spins = 0;
+    this.spun = this.spins = this.spinFwd = this.spinRev = 0;
     this.vy = this.pitch = 0;
     this.model.visible = true;
     this.place();
@@ -203,6 +206,11 @@ export class Kayak {
     this.heading = p.a;
     this.yawRate = this.tilt = this.tiltV = this.vy = 0;
     this.airborne = false;
+  }
+
+  /** How white the water is right where the kayak is (round an island, the channel it's in). */
+  get rough() {
+    return this.here ? Math.min(1, this.here.rough * channel(this.here, this.side).rough) : 0;
   }
 
   /** Speed over the ground (m/s). */
@@ -251,6 +259,9 @@ export class Kayak {
       this.stamina = Math.max(0, this.stamina - 0.035 * power);
       this.effort = Math.min(1, this.effort + 0.3 * power);
       if (kind === 'fwd') this.lastCatch = this.clock;
+      // a forward stroke turns you away from its side, a reverse sweep towards it
+      if (kind === 'fwd') this.spinFwd = -side;
+      else this.spinRev = side;
       this.events.stroke?.(power, kind === 'rev');
     };
     if (this.queued) {
@@ -306,7 +317,12 @@ export class Kayak {
     // a sweep also pushes the ends out sideways: the bow away at the start, the stern at the end
     const fl = b.sweep ? -b.side * BLADE * 2.4 * env * (fwd ? 1 : -1) * Math.sign(a) * (0.5 + 0.5 * b.power) : 0;
     if (!fwd) fa *= 1.3;
-    return { fa, fl, tau: a * fl - l * fa };
+    let tau = a * fl - l * fa;
+    // forward strokes can't wind you up past a brisk turn on their own: the blade's only going
+    // round as fast as the boat already is. A reverse sweep bites into the water and whips you
+    // round, which is what a spin needs.
+    if (fwd && tau * this.yawRate > 0) tau *= THREE.MathUtils.clamp(1 - (Math.abs(this.yawRate) - 1.3) / 0.9, 0, 1);
+    return { fa, fl, tau };
   }
 
   // --- the river pushing it along ---------------------------------------------------------
@@ -428,6 +444,28 @@ export class Kayak {
       }
     }
 
+    // an island shoves you off into one channel or the other: its head hard, as you'd expect
+    if (p.isle > 0) {
+      const d = this.side - p.isleU;
+      const reach = p.isle + 0.55;
+      if (Math.abs(d) < reach) {
+        const out = Math.sign(d) || 1;
+        const over = reach - Math.abs(d);
+        this.pos.x += rx * out * over;
+        this.pos.z += rz * out * over;
+        const vn = -(this.vel.x * rx + this.vel.y * rz) * out;
+        if (vn > 0) {
+          this.vel.x += rx * out * vn * 1.4;
+          this.vel.y += rz * out * vn * 1.4;
+          this.vel.multiplyScalar(0.96);
+          this.yawRate += out * vn * 0.4;
+          if (up) this.tiltV += out * vn * 0.3;
+          const at = this.pos.clone().addScaledVector(new THREE.Vector3(rx, 0, rz), -out * 0.4);
+          if (vn > 1.5) this.events.bump?.(vn, at);
+        }
+      }
+    }
+
     // into and out of the special water
     if (hole && !this.holed) this.events.hole?.(this.vel.x * fx + this.vel.y * fz < 2.5);
     if (hole) {
@@ -457,7 +495,7 @@ export class Kayak {
     if (up) this.rollPhysics(dt, p, hole, running);
 
     // up and down: riding the water, or flying off a ledge
-    const bob = Math.sin(this.clock * 2.1) * 0.03 + Math.sin(this.clock * 5.3 + p.s) * p.rough * 0.08;
+    const bob = Math.sin(this.clock * 2.1) * 0.03 + Math.sin(this.clock * 5.3 + p.s) * this.rough * 0.08;
     const water = course.heightAt(this.s) + bob + this.flip * 0.12; // upside down, the hull rides high
     if (!this.airborne && water < this.pos.y - 0.3) {
       this.airborne = true;
@@ -484,7 +522,10 @@ export class Kayak {
     const fx = Math.sin(q.a);
     const fz = -Math.cos(q.a);
     const across = Math.max(-1, Math.min(1, near.side / (q.width / 2)));
-    let flow = q.speed * (1 - 0.32 * across * across);
+    const ch = channel(q, near.side);
+    let flow = q.speed * ch.speed * (1 - 0.32 * across * across);
+    // slack water along an island's shore
+    if (q.isle > 0) flow *= 0.72 + 0.28 * Math.min(1, Math.max(0, (Math.abs(near.side - q.isleU) - q.isle) / 2));
     if (tongue) flow += 2.2;
     let eddy = 0;
     for (const t of things) if ('kind' in t && t.kind === 'rock') eddy = Math.max(eddy, inEddy(t, x, z, fx, fz));
@@ -492,7 +533,7 @@ export class Kayak {
     const fwd = Math.max(0, this.pitchNow);
     const back = Math.max(0, -this.pitchNow);
     if (hole) flow *= 1 - hole.strength * (1.5 + back * 0.8 - fwd * 0.6) * Math.max(0.3, 1 - Math.max(0, this.holed - 1.5) * 0.3);
-    const churn = q.rough * 1.4 * (Math.sin(this.clock * 1.7 + q.s * 0.21) + Math.sin(this.clock * 3.1 + q.s * 0.07) * 0.5);
+    const churn = Math.min(1, q.rough * ch.rough) * 1.4 * (Math.sin(this.clock * 1.7 + q.s * 0.21) + Math.sin(this.clock * 3.1 + q.s * 0.07) * 0.5);
     return { x: fx * flow + Math.cos(q.a) * churn, z: fz * flow + Math.sin(q.a) * churn };
   }
 
@@ -502,14 +543,22 @@ export class Kayak {
     return along > from && along < to && Math.abs(this.side - u) < half + 0.3;
   }
 
-  /** All the way round without stopping: a 360 (and on). */
+  /**
+   * All the way round without stopping: a 360 (and on). Only the real thing counts: a forward
+   * sweep to get it going, a reverse sweep on the other side to whip it round, and paddling on.
+   * Holding one side down just turns you.
+   */
   private spinning(dt: number) {
-    if (Math.abs(this.yawRate) < 1.1 || this.balance !== 'up') {
+    const sense = Math.sign(this.yawRate);
+    if (Math.abs(this.yawRate) < 0.8 || this.balance !== 'up' || this.spun * this.yawRate < 0) {
       this.spun = this.spins = 0;
-      return;
+      // strokes turning the other way don't count towards this one
+      if (this.spinFwd !== sense) this.spinFwd = 0;
+      if (this.spinRev !== sense) this.spinRev = 0;
+      if (Math.abs(this.yawRate) < 0.8 || this.balance !== 'up') return;
     }
-    if (this.spun * this.yawRate < 0) this.spun = this.spins = 0;
     this.spun += this.yawRate * dt;
+    if (this.spinFwd !== sense || this.spinRev !== sense) return;
     if (Math.abs(this.spun) >= (this.spins + 1) * Math.PI * 2) this.events.spin?.(++this.spins);
   }
 
@@ -522,8 +571,8 @@ export class Kayak {
     // towards the water: lift that edge by leaning away). Leaning forward into the waves steadies
     // you; sitting back lets them push you about.
     const stance = 1 - Math.max(0, this.pitchNow) * 0.35 + Math.max(0, -this.pitchNow) * 0.4;
-    let torque = p.rough * (3.2 + this.difficulty * 2) * stance * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
-    if (Math.random() < dt * p.rough * 2.2) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * p.rough * stance;
+    let torque = this.rough * (3.2 + this.difficulty * 2) * stance * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
+    if (Math.random() < dt * this.rough * 2.2) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * this.rough * stance;
     if (hole) torque += Math.sin(t * 5) * 5.5 * hole.strength * stance * (1 + Math.min(2, this.holed));
     torque += Math.max(-6, Math.min(6, this.crossflow * Math.abs(this.crossflow) * 0.9));
     torque += this.yawRate * Math.max(0, this.speed - 3) * 0.25;

@@ -45,9 +45,11 @@ export function riverWater() {
       uniform float uTime;
       attribute vec4 aRiver; // across (-1..1), s, rough, speed
       attribute vec4 aMore; // clear, gorge, drop, heading
+      attribute vec4 aSplit; // m across, the island's middle (m across), half its width (m), the hero channel's side
       varying vec3 vWorld;
       varying vec4 vRiver;
       varying vec4 vMore;
+      varying vec4 vSplit;
       #include <fog_pars_vertex>
       ${NOISE}
       void main() {
@@ -59,6 +61,7 @@ export function riverWater() {
         vWorld = w.xyz;
         vRiver = aRiver;
         vMore = aMore;
+        vSplit = aSplit;
         vec4 mvPosition = viewMatrix * w;
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
@@ -75,6 +78,7 @@ export function riverWater() {
       varying vec3 vWorld;
       varying vec4 vRiver;
       varying vec4 vMore;
+      varying vec4 vSplit;
       #include <fog_pars_fragment>
       ${NOISE}
 
@@ -90,12 +94,22 @@ export function riverWater() {
         vec2 dir = vec2(sin(vMore.w), -cos(vMore.w)); // downstream (x, z)
         float depth = 1.0 - u * u; // 0 at the banks … 1 mid-stream
 
+        // round an island: shallows along its shore, and one channel white, the other calm
+        float isle = vSplit.z;
+        float shore = abs(vSplit.x - vSplit.y) - isle; // m out from the island's edge
+        if (isle > 0.0) {
+          depth = min(depth, clamp(shore / 3.0, 0.0, 1.0));
+          float k = clamp(isle / 1.5, 0.0, 1.0);
+          float hero = step(0.0, (vSplit.x - vSplit.y) * vSplit.w);
+          rough = clamp(rough * mix(1.0, mix(0.4, 1.5, hero), k) + hero * k * 0.15, 0.0, 1.0);
+        }
+
         // colour by depth: a pool is clear and green over pebbles; running water is teal to deep
         // blue, darker still between the gorge walls
         vec3 shallow = mix(vec3(0.24, 0.62, 0.56), vec3(0.5, 0.62, 0.42), clear * 0.8);
         vec3 mid = mix(vec3(0.1, 0.44, 0.5), vec3(0.2, 0.5, 0.4), clear * 0.7);
         vec3 deep = mix(vec3(0.05, 0.26, 0.38), vec3(0.1, 0.34, 0.34), clear * 0.6);
-        float wob = (noise(p * 0.4 + dir * uTime * 0.2) - 0.5) * 0.2;
+        float wob = (noise(p * 0.4 - dir * uTime * (0.1 + speed * 0.05)) - 0.5) * 0.2;
         float t = clamp(depth + wob, 0.0, 1.0);
         vec3 col = mix(shallow, mid, smoothstep(0.1, 0.45, t));
         col = mix(col, deep, smoothstep(0.5, 0.95, t) * (1.0 - clear * 0.3));
@@ -107,8 +121,10 @@ export function riverWater() {
         float pebble = step(0.72, noise(p * 2.2)) * clear * (1.0 - t * 0.7);
         col = mix(col, col * 0.86, pebble * 0.7);
         col = mix(col, col * 0.93, ripple * clear * 0.4);
-        float c = abs(noise(p * 1.1 + vec2(uTime * 0.25, -uTime * 0.18)) - 0.5);
+        float c = abs(noise(p * 1.1 - dir * uTime * (0.15 + speed * 0.12)) - 0.5);
         col += vec3(0.12, 0.12, 0.08) * step(c, 0.035) * (0.35 + clear * 0.65) * (1.0 - rough);
+
+        // (everything that moves on the water moves downstream: noise(p - dir * t) drifts along dir)
 
         // the current: pale streaks running downstream, faster where the river is
         vec2 q = vec2(u * 16.0, s * 0.3 - uTime * speed * 0.3);
@@ -142,7 +158,11 @@ export function riverWater() {
 
         // foam where the river meets the banks, breathing in and out
         float edge = abs(u) + sin(uTime * 1.3 + s * 0.4) * 0.015;
-        col = mix(col, vec3(0.88, 0.95, 0.93), step(0.955, edge) * step(0.4, noise(p * 1.4 + uTime * 0.3)));
+        col = mix(col, vec3(0.88, 0.95, 0.93), step(0.955, edge) * step(0.4, noise(p * 1.4 - dir * uTime * (0.3 + speed * 0.1))));
+        if (isle > 0.0) {
+          float lap = shore + sin(uTime * 1.3 + s * 0.4) * 0.12;
+          col = mix(col, vec3(0.88, 0.95, 0.93), step(lap, 0.35) * step(0.35, noise(p * 1.4 - dir * uTime * (0.3 + speed * 0.1))));
+        }
 
         // rocks: a pillow of foam piling up on the upstream side, and a wake trailing behind
         for (int k = 0; k < ${MAX_ROCKS}; k++) {
@@ -153,7 +173,7 @@ export function riverWater() {
           float across = dot(d, vec2(-dir.y, dir.x));
           float dist = length(d) - r.z;
           float foamy = 0.3 + rough * 0.5 + r.w;
-          float ring = step(dist, 0.18 + foamy * 0.35 * (0.6 + 0.4 * noise(p * 2.0 + uTime))) * step(-0.2, dist);
+          float ring = step(dist, 0.18 + foamy * 0.35 * (0.6 + 0.4 * noise(p * 2.0 - dir * uTime * (0.5 + speed * 0.2)))) * step(-0.2, dist);
           float len = r.z * (2.5 + foamy * 5.0);
           float wake = step(0.0, along) * step(along, len) * step(abs(across), r.z * (1.1 - along / len * 0.6));
           float streaks = step(0.55, noise(vec2(across * 3.0, along * 1.2 - uTime * speed * 1.2)));
@@ -171,7 +191,7 @@ export function riverWater() {
           float inside = step(across, h.z + noise(p * 1.5) * 0.4);
           float trough = step(-1.6, along) * step(along, -0.5) * inside;
           float boil = step(-0.6, along) * step(along, 0.9 + h.w * 0.5) * inside;
-          float churn = step(0.35, noise(vec2(across * 3.0, along * 3.0 + uTime * 5.0)) + noise(p * 3.0 - uTime * 2.0) * 0.4);
+          float churn = step(0.35, noise(vec2(across * 3.0, along * 3.0 - uTime * 4.0)) + noise(p * 3.0 - dir * uTime * 2.0) * 0.4);
           col = mix(col, col * 0.62, trough);
           col = mix(col, mix(vec3(0.78, 0.9, 0.92), vec3(0.97, 1.0, 1.0), churn), boil);
         }
@@ -205,6 +225,8 @@ export function waterRibbon(course: Course, i0: number, i1: number, material: TH
   const pos = new Float32Array(rows * cols * 3);
   const river = new Float32Array(rows * cols * 4);
   const more = new Float32Array(rows * cols * 4);
+  const split = new Float32Array(rows * cols * 4);
+  const dry = new Uint8Array(rows * cols); // well inside an island: no water to draw
   for (let r = 0; r < rows; r++) {
     const p = course.samples[i0 + r];
     const rx = Math.cos(p.a);
@@ -216,12 +238,15 @@ export function waterRibbon(course: Course, i0: number, i1: number, material: TH
       pos.set([p.x + rx * off, p.y, p.z + rz * off], k * 3);
       river.set([u * OVERLAP, p.s, p.rough, p.speed], k * 4);
       more.set([p.clear, p.gorge, p.drop, p.a], k * 4);
+      split.set([off, p.isleU, p.isle, p.hero], k * 4);
+      dry[k] = p.isle > 0 && Math.abs(off - p.isleU) < p.isle - 1.2 ? 1 : 0;
     }
   }
   const index: number[] = [];
   for (let r = 0; r < rows - 1; r++) {
     for (let c = 0; c < cols - 1; c++) {
       const a = r * cols + c;
+      if (dry[a] && dry[a + 1] && dry[a + cols] && dry[a + cols + 1]) continue;
       index.push(a, a + 1, a + cols, a + 1, a + cols + 1, a + cols);
     }
   }
@@ -229,6 +254,7 @@ export function waterRibbon(course: Course, i0: number, i1: number, material: TH
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('aRiver', new THREE.BufferAttribute(river, 4));
   geo.setAttribute('aMore', new THREE.BufferAttribute(more, 4));
+  geo.setAttribute('aSplit', new THREE.BufferAttribute(split, 4));
   geo.setIndex(index);
   geo.computeBoundingSphere();
   const mesh = new THREE.Mesh(geo, material);
