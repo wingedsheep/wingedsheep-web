@@ -25,6 +25,8 @@ export interface IslandContext {
   journal: Journal;
   openPanel(name: PanelName): void;
   toast(text: string): void;
+  /** A toast with buttons; picking one dismisses it. */
+  ask(text: string, choices: { label: string; pick?(): void }[]): void;
   /** Mark a secret as found (toasts the first time). */
   discover(id: keyof typeof SECRETS): void;
 }
@@ -162,7 +164,10 @@ export const PLACES: Record<string, Place> = {
     activate(ctx) {
       ctx.toast('Someone left mid-turn with two Islands untapped. Suspicious.');
       ctx.discover('magic');
-      ctx.openPanel('workshop');
+      ctx.ask('Take their seat and keep playing?', [
+        { label: 'Yes', pick: () => window.open('https://magic.wingedsheep.com/play/solo', '_blank', 'noopener') },
+        { label: 'No' },
+      ]);
     },
   },
   kayak: {

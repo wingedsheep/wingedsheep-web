@@ -119,6 +119,33 @@ export class UI {
     setTimeout(() => el.remove(), stay + 600);
   }
 
+  /** A toast with buttons. It waits a while for an answer, then quietly goes away. */
+  ask(text: string, choices: { label: string; pick?(): void }[]) {
+    const el = document.createElement('div');
+    el.className = 'toast toast-ask';
+    const p = document.createElement('p');
+    p.textContent = text;
+    const row = document.createElement('div');
+    row.className = 'toast-choices';
+    const dismiss = () => {
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 600);
+    };
+    for (const choice of choices) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = choice.label;
+      btn.addEventListener('click', () => {
+        dismiss();
+        choice.pick?.();
+      });
+      row.append(btn);
+    }
+    el.append(p, row);
+    this.toasts.append(el);
+    setTimeout(dismiss, 12000);
+  }
+
   private showArticle(slug: string) {
     this.hideAll();
     this.article.hidden = false;

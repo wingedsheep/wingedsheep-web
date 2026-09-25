@@ -103,6 +103,7 @@ export async function bootIsland(host: HTMLElement) {
     journal,
     openPanel: (name) => ui.openPanel(name),
     toast: (text) => ui.toast(text),
+    ask: (text, choices) => ui.ask(text, choices),
     discover(id) {
       if (!journal.discover(id)) return;
       ui.toast(`✦ Discovered: ${SECRETS[id].title} (${journal.count}/${journal.size})`, 'secret');
