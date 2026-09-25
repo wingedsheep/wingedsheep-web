@@ -9,6 +9,7 @@ import { SECRETS } from '../island/content';
 import { career } from '../data/career';
 import piano from '../data/piano.json';
 import { projects } from '../data/projects';
+import records from '../data/records.json';
 import { site } from '../data/site';
 import { type BookInfo, SUBJECTS, type Subject, spineColor, tagKey } from '../data/subjects';
 import PixelIcon from './PixelIcon.astro';
@@ -135,17 +136,44 @@ const places = [
     <script is:inline type="application/json" id="library-books" set:html={JSON.stringify(books).replace(/</g, '\\u003c')} />
   </section>
 
-  <section class="panel" data-panel="workshop" hidden aria-labelledby="workshop-title">
-    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
-    <h2 id="workshop-title" tabindex="-1">The workshop</h2>
-    <p class="panel-lede">Things I'm building. Most of them started as "wouldn't it be fun if…".</p>
-    <ul class="projects">
+  <!-- the workshop has no side panel: the projects stand in the room, and these signs hang
+       over them (pinned by src/island/workshop.ts). Without the island they're a plain list. -->
+  <section class="workshop" data-panel="workshop" hidden aria-labelledby="workshop-title">
+    <header class="workshop-banner">
+      <h2 id="workshop-title" tabindex="-1">The workshop</h2>
+      <p>Things I'm building. Most of them started as "wouldn't it be fun if…"</p>
+      <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
+    </header>
+    <ul class="exhibits">
       {projects.map((p) => (
-        <li class="project">
-          <h3><a href={p.href}>{p.name}</a></h3>
-          <p>{p.blurb}</p>
-          <p class="tags">{p.tags.map((t) => <span>{t}</span>)}</p>
-          {p.post && <p><a href={`/blog/${p.post}/`} data-book={p.post}>Read the story →</a></p>}
+        <li class="exhibit" data-exhibit={p.id}>
+          <button class="exhibit-sign" aria-expanded="false" aria-controls={`exhibit-${p.id}`}>{p.name}</button>
+          <div class="exhibit-card" id={`exhibit-${p.id}`} role="group" aria-label={p.name} style={`--spine:${p.color}`} hidden>
+            <button class="exhibit-close" data-deselect aria-label="Put it back"><PixelIcon name="close" /></button>
+            <p class="exhibit-thing">{p.thing}</p>
+            <div class="exhibit-title">
+              <h3 tabindex="-1">{p.name}</h3>
+              <span class="card-stamp exhibit-stamp">{p.tags[0]}</span>
+            </div>
+            <p class="exhibit-blurb">{p.blurb}</p>
+            <p class="card-tags">{p.tags.slice(1).map((t) => <span class="tag">{t}</span>)}</p>
+            {p.id === 'music' && (
+              <div class="exhibit-player" data-player>
+                <button data-record aria-pressed="false"><span data-glyph aria-hidden="true">▶</span> <span data-record-label>Put a record on</span></button>
+                <p class="exhibit-now" data-now>{records.length} generated songs, played on a creaky old gramophone.</p>
+              </div>
+            )}
+            <p class="exhibit-actions">
+              {p.href !== `/blog/${p.post}/` && <a class="exhibit-btn" href={p.href} {...(p.href.startsWith('http') ? { target: '_blank', rel: 'noopener' } : {})}>{p.href.includes('github.com') ? 'Source' : 'Visit'} ↗</a>}
+              {p.source && p.source !== p.href && <a class="exhibit-btn" href={p.source} target="_blank" rel="noopener">Source ↗</a>}
+              {p.post && <a class="exhibit-btn exhibit-read" href={`/blog/${p.post}/`} data-book={p.post}>Read the story →</a>}
+            </p>
+            <p class="exhibit-step">
+              <button data-step="-1" aria-label="Previous project">←</button>
+              <span>{projects.indexOf(p) + 1} / {projects.length}</span>
+              <button data-step="1" aria-label="Next project">→</button>
+            </p>
+          </div>
         </li>
       ))}
     </ul>

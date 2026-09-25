@@ -2,6 +2,7 @@
 import 'katex/dist/katex.min.css';
 import { getCollection, render } from 'astro:content';
 import IslandShell from '../../components/IslandShell.astro';
+import { projects } from '../../data/projects';
 import { SUBJECTS, spineColor } from '../../data/subjects';
 import { site } from '../../data/site';
 import Base from '../../layouts/Base.astro';
@@ -40,6 +41,9 @@ const jsonLd = {
   wordCount: words,
   author: { '@type': 'Person', '@id': `${Astro.site!.href}#person`, name: site.name, url: Astro.site!.href },
 };
+// a post that tells a project's story links to the project itself
+const project = projects.find((p) => p.post === post.id);
+const out = (href: string) => (href.startsWith('http') ? { target: '_blank', rel: 'noopener' } : {});
 ---
 <Base title={post.data.title} description={post.data.excerpt} image={post.data.cover} published={post.data.date} jsonLd={jsonLd}>
   <IslandShell hasArticle>
@@ -54,6 +58,14 @@ const jsonLd = {
       {post.data.tags.length > 0 && <p class="article-tags">{post.data.tags.map((t) => <span>{t}</span>)}</p>}
       <div class="fleuron" aria-hidden="true"><i></i><i></i><i></i></div>
     </header>
+    {project && (project.href !== `/blog/${post.id}/` || project.source) && (
+      <aside class="article-plaque" style={`--spine:${project.color}`} aria-label="The project">
+        <span>In the workshop</span>
+        <strong>{project.name}</strong>
+        {project.href !== `/blog/${post.id}/` && <a href={project.href} {...out(project.href)}>{project.href.includes('github.com') ? 'Source' : 'Visit'} ↗</a>}
+        {project.source && project.source !== project.href && <a href={project.source} {...out(project.source)}>Source ↗</a>}
+      </aside>
+    )}
     {post.data.cover && <figure class="article-cover"><img src={post.data.cover} alt="" /></figure>}
     {contents.length >= 3 && (
       <nav class="article-contents" aria-label="Contents">

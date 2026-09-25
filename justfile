@@ -26,6 +26,11 @@ preview-library:
     blender -b --factory-startup -P tools/models/build.py -- --only library --preview /tmp/library-preview.png
     open /tmp/library-preview.png
 
+# render a quick Blender preview of the workshop's inside
+preview-workshop:
+    blender -b --factory-startup -P tools/models/build.py -- --only workshop --preview /tmp/workshop-preview.png
+    open /tmp/workshop-preview.png
+
 # typecheck
 check:
     npx astro check

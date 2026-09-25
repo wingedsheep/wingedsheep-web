@@ -10,6 +10,9 @@
  *  - piano: Vincent's own compositions, on the upright in the library. Indoors, so they get
  *    the opposite of the guitar's treatment: a small wooden room that rings a little. While
  *    you're inside, the sea and the weather are heard through the walls.
+ *  - the gramophone in the workshop: music from Vincent's music generation experiments, played
+ *    like an old 78: a honky horn with no real bass or treble, a wind-up as the platter gets
+ *    to speed, a slow wow in the pitch, and the hiss and crackle of the needle in the groove.
  *  - the winged sheep: a baa when you click it (short clips, decoded up front)
  *  - Charlie and George: a synthesised purr when you pet them
  *  - weather: hissing rain, rolling thunder, gusting wind and cicadas on a hot day (synthesised)
@@ -31,6 +34,15 @@ export interface Piece {
   title: string;
   duration: number;
   loudness?: number;
+}
+
+/** A track on the workshop's gramophone (src/data/records.json). */
+export interface Disc {
+  id: number;
+  file: string; // without extension: there's a .webm and an .m4a
+  title: string;
+  set: string;
+  duration: number;
 }
 
 const AUDIO = '/audio/';
@@ -62,6 +74,14 @@ export class Sound {
   private pianoBus?: GainNode;
   private piano?: { el: HTMLAudioElement; gain: GainNode; piece: Piece };
   private lastPiece = -1;
+  /** Told whenever a record starts or stops (null). */
+  onRecord?: (record: Disc | null) => void;
+  private recordBus?: GainNode;
+  private surface?: GainNode;
+  private record?: { el: HTMLAudioElement; gain: GainNode; track: Disc; started: number; stopping: boolean };
+  private recordOrder: number[] = [];
+  /** Whether the visitor wants records on (so the next goes on when one ends). */
+  private recordsOn = false;
   private song?: { el: HTMLAudioElement; gain: GainNode; id: number; live: boolean };
   private asked = false;
   private loudness = 0;
@@ -76,6 +96,7 @@ export class Sound {
   constructor(
     private songs: Song[],
     private pieces: Piece[] = [],
+    private records: Disc[] = [],
   ) {
     const probe = document.createElement('audio');
     this.ext = probe.canPlayType('audio/webm; codecs="opus"') ? 'webm' : 'm4a';
@@ -108,6 +129,7 @@ export class Sound {
     if (!on) {
       this.dropSong();
       this.stopPiano();
+      this.stopRecord();
     }
   }
 
@@ -131,6 +153,52 @@ export class Sound {
     this.piano = { el, gain, piece };
     this.onPiano?.(piece);
     return piece;
+  }
+
+  /** The record on the gramophone, if one is playing. */
+  get recordPlaying(): Disc | null {
+    return this.record && !this.record.stopping ? this.record.track : null;
+  }
+
+  /**
+   * Put a record on (by default the next in a shuffled pile) and let it wind up to speed. When
+   * it runs out the next one goes on, until it's stopped. Call from a gesture.
+   */
+  playRecord(id?: number): Disc | null {
+    if (!this.records.length) return null;
+    if (!this.enabled) this.setEnabled(true);
+    this.start();
+    if (!this.recordOrder.length) this.recordOrder = this.records.map((r) => r.id).sort(() => Math.random() - 0.5);
+    const track = this.records.find((r) => r.id === (id ?? this.recordOrder.shift()))!;
+    this.stopRecord(false);
+    this.recordsOn = true;
+    const { el, gain } = this.stream(`${track.file}.${this.ext}`, false, this.recordBus);
+    el.preservesPitch = false; // so the wind-up and the wow bend the pitch, like a real platter
+    el.playbackRate = 0.8;
+    gain.gain.value = 0;
+    gain.gain.setTargetAtTime(0.9, this.ctx!.currentTime + 0.35, 0.2); // the needle finds the groove
+    el.addEventListener('ended', () => {
+      if (this.record?.el !== el) return;
+      this.stopRecord(false);
+      setTimeout(() => this.recordsOn && !this.record && this.playRecord(), 1400); // a moment of run-out crackle
+    });
+    void el.play();
+    this.record = { el, gain, track, started: this.ctx!.currentTime, stopping: false };
+    this.onRecord?.(track);
+    return track;
+  }
+
+  /** Lift the needle: the platter winds down as the music fades. */
+  stopRecord(tell = true) {
+    if (tell) this.recordsOn = false;
+    const r = this.record;
+    if (!r) return;
+    r.stopping = true;
+    this.fadeOutAndDrop(r.el, r.gain, 0.35);
+    this.record = undefined;
+    const slow = setInterval(() => (r.el.playbackRate = Math.max(0.5, r.el.playbackRate - 0.04)), 50);
+    setTimeout(() => clearInterval(slow), 1200);
+    if (tell) this.onRecord?.(null);
   }
 
   /** Let the last notes ring out and close the lid. */
@@ -233,6 +301,15 @@ export class Sound {
     this.cicadaGain?.gain.setTargetAtTime(this.cicadas * 0.05 * walls, t, 1.5);
     if (near > 0 && t > this.nextCrackle) this.crackle(near);
 
+    // the gramophone: wind-up, then a slow wow and a faster flutter in the speed
+    const r = this.record;
+    if (r && !r.stopping) {
+      const age = t - r.started;
+      const wound = 0.8 + 0.2 * Math.min(1, age / 1.4) ** 0.6;
+      r.el.playbackRate = wound * (1 + Math.sin(age * Math.PI * 2 * 0.55) * 0.0045 + Math.sin(age * Math.PI * 2 * 5.5) * 0.0012);
+    }
+    this.surface?.gain.setTargetAtTime(r && !r.stopping ? 0.05 : 0, t, r ? 0.3 : 0.6);
+
     // the guitar only carries when you're zoomed right in on the fire
     const close = Math.max(0, Math.min(1, (24 - view) / 10));
     this.loudness = this.asked ? near * close : 0;
@@ -329,6 +406,7 @@ export class Sound {
 
     this.buildSongChain(ctx);
     this.buildPianoChain(ctx);
+    this.buildRecordChain(ctx);
 
     this.fireGain = ctx.createGain();
     this.fireGain.gain.value = 0;
@@ -490,6 +568,65 @@ export class Sound {
    * The piano as heard in the library: a wood-panelled room full of books, so a warm, short
    * bloom rather than a hall. Books soak up the highs; the low end is kept but not boomy.
    */
+  /**
+   * The gramophone: everything squeezed through a horn (no lows, no highs, a honk around
+   * 1.5 kHz, a touch of grit), then a small wooden workshop. Surface noise runs beside it:
+   * hiss plus the odd crackle and pop, which the record fades up while it plays.
+   */
+  private buildRecordChain(ctx: AudioContext) {
+    this.recordBus = ctx.createGain();
+    const lows = ctx.createBiquadFilter();
+    lows.type = 'highpass';
+    lows.frequency.value = 320;
+    lows.Q.value = 0.9;
+    const highs = ctx.createBiquadFilter();
+    highs.type = 'lowpass';
+    highs.frequency.value = 3800;
+    highs.Q.value = 0.9;
+    const horn = ctx.createBiquadFilter();
+    horn.type = 'peaking';
+    horn.frequency.value = 1500;
+    horn.Q.value = 1.1;
+    horn.gain.value = 6;
+    const grit = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < curve.length; i++) {
+      const x = (i / (curve.length - 1)) * 2 - 1;
+      curve[i] = Math.tanh(x * 1.8) / Math.tanh(1.8);
+    }
+    grit.curve = curve;
+    const level = ctx.createGain();
+    level.gain.value = 0.8;
+    this.recordBus.connect(lows).connect(highs).connect(horn).connect(grit).connect(level).connect(this.master!);
+    const room = ctx.createConvolver();
+    room.buffer = this.roomImpulse(ctx);
+    const wet = ctx.createGain();
+    wet.gain.value = 0.18;
+    level.connect(room).connect(wet).connect(this.master!);
+
+    // the groove: a second of hiss with crackles and the occasional pop in it, on a loop
+    const len = ctx.sampleRate * 3;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.08;
+    for (let k = 0; k < 90; k++) {
+      const at = Math.floor(Math.random() * (len - 200));
+      const amp = Math.random() < 0.08 ? 0.9 : 0.25 + Math.random() * 0.35;
+      for (let j = 0; j < 40; j++) d[at + j] += (Math.random() * 2 - 1) * amp * Math.exp(-j / 6);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const tone = ctx.createBiquadFilter();
+    tone.type = 'bandpass';
+    tone.frequency.value = 2600;
+    tone.Q.value = 0.6;
+    this.surface = ctx.createGain();
+    this.surface.gain.value = 0;
+    src.connect(tone).connect(this.surface).connect(this.master!);
+    src.start();
+  }
+
   private buildPianoChain(ctx: AudioContext) {
     this.pianoBus = ctx.createGain();
     const lows = ctx.createBiquadFilter();

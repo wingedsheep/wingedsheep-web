@@ -34,7 +34,7 @@ function seeded(seed: number) {
 
 const mats = new Map<string, THREE.MeshToonMaterial>();
 /** Toon materials for indoors: no snow, and glowing things stay lit whatever the hour. */
-function toonIndoors(color: THREE.ColorRepresentation, glow = false) {
+export function toonIndoors(color: THREE.ColorRepresentation, glow = false) {
   const c = new THREE.Color(color);
   const key = `${c.getHexString()}:${glow ? 1 : 0}`;
   let mat = mats.get(key);

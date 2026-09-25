@@ -2,12 +2,14 @@
 
     blender -b --factory-startup -P tools/models/build.py -- [--preview out.png] [--night]
     blender -b --factory-startup -P tools/models/build.py -- --only library [--preview out.png]
+    blender -b --factory-startup -P tools/models/build.py -- --only workshop [--preview out.png]
 
 Outputs (public/models/):
   island.glb    terrain + every model, with ids, lights and emitters as glTF extras
   shore.png     distance-from-land map for the water shader
   island.json   world extent and other numbers the runtime needs
   library.glb   the library, inside (tools/models/interior.py)
+  workshop.glb  the workshop, inside, with the projects and the robot (tools/models/workshop.py)
 """
 from __future__ import annotations
 
@@ -37,7 +39,7 @@ def args():
     ap.add_argument("--yaw", type=float, default=0.0)
     ap.add_argument("--focus", default="0,1")
     ap.add_argument("--span", type=float, default=70.0)
-    ap.add_argument("--only", choices=["island", "library"])
+    ap.add_argument("--only", choices=["island", "library", "workshop"])
     return ap.parse_args(argv)
 
 
@@ -146,14 +148,27 @@ def build_library(a):
         preview(a.preview, a.night, -30.0, (-0.5, 3.0), 21.0, sea=False)
 
 
+def build_workshop(a):
+    reset_scene()
+    import workshop  # noqa: E402
+    workshop.build()
+    export("workshop.glb")
+    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'workshop.glb'}")
+
+    if a.preview and a.only == "workshop":
+        preview(a.preview, a.night, -22.0, (0.0, 0.5), 20.0, sea=False)
+
+
 def main():
     a = args()
     if a.preview and not a.only:
         a.only = "island"
-    if a.only != "library":
+    if a.only in (None, "island"):
         build_island(a)
-    if a.only != "island":
+    if a.only in (None, "library"):
         build_library(a)
+    if a.only in (None, "workshop"):
+        build_workshop(a)
 
 
 main()

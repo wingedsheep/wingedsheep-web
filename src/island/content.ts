@@ -7,6 +7,7 @@
  */
 import type * as THREE from 'three';
 import { interests } from '../data/interests';
+import { projects } from '../data/projects';
 import type { Forecast } from './forecast';
 import type { Journal } from './journal';
 import type { CameraRig } from './scene/camera-rig';
@@ -14,6 +15,7 @@ import type { Interior } from './scene/interior';
 import type { Island } from './scene/island';
 import type { Life } from './scene/life';
 import type { Sky } from './scene/sky';
+import type { WorkshopRoom } from './scene/workshop-room';
 import type { Weather } from './scene/weather';
 import type { Sound } from './sound';
 
@@ -31,6 +33,10 @@ export interface IslandContext {
   journal: Journal;
   /** The library's inside, once it has loaded. */
   interior?: Interior;
+  /** The workshop's inside, once it has loaded. */
+  workshop?: WorkshopRoom;
+  /** Unfold a project's card in the workshop (null folds it away). */
+  showProject(id: string | null): void;
   openPanel(name: PanelName): void;
   openArticle(slug: string): void;
   /** Close whatever is open (from the library: step back outside). */
@@ -64,6 +70,7 @@ export const SECRETS = {
   moons: { title: 'Two moons', hint: 'Count the moons in the sea at night.' },
   piano: { title: 'Two originals', hint: 'Not all the music on the island is played outdoors.' },
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
+  robot: { title: 'The workshop robot', hint: 'Someone in the workshop keeps tripping over things.' },
 } as const;
 
 let logPage = -1;
@@ -266,6 +273,47 @@ function soundOn(ctx: IslandContext) {
   if (ctx.sound.enabled) return;
   ctx.sound.setEnabled(true);
   document.querySelector('[data-action="sound"]')?.setAttribute('aria-pressed', 'true');
+}
+
+let robotLine = -1;
+const ROBOT_HELLOS = [
+  'Bzzt! A visitor! It waves with the hand holding the wrench. Clang.',
+  'BEEP BOOP. Everything in here is working as intended. Mostly.',
+  'It salutes, and bonks itself on the sticking plaster.',
+  'Its eye flickers happily. It points at the nearest project, then at a different one, then shrugs.',
+];
+
+/** Things inside the workshop: every project, the robot, and the way out. */
+export const WORKSHOP_PLACES: Record<string, Place> = {
+  workshop_door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
+  robot: {
+    label: (ctx) => (ctx.journal.has('robot') ? 'The workshop robot' : 'A robot, mid-errand'),
+    activate(ctx) {
+      const what = ctx.workshop?.robot.poke();
+      robotLine = (robotLine + 1) % ROBOT_HELLOS.length;
+      ctx.toast(
+        what === 'trip' ? 'You startled it. It windmills its arms and, somehow, stays upright.'
+        : what === 'fall' ? 'It waves so hard it falls flat on its face. It gets up as if nothing happened.'
+        : ROBOT_HELLOS[robotLine],
+      );
+      ctx.discover('robot');
+    },
+  },
+  ...Object.fromEntries(
+    projects.map((p): [string, Place] => [`project_${p.id}`, { label: `${p.name} · ${p.thing}`, activate: (ctx) => ctx.showProject(p.id) }]),
+  ),
+};
+
+/** Put a record on the workshop gramophone (or lift the needle if one is playing). */
+export function toggleRecord(ctx: IslandContext) {
+  soundOn(ctx);
+  if (ctx.sound.recordPlaying) return ctx.sound.stopRecord();
+  const disc = ctx.sound.playRecord();
+  if (disc) ctx.toast(`You wind the handle and lower the needle. Crackle, then: ${disc.set}, written by a transformer.`);
+}
+
+export function workshopPlaceFor(id: string): Place | undefined {
+  return WORKSHOP_PLACES[id];
 }
 
 export function libraryPlaceFor(id: string): Place | undefined {

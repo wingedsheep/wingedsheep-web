@@ -376,3 +376,89 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* --- the workshop: signs over the projects in the room, a card when you pick one ---------- */
+.workshop { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.workshop-banner {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); pointer-events: auto;
+  padding: 8px 52px 8px 18px; background: var(--paper); clip-path: var(--notch); text-align: center;
+  box-shadow: inset 0 0 0 3px var(--paper-edge), inset 0 -5px 0 var(--paper-2);
+  animation: toast-in 0.3s ease-out; max-width: calc(100vw - 32px);
+}
+.workshop-banner h2 { margin: 0; font: 700 22px/1.2 var(--ui); outline: none; }
+.workshop-banner p { margin: 0; font: italic 15px/1.3 var(--serif); color: var(--ink-soft); }
+.workshop-banner .panel-close { top: 50%; right: 10px; transform: translateY(-50%); width: 30px; height: 30px; }
+.exhibits { list-style: none; margin: 0; padding: 0; transition: opacity 0.2s; }
+.workshop.dim .exhibits { opacity: 0; pointer-events: none; }
+.workshop.dim .exhibits * { pointer-events: none; }
+.exhibit { position: absolute; left: 0; top: 0; }
+.exhibit-sign {
+  position: relative; display: block; transform: translate(-50%, -100%); pointer-events: auto; white-space: nowrap;
+  padding: 2px 9px 4px; border: 0; background: var(--wood); color: var(--paper); font: 14px/1.2 var(--ui);
+  clip-path: var(--notch); box-shadow: inset 0 -3px 0 #4b2b24, inset 0 2px 0 #8a5a3e;
+  animation: sign-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4) backwards; animation-delay: var(--delay, 0s);
+  transition: background 0.1s, opacity 0.2s;
+}
+.exhibit-sign:hover, .exhibit-sign[aria-expanded='true'] { background: var(--gold); color: var(--ink); box-shadow: inset 0 -3px 0 #b8862e; }
+@keyframes sign-in { from { transform: translate(-50%, -40%); opacity: 0; } }
+/* a thin post from each sign down to its exhibit */
+.exhibit::after { content: ''; position: absolute; left: -1px; top: 0; width: 2px; height: var(--post, 26px); background: rgba(108, 63, 43, 0.75); pointer-events: none; }
+.workshop.picking .exhibit::after { opacity: 0.5; }
+.workshop.picking .exhibit-sign[aria-expanded='false'] { opacity: 0.55; }
+.exhibit-card {
+  position: absolute; left: var(--shift, 0px); bottom: 30px; transform: translateX(-50%); width: min(340px, calc(100vw - 24px)); z-index: 2;
+  padding: 12px 16px 10px 24px; background: #fbf4e2; pointer-events: auto; font-size: 16px; line-height: 1.45; text-align: left;
+  clip-path: var(--notch);
+  box-shadow: inset 8px 0 0 var(--spine), inset 10px 0 0 rgba(0, 0, 0, 0.18), inset 0 -3px 0 var(--paper-edge), inset 0 0 0 2px var(--paper-edge);
+  animation: card-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.exhibit-card.beside { bottom: auto; top: calc(-20px + var(--drop, 0px)); left: 90px; transform: none; animation-name: card-side; }
+.exhibit-card.beside.to-left { left: auto; right: 90px; }
+@keyframes card-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+@keyframes card-side { from { opacity: 0; translate: 0 8px; } }
+.exhibit-thing { margin: 0 34px 2px 0; font: 12px var(--ui); color: var(--wood); letter-spacing: 0.06em; text-transform: uppercase; }
+.exhibit-thing::before { content: 'Exhibit · '; }
+.exhibit-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; border-bottom: 2px solid rgba(184, 69, 47, 0.45); padding-bottom: 4px; }
+.exhibit-card h3 { margin: 0; font: 600 22px/1.2 var(--serif); outline: none; }
+.exhibit-stamp { flex: none; margin: 2px 4px 0 0; padding: 3px 6px; font-size: 11px; white-space: nowrap; }
+.exhibit-blurb {
+  margin: 6px 0 4px; font-size: 15.5px; line-height: 22px; color: var(--ink-soft);
+  background: repeating-linear-gradient(to bottom, transparent 0 21px, rgba(70, 110, 160, 0.16) 21px 22px);
+}
+.exhibit-card .card-tags .tag { display: inline-block; font: 12px var(--ui); clip-path: var(--notch); }
+.exhibit-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.exhibit-btn {
+  padding: 4px 10px 5px; font: 14px var(--ui); color: var(--ink); text-decoration: none; background: var(--paper-2);
+  clip-path: var(--notch); box-shadow: inset 0 -2px 0 var(--paper-edge);
+}
+.exhibit-btn:hover, .exhibit-btn:focus-visible { background: var(--gold); }
+.exhibit-read { background: var(--ink); color: var(--paper); box-shadow: inset 0 -2px 0 #000; }
+.exhibit-read:hover, .exhibit-read:focus-visible { background: var(--accent); color: #fff; }
+.exhibit-player { margin: 10px 0 2px; padding: 8px 10px; background: var(--ink); color: var(--paper); clip-path: var(--notch); }
+.exhibit-player button {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 0; text-align: left;
+  font: 15px var(--ui); background: var(--gold); color: var(--ink); clip-path: var(--notch);
+}
+.exhibit-player button[aria-pressed='true'] { background: var(--paper); }
+.exhibit-now { margin: 6px 0 0 !important; font: italic 14px/1.35 var(--serif); color: var(--paper-2); }
+.exhibit-step { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 0 !important; padding-top: 6px; border-top: 2px dashed var(--paper-edge); font: 13px var(--ui); color: var(--wood); }
+.exhibit-step button { width: 30px; height: 24px; border: 0; background: transparent; font: 16px var(--ui); color: var(--ink); clip-path: var(--notch); }
+.exhibit-step button:hover { background: var(--paper-2); }
+.exhibit-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: var(--paper-2); clip-path: var(--notch); }
+.exhibit-close:hover { background: var(--gold); }
+/* a post about a project carries the workshop's plaque */
+.article-plaque {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 22px; padding: 10px 14px 10px 20px;
+  background: var(--paper-2); clip-path: var(--notch); font: 15px var(--ui);
+  box-shadow: inset 6px 0 0 var(--spine, var(--wood)), inset 0 -3px 0 var(--paper-edge);
+}
+.article-plaque span { color: var(--wood); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.article-plaque strong { font-weight: 600; }
+.article-plaque a { margin-left: auto; }
+.article-plaque a + a { margin-left: 0; }
+@media (max-width: 760px) {
+  .workshop-banner { top: 52px; padding: 6px 44px 6px 12px; }
+  .workshop-banner p { display: none; }
+  .exhibit-sign { font-size: 12px; padding: 1px 6px 3px; }
+  .exhibit-card, .exhibit-card.beside, .exhibit-card.beside.to-left { position: fixed; left: 8px; right: 8px; top: auto; bottom: 64px; width: auto; max-height: 62vh; overflow-y: auto; transform: none; animation-name: sheet-in; }
+}

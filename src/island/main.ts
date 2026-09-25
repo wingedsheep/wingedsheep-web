@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import piano from '../data/piano.json';
+import records from '../data/records.json';
 import songs from '../data/songs.json';
 import { type IslandContext, type PanelName, SECRETS, labelFor, placeFor } from './content';
 import { type WeatherKind, fetchForecast } from './forecast';
@@ -18,12 +19,12 @@ import { createWater } from './scene/water';
 import { Weather } from './scene/weather';
 import { Sound } from './sound';
 import { UI } from './ui';
+import { Workshop } from './workshop';
 
 /** Which place the camera visits when a panel opens. */
 const PANEL_HOME: Partial<Record<PanelName | 'article', string>> = {
   library: 'library',
   article: 'library',
-  workshop: 'workshop',
   campfire: 'campfire',
   trail: 'cairn_3',
 };
@@ -50,7 +51,7 @@ export async function bootIsland(host: HTMLElement) {
   const pixels = new PixelRenderer(renderer, pixelSizeFor(host.clientWidth));
   const sky = new Sky(scene, island, pixels, water.uniforms);
   const life = new Life(scene, island, sky);
-  const sound = new Sound(songs, piano);
+  const sound = new Sound(songs, piano, records);
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
@@ -61,6 +62,7 @@ export async function bootIsland(host: HTMLElement) {
   const rig = new CameraRig(renderer.domElement, bounds, {
     hover(ndc, client) {
       if (library.wanted) return library.hover(ndc, client);
+      if (workshop.wanted) return workshop.hover(ndc, client);
       const hit = ndc && picker.pick(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       picker.highlight(place && hit ? (island.get(hit.id) ?? null) : null);
@@ -69,6 +71,7 @@ export async function bootIsland(host: HTMLElement) {
     },
     click(ndc) {
       if (library.wanted) return library.click(ndc);
+      if (workshop.wanted) return workshop.click(ndc);
       const hit = picker.pick(ndc) ?? pickMoon(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       if (!hit || !place) return;
@@ -95,13 +98,19 @@ export async function bootIsland(host: HTMLElement) {
 
   const ui = new UI({
     panelOpened(name) {
-      library.enter(name === 'library' || name === 'article');
+      // a post opened from the workshop is read in the workshop
+      const reading = name === 'article' && workshop.wanted;
+      library.enter(name === 'library' || (name === 'article' && !reading));
+      workshop.enter(name === 'workshop' || reading);
       const pos = PANEL_HOME[name] && island.positionOf(PANEL_HOME[name]!);
       if (!pos) return;
       const wide = innerWidth > 900;
       rig.focus(pos, 20, wide ? Math.min(560, innerWidth * 0.45) / 2 : 0, reducedMotion);
     },
-    closed: () => library.enter(false),
+    closed: () => {
+      library.enter(false);
+      workshop.enter(false);
+    },
   });
 
   const ctx: IslandContext = {
@@ -115,6 +124,7 @@ export async function bootIsland(host: HTMLElement) {
     openPanel: (name) => ui.openPanel(name),
     openArticle: (slug) => void ui.openArticle(slug),
     close: () => ui.close(),
+    showProject: (id) => workshop.select(id),
     toast: (text) => ui.toast(text),
     ask: (text, choices) => ui.ask(text, choices),
     discover(id) {
@@ -124,6 +134,8 @@ export async function bootIsland(host: HTMLElement) {
     },
   };
   const library = new Library(ctx, ui, pixels, host, reducedMotion);
+  const workshop = new Workshop(ctx, ui, pixels, host, reducedMotion);
+  const rooms = [library, workshop];
 
   // keyboard and screen-reader twins of the clickable places
   document.querySelectorAll<HTMLElement>('[data-goto]').forEach((el) =>
@@ -148,6 +160,7 @@ export async function bootIsland(host: HTMLElement) {
     pixels.setSize(w, h);
     rig.resize(w, h);
     library.resize();
+    workshop.resize();
   }
   new ResizeObserver(resize).observe(host);
   resize();
@@ -173,8 +186,12 @@ export async function bootIsland(host: HTMLElement) {
   setInterval(live, 30 * 60 * 1000);
   ui.route(true);
   library.enter(library.wanted, true); // landing on /blog/…: start inside, no iris
-  // the room loads once the island is up and the browser has a moment
-  (window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500)))(() => void library.load());
+  workshop.enter(workshop.wanted, true);
+  // the rooms load once the island is up and the browser has a moment
+  (window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500)))(() => {
+    void library.load();
+    void workshop.load();
+  });
 
   const campfire = island.positionOf('campfire')!;
   const clock = new THREE.Clock();
@@ -199,8 +216,13 @@ export async function bootIsland(host: HTMLElement) {
       ctx.discover('guitar');
       life.burst('notes', island.positionOf('vincent')!.add(new THREE.Vector3(0, 1.4, 0)));
     }
-    library.update(dt, sky.lamps);
-    if (library.inside) library.render();
+    // one room at a time drives the iris; one that's being left finishes going first
+    const leaving = rooms.find((r) => r.inside && !r.wanted);
+    const room = leaving ?? rooms.find((r) => r.wanted) ?? library;
+    room.update(dt, sky.lamps);
+    if (leaving && !leaving.inside) rooms.find((r) => r.wanted)?.enter(true, true); // straight through, no island between
+    const inside = rooms.find((r) => r.inside);
+    if (inside) inside.render();
     else pixels.render(scene, rig.camera, rig.subTexel);
   });
 
