@@ -16,6 +16,8 @@ interface Props {
 const { title, description = site.description, image, published, jsonLd, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} · ${site.handle}` : `${site.handle} · ${site.name}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL(image ?? '/og.png', Astro.site);
+const ogImageAlt = 'A pixel-art island at dusk: a lighthouse, a library, a workshop and a mountain, surrounded by sea.';
 ---
 <!doctype html>
 <html lang="en">
@@ -37,15 +39,20 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     {published && <meta property="article:published_time" content={published.toISOString()} />}
     {published && <meta property="article:author" content={site.name} />}
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={new URL(image ?? '/og.png', Astro.site)} />
+    <meta property="og:image" content={ogImage} />
     {!image && (
       <>
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="A pixel-art island at dusk: a lighthouse, a library, a workshop and a mountain, surrounded by sea." />
+        <meta property="og:image:alt" content={ogImageAlt} />
       </>
     )}
+    <!-- X doesn't reliably fall back to the og: tags, so spell them out -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    {!image && <meta name="twitter:image:alt" content={ogImageAlt} />}
     <meta name="theme-color" content="#17466a" />
     <link rel="sitemap" href="/sitemap.xml" />
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd).replace(/</g, '\\u003c')} />}
