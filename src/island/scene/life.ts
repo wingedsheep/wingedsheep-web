@@ -7,6 +7,7 @@ import { Floaters } from './floaters';
 import type { Island } from './island';
 import { Mischief } from './mischief';
 import { Particles } from './particles';
+import { petting } from './petting';
 import { season } from './season';
 import { Shelter, type Waypoint } from './shelter';
 import type { Sky } from './sky';
@@ -78,6 +79,8 @@ export class Life {
   /** Seconds since the music stopped (or Vincent left the fire), so Beike can get up and go. */
   private quiet = 0;
   private kick = 0;
+  /** Where Beike lies down for a fuss, and his head's way (in front of whoever's kneeling in his meadow). */
+  private lap?: { at: THREE.Vector3; face: THREE.Vector3 };
   /** How hard it's raining (or hailing), 0..1 (set every frame). */
   rain = 0;
   /** How wet the weather is, 0..1 (set every frame): rabbits and robins shelter from the rain. */
@@ -135,6 +138,15 @@ export class Life {
       this.fireSpot.copy(seat).lerp(fire, 0.4).add(V(-0.35, 0, 0));
       this.fireSpot.y = ground.at(this.fireSpot.x, this.fireSpot.z);
       this.fireRoute = TO_THE_FIRE.map(([x, y]) => ({ at: V(x, ground.at(x, -y), -y), fixed: false }));
+    }
+
+    const kneel = island.get('companion_petting_beike');
+    if (kneel) {
+      // in front of them (their -y in Blender, +z here), head to their left (+x)
+      kneel.updateMatrixWorld(true);
+      const at = kneel.localToWorld(V(0.05, 0, 0.62));
+      at.y = ground.at(at.x, at.z);
+      this.lap = { at, face: kneel.localToWorld(V(2, 0, 0.62)) };
     }
 
     this.mixer = new THREE.AnimationMixer(island.root);
@@ -224,6 +236,7 @@ export class Life {
     this.flySheep(dt);
     this.flyFlock();
     this.shelter.update(dt, this.rain);
+    this.fuss(dt);
     this.beike.update(dt);
     this.fetchAtTheFire(dt);
     this.mischief.update(dt, night < 0.8, this.vincent.atTheFire);
@@ -259,6 +272,18 @@ export class Life {
     if ((this.kickIn -= dt) > 0) return;
     if (this.kick === 0) this.kick = 1; // the foot comes up…
     if (this.kick < 0.5) beike.kicked(); // …and the ball goes at the top of the flick
+  }
+
+  /**
+   * Someone on their knees by the bench or in the meadow (petting.ts): George stretches out into
+   * it now and then, and Beike comes over and lies down in front of them. Neither's there to be
+   * petted while they're in out of the rain.
+   */
+  private fuss(dt: number) {
+    petting.there.cats = this.shelter.onTheBench;
+    petting.there.beike = !this.beike.sheltering && !this.beike.inside;
+    this.beike.lap = petting.by.beike ? (this.lap ?? null) : null;
+    if (petting.by.cats && this.every('george:fuss', 9, dt)) this.pet('george');
   }
 
   /** Beike, over to the fire with his ball as soon as he can: for previews (?beike=fire). */

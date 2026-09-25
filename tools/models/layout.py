@@ -39,6 +39,7 @@ PIER_SEAT = (-1.0, -21.5)          # her, with a podcast: on the pier's west edg
 # Vincent with a podcast: pacing up and down the path from the plaza towards the well
 PODCAST_WALK = [(3.0, -10.3), (8.0, -12.0), (12.5, -13.1), (17.2, -13.9)]
 BEIKE = (-12.5, -12.5)             # Beike's spot in the meadow; he fetches the ball around it
+PETTING = (-12.8, -11.9)           # kneeling in his meadow while he lies in front of them, facing the camera
 SIGNPOST = (-2.6, -15.5)
 BOULDER = (19, 6)
 SETT = (28.6, -4.3)                # the badgers’ sett, where the eastern woods meet the beach

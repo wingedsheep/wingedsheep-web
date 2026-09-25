@@ -83,6 +83,13 @@ def landmarks(t: Terrain):
         x, y = bx + c * along + s * 0.02, by + s * along - c * 0.02
         place(t, name, x, y, build, rot_z=0.3, z=bench.location.z + 0.56, id=name)
     place(t, "beike", *L.BEIKE, beike.beike, rot_z=2.4, id="beike")
+    # petting: on their knees in front of the bench, reaching over to George, or in Beike's
+    # meadow with him lying in front of them (the runtime shows one of them at a time, or nobody)
+    c, s = math.cos(0.3), math.sin(0.3)
+    x, y = bx + c * 0.25 + s * 0.65, by + s * 0.25 - c * 0.65
+    for who, build in (("vincent", characters.vincent_petting), ("companion", companion.petting)):
+        place(t, f"{who}_petting_cats", x, y, lambda r, b=build: b(r, "cats"), rot_z=0.3 + math.pi, id=f"{who}_petting_cats")
+        place(t, f"{who}_petting_beike", *L.PETTING, lambda r, b=build: b(r, "beike"), rot_z=0.3, id=f"{who}_petting_beike")
     place(t, "boulder", *L.BOULDER, props.boulder, id="boulder")
     place(t, "sett", *L.SETT, fauna.sett, rot_z=-1.9, id="sett")
     place(t, "summit", *L.SUMMIT, props.summit_flag, id="summit")

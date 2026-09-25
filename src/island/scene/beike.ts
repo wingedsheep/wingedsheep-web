@@ -29,9 +29,11 @@ type Mood =
   | { kind: 'inside' }
   // by the fire once Vincent's done kicking: a few mad laps round it, then a turn on the spot and down
   | { kind: 'zoomies'; path: THREE.Vector3[]; leg: number }
-  | { kind: 'settle'; t: number; up?: number };
+  | { kind: 'settle'; t: number; up?: number }
+  // over to whoever's kneeling in his meadow (petting.ts), and down in front of them for a fuss
+  | { kind: 'fussed'; t: number; down: boolean };
 
-export type Poke = 'greet' | 'offer' | 'throw' | 'busy';
+export type Poke = 'greet' | 'offer' | 'throw' | 'fussed' | 'busy';
 
 /** Heights straight off the terrain grid's vertices, bilinearly blended between them. */
 export class Ground {
@@ -101,6 +103,11 @@ export class Beike {
   private mouthScale = V(1, 1, 1); // the ball's scale in his mouth: attach() bakes his scale in when he drops it
   /** Over at the campfire, dropping his ball at Vincent's feet mid-song (visit()). */
   private away: { spot: THREE.Vector3; vincent: THREE.Vector3; back: Waypoint[]; rounds: number } | null = null;
+  /**
+   * Someone kneeling in his meadow for him (petting.ts): where to lie down, and a point his head
+   * should be towards. He goes as soon as he's pottering about with his ball, and stays till they go.
+   */
+  lap: { at: THREE.Vector3; face: THREE.Vector3 } | null = null;
 
   private inMouth = true;
   private ballVel = V();
@@ -147,7 +154,7 @@ export class Beike {
     // don't throw the ball into buildings, the bench or the cats
     const big: Record<string, number> = { library: 7.5, workshop: 7, lighthouse: 4.5 };
     for (const [id, o] of island.named) {
-      if (id === 'beike') continue;
+      if (id === 'beike' || id.includes('_petting_')) continue; // mostly nobody's there, and when they are he's lying with them
       this.obstacles.push({ at: o.getWorldPosition(V()), r: big[id] ?? 1.8 });
     }
     // …or into the trees, bushes, rocks, lamps and log seats
@@ -295,6 +302,7 @@ export class Beike {
       this.throwBall();
       return 'throw';
     }
+    if (kind === 'fussed') return 'fussed';
     if (kind !== 'idle' && kind !== 'wander') return 'busy';
     // stand in front of him, a step towards whoever's watching
     const toward = V(visitor.x - this.root.position.x, 0, visitor.z - this.root.position.z).normalize();
@@ -314,6 +322,9 @@ export class Beike {
     if (!this.root) return;
     this.clock += dt;
     this.weather();
+    const kind = this.mood.kind;
+    if (this.lap && (kind === 'idle' || kind === 'wander') && this.inMouth && !this.away) this.mood = { kind: 'fussed', t: 0, down: false };
+    if (!this.lap && kind === 'fussed') this.mood = { kind: 'idle', until: this.clock + rand(2, 5) };
     const m = this.mood;
     let target: THREE.Vector3 | null = null;
     let pace = 0;
@@ -397,6 +408,18 @@ export class Beike {
         if (m.leg < m.path.length - 1) m.leg++;
         else this.mood = { kind: 'settle', t: 0 };
         break;
+      case 'fussed':
+        if (!this.lap) break;
+        if (!m.down) {
+          target = this.lap.at;
+          pace = TROT;
+          // there: straight down, no turning round first (liePose's circle is already over)
+          if (this.flatDistance(this.lap.at) < 0.15) Object.assign(m, { down: true, t: CIRCLE });
+        } else {
+          m.t += dt;
+          this.turnTo(this.lap.face, dt);
+        }
+        break;
       case 'settle':
         m.t += dt;
         if (m.t < CIRCLE) {
@@ -416,8 +439,8 @@ export class Beike {
     p.y = (on ? heightBetween(on.path[on.leg - 1], on.path[on.leg], p, this.ground) : this.ground.at(p.x, p.z)) || p.y;
     this.root.rotation.y = this.heading;
 
-    const excited = m.kind !== 'idle' && m.kind !== 'wander' && m.kind !== 'settle';
-    this.joy = damp(this.joy, excited ? 1 : 0.25, 0.8, dt);
+    const excited = m.kind !== 'idle' && m.kind !== 'wander' && m.kind !== 'settle' && m.kind !== 'fussed';
+    this.joy = damp(this.joy, excited ? 1 : m.kind === 'fussed' ? 0.5 : 0.25, 0.8, dt); // a fuss: a slow, happy wag
     this.updateBall(dt);
     this.pose();
   }
@@ -669,6 +692,7 @@ export class Beike {
     }
     if (this.mood.kind === 'pickup') head.rotation.z -= 0.9 * Math.sin(Math.min(1, this.mood.t / 0.45) * Math.PI);
     if (this.mood.kind === 'settle') this.liePose(this.mood.t, this.mood.up);
+    if (this.mood.kind === 'fussed' && this.mood.down) this.liePose(this.mood.t);
 
     // tail: a lazy sway when calm, a blur when he's excited
     if (tail) {

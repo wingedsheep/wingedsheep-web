@@ -324,30 +324,68 @@ POSES = {
 }
 
 
+def _person(g, prefix: str, j: dict, look: dict, make_head):
+    """A whole person in `g`, jointed as `j` says (see POSES), in `look`'s colours (top, sleeve,
+    thigh, shin, skin, feet if not bare, and wider for broader shoulders). An `arm_r` is their
+    right arm as its own part (`<prefix>_stroke`), pivoting at the shoulder."""
+    m = Model(f"{prefix}_body")
+    m.plank_line(j["hips"], j["neck"], 0.5 * look.get("wide", 1.0), 0.3, look["top"])
+
+    def arm(m: Model, sh, el, hand, at=Vector()):
+        sh, el, hand = (Vector(v) - at for v in (sh, el, hand))
+        mid = sh.lerp(el, 0.45)
+        m.plank_line(sh, mid, 0.14, 0.14, look["sleeve"])
+        m.plank_line(mid, el, 0.12, 0.12, look["skin"])
+        m.plank_line(el, hand, 0.11, 0.11, look["skin"])
+        m.box((0.1, 0.11, 0.1), hand, look["skin"])
+
+    for side in (1, -1):
+        hip, knee, foot = j["leg"] if side > 0 or "leg_r" not in j else j["leg_r"]
+        if side < 0 and "leg_r" not in j:
+            hip, knee, foot = ((-x, y, z) for x, y, z in (hip, knee, foot))
+        m.plank_line(hip, knee, 0.2, 0.2, look["thigh"])
+        m.plank_line(knee, foot, 0.16, 0.16, look["shin"])
+        m.box((0.15, 0.26, 0.08), (foot[0], foot[1] - 0.06, max(0.04, foot[2] - 0.02)), look.get("foot", look["skin"]))
+        if side < 0 and "arm_r" in j:
+            s = Model(f"{prefix}_stroke")
+            arm(s, *j["arm_r"], at=Vector(j["arm_r"][0]))
+            s.build(g, loc=j["arm_r"][0])
+        else:
+            arm(m, *(j["arm"] if side > 0 else ((-x, y, z) for x, y, z in j["arm"])))
+    m.build(g)
+    loc, rot = j["head"]
+    make_head(g, f"{prefix}_head", loc, rot)
+
+
 def yoga_poses(root, prefix: str, look: dict, make_head):
-    """One group per pose (`<prefix>_<pose>`), each a whole person in `look`'s colours (top,
-    sleeve, thigh, shin, skin, and wider for broader shoulders); the runtime shows one at a
-    time. `make_head(parent, name, loc, rot)` builds the head."""
+    """One group per pose (`<prefix>_<pose>`), each a whole person in `look`'s colours; the
+    runtime shows one at a time. `make_head(parent, name, loc, rot)` builds the head."""
     for pose, j in POSES.items():
-        g = group(f"{prefix}_{pose}", parent=root)
-        m = Model(f"{prefix}_{pose}_body")
-        m.plank_line(j["hips"], j["neck"], 0.5 * look.get("wide", 1.0), 0.3, look["top"])
-        for side in (1, -1):
-            hip, knee, foot = j["leg"] if side > 0 or "leg_r" not in j else j["leg_r"]
-            if side < 0 and "leg_r" not in j:
-                hip, knee, foot = ((-x, y, z) for x, y, z in (hip, knee, foot))
-            m.plank_line(hip, knee, 0.2, 0.2, look["thigh"])
-            m.plank_line(knee, foot, 0.16, 0.16, look["shin"])
-            m.box((0.15, 0.26, 0.08), (foot[0], foot[1] - 0.06, max(0.04, foot[2] - 0.02)), look["skin"])
-            sh, el, hand = j["arm"] if side > 0 else ((-x, y, z) for x, y, z in j["arm"])
-            mid = tuple(a + (b - a) * 0.45 for a, b in zip(sh, el))
-            m.plank_line(sh, mid, 0.14, 0.14, look["sleeve"])
-            m.plank_line(mid, el, 0.12, 0.12, look["skin"])
-            m.plank_line(el, hand, 0.11, 0.11, look["skin"])
-            m.box((0.1, 0.11, 0.1), hand, look["skin"])
-        m.build(g)
-        loc, rot = j["head"]
-        make_head(g, f"{prefix}_{pose}_head", loc, rot)
+        _person(group(f"{prefix}_{pose}", parent=root), f"{prefix}_{pose}", j, look, make_head)
+
+
+# Petting (vincent_petting below, companion.petting): up on their knees in front of the bench,
+# reaching over to stroke George, or sat back on their heels in Beike's meadow with a hand along
+# his back while he lies in front of them. The stroking hand (`arm_r`) is the right one.
+PETTING = {
+    # the bench is in front of them (-y): its seat's front edge 0.4 away, George 0.63 away and 0.75 up
+    "cats": dict(hips=(0, -0.04, 0.6), neck=(0, -0.14, 1.12),
+                 leg=[(0.12, -0.04, 0.58), (0.13, -0.12, 0.1), (0.12, 0.34, 0.06)],
+                 arm=[(0.28, -0.12, 1.06), (0.36, -0.3, 0.82), (0.32, -0.46, 0.6)],
+                 arm_r=[(-0.28, -0.12, 1.06), (-0.3, -0.38, 0.9), (-0.08, -0.6, 0.76)],
+                 head=((0, -0.15, 1.14), (0.35, 0, 0))),
+    # Beike lying across in front of them, 0.62 away, head to their left: a hand on his shoulders
+    "beike": dict(hips=(0, 0.18, 0.36), neck=(0, -0.06, 0.88),
+                  leg=[(0.12, 0.16, 0.34), (0.13, -0.22, 0.1), (0.12, 0.3, 0.06)],
+                  arm=[(0.28, -0.05, 0.82), (0.36, -0.25, 0.58), (0.3, -0.5, 0.46)],
+                  arm_r=[(-0.28, -0.05, 0.82), (-0.3, -0.3, 0.62), (-0.14, -0.52, 0.5)],
+                  head=((0, -0.07, 0.9), (0.5, 0, 0))),
+}
+
+
+def petting(root, prefix: str, pet: str, look: dict, make_head):
+    """Someone kneeling to pet the cats or Beike (PETTING[pet]), facing -y."""
+    _person(root, prefix, PETTING[pet], look, make_head)
 
 
 def vincent_yoga(root):
@@ -360,6 +398,13 @@ def vincent_yoga(root):
     m.build(root)
     yoga_poses(root, "vincent_yoga", dict(top=P.TEE, sleeve=P.TEE, thigh=P.SHORTS, shin=P.SKIN, skin=P.SKIN, wide=1.1),
                lambda parent, name, loc, rot: head(parent, name, loc, rot=rot))
+
+
+def vincent_petting(root, pet: str):
+    """Vincent on his knees in the grass, petting the cats on their bench or Beike (PETTING)."""
+    petting(root, f"vincent_petting_{pet}", pet,
+            dict(top=P.TEE, sleeve=P.TEE, thigh=P.SHORTS, shin=P.SKIN, skin=P.SKIN, foot=P.SHOE, wide=1.1),
+            lambda parent, name, loc, rot: head(parent, name, loc, rot=rot))
 
 
 def cat(root):

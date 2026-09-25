@@ -114,6 +114,10 @@ class Cat {
     return this.phase === 'inside';
   }
 
+  get asleep() {
+    return this.phase === 'asleep';
+  }
+
   /** Straight to where the weather says it should be, no walking (on arrival, or with reduced motion). */
   snap(wantIn: boolean) {
     this.phase = wantIn ? 'inside' : 'asleep';
@@ -268,6 +272,11 @@ export class Shelter {
     }
     const route = island.routes.get('beike');
     if (route?.length) beike.shelterRoute = route;
+  }
+
+  /** Whether Charlie and George are both asleep on their bench. */
+  get onTheBench() {
+    return this.cats.filter((c) => c.id !== 'cat').every((c) => c.asleep);
   }
 
   /** Whatever the weather is on the next update, they're already where it would have put them. */

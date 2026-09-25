@@ -10,6 +10,7 @@ import { Journal } from './journal';
 import { Library } from './library';
 import { Hut } from './hut';
 import { Companion, SHOWS, type Show, type Spot } from './scene/companion';
+import { type Pet, PETS } from './scene/petting';
 import { Vincent, type Whereabouts } from './scene/vincent';
 import { Lighthouse } from './lighthouse';
 import { CameraRig } from './scene/camera-rig';
@@ -244,16 +245,18 @@ export async function bootIsland(host: HTMLElement) {
     life.companion.settle();
     life.vincent.settle();
   }
-  // and to see her somewhere in particular: ?companion=reading|fireside|workout|podcast|yoga|baking|watching|bed, with
-  // &show=murder|location|bnb|rail for what's on the telly
+  // and to see her somewhere in particular: ?companion=reading|fireside|workout|podcast|yoga|petting|baking|watching|bed, with
+  // &show=murder|location|bnb|rail for what's on the telly, or &pet=cats|beike for who's getting a fuss
+  const pet = params.get('pet') as Pet | null;
+  const fuss = pet && PETS.includes(pet) ? pet : undefined;
   const spot = params.get('companion') as Spot | null;
   if (spot && Companion.SPOTS.includes(spot)) {
     const show = params.get('show') as Show | null;
-    life.companion.put(spot, show && SHOWS.includes(show) ? show : undefined);
+    life.companion.put(spot, show && SHOWS.includes(show) ? show : undefined, fuss);
   }
-  // or him: ?vincent=guitar|kayak|yoga|climb|podcast|coding|asleep (and ?time=00:30 to see who's up)
+  // or him: ?vincent=guitar|kayak|yoga|climb|podcast|petting|coding|asleep (and ?time=00:30 to see who's up)
   const where = params.get('vincent') as Whereabouts | null;
-  if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where);
+  if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where, fuss);
   // a bit of mischief, sooner: ?beike=fire (he brings his ball over mid-song), ?mischief (the
   // gull goes for the wrap), ?bottle (one's already washed up)
   if (params.get('beike') === 'fire') life.beikeToTheFire();

@@ -291,10 +291,34 @@ const fireside = inTurn([
   'She has a request. He plays it the second time she asks.',
   'Toes towards the fire, hands round the mug. This is the good log, and it’s taken.',
 ]);
+// she doesn't much like it, but she does it anyway: it's for the greater good
 const workout = inTurn([
   'She waves without missing a beat. Nobody else on this island can do jumping jacks and wave.',
+  'She catches your eye mid-jump and mouths “greater good”. You decide not to ask.',
+  'Stretch to the left: a long look at the blanket under the blossom tree. Stretch to the right: another. Two more sets.',
+  'She counts her reps in Roman numerals, which makes it history, which makes it bearable. She’s on XIV.',
   'Rep eleven. Or twelve. She’s lost count, so she starts again from one, on principle.',
-  'She says you can join in. She says it without stopping, which makes it sound less like an invitation and more like a dare.',
+]);
+
+const herCats = inTurn([
+  'George has rolled over to show her his belly. It’s a trap. She knows it’s a trap. She goes in anyway.',
+  'She scratches George behind the ears. Charlie opens one eye to make sure this is being shared out fairly.',
+  'George is purring so hard the bench hums. She stops for a second and gets a look.',
+]);
+const herBeike = inTurn([
+  'Beike is being told he’s a very good boy. He agrees completely.',
+  'She stops. A paw comes up and pats her hand, twice. She starts again.',
+  'His tail is thumping the grass. His ball is still in his mouth, just in case.',
+]);
+const hisCats = inTurn([
+  'He scratches George under the chin. George allows it, which from George is a standing ovation.',
+  'Charlie gets a stroke too, for balance. Charlie did not ask for balance.',
+  'George stretches a paw out and rests it on his arm. He’s not going anywhere now.',
+]);
+const hisBeike = inTurn([
+  'Ear scratches. Beike leans into them so far he tips over, and decides to stay there.',
+  'He’s telling Beike all about his game. Beike thinks it sounds great.',
+  'Technically Beike is his dad’s dog. Nobody has told Beike, and nobody’s going to.',
 ]);
 
 const yoga = inTurn([
@@ -341,7 +365,11 @@ export const PLACES: Record<string, Place> = {
   companion_reading: withHer('Deep in a book', reading),
   companion_fireside: withHer('By the fire, with tea', (ctx) =>
     ctx.sound.playing ? 'She’s singing along, a word or two ahead of him. He’s pretending not to notice.' : fireside()),
-  companion_workout: withHer('Working out above the beach', workout),
+  companion_workout: withHer('Working out above the beach, under protest', workout),
+  companion_petting_cats: withHer('Giving the cats a fuss', herCats),
+  companion_petting_beike: withHer('Giving Beike a fuss', herBeike),
+  vincent_petting_cats: { label: 'Vincent · giving the cats a fuss', activate: (ctx) => ctx.toast(hisCats()) },
+  vincent_petting_beike: { label: 'Vincent · giving Beike a fuss', activate: (ctx) => ctx.toast(hisBeike()) },
   companion_yoga: withHer('Yoga, on the next mat along', yoga),
   vincent_yoga: { label: 'Vincent · yoga by the beach', activate: (ctx) => ctx.toast(hisYoga()) },
   vincent_hiking: { label: 'Vincent · off up the mountain', activate: (ctx) => ctx.toast(climbing()) },
@@ -451,6 +479,10 @@ export const PLACES: Record<string, Place> = {
           break;
         case 'offer':
           ctx.toast('Beike drops his ball at your feet. He looks at the ball. Then at you. Then at the ball.');
+          break;
+        case 'fussed':
+          ctx.life.burst('hearts', at);
+          ctx.toast('Beike’s tail thumps twice to say hello. He’s not getting up, though. He’s busy.');
           break;
         case 'throw': {
           const said: Record<number, string> = {

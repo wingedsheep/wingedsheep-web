@@ -10,6 +10,7 @@ She has a few spots, and the runtime (src/island/scene/companion.ts) shows her a
   workout   on an exercise mat on the grass above the beach, ponytail through her cap:
             jumping jacks, a breather, side stretches
   bed       in the hut's bed (hut.py) from half past ten: sitting up reading, and later asleep
+  petting   on her knees in the grass, stroking George on the bench, or Beike (characters.PETTING)
 
 Each faces -y; z = 0 is the ground (or the hut floor). The parts the runtime moves are their own
 objects, pivoting where they join: `*_head` at the neck, `*_shin_l/_r` at the knees,
@@ -20,7 +21,7 @@ from __future__ import annotations
 import math
 
 import palette as P
-from characters import duvet, yoga_poses
+from characters import duvet, petting as kneeling, yoga_poses
 from kit import Model, emitter, group
 from mathutils import Euler, Vector
 
@@ -437,3 +438,10 @@ def yoga(root):
     m.build(root)
     yoga_poses(root, "companion_yoga", dict(top=P.TANK, sleeve=P.FAIR, thigh=P.LEGGINGS, shin=P.LEGGINGS, skin=P.FAIR, wide=0.9),
                lambda parent, name, loc, rot: head(parent, name, loc, rot=rot, ponytail=True))
+
+
+def petting(root, pet: str):
+    """On her knees in the grass, petting the cats on their bench or Beike (characters.PETTING)."""
+    kneeling(root, f"companion_petting_{pet}", pet,
+             dict(top=P.LAVENDER, sleeve=P.LAVENDER, thigh=P.DENIM, shin=P.DENIM, skin=P.FAIR, foot=P.SNEAKER, wide=0.9),
+             lambda parent, name, loc, rot: head(parent, name, loc, rot=rot))
