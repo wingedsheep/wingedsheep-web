@@ -40,6 +40,10 @@ export class PixelRenderer {
         uOutline: { value: new THREE.Color(0x1d1a2c) },
         uOutlineStrength: { value: 0.55 },
         uGrade: { value: new THREE.Vector3(1, 1, 1) }, // saturation, contrast, brightness
+        uShade: { value: new THREE.Color(1, 1, 1) }, // what the shadows lean towards (a multiplier)…
+        uLight: { value: new THREE.Color(1, 1, 1) }, // …and the lit parts
+        uTone: { value: 0 }, // 0..1: how far they lean
+        uVignette: { value: 0.5 }, // 0..1: the dithered darkening round the edges
         uHeat: { value: 0 }, // 0..1: heat shimmer on a scorching day
         uTime: { value: 0 },
         uFade: { value: 0 },
@@ -59,6 +63,10 @@ export class PixelRenderer {
         uniform vec3 uOutline;
         uniform float uOutlineStrength;
         uniform vec3 uGrade;
+        uniform vec3 uShade;
+        uniform vec3 uLight;
+        uniform float uTone;
+        uniform float uVignette;
         uniform float uHeat;
         uniform float uTime;
         uniform float uFade;
@@ -98,12 +106,22 @@ export class PixelRenderer {
           col = (col - 0.5) * uGrade.y + 0.5;
           col *= uGrade.z;
 
+          // split tone, as a painter would: shadows go cool, light goes warm
+          float lt = dot(col, vec3(0.299, 0.587, 0.114));
+          col = mix(col, col * mix(uShade, uLight, smoothstep(0.1, 0.75, lt)), uTone);
+
+          // vignette in dithered steps, darkening towards the shadow colour so it stays pixel art
+          float bayer = (BAYER[(p.x & 3) + (p.y & 3) * 4] + 0.5) / 16.0;
+          vec2 size = vec2(textureSize(tDepth, 0));
+          vec2 q = (vec2(p) / size - 0.5) * vec2(size.x / size.y, 1.0);
+          float v = floor(smoothstep(0.45, 1.05, length(q)) * uVignette * 4.0 + bayer) / 4.0;
+          col = mix(col, col * uShade * 0.55, v * 0.5);
+
           // the iris: the edges dither shut first, and it opens again from the middle
           if (uFade > 0.0) {
             vec2 mid = vec2(textureSize(tDepth, 0)) * 0.5;
             float d = length(vec2(p) - mid) / length(mid);
-            float b = (BAYER[(p.x & 3) + (p.y & 3) * 4] + 0.5) / 16.0;
-            if (b < uFade * 1.5 - (1.0 - d) * 0.5) col = uFadeColor;
+            if (bayer < uFade * 1.5 - (1.0 - d) * 0.5) col = uFadeColor;
           }
           gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
           #include <colorspace_fragment>

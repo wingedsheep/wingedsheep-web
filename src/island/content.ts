@@ -7,6 +7,7 @@
  */
 import type * as THREE from 'three';
 import { BOOKS } from '../data/books';
+import { chapters } from '../data/career';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { travels, yearsOf } from '../data/travels';
@@ -21,7 +22,7 @@ import type { WorkshopRoom } from './scene/workshop-room';
 import type { Weather } from './scene/weather';
 import type { Sound } from './sound';
 
-export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'campfire' | 'trail' | 'places' | 'journal';
+export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'hut' | 'campfire' | 'trail' | 'places' | 'journal';
 
 export interface IslandContext {
   island: Island;
@@ -39,6 +40,8 @@ export interface IslandContext {
   workshop?: WorkshopRoom;
   /** Unfold a project's card in the workshop (null folds it away). */
   showProject(id: string | null): void;
+  /** Walk the career trail to a chapter (0 = the oldest) and open it. */
+  showChapter(index: number): void;
   openPanel(name: PanelName): void;
   openArticle(slug: string): void;
   /** Close whatever is open (from the library: step back outside). */
@@ -76,13 +79,105 @@ export const SECRETS = {
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
   robot: { title: 'The workshop robot', hint: 'Someone in the workshop keeps tripping over things.' },
   travels: { title: 'Pins in the globe', hint: 'Lean in close to the globe in the library.' },
+  dreams: { title: 'Lucid', hint: 'Someone at the hut writes things down the moment they wake up.' },
   winds: { title: 'Still being written', hint: 'One book on the keeper’s shelf won’t open.' },
   arnhem: { title: 'Home town', hint: 'The keeper’s telly has a game about where he grew up.' },
+  cartridge: { title: 'Press start', hint: 'Not every cartridge by the telly has a proper label.' },
   beike: { title: 'Beike', hint: 'Someone in the meadow has a ball and all the time in the world.' },
+  // the wildlife (src/island/scene/fauna.ts): some come out only at night, some only now and then
+  badger: { title: 'The badger', hint: 'There’s a sett at the edge of the eastern woods. Its owner keeps late hours.' },
+  owl: { title: 'The owl', hint: 'After dark, someone keeps an eye on everyone who comes ashore.' },
+  hedgehog: { title: 'A hedgehog', hint: 'Something prickly snuffles about near the bench at night. Not in winter, though.' },
+  fox: { title: 'The fox', hint: 'On some nights, something red hunts mice in the meadows.' },
+  deer: { title: 'Red deer', hint: 'At dawn and dusk, the woods come out to graze.' },
+  stag: { title: 'The stag', hint: 'Now and then the deer bring someone wearing a crown.' },
+  dolphins: { title: 'Dolphins', hint: 'Sometimes a pod passes the south of the island.' },
+  whale: { title: 'The whale', hint: 'Watch the sea for a while. A long while.' },
+  geese: { title: 'The skein', hint: 'Look up in autumn and in spring.' },
+  blacksheep: { title: 'The black sheep', hint: 'Every flock has one. Not on every visit.' },
+  wanderer: { title: 'A small wanderer', hint: 'Someone very small, very rarely, comes ashore at the dock.' },
+  starsheep: { title: 'A wild sheep chase', hint: 'Very rarely, one of the flock has a mark on its back.' },
+  rocky: { title: 'Fist my bump', hint: 'Someone with five legs and no face very rarely drops by the workshop.' },
+  supersheep: { title: 'Super Sheep', hint: 'Once in a long while, one of the flock has somewhere to be. Fast.' },
 } as const;
 
 let logPage = -1;
 const say = (text: string) => (ctx: IslandContext) => ctx.toast(text);
+
+/**
+ * An animal: it reacts (bolts, curls up, calls…, see fauna.ts), and you get a line about it.
+ * Lines are picked in turn, so clicking again says something new.
+ */
+function animal(species: string, label: Place['label'], lines: string[], secret?: keyof typeof SECRETS): Place {
+  let n = 0;
+  return {
+    label,
+    activate(ctx, at) {
+      ctx.life.fauna.poke(species, at, ctx.rig.camera.position);
+      ctx.toast(lines[n++ % lines.length]);
+      if (secret) ctx.discover(secret);
+    },
+  };
+}
+
+const WILDLIFE: Record<string, Place> = {
+  ewe: animal('sheep', 'A sheep', [
+    'Baa. It looks at you, chews for a while, and goes back to the grass.',
+    'The sheep looks up at the winged one overhead, thinks about it, and decides it’s fine down here.',
+    'It has eaten the same patch of grass all day and sees no reason to stop.',
+  ]),
+  blacksheep: animal('blacksheep', (ctx) => (ctx.journal.has('blacksheep') ? 'The black sheep' : 'A black sheep'), [
+    'Every flock has one. This one seems very pleased about it.',
+  ], 'blacksheep'),
+  rabbit: animal('rabbit', 'A rabbit', ['A flash of white tail, and it’s gone down a hole.', 'Thump, thump: a warning to every rabbit in the meadow. Then it bolts.']),
+  deer: animal('deer', 'A red deer', [
+    'Heads up, ears up, and they’re gone into the trees. The Veluwe, where they roam wild, starts just outside Arnhem.',
+    'A flash of pale rump between the trunks, and the woods are quiet again.',
+  ], 'deer'),
+  stag: animal('stag', 'A red deer stag', ['A stag, antlers and all. He holds your gaze a moment, then turns and walks, unhurried, back into the woods.'], 'stag'),
+  badger: animal('badger', (ctx) => (ctx.journal.has('badger') ? 'The badger · out foraging' : 'Something striped, snuffling about'), [
+    'A badger! It stops, sniffs the air in your direction, decides you are not a worm, and goes back to digging.',
+    'The badger ignores you completely. It has worms to find and all night to find them.',
+    'It snuffles right up to your feet, grunts, and trundles off. You have been inspected.',
+  ], 'badger'),
+  sett: {
+    label: (ctx) => (ctx.journal.has('badger') ? 'The badger’s sett' : 'A mound of earth with a hole in it'),
+    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.45
+      ? 'The sett is empty: its owner is out foraging somewhere nearby, nose first.'
+      : 'A badger sett. Fresh earth by the door, and from somewhere underground, a faint snore. Come back after dark.'),
+  },
+  hedgehog: animal('hedgehog', 'A hedgehog', ['It curls into a prickly ball and waits for you to go away.', 'Snuffle, snuffle. It’s after beetles, not you.'], 'hedgehog'),
+  fox: animal('fox', 'A fox', ['The fox looks at you for one long second, then trots off as if it had somewhere better to be.'], 'fox'),
+  crab: animal('crab', 'A crab', ['It scuttles off sideways, claws up, and digs itself into the sand.']),
+  squirrel: animal('squirrel', 'A red squirrel', ['It chatters at you, furious, from halfway up a tree.']),
+  gull: animal('gull', 'A herring gull', ['It screams at you. You don’t even have chips.', 'It circles once more, just to make its point.']),
+  songbird: animal('songbird', 'A robin', ['The robins scatter, then come straight back. They know you have nothing, but they check.']),
+  owl: animal('owl', 'A tawny owl', ['Hoo… hu-hu-huuu. Its head turns much further round than seems reasonable.'], 'owl'),
+  bat: animal('bat', 'A bat', ['Pipistrelles, out for the evening midges. Too quick to follow.']),
+  goose: animal('goose', (ctx) => (ctx.life.fauna.geeseSouth ? 'Geese · heading south' : 'Geese · heading north'), [
+    'A skein of geese, honking to each other all the way. Somewhere, a long way off, someone is expecting them.',
+  ], 'geese'),
+  dolphin: animal('dolphin', 'Dolphins!', ['A pod of dolphins, passing the island without stopping. They seem to be having a great time.'], 'dolphins'),
+  whale: animal('whale', 'A humpback whale', ['A humpback! One slow breath at the surface, and it’s gone again. It might be a long time before it comes back.'], 'whale'),
+  duck: animal('duck', 'A mallard', ['Quack. It paddles on, very much in charge.']),
+  duckling: animal('duckling', 'A duckling', ['Tiny, fluffy, and paddling as hard as it possibly can to keep up.']),
+  heron: animal('heron', 'A grey heron', ['It unfolds itself, flaps off low over the water with a grumpy croak, and will be back the moment you’ve gone.']),
+  starsheep: animal('starsheep', (ctx) => (ctx.journal.has('starsheep') ? 'The sheep with the star' : 'A sheep with a mark on its back'), [
+    'A pale star in the wool on its back. Somewhere, somebody has been looking for this sheep for a very long time.',
+    'It chews, unbothered. It has no idea anyone is looking for it.',
+  ], 'starsheep'),
+  rocky: animal('rocky', (ctx) => (ctx.journal.has('rocky') ? 'Rocky' : 'Something with five legs'), [
+    '♪ A little run of chords. You don’t speak Eridian, but you’re fairly sure it means “Happy, happy, happy!”',
+    '♪ Amaze! Amaze! Amaze! It seems to like the workshop very much.',
+    '♪ It holds up one hand. Fist my bump?',
+  ], 'rocky'),
+  supersheep: animal('supersheep', '…is that a sheep?', [
+    'BAAA-BOOM. Wool everywhere, sheep nowhere. Somewhere, a worm nods approvingly.',
+  ], 'supersheep'),
+  wanderer: animal('wanderer', '???', [
+    'A small masked wanderer in a red cloak. It bows, needle raised, and is gone in a dash. It seems to know exactly where it’s going.',
+  ], 'wanderer'),
+};
 
 export const PLACES: Record<string, Place> = {
   dock: { label: 'The dock', activate: say('Every visitor arrives here. The water is calm today.') },
@@ -91,12 +186,15 @@ export const PLACES: Record<string, Place> = {
   workshop: { label: 'The workshop · projects', panel: 'workshop' },
   lighthouse: { label: 'The lighthouse · the keeper’s quarters', panel: 'lighthouse' },
   campfire: { label: 'The campfire · about me', panel: 'campfire' },
-  cairn: { label: 'A cairn on the trail · career', panel: 'trail' },
   summit: {
     label: 'The summit',
     panel: 'trail',
-    activate: (ctx) => ctx.discover('summit'),
+    activate(ctx) {
+      ctx.discover('summit');
+      ctx.showChapter(chapters.length - 1);
+    },
   },
+  hut: { label: 'The mountain hut · stop for the night', panel: 'hut' },
   vincent: {
     label: (ctx) => (ctx.sound.playing ? `Vincent · playing ${ctx.sound.playing.title}` : 'Vincent · ask for a song'),
     activate(ctx, at) {
@@ -113,7 +211,7 @@ export const PLACES: Record<string, Place> = {
   cat: {
     label: (ctx) => (ctx.journal.has('cat') ? 'The dock cat' : 'A sleeping cat'),
     activate(ctx, at) {
-      ctx.toast('Mrrp. One eye opens, then closes again.');
+      ctx.toast('Mrrp. One green eye opens, then closes again. Someone has carved a small Z into the post beside her.');
       ctx.life.burst('hearts', at);
       ctx.discover('cat');
       setTimeout(() => ctx.life.burst('zzz', at), 4000);
@@ -140,15 +238,25 @@ export const PLACES: Record<string, Place> = {
       setTimeout(() => ctx.life.burst('zzz', at), 4000);
     },
   },
-  sheep: {
-    label: 'A winged sheep',
-    activate(ctx) {
-      ctx.life.loop();
-      ctx.sound.baa();
-      ctx.toast('Baa!');
-      ctx.discover('sheep');
-    },
-  },
+  sheep: (() => {
+    const lines = [
+      'Baa! It loops the loop, just to show you it can.',
+      'The winged sheep, out on its rounds. Nobody taught it to fly; it just never heard that sheep can’t.',
+      'It waggles its wings at the flock below. The flock keeps chewing. They’ve seen it before.',
+      'Baa-aa! A little wobble on the way out of the loop. Nobody saw that. Nobody.',
+      'It keeps an eye on the whole island from up here. This is, after all, its island.',
+    ];
+    let n = 0;
+    return {
+      label: (ctx: IslandContext) => (ctx.journal.has('sheep') ? 'The winged sheep' : 'A winged sheep'),
+      activate(ctx: IslandContext) {
+        ctx.life.loop();
+        ctx.sound.baa();
+        ctx.toast(lines[n++ % lines.length]);
+        ctx.discover('sheep');
+      },
+    };
+  })(),
   well: {
     label: 'An old well',
     activate(ctx) {
@@ -218,7 +326,10 @@ export const PLACES: Record<string, Place> = {
   kayak: {
     label: 'A kayak',
     activate(ctx) {
-      ctx.toast('The seat is still wet. Someone has been paddling around the island.');
+      // after the cartridge, the kayak has something to add
+      ctx.toast(ctx.journal.has('cartridge') && ctx.journal.has('kayak')
+        ? 'A strip of masking tape inside the cockpit. In marker: “level 1?”'
+        : 'The seat is still wet. Someone has been paddling around the island.');
       ctx.discover('kayak');
     },
   },
@@ -236,6 +347,7 @@ export const PLACES: Record<string, Place> = {
       ctx.discover('moons');
     },
   },
+  ...WILDLIFE,
 };
 
 /** Things inside the library. Books are `book:<slug>` and open their post. */
@@ -391,6 +503,13 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
       ]);
     },
   },
+  cartridge: {
+    label: 'A cartridge with a tape label',
+    activate(ctx) {
+      ctx.toast('Masking tape on the front, and names in marker, each one crossed out: Arcaneum. Rustwing Raiders. Vesper. At the bottom, in fresh ink: “wild water?”');
+      ctx.discover('cartridge');
+    },
+  },
   coffee: {
     label: 'A mug of coffee',
     activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
@@ -421,6 +540,66 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   ...Object.fromEntries(
     Object.entries(GAMES).map(([id, g]): [string, Place] => [`game:${id}`, { label: g.label, activate: say(g.text) }]),
   ),
+};
+
+let guestPage = -1;
+let dreamPage = -1;
+
+/** Things in the mountain hut. */
+export const HUT_PLACES: Record<string, Place> = {
+  door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
+  bed: {
+    label: 'Vincent’s bed',
+    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
+      ? 'Turned down, the candle lit, and nobody in it. He said he’d be right up.'
+      : 'Made up with the red check duvet. His name is on the board over it, so nobody else gets the corner by the window.'),
+  },
+  dream_journal: {
+    label: 'A notebook by the bed',
+    activate(ctx) {
+      const pages = [
+        'Flying over the island again. Counted two moons in the sea, realised I was dreaming, and promptly woke up.',
+        'Reality check: read the clock, looked away, read it again. It said something else. Should have known.',
+        'The sheep had wings. Didn’t even count that as a clue.',
+      ];
+      dreamPage = (dreamPage + 1) % pages.length;
+      ctx.toast(`Scribbled in the dark: “${pages[dreamPage]}”`);
+      ctx.discover('dreams');
+    },
+  },
+  alarm_clock: { label: 'An alarm clock', activate: say('Set for half past five, for the sunrise over the peaks. It has a snooze button, and it knows it.') },
+  headlamp: { label: 'A headlamp', activate: say('Hung on the bedpost, ready for the early start. The batteries are nearly flat. They always are.') },
+  stove: { label: 'The stove', activate: say('Fed all day from the basket beside it. This is the warmest spot in the hut, which is why the socks are here too.') },
+  kettle: { label: 'The kettle', activate: say('Always on. Tea for whoever comes in out of the cold. Coffee is the other machine’s job.') },
+  nespresso: {
+    label: 'The coffee machine',
+    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
+      ? 'A capsule machine, carried all the way up here in someone’s pack. One more cup. It’s fine, it’s decaf. (It is not decaf.)'
+      : 'A capsule machine, carried all the way up here in someone’s pack. The first cup of the day is black, and not negotiable.'),
+  },
+  capsules: { label: 'A tower of capsules', activate: say('Every colour but one is already running low. Nobody drinks the decaf.') },
+  soup_pot: { label: 'A pot of soup', activate: say('Barley soup, on since this morning. There’s always enough for one more.') },
+  soup: { label: 'Soup and bread', activate: say('Three bowls, still hot, and fresh bread. Everyone’s just stepped out to look at the view.') },
+  socks: { label: 'Socks, drying', activate: say('Wool socks on a line over the stove. Six socks. Three pairs, probably.') },
+  guestbook: {
+    label: 'The guestbook',
+    activate(ctx) {
+      const pages = [
+        'Everyone who stops here signs it. The last entry just says: “Nearly there.”',
+        '“Came up in the fog, saw nothing, had the soup. Worth it.”',
+        '“Stayed one night. Stayed three.”',
+      ];
+      guestPage = (guestPage + 1) % pages.length;
+      ctx.toast(pages[guestPage]);
+    },
+  },
+  map: { label: 'The trail map · career & skills', activate: (ctx) => ctx.openPanel('trail') },
+  stamps: {
+    label: 'Hut stamps',
+    activate: say('A stamp from every hut he’s slept in: the Tour du Mont Blanc, La Fouly, Gavarnie, the Dolomites, Ramsau am Dachstein, and fresh ink from the Peaks of the Balkans.'),
+  },
+  boots: { label: 'A row of boots', activate: say('Lined up by the door, still drying out. The muddiest pair has just done the Peaks of the Balkans.') },
+  rope: { label: 'A rope and an ice axe', activate: say('For the stretch above the hut, where the trail stops being a trail.') },
 };
 
 /** Things in the lamp room, at the top of the lighthouse. */
@@ -498,8 +677,14 @@ export function libraryPlaceFor(id: string): Place | undefined {
   return id.startsWith('pin:') ? pinPlace(id) : LIBRARY_PLACES[id];
 }
 
+/** A cairn on the mountain trail: one per chapter of the career, the oldest at the foot. */
+function cairnPlace(index: number): Place | undefined {
+  const c = chapters[index];
+  return c && { label: `${c.era} · ${c.years}`, activate: (ctx) => ctx.showChapter(index) };
+}
+
 export function placeFor(id: string): Place | undefined {
-  return PLACES[id] ?? (id.startsWith('cairn_') ? PLACES.cairn : undefined);
+  return PLACES[id] ?? (id.startsWith('cairn_') ? cairnPlace(Number(id.slice(6))) : undefined);
 }
 
 export function labelFor(place: Place, ctx: IslandContext): string {

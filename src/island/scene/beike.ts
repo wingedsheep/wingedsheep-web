@@ -26,7 +26,7 @@ type Mood =
 export type Poke = 'greet' | 'offer' | 'throw' | 'busy';
 
 /** Heights straight off the terrain grid's vertices, bilinearly blended between them. */
-class Ground {
+export class Ground {
   private heights = new Map<number, number>();
   private cell: number;
 
@@ -150,6 +150,19 @@ export class Beike {
   /** Where he is right now (for the camera and the hover label). */
   get position() {
     return this.root?.position.clone() ?? V();
+  }
+
+  /** The tip of his nose and the way it points, in world space (for his breath on a cold day). False if he isn't there. */
+  muzzle(at: THREE.Vector3, facing: THREE.Vector3) {
+    if (!this.head) return false;
+    this.head.localToWorld(at.set(0.32, 0, -0.01));
+    facing.set(1, 0, 0).transformDirection(this.head.matrixWorld);
+    return true;
+  }
+
+  /** How hard he's panting, 0..1. */
+  get panting() {
+    return this.joy;
   }
 
   /**

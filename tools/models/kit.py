@@ -62,6 +62,7 @@ class Model:
         self.bm = bmesh.new()
         self.mats: list[bpy.types.Material] = []
         self.rng = random.Random(seed)
+        self.eaves: list[tuple[Vector, float, float]] = []   # (midpoint, direction, length) for icicles
 
     # material slot for a colour
     def _slot(self, color: str, glow: bool) -> int:
@@ -127,11 +128,27 @@ class Model:
             f.material_index = idx
         return set(faces)
 
-    def gable(self, size, loc, color, overhang=0.0, rot=(0, 0, 0), thick=0.18):
+    def slab(self, points, z0, z1, color, top=None, glow=False):
+        """Extrude a polygon in the XY plane (counter-clockwise) from z0 up to z1. `top`, a second
+        outline with as many points, makes the sides slope (for a floating chunk of land)."""
+        top = points if top is None else top
+        lo = [self.bm.verts.new((x, y, z0)) for x, y in points]
+        hi = [self.bm.verts.new((x, y, z1)) for x, y in top]
+        faces = [self.bm.faces.new(hi), self.bm.faces.new(lo[::-1])]
+        for i in range(len(points)):
+            j = (i + 1) % len(points)
+            faces.append(self.bm.faces.new((lo[i], lo[j], hi[j], hi[i])))
+        idx = self._slot(color, glow)
+        for f in faces:
+            f.material_index = idx
+        return set(faces)
+
+    def gable(self, size, loc, color, overhang=0.0, rot=(0, 0, 0), thick=0.18, icicles=False):
         """Gable roof made of two slabs; the ridge runs along X.
 
         size = (length, width, height) of the roof volume, loc = centre of its base. The gable
-        ends stay open so a wall triangle (see prism) can show through.
+        ends stay open so a wall triangle (see prism) can show through. icicles=True marks both
+        eaves, for icicles to hang from on a freezing day (see frost.ts).
         """
         L, W, H = size
         angle = math.atan2(H, W / 2)
@@ -144,6 +161,8 @@ class Model:
             local = Matrix.LocRotScale(centre, Euler((-side * angle, 0, 0)), Vector((L, slope, thick)))
             r = bmesh.ops.create_cube(self.bm, size=1.0, matrix=m @ local)
             faces |= self._paint(r["verts"], color)
+            if icicles:
+                self.eaves.append((m @ Vector((0, side * run, H - run * math.tan(angle))), rot[2], L))
         return faces
 
     def plank_line(self, start, end, width, thick, color):
@@ -171,6 +190,8 @@ class Model:
             obj.parent = parent
         for k, v in props.items():
             obj[k] = v
+        for at, turn, length in self.eaves:
+            group("icicles", tuple(at), rot_z=turn, parent=obj, icicles=round(length, 3))
         return obj
 
 

@@ -1,8 +1,10 @@
 import * as THREE from 'three';
-import { GRADIENT, snowCover } from './toon';
+import { isGrass, tintGround } from './season';
+import { GRADIENT, frostCover, snowCover } from './toon';
 
 export const wind = { value: 0 }; // shared clock uniform for everything that sways
 export const windGust = { value: 0 }; // 0 calm … 1 gale: how hard things sway
+export const windDir = { value: new THREE.Vector2(1, 0) }; // which way it blows (world x, z; unit)
 export const drought = { value: 0 }; // 0..1: grass bleaching to straw in the heat
 
 const BLADES_PER_M2 = 14;
@@ -36,7 +38,8 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
     const area = n.length() / 2;
     if (n.normalize().y < 0.82) continue; // too steep
     color.fromBufferAttribute(col, i0);
-    if (!(color.g > color.r * 1.15 && color.g > color.b * 1.1)) continue; // only on grass
+    if (!isGrass(color)) continue; // only on grass
+    tintGround(color);
     const count = area * BLADES_PER_M2;
     const whole = Math.floor(count) + (Math.random() < count % 1 ? 1 : 0);
     for (let k = 0; k < whole; k++) {
@@ -59,9 +62,11 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
     shader.uniforms.uWind = wind;
     shader.uniforms.uSnow = snowCover;
     shader.uniforms.uGust = windGust;
+    shader.uniforms.uWindDir = windDir;
     shader.uniforms.uDry = drought;
+    shader.uniforms.uFrost = frostCover;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSnow;\nuniform float uGust;')
+      .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSnow;\nuniform float uGust;\nuniform vec2 uWindDir;\nuniform float uFrost;\nvarying float vTip;')
       .replace(
         '#include <begin_vertex>',
         /* glsl */ `
@@ -70,17 +75,21 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
         float gust = sin(uWind * 1.7 + rootW.x * 0.35 + rootW.z * 0.2) * 0.5 + sin(uWind * 3.1 + rootW.x * 1.3) * 0.2;
         // in a gale the blades flatten downwind and flutter
         gust = gust * (1.0 + uGust * 1.5) + uGust * (1.2 + sin(uWind * 11.0 + rootW.x * 2.1 + rootW.z) * 0.35);
-        transformed.x += gust * 0.16 * position.y * 2.0;
-        transformed.z += gust * 0.08 * position.y * 2.0;
+        gust *= 1.0 - uFrost * 0.6; // frozen stiff
+        vTip = position.y * 2.0;
+        // downwind, turned into the blade's own (randomly rotated) frame
+        vec3 downwind = vec3(uWindDir.x, 0.0, uWindDir.y) * mat3(instanceMatrix);
+        transformed.xz += normalize(downwind.xz) * gust * 0.36 * position.y;
         transformed.y *= 1.0 - uSnow * 0.85; // buried in snow
         `,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uSnow;\nuniform float uDry;')
+      .replace('#include <common>', '#include <common>\nuniform float uSnow;\nuniform float uDry;\nuniform float uFrost;\nvarying float vTip;')
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.7, 0.4) * dot(diffuseColor.rgb, vec3(0.5, 0.8, 0.2)), uDry * 0.6);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.9, 0.96), uFrost * (0.06 + vTip * vTip * 0.3)); // rime on the tips
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 1.0), uSnow * 0.8);`,
       );
   };

@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 
 import palette as P
-from kit import Model, emitter, light
+from kit import Model, animate, emitter, light
 
 
 def campfire(root):
@@ -81,7 +81,7 @@ def well(root):
     m.cyl(0.75, 0.05, (0, 0, 0.98), "#07060c", segs=10)
     for x in (-0.9, 0.9):
         m.box((0.16, 0.16, 1.9), (x, 0, 1.9), P.WOOD_DARK)
-    m.gable((2.4, 1.6, 0.7), (0, 0, 2.8), P.RUST_ROOF, overhang=0.15)
+    m.gable((2.4, 1.6, 0.7), (0, 0, 2.8), P.RUST_ROOF, overhang=0.15, icicles=True)
     m.cyl(0.07, 1.8, (-0.9, 0, 2.3), P.WOOD, segs=5, rot=(0, math.pi / 2, 0))
     m.cyl(0.02, 0.8, (0, 0, 1.5), "#d9c79a", segs=4)
     m.cyl(0.2, 0.3, (0, 0, 1.2), P.WOOD, segs=7)
@@ -112,13 +112,74 @@ def lamp(root):
     light(root, (0, 0, 2.5), P.WARM_LIGHT, 5.5)
 
 
-def cairn(root, seed: int):
+def cairn(root, seed: int, emblem: str | None = None):
+    """A stack of stones with a flat capstone, and on it a token of the stretch of the career it
+    stands for (see layout.CAIRN_EMBLEMS): a mortarboard on a book, a bus, a lightning bolt."""
     m = Model("cairn", seed)
     z = 0
-    for i, r in enumerate([0.42, 0.34, 0.27, 0.2, 0.13]):
-        m.ball(r, (m.rng.uniform(-0.04, 0.04), 0, z + r * 0.5), P.ROCK[1 + i % 3], subdiv=1, scale=(1.2, 1.0, 0.55))
-        z += r * 0.95
+    for i, r in enumerate([0.46, 0.38, 0.3, 0.24]):
+        dx, dy = m.rng.uniform(-0.04, 0.04), m.rng.uniform(-0.03, 0.03)
+        m.ball(r, (dx, dy, z + r * 0.5), P.LIMESTONE[(i + 1) % 3], subdiv=1, scale=(1.2, 1.05, 0.55),
+               rot=(0, 0, m.rng.uniform(0, math.pi)))
+        z += r * 0.92
+    cap = 0.46 if emblem == "bus" else 0.3                                     # room for the wheels
+    m.cyl(cap, 0.07, (0, 0, z - 0.03), P.LIMESTONE[0], segs=7, r_top=cap - 0.03, rot=(0, 0, m.rng.uniform(0, 1)))
+    z += 0.04
     m.build(root)
+    # a faint warm glow pooling on the ground round its foot, a little stronger after dark
+    light(root, (0, 0, 0.35), P.LANTERN, 2.2, intensity=0.45, day=True, halo=False)
+    if not emblem:
+        return
+    # the token, big enough to spot from the plaza
+    e = Model(f"emblem_{emblem}")
+    if emblem == "mortarboard":
+        # a closed book: cream pages between two covers, the spine on the left
+        e.box((0.46, 0.34, 0.08), (0.01, 0, 0.055), "#efe3c4")
+        for zz in (0.0075, 0.1025):
+            e.box((0.5, 0.37, 0.015), (0, 0, zz), "#8c2f39")
+        e.box((0.03, 0.37, 0.11), (-0.235, 0, 0.055), "#8c2f39")
+        e.box((0.505, 0.02, 0.016), (0, -0.12, 0.103), P.GOLD)                     # a gold band
+        # the cap: a skull cap, the board at a jaunty tilt, a button and the tassel over the edge
+        e.cyl(0.13, 0.09, (0, 0, 0.11), P.INK, segs=8)
+        e.box((0.42, 0.42, 0.028), (0, 0, 0.214), P.INK, rot=(0.06, -0.04, math.pi / 4))
+        e.cyl(0.03, 0.02, (0, 0, 0.226), P.GOLD, segs=6)
+        e.plank_line((0, 0, 0.238), (0.27, -0.05, 0.228), 0.018, 0.018, P.GOLD)
+        e.plank_line((0.27, -0.05, 0.228), (0.285, -0.055, 0.12), 0.018, 0.018, P.GOLD)
+        e.cyl(0.035, 0.08, (0.285, -0.055, 0.05), P.GOLD, segs=6, r_top=0.014)   # the tassel
+        scale = 1.6
+    elif emblem == "bus":
+        # a city bus: red, a white skirt, dark windows all along, a lit destination sign
+        e.box((0.8, 0.3, 0.24), (0, 0, 0.2), P.RED)
+        e.box((0.76, 0.27, 0.04), (0, 0, 0.335), P.RED, taper=0.94)                # the roof
+        e.box((0.12, 0.2, 0.04), (-0.18, 0, 0.365), "#9aa0ab")                     # the air-con
+        e.box((0.805, 0.305, 0.045), (0, 0, 0.1), P.WHITE)
+        e.box((0.58, 0.31, 0.09), (-0.07, 0, 0.245), "#233040")                    # side windows
+        for x in (-0.28, -0.14, 0.0, 0.14):
+            e.box((0.015, 0.315, 0.09), (x, 0, 0.245), P.RED)                      # pillars
+        e.box((0.02, 0.27, 0.13), (0.395, 0, 0.23), "#2e4458")                     # windscreen
+        e.box((0.02, 0.2, 0.04), (0.402, 0, 0.318), "#ffb347", glow=True)          # destination
+        e.box((0.1, 0.02, 0.2), (0.3, -0.15, 0.18), "#2e4458")                     # front door
+        for y in (-0.1, 0.1):
+            e.box((0.02, 0.05, 0.03), (0.402, y, 0.12), P.LANTERN, glow=True)      # headlights
+        for x in (-0.24, 0.26):
+            for y in (-0.13, 0.13):
+                e.cyl(0.07, 0.06, (x, y, 0.07), P.INK, segs=8, rot=(math.pi / 2, 0, 0))
+                e.cyl(0.03, 0.062, (x, y + (0.001 if y < 0 else -0.001), 0.07), "#9aa0ab", segs=6,
+                      rot=(math.pi / 2, 0, 0))
+        scale = 1.35
+    elif emblem == "bolt":
+        # a chunky lightning bolt, balanced on its tip and glowing after dark
+        bolt = [(-0.02, 0.62), (0.22, 0.62), (0.1, 0.38), (0.24, 0.38), (-0.12, 0.0), (0.0, 0.3), (-0.13, 0.3)]
+        e.prism([(x - 0.05, z) for x, z in bolt], 0.12, (0, 0, 0), P.GOLD, glow=True)
+        scale = 1.35
+        light(root, (0, 0, z + 0.5), P.GOLD, 3.0)
+    obj = e.build(root, loc=(0, 0, z))
+    obj.scale = (scale, scale, scale)
+    # it turns slowly to and fro, which catches the eye from the plaza; the bolt hovers too
+    animate(obj, f"{emblem}_idle", "rotation_euler", [(0, (0, 0, -0.5)), (4, (0, 0, 0.5)), (8, (0, 0, -0.5))])
+    emitter(root, (0, 0, z + 0.4), "sparkle")         # golden motes rising round it (life.ts)
+    if emblem == "bolt":
+        animate(obj, f"{emblem}_idle", "location", [(t, (0, 0, 0.04 if t % 4 == 0 else 0.14)) for t in (0, 2, 4, 6, 8)])
 
 
 def summit_flag(root):
@@ -176,3 +237,60 @@ def ufo(root):
         m.ball(0.1, (math.cos(a) * 1.45, math.sin(a) * 1.45, 0.02), "#fff6a0", subdiv=1, glow=True)
     m.build(root)
     light(root, (0, 0, -0.5), P.UFO, 10, 2.0)
+
+
+# --- the mountain trail -------------------------------------------------------------------
+
+def steps(root, treads, width=1.7):
+    """Stone steps up a cliff, and a rope railing on posts. `treads` are (y0, y1, z) in the
+    root's frame, from the bottom up: each step is a block whose top is its tread."""
+    m = Model("steps", seed=5)
+    for i, (y0, y1, z) in enumerate(treads):
+        c = P.STEP if i % 2 else P.STONE
+        m.box((width + m.rng.uniform(-0.1, 0.1), y1 - y0 + 0.06, 0.7), (m.rng.uniform(-0.04, 0.04), (y0 + y1) / 2, z - 0.27), c)
+    m.build(root)
+    r = Model("railing")
+    for side in (-1, 1):
+        tops = []
+        for y0, y1, z in treads[::2] + treads[-1:]:
+            x, y = side * (width / 2 + 0.12), (y0 + y1) / 2
+            r.box((0.09, 0.09, 0.95), (x, y, z + 0.4), P.WOOD_DARK)
+            tops.append((x, y, z + 0.82))
+        for a, b in zip(tops, tops[1:]):
+            r.plank_line(a, b, 0.035, 0.035, "#d9c7a0")                                   # rope
+    r.build(root)
+
+
+def trail_edge(root, pts, seed=12):
+    """Pebbles lining the mountain trail, merged into one mesh. pts are world (x, y, z)."""
+    m = Model("trail_edge", seed)
+    for x, y, z in pts:
+        r = m.rng.uniform(0.07, 0.14)
+        m.ball(r, (x, y, z + r * 0.3), P.LIMESTONE[m.rng.randrange(3)], subdiv=1, scale=(1.3, 1.1, 0.7),
+               rot=(0, 0, m.rng.uniform(0, math.pi)))
+    m.build(root)
+
+
+def waymarks(root, pts):
+    """Short posts painted red-white-red, like the waymarks on a real mountain trail."""
+    m = Model("waymarks")
+    for x, y, z in pts:
+        m.box((0.14, 0.14, 0.8), (x, y, z + 0.3), P.WOOD)
+        for i, c in enumerate((P.RED, P.WHITE, P.RED)):
+            m.box((0.155, 0.155, 0.09), (x, y, z + 0.45 + i * 0.09), c)
+    m.build(root)
+
+
+def fingerpost(root):
+    """A yellow signpost where the trail leaves the plaza, one arm up the mountain."""
+    m = Model("fingerpost")
+    m.cyl(0.07, 2.1, (0, 0, 0), "#9aa0ab", segs=6)
+    for z, rot, ln in ((1.85, 0.9, 0.95), (1.55, 2.2, 0.8)):
+        c, s = math.cos(rot), math.sin(rot)
+        m.box((ln, 0.05, 0.22), (c * (ln / 2 + 0.05), s * (ln / 2 + 0.05), z), "#f0c419", rot=(0, 0, rot))
+        m.box((ln * 0.6, 0.06, 0.05), (c * (ln / 2 + 0.05), s * (ln / 2 + 0.05), z), P.INK, rot=(0, 0, rot))
+        tip = (c * (ln + 0.1), s * (ln + 0.1), z)
+        m.box((0.16, 0.05, 0.16), tip, "#f0c419", rot=(0, math.pi / 4, rot))
+    m.box((0.2, 0.2, 0.08), (0, 0, 2.12), P.WHITE)                                        # a cap
+    m.box((0.2, 0.2, 0.06), (0, 0, 2.02), P.RED)
+    m.build(root)

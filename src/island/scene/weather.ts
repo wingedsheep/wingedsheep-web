@@ -3,8 +3,8 @@ import { WEATHER_KINDS, type WeatherKind } from '../forecast';
 import { Particles } from './particles';
 import type { PixelRenderer } from './pixel-renderer';
 import type { Sky } from './sky';
-import { drought, windGust } from './grass';
-import { snowCover } from './toon';
+import { drought, windDir, windGust } from './grass';
+import { frostCover, snowCover } from './toon';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -18,6 +18,7 @@ const FLASH = new THREE.Color(0.9, 0.92, 1);
 const LEAVES = ['#7fae4a', '#a7c35a', '#d9a441', '#c9713d', '#8c5a3c'];
 const GOLD = new THREE.Color('#ffd9a0');
 const HAZE = new THREE.Color('#efdcbc');
+const ICE = new THREE.Color('#d6e6ff');
 const BUTTERFLIES = ['#f7f3ea', '#f2d25c', '#f29a4a', '#9fc4f0'];
 const RAINBOW = ['#9b6bd6', '#5b7fe0', '#5fb8e0', '#7cc96a', '#f2d25c', '#f29a4a', '#e4604e'];
 
@@ -71,6 +72,7 @@ const MOODS: Record<WeatherKind, { tint: string; k: number; grade: [number, numb
   storm: { tint: '#5d7266', k: 0.45, grade: [0.72, 1.1, 0.86] },
 };
 
+const BLOW = new THREE.Vector2();
 const lum = (c: THREE.Color) => c.r * 0.3 + c.g * 0.59 + c.b * 0.11;
 const HUE = new THREE.Color();
 
@@ -87,13 +89,17 @@ const WET: WeatherKind[] = ['drizzle', 'rain', 'showers', 'sleet', 'hail', 'stor
  * Weather over the island: cloud cover and fog laid over the Sky's light, drifting cloud
  * shadows, rain and drizzle as short pixel streaks that follow the camera, snow, sleet and
  * hail, leaves on a windy day, lightning in a storm, a rainbow when the sun comes out through
- * the rain, and snow that settles on the island and melts again.
+ * the rain, snow that settles on the island and melts again, and in the cold, frost overnight
+ * and ice along the shore.
  * Everything eases in and out, so switching weather looks like the weather turning.
  */
 export class Weather {
   kind: WeatherKind = 'clear';
   intensity = 0;
   wind = 3; // m/s
+  gusts = 5; // m/s
+  /** Where the wind comes from, in degrees as weather reports give it (270: a westerly). */
+  direction = 250;
   temperature = 15; // °C
   /** Snow already on the ground according to the forecast, 0..1; settled snow melts back to this. */
   lying = 0;
@@ -133,12 +139,24 @@ export class Weather {
     scene.add(this.drops, this.flakes.points, this.rainbow, ...this.makeClouds());
   }
 
-  set(kind: WeatherKind, intensity: number, opts: { wind?: number; lying?: number; temperature?: number; instant?: boolean } = {}) {
+  set(
+    kind: WeatherKind,
+    intensity: number,
+    opts: { wind?: number; gusts?: number; direction?: number; lying?: number; temperature?: number; instant?: boolean } = {},
+  ) {
     if (!WEATHER_KINDS.includes(kind)) return;
     if (WET.includes(this.kind) && !WET.includes(kind)) this.afterRain = 90;
     this.kind = kind;
     this.intensity = kind === 'clear' ? 0 : THREE.MathUtils.clamp(intensity, 0.2, 1);
-    this.wind = kind === 'windy' ? Math.max(opts.wind ?? 0, 14) : (opts.wind ?? this.wind);
+    this.wind = opts.wind ?? this.wind;
+    this.gusts = Math.max(opts.gusts ?? this.wind * 1.5, this.wind);
+    this.direction = opts.direction ?? this.direction;
+    // a storm always brings a gale with it, even if the nearest station reads it calm
+    const floor = { windy: [14, 20], storm: [15, 24], hail: [12, 20] }[kind as string];
+    if (floor) {
+      this.wind = Math.max(this.wind, floor[0]);
+      this.gusts = Math.max(this.gusts, floor[1]);
+    }
     this.lying = opts.lying ?? this.lying;
     this.temperature = kind === 'warm' ? 27 : kind === 'hot' ? 36 : (opts.temperature ?? this.temperature);
     if (opts.instant) {
@@ -150,8 +168,12 @@ export class Weather {
       this.mood.k = mood.k * strength;
       this.mood.grade.set(...mood.grade).lerp(new THREE.Vector3(1, 1, 1), 1 - strength);
       this.gust = windGust.value = this.windiness;
+      this.swell = this.sea;
+      windDir.value.copy(this.blowing());
       this.heat.warm = this.warmth;
       this.heat.scorch = this.scorch;
+      this.heat.chill = this.chill;
+      this.frostSnap = 1;
       snowCover.value = Math.max(this.lying, this.now.snow * 0.8);
     }
   }
@@ -161,8 +183,27 @@ export class Weather {
     return THREE.MathUtils.clamp((this.wind - 6) / 9, 0, 1);
   }
 
-  /** Windiness, eased, for the sea, trees and grass. */
+  /** Windiness, eased, with the gusts coming through now and then: for the trees, grass and sound. */
   gust = 0;
+
+  /** How rough the sea is: 0 a millpond … 1 a gale, with the gusts counting for a bit. */
+  get sea() {
+    const wind = this.wind + (this.gusts - this.wind) * 0.3;
+    return THREE.MathUtils.clamp((wind - 3) / 15, 0, 1);
+  }
+
+  /** The sea, eased: waves take a while to build and to die down. */
+  swell = 0;
+
+  /** The way the wind blows, as a unit vector on the ground (world x, z). */
+  blowing(out = new THREE.Vector2()) {
+    const a = THREE.MathUtils.degToRad(this.direction);
+    // from the north (0°) it blows south, which is +z
+    return out.set(-Math.sin(a), Math.cos(a));
+  }
+
+  private gustLeft = 0; // seconds left in the current gust
+  private gustWait = 4; // …or until the next one
 
   /** 0 below 20 °C … 1 from 28 °C: golden light, richer colour, butterflies. */
   get warmth() {
@@ -174,9 +215,16 @@ export class Weather {
     return THREE.MathUtils.clamp((this.temperature - 29) / 7, 0, 1);
   }
 
-  /** Warmth and scorch, eased; rain and cloud take the edge off. */
-  readonly heat = { warm: 0, scorch: 0 };
+  /** 0 above 6 °C … 1 from -6 °C: breath showing, frost, icicles, ice along the shore, a crisp blue light. */
+  get chill() {
+    return THREE.MathUtils.clamp((6 - this.temperature) / 12, 0, 1);
+  }
+
+  /** Warmth and scorch, eased; rain and cloud take the edge off. Chill, eased (nothing takes the edge off that). */
+  readonly heat = { warm: 0, scorch: 0, chill: 0 };
   private clock = 0;
+  /** Seconds left in which frost jumps straight to what it should be (on arrival, before the sky has settled). */
+  private frostSnap = 1;
 
   private goal(): Blend {
     const look = { ...NONE, ...LOOKS[this.kind] };
@@ -199,17 +247,30 @@ export class Weather {
     for (const k of Object.keys(goal) as (keyof Blend)[]) n[k] = THREE.MathUtils.damp(n[k], goal[k], 0.6, dt);
 
     this.clock += dt;
-    this.gust = windGust.value = THREE.MathUtils.damp(this.gust, this.windiness, 0.5, dt);
+    // gusts: every so often the wind picks up towards its gust speed for a few seconds
+    if ((this.gustLeft -= dt) < 0 && (this.gustWait -= dt) < 0) {
+      this.gustLeft = rand(1.5, 4);
+      this.gustWait = rand(3, 12) * (1.2 - this.windiness * 0.6);
+    }
+    const gusting = THREE.MathUtils.clamp((this.gusts - 6) / 9, 0, 1);
+    const target = this.gustLeft > 0 ? Math.max(this.windiness, gusting) : this.windiness;
+    this.gust = windGust.value = THREE.MathUtils.damp(this.gust, target, this.gustLeft > 0 ? 1.2 : 0.5, dt);
+    this.swell = THREE.MathUtils.damp(this.swell, this.sea, 0.08, dt);
+    const dir = windDir.value;
+    const goalDir = this.blowing(BLOW);
+    dir.lerp(goalDir, 1 - Math.exp(-0.3 * dt)).normalize();
     const muffle = 1 - Math.min(1, n.rain + n.snow + n.cloud * 0.5);
     this.heat.warm = THREE.MathUtils.damp(this.heat.warm, this.warmth * muffle, 0.4, dt);
     this.heat.scorch = THREE.MathUtils.damp(this.heat.scorch, this.scorch * muffle, 0.4, dt);
     drought.value = this.heat.scorch;
+    this.heat.chill = THREE.MathUtils.damp(this.heat.chill, this.chill, 0.4, dt);
 
     const size = Math.max(24, view * 1.3);
     const slant = Math.min(this.wind, 14) * 0.05; // sideways per unit fallen
     this.rain(dt, around, size, slant, night);
     this.flurries(dt, around, size, night);
     this.settle(dt);
+    this.freeze(dt, night);
     this.driftClouds(dt);
     this.lightning(dt);
 
@@ -235,6 +296,9 @@ export class Weather {
     const { tint, k, grade } = this.mood;
     water.uRain.value = this.now.rain;
     water.uWind.value = this.gust;
+    water.uSea.value = this.swell;
+    // the sea works in blender coordinates (y north = -z)
+    (water.uWindDir.value as THREE.Vector2).set(windDir.value.x, -windDir.value.y);
     const day = 1 - sky.lamps;
     sky.sun.intensity *= 1 - cloud * 0.6;
     mute(sky.sun.color, cloud * 0.7);
@@ -247,8 +311,9 @@ export class Weather {
     mute(f.color, Math.max(cloud, fog) * 0.75);
     tintTo(f.color, tint, k);
     f.color.lerp(MIST, fog * day * 0.5).lerp(FLASH, flash * 0.6);
-    f.near = 150 - fog * 95;
-    f.far = 260 - fog * 80;
+    // the low mist (see Mist) does most of the work; this just softens the distance
+    f.near = 150 - fog * 70;
+    f.far = 260 - fog * 45;
     scene.background = f.color;
 
     // heat: golden light when warm; when scorching, a pale haze and a shimmer
@@ -258,14 +323,23 @@ export class Weather {
     f.color.lerp(HAZE, scorch * day * 0.45);
     f.near -= scorch * 50;
     pixels.uniforms.uHeat.value = this.reducedMotion ? 0 : scorch * day;
+    // cold: a thin, clear, blue-white light
+    const { chill } = this.heat;
+    tintTo(sky.sun.color, ICE, chill * 0.25);
+    tintTo(sky.hemi.color, ICE, chill * 0.3);
+    tintTo(f.color, ICE, chill * 0.15);
+    water.uIce.value = this.ice;
     pixels.uniforms.uTime.value = this.clock;
 
     const g = pixels.uniforms.uGrade.value as THREE.Vector3;
     g.multiply(grade);
     g.x *= (1 + warm * 0.08) * (1 - scorch * 0.18);
     g.z *= 1 + scorch * 0.06;
+    g.x *= 1 - chill * 0.12;
+    g.y *= 1 + chill * 0.05;
     g.x *= 1 - cloud * 0.25;
     g.z *= 1 - cloud * 0.06;
+    pixels.uniforms.uTone.value *= 1 - cloud * 0.6; // overcast light is flat: no warm and cool
     const light = water.uLight.value as THREE.Color;
     tintTo(light, tint, k * 0.6);
     light.multiplyScalar(1 - cloud * 0.2 + flash * 0.5);
@@ -282,6 +356,7 @@ export class Weather {
     const len = size * 0.012 * (1 - fine * 0.6); // drizzle: short and slow
     const fall = this.reducedMotion ? 0 : (dt * (24 - fine * 14)) / height;
     const o = this.offsets;
+    const dir = windDir.value;
     for (let i = 0; i < DROPS; i++) {
       if (i >= active) {
         arr.fill(0, i * 6, i * 6 + 6);
@@ -294,9 +369,10 @@ export class Weather {
         o[i * 3 + 2] = rand(-1, 1);
       }
       const y = around.y - 4 + o[i * 3 + 1] * height;
-      const x = around.x + o[i * 3] * size + (y - around.y) * slant;
-      const z = around.z + o[i * 3 + 2] * size;
-      arr.set([x, y, z, x + len * slant, y + len, z], i * 6);
+      const up = y - around.y;
+      const x = around.x + o[i * 3] * size - up * slant * dir.x;
+      const z = around.z + o[i * 3 + 2] * size - up * slant * dir.y;
+      arr.set([x, y, z, x - len * slant * dir.x, y + len, z - len * slant * dir.y], i * 6);
     }
     pos.needsUpdate = true;
     const mat = this.drops.material as THREE.LineBasicMaterial;
@@ -309,7 +385,8 @@ export class Weather {
     this.flakes.update(dt);
     if (this.reducedMotion) return;
     const n = this.now;
-    const drift = Math.min(this.wind, 14);
+    const drift = Math.min(this.wind, 14) * (1 + this.gust * 0.3);
+    const { x: dx, y: dz } = windDir.value;
     const dim = 1 - night * 0.35;
     const spawn = (rate: number, make: () => void) => {
       const count = rate * dt;
@@ -320,7 +397,7 @@ export class Weather {
 
     spawn(n.snow * 260, () => this.flakes.emit({
       position: around.clone().add(V(rand(-size, size), rand(2, size * 0.6), rand(-size, size))),
-      velocity: V(drift * 0.12 + rand(-0.2, 0.2), -rand(1.6, 2.6), rand(-0.2, 0.2)),
+      velocity: V(drift * 0.12 * dx + rand(-0.2, 0.2), -rand(1.6, 2.6), drift * 0.12 * dz + rand(-0.2, 0.2)),
       color: white,
       life: rand(5, 8),
       size: Math.random() < 0.2 ? 2 : 1,
@@ -330,7 +407,7 @@ export class Weather {
       const top = rand(3, size * 0.6);
       this.flakes.emit({
         position: around.clone().add(V(rand(-size, size), top, rand(-size, size))),
-        velocity: V(drift * 0.3, -rand(15, 19), 0),
+        velocity: V(drift * 0.3 * dx, -rand(15, 19), drift * 0.3 * dz),
         color: white,
         life: (top + 3) / 17,
         size: 2,
@@ -345,15 +422,20 @@ export class Weather {
       size: 2,
       wobble: 3,
     }));
-    // leaves tumbling across the island on a windy day
-    spawn(this.windiness * 22, () => this.flakes.emit({
-      position: around.clone().add(V(-size * rand(0.6, 1), rand(1, 7), rand(-size, size) * 0.7)),
-      velocity: V(drift * rand(0.8, 1.3), rand(-0.3, 0.6), rand(-0.6, 0.6)),
-      color: new THREE.Color(pick(LEAVES)).multiplyScalar(dim),
-      life: rand(3, 5),
-      size: Math.random() < 0.5 ? 2 : 1,
-      wobble: 2.5,
-    }));
+    // leaves tumbling across the island on a windy day, in from the upwind side
+    spawn(this.windiness * 22 * (1 + this.gust), () => {
+      const upwind = size * rand(0.6, 1);
+      const across = rand(-size, size) * 0.7;
+      const speed = drift * rand(0.8, 1.3);
+      this.flakes.emit({
+        position: around.clone().add(V(-upwind * dx - across * dz, rand(1, 7), -upwind * dz + across * dx)),
+        velocity: V(speed * dx + rand(-0.6, 0.6), rand(-0.3, 0.6), speed * dz + rand(-0.6, 0.6)),
+        color: new THREE.Color(pick(LEAVES)).multiplyScalar(dim),
+        life: rand(3, 5),
+        size: Math.random() < 0.5 ? 2 : 1,
+        wobble: 2.5,
+      });
+    });
   }
 
   /** Snow (and some hail) builds up while it falls, then melts back to what the forecast says is lying. */
@@ -362,6 +444,26 @@ export class Weather {
     snowCover.value = falling > 0.05
       ? Math.min(1, snowCover.value + (dt * falling) / 45)
       : Math.max(this.lying, snowCover.value - dt / 80);
+  }
+
+  /** Frost when it's cold enough: at its thickest overnight and at dawn, and only the hard freezes last through the day. */
+  private frostGoal(night: number) {
+    const c = this.chill;
+    const lasting = THREE.MathUtils.smoothstep(c, 0.6, 1);
+    return THREE.MathUtils.smoothstep(c, 0.2, 0.6) * Math.max(Math.min(1, night * 1.3), lasting * 0.6) * (1 - this.now.rain);
+  }
+
+  /** How far ice has crept out from the shore, 0..1: it takes a proper freeze, and calm water. */
+  get ice() {
+    return THREE.MathUtils.smoothstep(this.heat.chill, 0.45, 1) * (1 - this.swell * 0.8);
+  }
+
+  /** Frost forms slowly through the night and burns off once the sun's been up a while. */
+  private freeze(dt: number, night: number) {
+    const goal = this.frostGoal(night);
+    // already frosty (or not) when the visitor arrives
+    frostCover.value = this.frostSnap > 0 ? goal : THREE.MathUtils.damp(frostCover.value, goal, goal > frostCover.value ? 0.02 : 0.04, dt);
+    this.frostSnap -= dt;
   }
 
   /** Invisible puffs high above the island: all you see of them is their shadows drifting over it. */
@@ -387,14 +489,20 @@ export class Weather {
 
   private driftClouds(dt: number) {
     const speed = this.reducedMotion ? 0 : 0.6 + Math.min(this.wind, 15) * 0.25;
+    const dir = windDir.value;
+    const angle = Math.atan2(-dir.y, dir.x); // turns a cloud's long (x) side along the wind
     this.clouds.forEach((c, i) => {
       const s = THREE.MathUtils.clamp(this.now.shadows * CLOUDS - i, 0, 1) * c.userData.size;
       c.visible = s > 0.02;
       c.scale.setScalar(Math.max(s, 0.001));
-      c.position.x += speed * dt;
-      if (c.position.x > 75) {
-        c.position.x = -75;
-        c.position.z = rand(-50, 50);
+      c.rotation.y = angle;
+      c.position.x += speed * dt * dir.x;
+      c.position.z += speed * dt * dir.y;
+      // blown off one side of the island: come back in on the other, somewhere along it
+      if (c.position.x * dir.x + c.position.z * dir.y > 75) {
+        const across = rand(-50, 50);
+        c.position.x = -75 * dir.x - across * dir.y;
+        c.position.z = -75 * dir.y + across * dir.x;
       }
     });
   }

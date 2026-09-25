@@ -15,10 +15,13 @@
  *    to speed, a slow wow in the pitch, and the hiss and crackle of the needle in the groove.
  *  - the winged sheep: a baa when you click it; Beike: a bark (short clips, decoded up front)
  *  - Charlie and George: a synthesised purr when you pet them
+ *  - the wildlife: gulls, robins, the owl, ducks, geese and the whale's blow (synthesised)
  *  - weather: hissing rain, rolling thunder, gusting wind and cicadas on a hot day (synthesised)
  * Sound is on by default, but browsers only allow audio after a user gesture, so it starts on
  * the visitor's first click, tap or key press (unless they've muted it by then).
  */
+import type { Call } from './scene/fauna';
+
 export interface Song {
   id: number;
   title: string;
@@ -63,6 +66,7 @@ export class Sound {
   private ctx?: AudioContext;
   private master?: GainNode;
   private seaGain?: GainNode;
+  private seaLfo?: OscillatorNode;
   private fireGain?: GainNode;
   private rainGain?: GainNode;
   /** Where songs enter the outdoor chain, and the lowpass that dulls them with distance. */
@@ -73,6 +77,8 @@ export class Sound {
   /** Set every frame by the weather, 0..1 each. */
   rain = 0;
   wind = 0;
+  /** How rough the sea is, 0..1: louder, lower surf with a faster swell. */
+  sea = 0;
   cicadas = 0;
   /** In the library: the outdoors is muffled by the walls. */
   indoors = false;
@@ -243,6 +249,98 @@ export class Sound {
     this.clip('bark', 0.6);
   }
 
+  /**
+   * An animal's call, synthesised: a robin's chirps, a gull's cry, a tawny owl's hoo-hoo, a
+   * quack, geese honking overhead, the whale's blow and splash, Rocky's chords and the Super
+   * Sheep going off. `volume` falls off with distance.
+   */
+  call(kind: Call, volume = 1) {
+    if (kind === 'baa') return this.clip('baa', 0.5 * volume);
+    if (!this.enabled || !this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    /** One tone: a pitch glide [[time, Hz]…] through a shaped envelope. */
+    const tone = (type: OscillatorType, at: number, glide: [number, number][], peak: number, length: number, filter?: number) => {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      glide.forEach(([dt, f], i) => (i ? osc.frequency.exponentialRampToValueAtTime(f, t + at + dt) : osc.frequency.setValueAtTime(f, t + at)));
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t + at);
+      env.gain.linearRampToValueAtTime(peak * volume, t + at + Math.min(0.03, length / 4));
+      env.gain.exponentialRampToValueAtTime(0.001, t + at + length);
+      let out: AudioNode = osc;
+      if (filter) {
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = filter;
+        bp.Q.value = 2;
+        out = osc.connect(bp);
+      }
+      out.connect(env).connect(this.master!);
+      osc.start(t + at);
+      osc.stop(t + at + length + 0.05);
+    };
+    /** A burst of filtered noise (breath, spray). */
+    const hiss = (at: number, length: number, freq: number, peak: number) => {
+      if (!this.noise) return;
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = freq;
+      f.Q.value = 0.7;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t + at);
+      env.gain.linearRampToValueAtTime(peak * volume, t + at + length * 0.15);
+      env.gain.exponentialRampToValueAtTime(0.001, t + at + length);
+      src.connect(f).connect(env).connect(this.master!);
+      src.start(t + at, Math.random());
+      src.stop(t + at + length + 0.05);
+    };
+    const r = (a: number, b: number) => a + Math.random() * (b - a);
+    switch (kind) {
+      case 'chirp':
+        for (let i = 0; i < 4; i++) tone('sine', i * 0.13 + r(0, 0.04), [[0, r(3200, 4200)], [0.07, r(2200, 5200)]], 0.08, 0.09);
+        break;
+      case 'gull':
+        for (let i = 0; i < 3; i++) tone('sawtooth', i * 0.32, [[0, 900], [0.08, 1500], [0.25, 700]], 0.07, 0.3, 1400);
+        break;
+      case 'hoot': // the tawny owl: hoo … hu-hu-huuuu
+        tone('sine', 0, [[0, 420], [0.5, 380]], 0.25, 0.7);
+        for (let i = 0; i < 3; i++) tone('sine', 1.1 + i * 0.16, [[0, 400], [0.1, 390]], 0.18, 0.14);
+        tone('sine', 1.6, [[0, 410], [0.8, 360]], 0.22, 1.0);
+        break;
+      case 'quack':
+        for (let i = 0; i < 2; i++) tone('sawtooth', i * 0.22, [[0, 520], [0.12, 380]], 0.12, 0.16, 900);
+        break;
+      case 'honk':
+        for (let i = 0; i < 6; i++) tone('sawtooth', r(0, 2.2), [[0, r(330, 420)], [0.15, r(280, 330)]], 0.05, 0.2, 700);
+        break;
+      case 'chatter':
+        for (let i = 0; i < 7; i++) tone('square', i * 0.06, [[0, 2600], [0.03, 1900]], 0.03, 0.04, 2400);
+        break;
+      case 'blow':
+        hiss(0, 1.4, 500, 0.35);
+        hiss(0.1, 1.0, 1800, 0.12);
+        break;
+      case 'splash':
+        hiss(0, 1.6, 700, 0.5);
+        hiss(0, 0.5, 200, 0.4);
+        break;
+      case 'chord': { // Rocky talks in chords: three quick, happy ones
+        const phrase = [[523, 659, 784], [587, 740, 880], [659, 831, 988]];
+        const up = r(0.9, 1.15);
+        phrase.forEach((notes, i) => notes.forEach((f) => tone('triangle', i * 0.18, [[0, f * up], [0.15, f * up * 1.01]], 0.05, 0.22)));
+        break;
+      }
+      case 'boom': // the Super Sheep going off
+        hiss(0, 1.2, 150, 0.6);
+        hiss(0, 0.4, 900, 0.3);
+        tone('sine', 0, [[0, 110], [0.4, 40]], 0.4, 0.6);
+        break;
+    }
+  }
+
   /** One clip from a set, never the same one twice in a row, a touch higher or lower each time. */
   private clip(kind: Clip, volume: number) {
     const buffers = this.clips.get(kind);
@@ -325,7 +423,8 @@ export class Sound {
     const near = this.indoors ? 0 : Math.max(0, Math.min(1, campfireNearness));
     const walls = this.indoors ? 0.3 : 1; // indoors the sea and the wind come through the walls
     this.fireGain?.gain.setTargetAtTime(near * 0.5, t, 0.2);
-    this.seaGain?.gain.setTargetAtTime((0.28 - near * 0.12) * walls, t, 0.5);
+    this.seaGain?.gain.setTargetAtTime((0.28 + this.sea * 0.3 - near * 0.12) * walls, t, 0.5);
+    this.seaLfo?.frequency.setTargetAtTime(0.11 + this.sea * 0.12, t, 2);
     this.rainGain?.gain.setTargetAtTime(this.rain * 0.22 * (this.indoors ? 0.55 : 1), t, 1); // rain on the roof
     this.windGain?.gain.setTargetAtTime(this.wind * 0.35 * walls, t, 1);
     this.cicadaGain?.gain.setTargetAtTime(this.cicadas * 0.05 * walls, t, 1.5);
@@ -428,6 +527,7 @@ export class Sound {
     const lfoDepth = ctx.createGain();
     lfoDepth.gain.value = 0.4;
     lfo.connect(lfoDepth).connect(swell.gain);
+    this.seaLfo = lfo;
     this.seaGain = ctx.createGain();
     this.seaGain.gain.value = 0.28;
     sea.connect(lp).connect(swell).connect(this.seaGain).connect(this.master);

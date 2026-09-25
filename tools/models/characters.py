@@ -132,13 +132,18 @@ def vincent(root):
 
 
 def cat(root):
-    """A black cat curled up asleep."""
+    """A black cat curled up asleep: white bib, four white socks, pink inside the ears (after Zola)."""
     body = Model("cat_body")
     body.ball(0.32, (0, 0, 0.18), P.CAT, subdiv=1, scale=(1.3, 1.0, 0.65))
     body.ball(0.17, (0.36, -0.12, 0.2), P.CAT, subdiv=1)                                # head
     for dx in (-0.08, 0.08):
         body.cyl(0.06, 0.12, (0.36 + dx, -0.12, 0.33), P.CAT, segs=4, r_top=0.0)           # ears
+        body.cyl(0.035, 0.08, (0.36 + dx, -0.15, 0.33), P.EAR_PINK, segs=3, r_top=0.0)     # inside the ears
+    body.ball(0.08, (0.36, -0.24, 0.08), P.CAT_WHITE, subdiv=1, scale=(1.0, 0.6, 0.8))    # white bib under the chin
     body.plank_line((-0.3, 0.1, 0.08), (0.2, -0.32, 0.06), 0.09, 0.09, P.CAT)           # tail wrapped round
+    for x in (0.29, 0.45):
+        body.ball(0.05, (x, -0.28, 0.04), P.CAT_WHITE, subdiv=1, scale=(1.5, 1.0, 0.7))   # front paws, tucked under the chin
+    body.ball(0.05, (-0.14, -0.28, 0.04), P.CAT_WHITE, subdiv=1, scale=(1.4, 1.0, 0.7))    # a back paw poking out
     body.build(root)
 
 

@@ -11,12 +11,14 @@ export interface Forecast {
   kind: WeatherKind;
   intensity: number; // 0..1: drizzle → downpour, flurries → blizzard, a few clouds → overcast
   wind: number; // m/s
+  gusts: number; // m/s, the strongest gusts around now
+  direction: number; // degrees the wind comes from, as weather reports give it (270: a westerly)
   lying: number; // 0..1: how much snow is already on the ground
   temperature: number; // °C
   place: string;
 }
 
-const CACHE_KEY = 'island-weather-3';
+const CACHE_KEY = 'island-weather-4';
 const CACHE_FOR = 20 * 60 * 1000;
 
 /** WMO weather interpretation codes, as Open-Meteo reports them. */
@@ -57,7 +59,7 @@ export async function fetchForecast(): Promise<Forecast | null> {
     const q = new URLSearchParams({
       latitude: where.lat.toFixed(2),
       longitude: where.lon.toFixed(2),
-      current: 'weather_code,temperature_2m,wind_speed_10m,snow_depth',
+      current: 'weather_code,temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,snow_depth',
       wind_speed_unit: 'ms',
     });
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${q}`);
@@ -66,6 +68,8 @@ export async function fetchForecast(): Promise<Forecast | null> {
     const forecast: Forecast = {
       ...interpret(current.weather_code),
       wind: current.wind_speed_10m,
+      gusts: current.wind_gusts_10m ?? current.wind_speed_10m,
+      direction: current.wind_direction_10m ?? 250,
       lying: Math.min(1, (current.snow_depth ?? 0) / 0.08), // 8 cm covers everything
       temperature: current.temperature_2m,
       place: where.name,

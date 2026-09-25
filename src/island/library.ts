@@ -168,6 +168,7 @@ export class Library implements RoomInput {
   render() {
     const u = this.pixels.uniforms;
     u.uGrade.value.set(1.06, 1.04, 1.0); // indoors, whatever the weather is doing outside
+    u.uTone.value = u.uVignette.value = 0; // the island's light stays outside
     u.uHeat.value = 0;
     this.pixels.render(this.interior!.scene, this.interior!.camera, NO_SHIFT);
   }

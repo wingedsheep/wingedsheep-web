@@ -9,7 +9,7 @@ type Open = { kind: 'panel'; name: PanelName } | { kind: 'article'; slug: string
 
 export interface UIEvents {
   /** a panel opened (the island may want to glide the camera there) */
-  panelOpened(name: PanelName | 'article'): void;
+  panelOpened(name: PanelName | 'article', sub?: string): void;
   /** everything closed: back to the open island */
   closed(): void;
 }
@@ -70,13 +70,15 @@ export class UI {
     } else if (path === '/blog/') {
       this.openPanel('library', false);
     } else if (location.hash.length > 1) {
-      this.openPanel(location.hash.slice(1) as PanelName, false);
+      // #trail/student: a panel, and somewhere inside it
+      const [name, sub] = location.hash.slice(1).split('/');
+      this.openPanel(name as PanelName, false, sub);
     } else {
       this.close(false);
     }
   }
 
-  openPanel(name: PanelName, push = true) {
+  openPanel(name: PanelName, push = true, sub?: string) {
     const el = $(`[data-panel="${name}"]`);
     if (!el) return;
     if (this.current?.kind === 'panel' && this.current.name === name) return;
@@ -87,8 +89,10 @@ export class UI {
     if (name === 'library') document.title = 'The library · wingedsheep';
     else if (name === 'workshop') document.title = 'The workshop · wingedsheep';
     else if (name === 'lighthouse') document.title = 'The lighthouse · wingedsheep';
+    else if (name === 'hut') document.title = 'The mountain hut · wingedsheep';
+    else if (name === 'trail') document.title = 'The mountain trail · wingedsheep';
     if (push) history.pushState(null, '', name === 'library' ? '/blog/' : `/#${name}`);
-    this.events.panelOpened(name);
+    this.events.panelOpened(name, sub);
     ($('[data-autofocus]', el) ?? $('h2', el))?.focus({ preventScroll: true });
   }
 

@@ -18,7 +18,7 @@ ISLAND = [
 # Terraces: (ellipses, height of the top surface)
 PLATEAUS = [
     ([(2, 13, 18, 6.5), (-9, 10, 7, 3.5), (15, 11, 8, 4), (7, 16, 14, 5)], 3.2),
-    ([(4, 16, 11, 3.8), (-2, 15, 4.5, 2.2), (11, 17, 5, 2.4)], 6.4),
+    ([(4, 16, 11, 3.8), (-2, 15, 4.5, 2.2), (13, 16.4, 5.5, 3.0)], 6.4),   # east lobe: the hut
     ([(-31.5, -3, 4.2, 3.0)], 1.9),   # lighthouse rock
 ]
 
@@ -28,6 +28,7 @@ DOCK = (0, -17.5)                 # where the pier leaves the beach
 DOCK_LEN = 11.0
 LIBRARY = (-11, -4.5)
 WORKSHOP = (11.5, -4.5)
+CARD_TABLE = (WORKSHOP[0] - 5.2, WORKSHOP[1] - 4.6)
 LIGHTHOUSE = (-31.5, -3)
 CAMPFIRE = (27, -1)
 WELL = (20, -14)
@@ -35,6 +36,7 @@ BENCH = (-17, -11)
 BEIKE = (-12.5, -12.5)             # Beike's spot in the meadow; he fetches the ball around it
 SIGNPOST = (-2.6, -15.5)
 BOULDER = (19, 6)
+SETT = (28.6, -4.3)                # the badgers’ sett, where the eastern woods meet the beach
 SUMMIT = (5.0, 18.6)
 # The peak rises from the upper terrace: centre, radius, height of the top ledge
 PEAK = ((5.0, 18.6), 6.0, 13.5)
@@ -47,14 +49,22 @@ PATHS = [
     ([(4, -7.5), (8, -7), (11.5, -7.2)], 1.4),                        # plaza -> workshop
     ([(3.6, -9.5), (9, -11), (15, -10.5), (21, -6), (25, -2.5)], 1.2),  # -> campfire
     ([(-14, -7.5), (-20, -5.5), (-26, -4)], 1.2),                     # library -> lighthouse
-    ([(0, -4), (0.5, -1), (-2, 2.5), (-5, 5)], 1.2),                  # plaza -> trail foot
     ([(4, -10), (12, -13), (18.5, -14)], 1.0),                        # -> well
 ]
 # The trail up the mountain: stepped ramps (x, y_bottom, y_top) cut through each rise
-STAIRS = [(-6.5, 4.6, 8.0), (10.5, 10.4, 14.0), (5.0, 13.6, 18.0)]
+STAIRS = [(-6.5, 4.6, 8.0), (10.5, 10.4, 14.0)]
+# The mountain trail, from the plaza up: pale gravel with stone edges, so it doesn't read as
+# just another path (terrain.py)
 TRAIL = [
-    ([(-5, 5), (-6.5, 6.2)], 1.0),
-    ([(-6.5, 8.2), (0, 10.4), (6, 11.2), (10.5, 11.6)], 1.0),
-    ([(10.5, 14.2), (8, 13.6), (5.0, 13.4)], 0.9),
+    ([(0, -4), (0.5, -1), (-2, 2.5), (-5, 5), (-6.5, 6.2)], 1.6),      # plaza -> trail foot
+    ([(-6.5, 8.2), (0, 10.4), (6, 11.2), (10.5, 11.6)], 1.6),
+    ([(10.5, 14.2), (8, 13.6), (5.0, 13.4)], 1.5),
+    ([(10.5, 14.2), (13.2, 14.4)], 1.2),                                # to the hut's door
 ]
-CAIRNS = [(-3.5, 3.6), (-4.6, 9.0), (2.4, 11.4), (8.2, 12.3), (8.8, 15.8), (4.0, 18.6)]
+# ...and then it zigzags up the peak to the summit, cut into the slope as a ledge
+SWITCHBACKS = [(5.0, 13.4), (8.2, 14.7), (2.6, 16.0), (7.0, 17.3), (5.2, 18.3)]
+HUT = (14.2, 16.4)                # the mountain hut on the upper terrace's east lobe
+# one cairn per chapter of the career (src/data/career.ts), from the foot of the trail up,
+# each with a token of its stretch on top
+CAIRNS = [(-0.2, 1.9), (2.4, 11.4), (8.8, 15.8)]
+CAIRN_EMBLEMS = {0: "mortarboard", 1: "bus", 2: "bolt"}

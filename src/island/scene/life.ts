@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { Beike } from './beike';
+import { Fauna } from './fauna';
 import type { Island } from './island';
 import { Particles } from './particles';
+import { season } from './season';
 import type { Sky } from './sky';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -36,8 +38,11 @@ export interface Rhythm {
 const SWING = 0.3; // how far (radians) the strumming forearm swings each way
 const SLIDE = 0.05; // how far the fretting hand travels up or down the neck
 const LIFT = 0.12; // how far (radians) it comes off the strings while it moves
+const SHEEP_PASS = 30; // seconds for the winged sheep to cross the island
 const q = new THREE.Quaternion();
 const axis = new THREE.Vector3();
+const MOUTH = new THREE.Vector3();
+const FACING = new THREE.Vector3();
 
 export type Burst = 'hearts' | 'notes' | 'chalk' | 'petals' | 'zzz' | 'silk';
 
@@ -50,8 +55,9 @@ interface Floater {
 
 /**
  * Everything that moves by itself: flames, flags, the weathervane, smoke and embers,
- * fireflies after dark, the winged sheep's flight, the occasional UFO, Beike and his ball, and the
- * clips keyframed in Blender (Charlie and George breathing, twitching and dreaming on the bench).
+ * fireflies after dark, the winged sheep's flight, the occasional UFO, Beike and his ball,
+ * the wildlife (fauna.ts), and the clips keyframed in Blender (Charlie and George breathing,
+ * twitching and dreaming on the bench).
  */
 export class Life {
   readonly particles = new Particles();
@@ -61,10 +67,21 @@ export class Life {
   private sheep?: THREE.Object3D;
   private flock: THREE.Object3D[] = [];
   private stunt = 0;
+  /** The winged sheep's current flight over the island, if it's up. */
+  private pass?: { t: number; from: THREE.Vector3; via: THREE.Vector3; to: THREE.Vector3 };
+  private nextPass = rand(8, 20);
   private ufo?: THREE.Object3D;
   private mixer: THREE.AnimationMixer;
   private idles = new Map<string, THREE.AnimationAction>();
   readonly beike: Beike;
+  /** The wildlife: see fauna.ts. */
+  readonly fauna: Fauna;
+  /** How wet the weather is, 0..1 (set every frame): rabbits and robins shelter from the rain. */
+  wet = 0;
+  /** How cold it is, 0..1 (set every frame): breath shows, and the chimneys smoke harder. */
+  chill = 0;
+  /** Which way the wind blows (world x, z), for breath drifting off. */
+  readonly drift = new THREE.Vector2();
   /** Whether Vincent's song is audible; he eases into and out of playing. */
   playing = false;
   /** The beats and chord changes of the song he's playing... */
@@ -86,9 +103,11 @@ export class Life {
   ) {
     scene.add(this.particles.points);
     this.sheep = island.get('sheep');
+    if (this.sheep) this.sheep.visible = false; // until its first pass
     this.ufo = island.get('ufo');
     if (this.ufo) this.ufo.visible = false;
     this.beike = new Beike(island);
+    this.fauna = new Fauna(scene, island, this.particles, this.beike);
 
     this.mixer = new THREE.AnimationMixer(island.root);
     for (const clip of island.clips.filter((c) => c.name.endsWith('_idle'))) {
@@ -148,6 +167,7 @@ export class Life {
     if (!this.sheep || this.flock.length) return;
     for (let i = 0; i < 9; i++) {
       const s = this.sheep.clone();
+      s.visible = true; // the flock comes whether or not the sheep is up
       s.userData = { flockIndex: i, lane: rand(-18, 14), delay: i * 0.35 };
       this.scene.add(s);
       this.flock.push(s);
@@ -176,8 +196,10 @@ export class Life {
     this.flySheep(dt);
     this.flyFlock();
     this.beike.update(dt);
+    this.fauna.update(dt, { night, season: season.name, wet: this.wet });
     this.visitors(dt, night);
     this.emitters(dt, night);
+    this.breath(dt, night);
     this.updateFloaters(dt);
     this.particles.update(dt);
   }
@@ -262,16 +284,50 @@ export class Life {
     return i + (now - b[i]) / (b[i + 1] - b[i]);
   }
 
-  /** Figure-eight over the island; y is altitude. */
-  private sheepPath(t: number) {
-    const a = t * 0.07;
-    return V(2 + Math.sin(a) * 30, 13 + Math.sin(a * 3) * 1.5, -2 - Math.sin(a) * Math.cos(a) * 17);
+  /**
+   * Now and then the sheep flies over: in from somewhere off the edge of the world, a lazy
+   * curve across the island, and out the other side. The first pass comes soon after you
+   * arrive; after that it's a minute or two between them, so the sky never gets busy.
+   */
+  private startPass() {
+    const a = rand(0, Math.PI * 2);
+    const b = a + Math.PI + rand(-0.7, 0.7);
+    this.pass = {
+      t: 0,
+      from: V(Math.cos(a) * 75, rand(11, 15), Math.sin(a) * 55),
+      via: V(rand(-14, 14), rand(12, 15), rand(-12, 8)),
+      to: V(Math.cos(b) * 75, rand(11, 15), Math.sin(b) * 55),
+    };
+  }
+
+  /** Where the sheep is `k` (0..1) of the way through its pass; y is altitude. */
+  private sheepPath(k: number) {
+    const { from, via, to } = this.pass!;
+    const u = 1 - k;
+    const p = from.clone().multiplyScalar(u * u).addScaledVector(via, 2 * u * k).addScaledVector(to, k * k);
+    p.y += Math.sin(k * Math.PI * 6) * 0.8; // rising and dipping with the wingbeats
+    return p;
   }
 
   private flySheep(dt: number) {
     if (!this.sheep) return;
-    const p = this.sheepPath(this.clock);
-    const ahead = this.sheepPath(this.clock + 0.2);
+    if (!this.pass) {
+      this.nextPass -= dt;
+      if (this.nextPass > 0) return;
+      this.startPass();
+      this.sheep.visible = true;
+    }
+    const pass = this.pass!;
+    pass.t += dt / SHEEP_PASS;
+    if (pass.t >= 1) {
+      this.pass = undefined;
+      this.nextPass = rand(70, 160);
+      this.sheep.visible = false;
+      this.sheep.position.set(0, -80, 0); // parked well out of reach of the pointer
+      return;
+    }
+    const p = this.sheepPath(pass.t);
+    const ahead = this.sheepPath(Math.min(1, pass.t + 0.005));
     if (this.stunt > 0) {
       this.stunt -= dt;
       const a = (1 - this.stunt / 1.6) * Math.PI * 2;
@@ -328,11 +384,23 @@ export class Life {
     const p = this.particles;
     for (const e of this.island.emitters) {
       const key = `${e.kind}:${e.position.x.toFixed(1)}`;
-      if (e.kind === 'smoke' && this.every(key, 0.35, dt)) {
-        p.emit({ position: e.position.clone(), velocity: V(rand(0.3, 0.6), rand(0.7, 1.0), rand(-0.1, 0.1)), color: '#d8d4dc', life: 4.5, size: 2, wobble: 0.3 });
+      if (e.kind === 'smoke' && this.every(key, 0.35 / (1 + this.chill * 1.5), dt)) {
+        // on a cold day the fires are well stoked: thicker, whiter smoke, rising straighter and higher
+        const c = this.chill;
+        p.emit({
+          position: e.position.clone(),
+          velocity: V(rand(0.3, 0.6) * (1 - c * 0.5), rand(0.7, 1.0) * (1 + c * 0.4), rand(-0.1, 0.1)),
+          color: c > 0.3 ? '#eceaf0' : '#d8d4dc',
+          life: 4.5 * (1 + c * 0.6),
+          size: 2,
+          wobble: 0.3,
+        });
       } else if (e.kind === 'embers' && this.every(key, 0.12, dt)) {
         p.emit({ position: e.position.clone().add(V(rand(-0.3, 0.3), 0, rand(-0.3, 0.3))), velocity: V(rand(-0.2, 0.2), rand(1.2, 2.2), rand(-0.2, 0.2)), color: rand(0, 1) < 0.5 ? '#ffd070' : '#ff9a3c', life: rand(0.8, 1.6), wobble: 0.4 });
-      } else if (e.kind === 'petals' && this.every(key, 0.8, dt)) {
+      } else if (e.kind === 'sparkle' && this.every(key, 0.3, dt)) {
+        // the cairns on the trail: a few golden motes rise round each token, so they catch the eye
+        p.emit({ position: e.position.clone().add(V(rand(-0.6, 0.6), rand(-0.2, 0.4), rand(-0.6, 0.6))), velocity: V(rand(-0.1, 0.1), rand(0.4, 0.7), rand(-0.1, 0.1)), color: rand(0, 1) < 0.7 ? '#ffe28a' : '#fffbe6', life: rand(1.4, 2.2), wobble: 0.3 });
+      } else if (e.kind === 'petals' && season.blossom > 0.05 && this.every(key, 0.8 / season.blossom, dt)) {
         p.emit({ position: e.position.clone().add(V(rand(-1.5, 1.5), rand(0, 1), rand(-1.5, 1.5))), velocity: V(rand(0.2, 0.6), -rand(0.3, 0.6), rand(-0.2, 0.2)), color: '#f6cfdc', life: 5, wobble: 0.6 });
       }
     }
@@ -344,6 +412,37 @@ export class Life {
         velocity: V(rand(-0.3, 0.3), rand(-0.1, 0.2), rand(-0.3, 0.3)),
         color: '#e8ff8a', life: rand(2.5, 5), wobble: 0.8,
       });
+    }
+  }
+
+  /**
+   * On a cold day Vincent's breath shows between strums, a little puff every few seconds, and
+   * Beike's comes quicker the harder he pants.
+   */
+  private breath(dt: number, night: number) {
+    const c = this.chill;
+    if (c < 0.05) return;
+    const color = new THREE.Color('#eef3f8').multiplyScalar(1 - night * 0.35);
+    const puff = (at: THREE.Vector3, facing: THREE.Vector3, count: number) => {
+      for (let i = 0; i < count; i++) {
+        this.particles.emit({
+          position: at.clone().add(V(rand(-0.03, 0.03), rand(-0.02, 0.02), rand(-0.03, 0.03))),
+          velocity: facing.clone().multiplyScalar(rand(0.25, 0.45)).add(V(this.drift.x * 0.25 + rand(-0.05, 0.05), rand(0.06, 0.16), this.drift.y * 0.25 + rand(-0.05, 0.05))),
+          color,
+          life: rand(0.9, 1.5) * (0.6 + c * 0.6),
+          size: Math.random() < 0.3 ? 2 : 1,
+          wobble: 0.1,
+        });
+      }
+    };
+    const head = this.island.part('vincent', 'head');
+    if (head && this.every('breath:vincent', 3.2, dt)) {
+      head.localToWorld(MOUTH.set(0, 0.12, 0.24));
+      FACING.set(0, 0, 1).transformDirection(head.matrixWorld);
+      puff(MOUTH, FACING, 2 + Math.round(c * 4));
+    }
+    if (this.beike.muzzle(MOUTH, FACING) && this.every('breath:beike', 2.2 - this.beike.panting * 1.6, dt)) {
+      puff(MOUTH, FACING, 1 + Math.round(c * 3));
     }
   }
 

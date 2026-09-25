@@ -5,6 +5,9 @@
     blender -b --factory-startup -P tools/models/build.py -- --only workshop [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only lighthouse [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only lamproom [--preview out.png]
+    blender -b --factory-startup -P tools/models/build.py -- --only hut [--preview out.png]
+    blender -b --factory-startup -P tools/models/build.py -- --only career [--scene student] [--preview out.png]
+    blender -b --factory-startup -P tools/models/build.py -- --only fauna --preview out.png [--focus x,y --span m]
 
 Outputs (public/models/):
   island.glb    terrain + every model, with ids, lights and emitters as glTF extras
@@ -14,6 +17,8 @@ Outputs (public/models/):
   workshop.glb  the workshop, inside, with the projects and the robot (tools/models/workshop.py)
   lighthouse.glb  the keeper's quarters in the lighthouse (tools/models/quarters.py)
   lamproom.glb  the lamp room at the top of the tower (tools/models/lamproom.py)
+  hut.glb       the mountain hut, inside, with Vincent's bed (tools/models/hut.py)
+  career-<id>.glb  one floating diorama per chapter of the career trail (tools/models/career/)
 """
 from __future__ import annotations
 
@@ -43,7 +48,8 @@ def args():
     ap.add_argument("--yaw", type=float, default=0.0)
     ap.add_argument("--focus", default="0,1")
     ap.add_argument("--span", type=float, default=70.0)
-    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse", "lamproom"])
+    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse", "lamproom", "hut", "fauna", "career"])
+    ap.add_argument("--scene", help="with --only career: just this chapter's diorama")
     return ap.parse_args(argv)
 
 
@@ -185,6 +191,47 @@ def build_lamproom(a):
         preview(a.preview, a.night, -22.0, (0.0, 1.2), 17.0, sea=False)
 
 
+def build_hut(a):
+    reset_scene()
+    import hut  # noqa: E402
+    hut.build()
+    export("hut.glb")
+    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'hut.glb'}")
+
+    if a.preview and a.only == "hut":
+        close = a.focus != "0,1"  # --focus x,y --span m to look at one corner
+        fx, fy = (float(v) for v in a.focus.split(",")) if close else (0.0, 0.3)
+        preview(a.preview, a.night, -22.0, (fx, fy), a.span if close else 14.0, sea=False)
+
+
+def preview_fauna(a):
+    """Every animal in a row, rendered (nothing is exported: they ship inside island.glb)."""
+    reset_scene()
+    import fauna  # noqa: E402
+    length = fauna.lineup()
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(length / 2, 0, 0))
+    bpy.context.object.scale = (length + 4, 8, 1)
+    bpy.context.object.data.materials.append(kit.material("#6aa74f"))
+    fx, fy = (float(v) for v in a.focus.split(",")) if a.focus != "0,1" else (length / 2, 0.0)
+    preview(a.preview or "/tmp/fauna-preview.png", a.night, a.yaw, (fx, fy), a.span if a.span != 70.0 else length + 2, sea=False)
+
+
+def build_career(a):
+    from career import SCENES  # noqa: E402
+    for sid, build in SCENES.items():
+        if a.scene and sid != a.scene:
+            continue
+        reset_scene()
+        build()
+        export(f"career-{sid}.glb")
+        print(f"exported {len(bpy.data.objects)} objects -> {OUT / f'career-{sid}.glb'}")
+        if a.preview and a.only == "career":
+            close = a.focus != "0,1"  # --focus x,y --span m to look at one corner
+            fx, fy = (float(v) for v in a.focus.split(",")) if close else (0.5, -0.5)
+            preview(a.preview.replace(".png", f"-{sid}.png") if not a.scene else a.preview,
+                    a.night, -22.0, (fx, fy), a.span if close else 34.0, sea=False)
+
+
 def main():
     a = args()
     if a.preview and not a.only:
@@ -199,6 +246,12 @@ def main():
         build_lighthouse(a)
     if a.only in (None, "lamproom"):
         build_lamproom(a)
+    if a.only in (None, "hut"):
+        build_hut(a)
+    if a.only in (None, "career"):
+        build_career(a)
+    if a.only == "fauna":
+        preview_fauna(a)
 
 
 main()

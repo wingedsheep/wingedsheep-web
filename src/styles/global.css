@@ -186,7 +186,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .plate:hover { background: #f6d27f; }
 
-.projects, .links, .places, .journal, .trail { list-style: none; margin: 0; padding: 0; }
+.projects, .links, .places, .journal { list-style: none; margin: 0; padding: 0; }
 .project { padding: 14px 0; border-bottom: 2px dashed var(--paper-edge); }
 .project h3 { margin: 0 0 4px; }
 .project p { margin: 4px 0; }
@@ -204,10 +204,52 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .journal span { font-size: 15px; font-style: italic; color: var(--ink-soft); }
 .journal li.found strong { color: var(--moss); }
 .journal li.found strong::before { content: '✦ '; color: var(--gold); }
-.trail li { padding: 10px 0; border-bottom: 2px dashed var(--paper-edge); }
-.trail .years { font: 14px var(--ui); color: var(--wood); }
-.trail h3 { margin: 0; }
-.trail .org { margin: 0; font-style: italic; }
+/* the mountain trail: a card down the left with the chapter you're at */
+.chapter-card {
+  position: absolute; left: 16px; top: 84px; width: min(380px, 38vw); overflow-y: auto; pointer-events: auto;
+  max-height: calc(100% - 100px);
+  padding: 12px 18px 10px 24px; background: #fbf4e2; font-size: 16px; line-height: 1.45; clip-path: var(--notch);
+  box-shadow: inset 8px 0 0 var(--moss), inset 10px 0 0 rgba(0, 0, 0, 0.18), inset 0 -3px 0 var(--paper-edge), inset 0 0 0 2px var(--paper-edge);
+  animation: card-side 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.chapter-when { margin: 0 0 2px; font: 12px var(--ui); color: var(--wood); letter-spacing: 0.06em; text-transform: uppercase; }
+.chapter h3 { margin: 0; padding-bottom: 4px; font: 600 22px/1.2 var(--serif); border-bottom: 2px solid rgba(63, 122, 95, 0.45); }
+.chapter-text { margin: 8px 0; font-size: 15.5px; line-height: 22px; color: var(--ink-soft); }
+.chapter-roles { list-style: none; margin: 0 0 8px; padding: 0; font-size: 14.5px; line-height: 1.35; }
+.chapter-roles li { padding: 4px 0; border-top: 1px dashed var(--paper-edge); }
+.chapter-roles .years { font: 12px var(--ui); color: var(--wood); white-space: nowrap; }
+.chapter-roles p { margin: 2px 0 0; color: var(--ink-soft); }
+.chapter-hint { margin: 0; font: italic 14px/1.35 var(--serif); color: var(--moss); }
+.chapter-step button:disabled { opacity: 0.3; cursor: default; background: transparent; }
+/* the pack: a sign in the corner, and a card that stays open from chapter to chapter */
+.pack-toggle {
+  position: absolute; right: 16px; bottom: 16px; pointer-events: auto; padding: 4px 12px 6px; border: 0;
+  background: var(--wood); color: var(--paper); font: 15px/1.2 var(--ui); clip-path: var(--notch);
+  box-shadow: inset 0 -3px 0 #4b2b24, inset 0 2px 0 #8a5a3e;
+}
+.pack-toggle:hover, .pack-toggle[aria-expanded='true'] { background: var(--gold); color: var(--ink); box-shadow: inset 0 -3px 0 #b8862e; }
+.pack-card {
+  position: absolute; right: 16px; top: 84px; bottom: 60px; width: min(360px, 34vw); overflow-y: auto; pointer-events: auto;
+  padding: 12px 18px 10px 24px; background: #fbf4e2; font-size: 16px; line-height: 1.45; clip-path: var(--notch);
+  box-shadow: inset 8px 0 0 var(--wood), inset 10px 0 0 rgba(0, 0, 0, 0.18), inset 0 -3px 0 var(--paper-edge), inset 0 0 0 2px var(--paper-edge);
+  animation: card-side 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.pack-card > h3 { margin: 0 34px 0 0; padding-bottom: 4px; font: 600 22px/1.2 var(--serif); border-bottom: 2px solid rgba(108, 63, 43, 0.4); outline: none; }
+.pack-lede { margin: 8px 0 4px; font: italic 14px/1.35 var(--serif); color: var(--ink-soft); }
+.pack-card .pack h3 { font-size: 17px; }
+@media (max-width: 760px) {
+  .chapter-card { left: 8px; right: 8px; top: auto; bottom: 64px; width: auto; max-height: 44vh; animation-name: sheet-in; }
+  .pack-toggle { top: 100px; bottom: auto; right: 8px; font-size: 13px; }
+  .pack-card { left: 8px; right: 8px; top: auto; bottom: 64px; width: auto; max-height: 62vh; z-index: 2; animation-name: sheet-in; }
+  .chapter-text { font-size: 14.5px; line-height: 20px; }
+}
+.pack { list-style: none; margin: 0; padding: 0; }
+.pack li { padding: 8px 0 10px; border-bottom: 2px dashed var(--paper-edge); }
+.pack h3 { margin: 0 0 6px; }
+.pack .card-tags { margin: 0 0 6px; }
+.pack .card-tags .tag { padding: 4px 7px; font-size: 13px; }
+.pack .card-tags .tag:hover { background: var(--paper-2); }
+.pack-proof { margin: 0; font-size: 15px; color: var(--ink-soft); }
 
 /* --- a sketchbook page, held up ------------------------------------------------------- */
 .sketch { position: fixed; inset: 0; z-index: 22; display: grid; place-items: center; padding: 16px; background: rgba(12, 12, 30, 0.55); cursor: pointer; }

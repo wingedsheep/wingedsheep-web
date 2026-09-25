@@ -144,6 +144,7 @@ export class Lighthouse implements RoomInput {
   render() {
     const u = this.pixels.uniforms;
     u.uGrade.value.set(1.05, 1.03, 1.0); // indoors, whatever the weather is doing outside
+    u.uTone.value = u.uVignette.value = 0; // the island's light stays outside
     u.uHeat.value = 0;
     this.pixels.render(this.room!.scene, this.room!.camera, NO_SHIFT);
   }

@@ -3,11 +3,12 @@ import { getCollection } from 'astro:content';
 import { career } from '../data/career';
 import { projects } from '../data/projects';
 import { site } from '../data/site';
+import { skills } from '../data/skills';
 import Base from '../layouts/Base.astro';
 
 const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
-<Base title="Just the facts" description={`${site.name}: projects, career and every blog post on one plain page.`}>
+<Base title="Just the facts" description={`${site.name}: projects, career, skills and every blog post on one plain page.`}>
   <main class="plain">
     <p><a href="/">← back to the island</a></p>
     <h1>{site.name}</h1>
@@ -21,6 +22,9 @@ const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf()
       <h2>Career</h2>
       <ul>{[...career].reverse().map((m) => <li><strong>{m.role}</strong>, {m.org} ({m.years})</li>)}</ul>
     </>)}
+
+    <h2>Skills</h2>
+    <ul>{skills.map((s) => <li><strong>{s.name}</strong>: {s.items.join(', ')}</li>)}</ul>
 
     <h2>Writing</h2>
     <ul>{posts.map((p) => <li><a href={`/blog/${p.id}/`}>{p.data.title}</a> <small>{p.data.date.getFullYear()}</small></li>)}</ul>

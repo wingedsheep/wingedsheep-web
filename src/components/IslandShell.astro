@@ -6,11 +6,12 @@
  */
 import { getCollection } from 'astro:content';
 import { SECRETS } from '../island/content';
-import { career } from '../data/career';
+import { chapters } from '../data/career';
 import piano from '../data/piano.json';
 import { projects } from '../data/projects';
 import records from '../data/records.json';
 import { site } from '../data/site';
+import { skills } from '../data/skills';
 import { type BookInfo, SUBJECTS, type Subject, spineColor, tagKey } from '../data/subjects';
 import PixelIcon from './PixelIcon.astro';
 
@@ -50,7 +51,8 @@ const places = [
   { id: 'library', label: 'Library', hint: 'the blog' },
   { id: 'workshop', label: 'Workshop', hint: 'projects' },
   { id: 'campfire', label: 'Campfire', hint: 'about me' },
-  { id: 'cairn_0', label: 'Mountain trail', hint: 'career' },
+  { id: 'cairn_0', label: 'Mountain trail', hint: 'career & skills' },
+  { id: 'hut', label: 'Mountain hut', hint: 'stop for the night' },
   { id: 'lighthouse', label: 'Lighthouse', hint: 'the keeper' },
 ];
 ---
@@ -146,6 +148,13 @@ const places = [
       <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
     </header>
   </section>
+  <section class="workshop" data-panel="hut" hidden aria-labelledby="hut-title">
+    <header class="workshop-banner">
+      <h2 id="hut-title" tabindex="-1">The mountain hut</h2>
+      <p>Nearly at the top. The stove's lit, the soup's on, and there's a bed made up in the corner.</p>
+      <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
+    </header>
+  </section>
   <section class="workshop" data-panel="workshop" hidden aria-labelledby="workshop-title">
     <header class="workshop-banner">
       <h2 id="workshop-title" tabindex="-1">The workshop</h2>
@@ -197,17 +206,48 @@ const places = [
     </ul>
   </section>
 
-  <section class="panel" data-panel="trail" hidden aria-labelledby="trail-title">
-    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
-    <h2 id="trail-title" tabindex="-1">The mountain trail</h2>
-    <p class="panel-lede">Every cairn marks a stretch of the climb. The summit is where I am now.</p>
-    {career.length ? (
-      <ol class="trail">
-        {[...career].reverse().map((m) => (<li><span class="years">{m.years}</span><h3>{m.role}</h3><p class="org">{m.org}</p><p>{m.text}</p></li>))}
-      </ol>
-    ) : (
-      <p class="muted">The stones on this trail are still being carved. Meanwhile, the whole climb is on <a href={site.links[0].href}>LinkedIn</a>.</p>
-    )}
+  <!-- the trail: a banner, and a card with the chapter you're at. A chapter with a diorama
+       (src/island/trail.ts) shows it floating over the mountain; the others stay on their cairn. -->
+  <section class="workshop trail-view" data-panel="trail" hidden aria-labelledby="trail-title">
+    <header class="workshop-banner">
+      <h2 id="trail-title" tabindex="-1">The mountain trail</h2>
+      <p>Every cairn marks a stretch of the climb. The summit is where I am now.</p>
+      <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
+    </header>
+    <div class="chapter-card">
+      {chapters.map((c, i) => (
+        <article class="chapter" data-chapter={c.id} hidden={i !== 0} aria-labelledby={`chapter-${c.id}`}>
+          <p class="chapter-when">{c.era} · {c.years} · {c.where}</p>
+          <h3 id={`chapter-${c.id}`}>{c.title}</h3>
+          <p class="chapter-text">{c.text}</p>
+          <ol class="chapter-roles">
+            {c.roles.map((r) => (
+              <li><strong>{r.role}</strong>, {r.org} <span class="years">{r.years}</span>{!c.things && <p>{r.text}</p>}</li>
+            ))}
+          </ol>
+          {c.scene
+            ? <p class="chapter-hint">Look around: most things here have a story.</p>
+            : <p class="chapter-hint">The scene for this stretch is still being built.</p>}
+        </article>
+      ))}
+      <p class="exhibit-step chapter-step">
+        <button data-chapter-step="-1" aria-label="Down the trail">←</button>
+        <span data-chapter-count>1 / {chapters.length}</span>
+        <button data-chapter-step="1" aria-label="Up the trail">→</button>
+      </p>
+    </div>
+    <!-- the pack goes the whole way up: it isn't part of any one chapter -->
+    <button class="pack-toggle" data-pack-toggle aria-expanded="false" aria-controls="pack-card">What's in my pack</button>
+    <aside class="pack-card" id="pack-card" hidden aria-labelledby="pack-title">
+      <button class="exhibit-close" data-pack-toggle aria-label="Close the pack"><PixelIcon name="close" /></button>
+      <h3 id="pack-title" tabindex="-1">What's in my pack</h3>
+      <p class="pack-lede">What I carry up the mountain: picked up along the trail, in the workshop, or late at night.</p>
+      <ul class="pack">
+        {skills.map((s) => (
+          <li><h3>{s.name}</h3><p class="card-tags">{s.items.map((i) => <span class="tag">{i}</span>)}</p><p class="pack-proof">{s.proof}</p></li>
+        ))}
+      </ul>
+    </aside>
   </section>
 
   <section class="panel" data-panel="places" hidden aria-labelledby="places-title">

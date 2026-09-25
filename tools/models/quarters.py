@@ -218,6 +218,19 @@ def telly(root):
     m.box((0.06, 0.12, 0.05), (x + 0.44, yc - 0.45, 0.66), P.GOLD)                      # knobs
     m.box((0.06, 0.12, 0.05), (x + 0.44, yc - 0.3, 0.66), P.GOLD)
     m.build(g)
+    # beside the controller, a second cartridge: masking tape on the front, names in marker,
+    # each one crossed out, and a fresh one at the bottom
+    cg = group("cartridge", parent=root, id="cartridge")
+    c = Model("cartridge")
+    ccx, ccy, rz = x + 1.05, yc - 1.0, -0.5
+    c.box((0.25, 0.3, 0.05), (ccx, ccy, 0.025), "#5f5a66", rot=(0, 0, rz))
+    c.box((0.17, 0.22, 0.012), (ccx + 0.01, ccy, 0.055), "#e6d7a8", rot=(0, 0, rz))       # the tape
+    for k in range(4):
+        # the written lines, all but the last struck through in red
+        d = 0.065 - k * 0.038
+        c.box((0.016, 0.15, 0.006), (ccx + 0.01 + d * math.cos(rz), ccy + d * math.sin(rz), 0.063), P.INK if k == 3 else P.RED, rot=(0, 0, rz))
+    c.build(cg)
+
     s = Model("tv_screen")
     s.box((0.02, 0.92, 0.7), (x + 0.455, yc, 1.05), P.SCREEN, glow=True)
     s.build(g)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 import palette as P
-from kit import Model, emitter, group, light
+from kit import Model, animate, emitter, group, light
 
 
 def _window(m: Model, x, y, z, w, h, frame=P.WOOD_DARK, arch=True, mullion=True):
@@ -33,7 +33,7 @@ def library(root):
     m.box((W + 0.1, 0.3, 0.3), (0, -D / 2, 3.9), P.WOOD_DARK)                 # lintel beam
     m.box((W + 0.1, 0.3, 0.3), (0, D / 2, 3.9), P.WOOD_DARK)
     # roof
-    m.gable((W + 1.0, D + 0.2, 2.8), (0, 0, 4.0), P.PLUM_ROOF, overhang=0.5)
+    m.gable((W + 1.0, D + 0.2, 2.8), (0, 0, 4.0), P.PLUM_ROOF, overhang=0.5, icicles=True)
     m.box((W + 1.1, 0.25, 0.25), (0, 0, 6.85), P.PLUM_ROOF_DARK)               # ridge cap
     # gable ends in plaster
     m.prism([(-D / 2, 0), (D / 2, 0), (0, 2.6)], 0.2, (W / 2 - 0.05, 0, 4.0), P.PLASTER_DARK, rot=(0, 0, math.pi / 2))
@@ -121,7 +121,7 @@ def workshop(root):
         for y in (-D / 2, D / 2):
             m.box((0.3, 0.3, H), (x, y, 0.4 + H / 2), P.WOOD_DARK)
     # front gable (ridge runs north-south)
-    m.gable((D + 0.8, W + 0.1, 2.6), (0, 0, 0.4 + H), P.RUST_ROOF, overhang=0.55, rot=(0, 0, math.pi / 2))
+    m.gable((D + 0.8, W + 0.1, 2.6), (0, 0, 0.4 + H), P.RUST_ROOF, overhang=0.55, rot=(0, 0, math.pi / 2), icicles=True)
     m.prism([(-W / 2, 0), (W / 2, 0), (0, 2.5)], 0.2, (0, -D / 2 + 0.05, 0.4 + H), P.PLANK)
     m.cyl(0.55, 0.12, (0, -D / 2 - 0.07, 4.6), P.WARM_LIGHT, segs=8, rot=(math.pi / 2, 0, 0), glow=True)
     m.cyl(0.66, 0.1, (0, -D / 2 - 0.03, 4.6), P.WOOD_DARK, segs=8, rot=(math.pi / 2, 0, 0))
@@ -164,7 +164,7 @@ def lighthouse(root):
     m = Model("lighthouse_body", seed=4)
     # keeper's hut
     m.box((2.6, 2.2, 1.9), (2.0, 0.6, 0.95), P.WHITE)
-    m.gable((2.8, 2.6, 1.1), (2.0, 0.6, 1.9), P.RED, overhang=0.2)
+    m.gable((2.8, 2.6, 1.1), (2.0, 0.6, 1.9), P.RED, overhang=0.2, icicles=True)
     m.box((0.6, 0.1, 0.8), (2.0, -0.52, 1.0), P.WARM_LIGHT, glow=True)
     # striped tower, tapering
     h, segs = 9.0, 10
@@ -195,3 +195,71 @@ def lighthouse(root):
     group("beam", (0, 0, h + 0.9), parent=root, beam=1)
     light(root, (0, 0, h + 0.9), P.LANTERN, 9, 1.4)
     light(root, (2.0, -1.4, 1.0), P.WARM_LIGHT, 3.5)
+
+
+def mountain_hut(root):
+    """An alpine hut: a stone ground floor, timber above, a low slate roof weighed down with
+    stones, red shutters and geraniums. Faces south, down the trail."""
+    m = Model("hut", seed=8)
+    W, D = 3.8, 3.2
+    base, top = 1.1, 2.5                               # stone up to base, timber up to top
+    m.box((W + 0.2, D + 0.2, base + 0.6), (0, 0, base / 2 - 0.3), P.STONE)
+    for i in range(10):                                # a few proud stones in the wall
+        x = m.rng.uniform(-W / 2 + 0.2, W / 2 - 0.2)
+        m.box((0.32, 0.04, 0.18), (x, -D / 2 - 0.11, m.rng.uniform(0.1, base - 0.15)), P.STONE_DARK)
+    m.box((W, D, top - base), (0, 0, (base + top) / 2), P.WOOD)
+    for i in range(5):                                 # log courses
+        z = base + 0.14 + i * 0.28
+        m.box((W + 0.02, 0.03, 0.05), (0, -D / 2 - 0.005, z), P.WOOD_DARK)
+        for x in (-W / 2 - 0.005, W / 2 + 0.005):
+            m.box((0.03, D + 0.02, 0.05), (x, 0, z), P.WOOD_DARK)
+    for x in (-W / 2, W / 2):                          # corner beams
+        for y in (-D / 2, D / 2):
+            m.box((0.16, 0.16, top - base), (x, y, (base + top) / 2), P.WOOD_DARK)
+    # the roof: ridge running front to back, so the gable faces the trail
+    m.gable((D + 1.0, W + 0.2, 1.1), (0, 0, top), "#5d5866", overhang=0.5, rot=(0, 0, math.pi / 2), thick=0.14, icicles=True)
+    m.prism([(-W / 2, 0), (W / 2, 0), (0, 1.05)], 0.12, (0, -D / 2 + 0.05, top), P.WOOD_LIGHT)
+    m.box((0.5, 0.06, 0.34), (0, -D / 2 - 0.02, top + 0.4), "#233040")                   # attic window
+    run = W / 2 + 0.5
+    for side in (-1, 1):                               # stones on the roof against the wind
+        for y in (-1.2, 0.0, 1.2):
+            f = 0.55
+            m.ball(0.13, (side * run * f, y, top + 1.1 * (1 - f * run / (W / 2 + 0.1)) + 0.2), P.ROCK[3], subdiv=1,
+                   scale=(1.2, 1, 0.7))
+    m.box((0.45, 0.45, 1.3), (1.0, 0.6, top + 0.5), P.STONE)                            # chimney
+    m.box((0.55, 0.55, 0.1), (1.0, 0.6, top + 1.2), P.STONE_DARK)
+    # the front: a door between two windows, shutters open, geraniums on the sills
+    m.box((0.8, 0.08, 1.6), (0, -D / 2 - 0.1, 0.8), P.WOOD_DARK)
+    m.box((0.08, 0.1, 1.7), (-0.44, -D / 2 - 0.1, 0.85), P.WOOD_LIGHT)
+    m.box((0.08, 0.1, 1.7), (0.44, -D / 2 - 0.1, 0.85), P.WOOD_LIGHT)
+    m.box((0.96, 0.12, 0.1), (0, -D / 2 - 0.1, 1.72), P.WOOD_LIGHT)
+    m.cyl(0.04, 0.05, (0.26, -D / 2 - 0.16, 0.85), P.GOLD, segs=6, rot=(math.pi / 2, 0, 0))
+    for x in (-1.25, 1.25):
+        m.box((0.62, 0.06, 0.55), (x, -D / 2 - 0.02, 1.75), P.LANTERN, glow=True)
+        m.box((0.05, 0.08, 0.55), (x, -D / 2 - 0.04, 1.75), P.WOOD_DARK)
+        m.box((0.7, 0.08, 0.05), (x, -D / 2 - 0.04, 1.75), P.WOOD_DARK)
+        for s_ in (-1, 1):                             # shutters, with a white chevron
+            m.box((0.3, 0.05, 0.6), (x + s_ * 0.49, -D / 2 - 0.05, 1.75), P.RED)
+            m.box((0.2, 0.06, 0.06), (x + s_ * 0.49, -D / 2 - 0.05, 1.75), P.WHITE, rot=(0, s_ * 0.6, 0))
+        m.box((0.72, 0.2, 0.14), (x, -D / 2 - 0.12, 1.42), P.WOOD_DARK)                  # flower box
+        for i in range(4):
+            m.ball(0.07, (x - 0.24 + i * 0.16, -D / 2 - 0.13, 1.54), P.RED if i % 2 else "#e04868", subdiv=1)
+    # a bench by the door, a woodpile down the side, and a flag
+    m.box((1.1, 0.35, 0.07), (1.35, -D / 2 - 0.45, 0.42), P.WOOD_LIGHT)
+    for x in (0.95, 1.75):
+        m.box((0.07, 0.3, 0.42), (x, -D / 2 - 0.45, 0.21), P.WOOD_DARK)
+    for row in range(3):                               # logs along the east wall
+        for i in range(4 - row):
+            m.cyl(0.11, 1.3, (W / 2 + 0.22 + (i + row * 0.5) * 0.21, -1.1, 0.11 + row * 0.18), P.WOOD_LIGHT, segs=6,
+                  rot=(-math.pi / 2, 0, 0))
+    m.cyl(0.04, 3.2, (-W / 2 - 0.6, -D / 2 - 0.3, 0), "#cfc9c0", segs=5)
+    m.build(root)
+    f = Model("hut_flag")                              # a pennant in the trail's colours
+    for i, c in enumerate((P.RED, P.WHITE, P.RED)):
+        z0, z1 = 0.22 - i * 0.15, 0.22 - (i + 1) * 0.15
+        f.prism([(0, z0), (0.9 * (1 - abs(z0) / 0.24), z0 * 0.2), (0.9 * (1 - abs(z1) / 0.24), z1 * 0.2), (0, z1)],
+                0.03, (0, 0, 0), c)
+    flag = f.build(root, loc=(-W / 2 - 0.6, -D / 2 - 0.3, 2.9))
+    animate(flag, "hut_idle", "rotation_euler", [(0, (0, 0, -0.15)), (1.5, (0, 0, 0.15)), (3, (0, 0, -0.15))])
+    emitter(root, (1.0, 0.6, top + 1.4), "smoke")
+    light(root, (0, -D / 2 - 0.9, 1.9), P.WARM_LIGHT, 4)

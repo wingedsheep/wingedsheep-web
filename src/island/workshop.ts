@@ -229,6 +229,7 @@ export class Workshop implements RoomInput {
   render() {
     const u = this.pixels.uniforms;
     u.uGrade.value.set(1.06, 1.03, 0.98); // indoors, whatever the weather is doing outside
+    u.uTone.value = u.uVignette.value = 0; // the island's light stays outside
     u.uHeat.value = 0;
     this.pixels.render(this.room!.scene, this.room!.camera, NO_SHIFT);
   }

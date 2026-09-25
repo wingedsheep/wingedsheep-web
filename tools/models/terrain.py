@@ -13,8 +13,7 @@ import bpy
 import numpy as np
 
 import palette as P
-from kit import rgb
-from layout import CELL, EXTENT, ISLAND, PATHS, PEAK, PLATEAUS, PLAZA, STAIRS, TRAIL
+from layout import CELL, EXTENT, ISLAND, PATHS, PEAK, PLATEAUS, PLAZA, STAIRS, SWITCHBACKS, TRAIL
 
 X0, Y0, X1, Y1 = EXTENT
 PEAK_LEVEL = 9  # level id for cells on the mountain peak (terraces are 0, 1; the lighthouse rock is 2)
@@ -62,6 +61,20 @@ def stroke(polyline, width) -> np.ndarray:
     return d <= width / 2
 
 
+def nearest(polyline):
+    """Distance to a polyline, and the nearest point on it, for every grid cell."""
+    d = np.full(GX.shape, 1e9)
+    nx, ny = np.zeros(GX.shape), np.zeros(GX.shape)
+    for (x0, y0), (x1, y1) in zip(polyline, polyline[1:]):
+        dx, dy = x1 - x0, y1 - y0
+        t = np.clip(((GX - x0) * dx + (GY - y0) * dy) / max(dx * dx + dy * dy, 1e-6), 0, 1)
+        qx, qy = x0 + t * dx, y0 + t * dy
+        dd = np.hypot(GX - qx, GY - qy)
+        closer = dd < d
+        d, nx, ny = np.where(closer, dd, d), np.where(closer, qx, nx), np.where(closer, qy, ny)
+    return d, nx, ny
+
+
 def distance(mask: np.ndarray, limit: int) -> np.ndarray:
     """Grid distance (in cells) from outside `mask`, capped at `limit`."""
     d = np.zeros(mask.shape, np.int32)
@@ -87,6 +100,8 @@ class Terrain:
     path: np.ndarray
     plaza: np.ndarray
     shore: np.ndarray          # 0 at the coast … 1 far out at sea
+    trail: np.ndarray          # the mountain trail (also in `path`)
+    stair: np.ndarray          # the stone steps up the cliffs
 
     def sample(self, x: float, y: float) -> float:
         """Terrain height at a world position (bilinear)."""
@@ -123,26 +138,47 @@ def generate() -> Terrain:
         level[m] = k
         masks.append(m)
 
-    # the peak: a rough cone on the upper terrace, with a small flat ledge on top for the flag
+    # the peak: a ridged cone on the upper terrace, with a small flat ledge on top for the flag,
+    # and a lower shoulder to the west so the massif has a skyline
     (px, py), pr, ph = PEAK
     base = PLATEAUS[1][1]
-    d = np.hypot(GX - px, (GY - py) * 1.25) / pr
-    cone = base + (ph - base) * np.clip(1 - d, 0, 1) ** 0.9 + (n_mid - 0.5) * 0.7 * (d < 0.9)
-    peak = (d < 1) & (level == 1)
+    dx, dy = GX - px, (GY - py) * 1.25
+    ang = np.arctan2(dy, dx)
+    reach = 1 + 0.14 * np.cos(5 * ang + 0.6) + 0.06 * np.cos(9 * ang + 2.0)    # spurs and gullies
+    d = np.hypot(dx, dy) / (pr * reach)
+    smooth = base + (ph - base) * np.clip(1 - d, 0, 1) ** 1.15
+    sd = np.hypot(GX - 0.2, (GY - 16.6) * 1.3) / 3.4
+    smooth = np.maximum(smooth, base + 3.4 * np.clip(1 - sd, 0, 1) ** 1.1)
+    cone = smooth + (n_mid - 0.5) * 0.5 * ((d < 0.85) | (sd < 0.8))
+    peak = ((d < 1) | (sd < 1)) & (level == 1)
+    ground = h.copy()
     h = np.where(peak, np.where(d < 0.14, ph, np.maximum(h, cone)), h)
     level[peak & (cone > base + 0.5)] = PEAK_LEVEL
 
+    # the trail zigzags up the peak on a ledge: level across, following the slope along
+    sw, qx, qy = nearest(SWITCHBACKS)
+    qi = np.clip(np.round((qx - X0) / CELL).astype(int), 0, NX - 1)
+    qj = np.clip(np.round((qy - Y0) / CELL).astype(int), 0, NY - 1)
+    ref = np.where(peak, np.where(d < 0.14, ph, np.maximum(ground, smooth)), h)
+    bench = (sw <= 0.8) & (peak | (level == 1))
+    h = np.where(bench, ref[qj, qi], h)
+
     # paths and plaza are pressed slightly into the ground
-    path = np.zeros(GX.shape, bool)
-    for pl, w in PATHS + TRAIL:
+    trail = bench.copy()
+    for pl, w in TRAIL:
+        trail |= stroke(pl, w)
+    path = trail.copy()
+    for pl, w in PATHS:
         path |= stroke(pl, w + (0.3 if w > 1.2 else 0))
     plaza = stroke([PLAZA, PLAZA], 9.5) & land
     path &= land & ~plaza
+    trail &= land & ~plaza
     ground_path = path & (level < 0)
     h = np.where(ground_path, h - 0.06, h)
     h = np.where(plaza, 0.86, h)
 
-    # stairs: stepped ramps from the ground at y0 up to the ground at y1
+    # stairs: stepped ramps of stone from the ground at y0 up to the ground at y1
+    stair = np.zeros(GX.shape, bool)
     for sx, y0, y1 in STAIRS:
         at = lambda y: h[int(round((y - Y0) / CELL)), int(round((sx - X0) / CELL))]  # noqa: E731
         lo, hi = at(y0), at(y1)
@@ -150,18 +186,26 @@ def generate() -> Terrain:
         t = np.clip((GY - y0) / (y1 - y0), 0, 1)
         steps = max(4, int((hi - lo) / 0.45))
         h = np.where(ramp, lo + np.floor(t * steps) / steps * (hi - lo), h)
-        path |= ramp
+        stair |= ramp
+    path |= stair
+    trail &= ~stair
 
     shore = np.clip(sea_d / 14.0, 0, 1)
     shore[land] = 0
-    return Terrain(h, land, level, path, plaza, shore)
+    return Terrain(h, land, level, path, plaza, shore, trail, stair)
 
 
 def face_color(t: Terrain, ix: int, iy: int, nz: float, avg_h: float, rng) -> str:
     x, y = XS[ix], YS[iy]
     if not t.land[iy, ix]:
         return P.SAND_WET
-    if nz < 0.6 and not (t.level[iy, ix] == PEAK_LEVEL and avg_h > 11.8):   # cliff face (snow clings to the peak)
+    if t.stair[iy, ix]:                                   # under the stone steps (props.steps)
+        return P.STONE_DARK
+    if t.trail[iy, ix] and nz >= 0.5:                     # pale gravel (pebbles line it: props.trail_edge)
+        return P.GRAVEL[(ix * 7 + iy * 3) % 5 == 0]
+    if t.level[iy, ix] == PEAK_LEVEL:
+        return _peak_color(ix, iy, nz, avg_h)
+    if nz < 0.6:                                          # cliff face
         band = int((avg_h * 1.4 + (ix * 7 + iy * 3) % 3 * 0.4)) % len(P.ROCK)
         return P.ROCK[band]
     if t.plaza[iy, ix]:
@@ -174,10 +218,6 @@ def face_color(t: Terrain, ix: int, iy: int, nz: float, avg_h: float, rng) -> st
     if avg_h < 0.42 and t.level[iy, ix] < 0:
         return P.SAND_WET if avg_h < 0.17 else (P.SAND if rng.random() < 0.7 else P.SAND_LIGHT)
     lvl = t.level[iy, ix]
-    if lvl == PEAK_LEVEL:                                 # the peak: meadow, scree, then snow
-        if avg_h > 11.8:
-            return P.SNOW if (ix * 13 + iy * 7) % 5 < 4 else P.ROCK[3]
-        return P.ROCK[2 + (ix + iy) % 2] if avg_h > 9.2 else P.GRASS_HIGH[(ix * 3 + iy) % 3]
     if lvl == 2:                                          # lighthouse rock
         return P.ROCK[2 + (ix + iy) % 2]
     ramp = P.GRASS_HIGH if lvl == 1 else P.GRASS
@@ -186,6 +226,19 @@ def face_color(t: Terrain, ix: int, iy: int, nz: float, avg_h: float, rng) -> st
 
 
 _grass_tone = noise(9, 7, 3)
+_snow_line = noise(2.5, 8, 2)
+
+
+def _peak_color(ix: int, iy: int, nz: float, avg_h: float) -> str:
+    """The peak in bands: alpine meadow, scree and rock, then a ragged snow cap."""
+    n = _snow_line[iy, ix] - 0.5
+    if avg_h > 11.0 + n * 2.4:
+        return P.SNOW if nz > 0.72 else P.SNOW_SHADE
+    if avg_h > 8.8 + n * 1.8 or nz < 0.62:
+        if int(avg_h * 1.7) % 5 == 0:                     # a pale stratum
+            return P.PEAK_ROCK[3]
+        return P.PEAK_ROCK[0 if nz < 0.45 else 1 if nz < 0.7 else 2]
+    return P.GRASS_HIGH[(ix * 3 + iy) % 3]
 
 
 def build_mesh(t: Terrain) -> bpy.types.Object:
@@ -230,10 +283,13 @@ def build_mesh(t: Terrain) -> bpy.types.Object:
     loose = [v for v in bm.verts if not v.link_faces]
     bmesh.ops.delete(bm, geom=loose, context="VERTS")
 
+    # a byte colour layer holds sRGB (the glTF exporter linearises it), so no rgb() here:
+    # converting first darkened the whole island twice over
     layer = bm.loops.layers.color.new("Col")
     cache = {}
     for f, hex_ in colors.items():
-        c = cache.setdefault(hex_, (*rgb(hex_), 1.0))
+        h = hex_.lstrip("#")
+        c = cache.setdefault(hex_, (*(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)), 1.0))
         for loop in f.loops:
             loop[layer] = c
 
