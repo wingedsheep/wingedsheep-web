@@ -41,7 +41,6 @@ interface Floater {
  */
 export class Life {
   readonly particles = new Particles();
-  playing = false; // Vincent strums while a song plays
   private clock = 0;
   private timers = new Map<string, number>();
   private floaters: Floater[] = [];
@@ -49,6 +48,9 @@ export class Life {
   private flock: THREE.Object3D[] = [];
   private stunt = 0;
   private ufo?: THREE.Object3D;
+  /** Whether Vincent's song is audible; he eases into and out of playing. */
+  playing = false;
+  private groove = 0;
 
   constructor(
     private scene: THREE.Scene,
@@ -107,7 +109,7 @@ export class Life {
     const t = this.clock;
     const night = this.sky.lamps;
 
-    // campfire flames, flag, weathervane, strumming, a sleeping cat's breath
+    // campfire flames, flag, weathervane, a sleeping cat's breath
     for (let i = 0; i < 3; i++) {
       const f = this.island.part('campfire', `flame${i}`);
       if (f) f.scale.set(1, 0.8 + Math.sin(t * (9 + i * 3) + i) * 0.15 + Math.sin(t * 23 + i) * 0.08, 1);
@@ -116,11 +118,10 @@ export class Life {
     if (flag) flag.rotation.y = Math.sin(t * 2.2) * 0.35;
     const vane = this.island.get('library')?.getObjectByName('weathervane');
     if (vane) vane.rotation.y = Math.sin(t * 0.13) * 1.2 + Math.sin(t * 0.7) * 0.1;
-    const arm = this.island.part('vincent', 'arm_strum');
-    if (arm) arm.rotation.x = this.playing ? Math.sin(t * 12) * 0.35 : 0;
     const cat = this.island.part('cat', 'cat_body');
     if (cat) cat.scale.set(1, 1 + Math.sin(t * 1.8) * 0.04, 1);
 
+    this.strum(dt);
     this.flySheep(dt);
     this.flyFlock();
     this.visitors(dt, night);
@@ -135,6 +136,26 @@ export class Life {
     const left = (this.timers.get(key) ?? Math.random() * seconds) - dt;
     this.timers.set(key, left <= 0 ? left + seconds : left);
     return left <= 0;
+  }
+
+  /**
+   * Vincent: idle he rests his strumming hand and looks around; playing he strums, nods on
+   * the beat and taps his right foot. `groove` blends between the two.
+   */
+  private strum(dt: number) {
+    const t = this.clock;
+    const g = (this.groove = THREE.MathUtils.damp(this.groove, this.playing ? 1 : 0, 3, dt));
+    const beat = t * 1.9 * Math.PI * 2; // ~114 bpm
+    const pulse = Math.max(0, Math.sin(beat)) ** 2;
+    const arm = this.island.part('vincent', 'arm_strum');
+    if (arm) arm.rotation.x = Math.sin(beat) * 0.35 * g;
+    const head = this.island.part('vincent', 'head');
+    if (head) {
+      head.rotation.x = pulse * 0.12 * g - 0.05 * (1 - g);
+      head.rotation.z = Math.sin(t * 0.4) * 0.25 * (1 - g) + Math.sin(beat / 4) * 0.06 * g;
+    }
+    const foot = this.island.part('vincent', 'foot_tap');
+    if (foot) foot.rotation.x = -pulse * 0.4 * g;
   }
 
   /** Figure-eight over the island; y is altitude. */

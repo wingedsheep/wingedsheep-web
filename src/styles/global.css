@@ -120,24 +120,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .book:hover .book-card, .book:focus-visible .book-card { display: block; }
 .books li:first-child .book-card { left: 0; transform: none; }
 
-.projects, .log, .links, .setlist, .places, .journal, .trail { list-style: none; margin: 0; padding: 0; }
+.projects, .links, .places, .journal, .trail { list-style: none; margin: 0; padding: 0; }
 .project { padding: 14px 0; border-bottom: 2px dashed var(--paper-edge); }
 .project h3 { margin: 0 0 4px; }
 .project p { margin: 4px 0; }
 .tags span { display: inline-block; margin: 0 4px 4px 0; padding: 0 8px; font: 13px var(--ui); background: var(--paper-2); clip-path: var(--notch); }
-.log li { padding: 8px 0 8px 18px; border-left: 3px solid var(--gold); margin-bottom: 8px; }
-.log h3 { margin: 0; }
-.log p { margin: 2px 0 0; }
 .links { display: flex; gap: 12px; flex-wrap: wrap; font: 17px var(--ui); }
-.setlist { display: grid; gap: 6px; }
-.setlist button, .places button {
+.places button {
   width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 12px;
   border: 0; background: var(--paper-2); text-align: left; clip-path: var(--notch); font: 16px var(--ui);
 }
-.setlist button:hover, .places button:hover { background: #f1e3c2; }
-.setlist button[aria-pressed='true'] { background: var(--gold); }
-.setlist button[aria-pressed='true'] .song-title::before { content: '♪ '; }
-.song-time, .places span { opacity: 0.6; font-size: 14px; }
+.places button:hover { background: #f1e3c2; }
+.places span { opacity: 0.6; font-size: 14px; }
 .places { display: grid; gap: 6px; margin-bottom: 14px; }
 .journal li { display: grid; gap: 0; padding: 8px 0; border-bottom: 2px dashed var(--paper-edge); }
 .journal strong { font: 17px var(--ui); color: var(--ink-soft); }

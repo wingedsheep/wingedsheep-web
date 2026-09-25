@@ -113,8 +113,10 @@ export class UI {
     el.className = `toast toast-${kind}`;
     el.textContent = text;
     this.toasts.append(el);
-    setTimeout(() => el.classList.add('out'), kind === 'secret' ? 4200 : 3400);
-    setTimeout(() => el.remove(), kind === 'secret' ? 4800 : 4000);
+    // longer notes stay up long enough to read
+    const stay = Math.max(kind === 'secret' ? 4200 : 3400, text.length * 55);
+    setTimeout(() => el.classList.add('out'), stay);
+    setTimeout(() => el.remove(), stay + 600);
   }
 
   private showArticle(slug: string) {

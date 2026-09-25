@@ -39,41 +39,49 @@ def guitar(root, loc, tilt):
 
 
 def vincent(root):
-    """Vincent on a log at the campfire, playing his acoustic. Faces -y; his right hand is -x."""
+    """Vincent on a log at the campfire with his acoustic. Faces -y; his right hand is -x.
+    The runtime animates `arm_strum`, `head` and `foot_tap` while he plays."""
     m = Model("vincent")
     m.cyl(0.26, 1.7, (-0.85, 0, 0.26), P.WOOD, segs=7, rot=(0, math.pi / 2, 0))        # the log
     for x in (-0.16, 0.16):
         m.box((0.21, 0.52, 0.21), (x, -0.24, 0.62), P.SHORTS)                             # thighs
         m.box((0.16, 0.16, 0.52), (x, -0.5, 0.33), P.SKIN)                                # bare shins
-        m.box((0.2, 0.34, 0.1), (x, -0.56, 0.1), P.SHOE)
-        m.box((0.21, 0.35, 0.05), (x, -0.56, 0.025), P.SOLE)
+    m.box((0.2, 0.34, 0.1), (0.16, -0.56, 0.1), P.SHOE)
+    m.box((0.21, 0.35, 0.05), (0.16, -0.56, 0.025), P.SOLE)
+    foot = Model("foot_tap")                                                             # right foot, pivots at the heel
+    foot.box((0.2, 0.34, 0.1), (0, -0.17, 0.1), P.SHOE)
+    foot.box((0.21, 0.35, 0.05), (0, -0.17, 0.025), P.SOLE)
+    foot.build(root, loc=(-0.16, -0.39, 0))
     m.box((0.56, 0.34, 0.66), (0, 0.02, 1.05), P.TEE)                                    # torso
     m.prism([(-0.1, 0), (0.1, 0), (0, -0.17)], 0.01, (0, -0.152, 1.385), P.SKIN)          # v-neck
     for z in (1.31, 1.22):                                                               # shades hooked on the collar
         m.box((0.08, 0.02, 0.07), (-0.08, -0.158, z), P.SHADES)
     m.box((0.02, 0.02, 0.16), (-0.08, -0.158, 1.29), P.SHADES_FRAME)
     m.box((0.2, 0.2, 0.12), (0, 0.0, 1.43), P.SKIN)                                      # neck
-    # head: tanned, short beard going grey at the chin, big grin
-    m.box((0.42, 0.4, 0.44), (0, 0.0, 1.68), P.SKIN)
-    m.box((0.44, 0.41, 0.15), (0, 0.0, 1.535), P.BEARD)
-    m.box((0.14, 0.03, 0.06), (0, -0.2, 1.485), P.BEARD_GREY)
-    m.box((0.22, 0.03, 0.035), (0, -0.203, 1.62), P.BEARD)                               # moustache
-    m.box((0.14, 0.03, 0.035), (0, -0.207, 1.575), P.TEETH)                              # smile
-    m.box((0.07, 0.05, 0.08), (0, -0.215, 1.67), P.SKIN)                                 # nose
+    # head (nods along; pivots at the neck): tanned, short beard going grey at the chin, big grin
+    h = Model("head")
+    hz = 1.45
+    h.box((0.42, 0.4, 0.44), (0, 0.0, 1.68 - hz), P.SKIN)
+    h.box((0.44, 0.41, 0.15), (0, 0.0, 1.535 - hz), P.BEARD)
+    h.box((0.14, 0.03, 0.06), (0, -0.2, 1.485 - hz), P.BEARD_GREY)
+    h.box((0.22, 0.03, 0.035), (0, -0.203, 1.62 - hz), P.BEARD)                          # moustache
+    h.box((0.14, 0.03, 0.035), (0, -0.207, 1.575 - hz), P.TEETH)                         # smile
+    h.box((0.07, 0.05, 0.08), (0, -0.215, 1.67 - hz), P.SKIN)                            # nose
     for x in (-0.1, 0.1):
-        m.box((0.06, 0.02, 0.06), (x, -0.205, 1.72), P.INK)                              # eyes
-        m.box((0.1, 0.02, 0.025), (x, -0.205, 1.775), P.HAIR)                            # brows
+        h.box((0.06, 0.02, 0.06), (x, -0.205, 1.72 - hz), P.INK)                         # eyes
+        h.box((0.1, 0.02, 0.025), (x, -0.205, 1.775 - hz), P.HAIR)                       # brows
     for x in (-0.22, 0.22):
-        m.box((0.04, 0.1, 0.12), (x, 0.02, 1.68), P.SKIN)                                # ears
-        m.box((0.03, 0.34, 0.14), (x * 0.99, 0.02, 1.83), P.HAIR)                        # short sides
-    m.box((0.4, 0.04, 0.2), (0, 0.205, 1.76), P.HAIR)                                    # back of the head
+        h.box((0.04, 0.1, 0.12), (x, 0.02, 1.68 - hz), P.SKIN)                           # ears
+        h.box((0.03, 0.34, 0.14), (x * 0.99, 0.02, 1.83 - hz), P.HAIR)                   # short sides
+    h.box((0.4, 0.04, 0.2), (0, 0.205, 1.76 - hz), P.HAIR)                               # back of the head
     # cap on backwards: brim over the neck, snapback strap over the forehead
-    m.box((0.46, 0.44, 0.14), (0, 0.0, 1.93), P.CAP)
-    m.box((0.38, 0.36, 0.07), (0, 0.0, 2.03), P.CAP)
-    m.box((0.06, 0.06, 0.03), (0, 0.0, 2.075), P.CAP_DARK)                               # button
-    m.box((0.36, 0.26, 0.035), (0, 0.33, 1.9), P.CAP_DARK, rot=(0.25, 0, 0))            # brim
-    m.box((0.16, 0.02, 0.04), (0, -0.225, 1.93), P.CAP_DARK)                             # strap
-    m.box((0.12, 0.02, 0.05), (0, -0.226, 1.88), P.HAIR)                                 # hair through the gap
+    h.box((0.46, 0.44, 0.14), (0, 0.0, 1.93 - hz), P.CAP)
+    h.box((0.38, 0.36, 0.07), (0, 0.0, 2.03 - hz), P.CAP)
+    h.box((0.06, 0.06, 0.03), (0, 0.0, 2.075 - hz), P.CAP_DARK)                          # button
+    h.box((0.36, 0.26, 0.035), (0, 0.33, 1.9 - hz), P.CAP_DARK, rot=(0.25, 0, 0))       # brim
+    h.box((0.16, 0.02, 0.04), (0, -0.225, 1.93 - hz), P.CAP_DARK)                        # strap
+    h.box((0.12, 0.02, 0.05), (0, -0.226, 1.88 - hz), P.HAIR)                            # hair through the gap
+    h.build(root, loc=(0, 0, hz))
     # fretting (left) arm: sleeve, bare forearm, watch
     m.plank_line((0.33, -0.02, 1.32), (0.37, -0.08, 1.16), 0.15, 0.15, P.TEE)
     m.plank_line((0.37, -0.08, 1.16), (0.4, -0.16, 1.0), 0.12, 0.12, P.SKIN)

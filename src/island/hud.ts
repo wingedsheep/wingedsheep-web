@@ -32,22 +32,6 @@ export function bindHud(ctx: IslandContext) {
     ctx.sound.setEnabled(!ctx.sound.enabled);
     el.setAttribute('aria-pressed', String(ctx.sound.enabled));
   });
-  ctx.sound.onSongChange = (song) => {
-    document.querySelectorAll<HTMLElement>('[data-action="sound"]').forEach((el) => el.setAttribute('aria-pressed', String(ctx.sound.enabled)));
-    document.querySelectorAll<HTMLElement>('[data-song]').forEach((el) => {
-      const playing = song?.id === Number(el.dataset.song);
-      el.setAttribute('aria-pressed', String(playing));
-    });
-    ctx.life.playing = Boolean(song);
-  };
-  on('[data-song]', (el) => {
-    const id = Number(el.dataset.song);
-    if (ctx.sound.playing?.id === id) ctx.sound.stopSong();
-    else {
-      ctx.sound.playSong(id);
-      ctx.discover('guitar');
-    }
-  });
 
   renderJournal(ctx);
   konami(() => {

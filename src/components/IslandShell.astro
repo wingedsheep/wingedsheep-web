@@ -7,10 +7,8 @@
 import { getCollection } from 'astro:content';
 import { SECRETS } from '../island/content';
 import { career } from '../data/career';
-import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { site } from '../data/site';
-import songs from '../data/songs.json';
 import PixelIcon from './PixelIcon.astro';
 
 interface Props {
@@ -36,7 +34,7 @@ const places = [
   { id: 'workshop', label: 'Workshop', hint: 'projects' },
   { id: 'campfire', label: 'Campfire', hint: 'about me' },
   { id: 'cairn_0', label: 'Mountain trail', hint: 'career' },
-  { id: 'lighthouse', label: 'Lighthouse', hint: 'interests' },
+  { id: 'lighthouse', label: 'Lighthouse', hint: 'the keeper' },
 ];
 ---
 <div class="island-page">
@@ -110,15 +108,6 @@ const places = [
     </ul>
   </section>
 
-  <section class="panel" data-panel="lighthouse" hidden aria-labelledby="lighthouse-title">
-    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
-    <h2 id="lighthouse-title" tabindex="-1">The keeper's log</h2>
-    <p class="panel-lede">What I keep looking out for.</p>
-    <ol class="log">
-      {interests.map((i) => (<li><h3>{i.title}</h3><p>{i.text}</p></li>))}
-    </ol>
-  </section>
-
   <section class="panel" data-panel="campfire" hidden aria-labelledby="campfire-title">
     <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
     <h2 id="campfire-title" tabindex="-1">By the campfire</h2>
@@ -127,14 +116,6 @@ const places = [
     <ul class="links">
       {site.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
     </ul>
-    <h3>Setlist</h3>
-    <p class="muted">Covers I recorded. Pick one and he'll play it.</p>
-    <ol class="setlist">
-      {songs.map((s) => (
-        <li><button data-song={s.id} aria-pressed="false"><span class="song-title">{s.title}</span>
-          <span class="song-time">{Math.floor(s.duration / 60)}:{String(Math.round(s.duration % 60)).padStart(2, '0')}</span></button></li>
-      ))}
-    </ol>
   </section>
 
   <section class="panel" data-panel="trail" hidden aria-labelledby="trail-title">

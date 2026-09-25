@@ -6,6 +6,7 @@
  * entry here. Secrets listed in SECRETS show up in the journal automatically.
  */
 import type * as THREE from 'three';
+import { interests } from '../data/interests';
 import type { Journal } from './journal';
 import type { CameraRig } from './scene/camera-rig';
 import type { Island } from './scene/island';
@@ -13,7 +14,7 @@ import type { Life } from './scene/life';
 import type { Sky } from './scene/sky';
 import type { Sound } from './sound';
 
-export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'campfire' | 'trail' | 'places' | 'journal';
+export type PanelName = 'library' | 'workshop' | 'campfire' | 'trail' | 'places' | 'journal';
 
 export interface IslandContext {
   island: Island;
@@ -50,6 +51,7 @@ export const SECRETS = {
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
 } as const;
 
+let logPage = -1;
 const say = (text: string) => (ctx: IslandContext) => ctx.toast(text);
 
 export const PLACES: Record<string, Place> = {
@@ -57,7 +59,14 @@ export const PLACES: Record<string, Place> = {
   signpost: { label: 'Signpost · where to?', panel: 'places' },
   library: { label: 'The library · blog', panel: 'library' },
   workshop: { label: 'The workshop · projects', panel: 'workshop' },
-  lighthouse: { label: "The lighthouse · keeper's log", panel: 'lighthouse' },
+  lighthouse: {
+    label: 'The lighthouse',
+    activate(ctx) {
+      // one page of the keeper's log at a time, never the whole book
+      logPage = (logPage + 1 + Math.floor(Math.random() * (interests.length - 1))) % interests.length;
+      ctx.toast(`Keeper's log: ${interests[logPage].text}`);
+    },
+  },
   campfire: { label: 'The campfire · about me', panel: 'campfire' },
   cairn: { label: 'A cairn on the trail · career', panel: 'trail' },
   summit: {
@@ -68,13 +77,16 @@ export const PLACES: Record<string, Place> = {
   vincent: {
     label: (ctx) => (ctx.sound.playing ? `Vincent · playing ${ctx.sound.playing.title}` : 'Vincent · ask for a song'),
     activate(ctx, at) {
-      if (ctx.sound.playing) {
-        ctx.sound.stopSong();
-        return;
-      }
-      ctx.sound.playSong(ctx.sound.nextSongId());
       ctx.life.burst('notes', at);
-      ctx.discover('guitar');
+      if (!ctx.sound.enabled) {
+        ctx.sound.setEnabled(true);
+        document.querySelector('[data-action="sound"]')?.setAttribute('aria-pressed', 'true');
+      }
+      if (ctx.sound.playing) return;
+      // pull up a log: the camera settles in close enough to hear him
+      ctx.sound.ask();
+      ctx.rig.focus(ctx.island.positionOf('vincent')!, Math.min(ctx.rig.view, 16));
+      ctx.toast('He grins, counts in, and starts to play.');
     },
   },
   guitar_case: { label: 'An open guitar case', panel: 'campfire' },
@@ -91,6 +103,7 @@ export const PLACES: Record<string, Place> = {
     label: 'A winged sheep',
     activate(ctx) {
       ctx.life.loop();
+      ctx.sound.baa();
       ctx.toast('Baa!');
       ctx.discover('sheep');
     },

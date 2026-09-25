@@ -20,7 +20,6 @@ const PANEL_HOME: Partial<Record<PanelName | 'article', string>> = {
   library: 'library',
   article: 'library',
   workshop: 'workshop',
-  lighthouse: 'lighthouse',
   campfire: 'campfire',
   trail: 'cairn_3',
 };
@@ -149,11 +148,13 @@ export async function bootIsland(host: HTMLElement) {
     water.uniforms.uTime.value += dt;
     rig.update(dt);
     sky.update(dt);
+    life.playing = sound.playing !== null;
     if (!reducedMotion) life.update(dt);
     const near = 1 - rig.target.distanceTo(campfire.clone().setY(1)) / 14;
-    sound.update(near, rig.view < 30);
+    sound.update(near, rig.view, dt);
     if (sound.playing && (notes -= dt) < 0) {
       notes = 1.3;
+      ctx.discover('guitar');
       life.burst('notes', island.positionOf('vincent')!.add(new THREE.Vector3(0, 1.4, 0)));
     }
     pixels.render(scene, rig.camera, rig.subTexel);

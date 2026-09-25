@@ -1,7 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
 import { career } from '../data/career';
-import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { site } from '../data/site';
 import Base from '../layouts/Base.astro';
@@ -25,8 +24,5 @@ const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf()
 
     <h2>Writing</h2>
     <ul>{posts.map((p) => <li><a href={`/blog/${p.id}/`}>{p.data.title}</a> <small>{p.data.date.getFullYear()}</small></li>)}</ul>
-
-    <h2>Interests</h2>
-    <ul>{interests.map((i) => <li><strong>{i.title}.</strong> {i.text}</li>)}</ul>
   </main>
 </Base>

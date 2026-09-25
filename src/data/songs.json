@@ -3,35 +3,42 @@
     "id": 1,
     "youtubeId": "RTPLDUnV9Yg",
     "title": "The Cave – Mumford & Sons",
-    "duration": 212.48,
-    "teaseStart": 146
+    "duration": 212.48
   },
   {
     "id": 2,
     "youtubeId": "MnkEEi39U5o",
     "title": "Like Real People Do – Hozier",
-    "duration": 191.65,
-    "teaseStart": 78
+    "duration": 191.65
   },
   {
     "id": 3,
     "youtubeId": "bNZg4UifoZ4",
     "title": "Cherry Wine – Hozier",
-    "duration": 217.72,
-    "teaseStart": 151
+    "duration": 217.72
   },
   {
     "id": 4,
     "youtubeId": "98RSfUzqLiQ",
     "title": "Rhiannon – Fleetwood Mac",
-    "duration": 252.39,
-    "teaseStart": 159
+    "duration": 252.39
   },
   {
     "id": 5,
     "youtubeId": "lkrhCkbQFWk",
     "title": "Katherine Kiss Me – Franz Ferdinand",
-    "duration": 174.52,
-    "teaseStart": 74
+    "duration": 174.52
+  },
+  {
+    "id": 6,
+    "youtubeId": "NP9yWBlF3m4",
+    "title": "The Will to Death – John Frusciante",
+    "duration": 236.28
+  },
+  {
+    "id": 7,
+    "youtubeId": "1rRhuLOhGzA",
+    "title": "No Good With Faces – Jack Johnson",
+    "duration": 206.67
   }
 ]
