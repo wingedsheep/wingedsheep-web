@@ -40,7 +40,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#17466a" />
   </head>
-  <body data-title={fullTitle}>
+  <body data-title={`${site.handle} · ${site.name}`}>
     <slot />
   </body>
 </html>

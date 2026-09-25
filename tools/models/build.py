@@ -1,11 +1,13 @@
 """Build the island scene and export it for the web.
 
     blender -b --factory-startup -P tools/models/build.py -- [--preview out.png] [--night]
+    blender -b --factory-startup -P tools/models/build.py -- --only library [--preview out.png]
 
 Outputs (public/models/):
   island.glb    terrain + every model, with ids, lights and emitters as glTF extras
   shore.png     distance-from-land map for the water shader
   island.json   world extent and other numbers the runtime needs
+  library.glb   the library, inside (tools/models/interior.py)
 """
 from __future__ import annotations
 
@@ -35,6 +37,7 @@ def args():
     ap.add_argument("--yaw", type=float, default=0.0)
     ap.add_argument("--focus", default="0,1")
     ap.add_argument("--span", type=float, default=70.0)
+    ap.add_argument("--only", choices=["island", "library"])
     return ap.parse_args(argv)
 
 
@@ -43,11 +46,11 @@ def reset_scene():
     kit.reset()
 
 
-def export():
+def export(name: str):
     OUT.mkdir(parents=True, exist_ok=True)
     kit.stash_clips()
     bpy.ops.export_scene.gltf(
-        filepath=str(OUT / "island.glb"),
+        filepath=str(OUT / name),
         export_format="GLB",
         export_extras=True,
         export_yup=True,
@@ -60,7 +63,7 @@ def export():
     )
 
 
-def preview(path: str, night: bool, yaw: float, focus: tuple[float, float], span: float):
+def preview(path: str, night: bool, yaw: float, focus: tuple[float, float], span: float, sea=True):
     """Rough Eevee render from the game camera angle, pixelated, for eyeballing the models."""
     scene = bpy.context.scene
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
@@ -97,9 +100,9 @@ def preview(path: str, night: bool, yaw: float, focus: tuple[float, float], span
         bpy.context.object.scale.z = o.get("squash", 1.0)
         bpy.context.object.data.materials.append(kit.material(palettes[o["palette"]]))
 
-    # a flat sea so the island has context
-    bpy.ops.mesh.primitive_plane_add(size=400, location=(0, 0, 0.02))
-    bpy.context.object.data.materials.append(kit.material("#1d6d8c"))
+    if sea:  # a flat sea so the island has context
+        bpy.ops.mesh.primitive_plane_add(size=400, location=(0, 0, 0.02))
+        bpy.context.object.data.materials.append(kit.material("#1d6d8c"))
 
     scene.render.engine = "BLENDER_EEVEE"
     scene.render.resolution_x = 480
@@ -113,8 +116,7 @@ def preview(path: str, night: bool, yaw: float, focus: tuple[float, float], span
     img.scale(1440, 900)  # bilinear, but good enough to judge shapes and colours
 
 
-def main():
-    a = args()
+def build_island(a):
     reset_scene()
     t = terrain.generate()
     terrain.build_mesh(t)
@@ -123,14 +125,35 @@ def main():
     import models  # noqa: E402  (after the terrain exists: models sit on it)
     models.populate(t)
 
-    export()
+    export("island.glb")
     x0, y0, x1, y1 = EXTENT
     (OUT / "island.json").write_text(json.dumps({"extent": [x0, y0, x1, y1], "cell": CELL}, indent=1))
     print(f"exported {len(bpy.data.objects)} objects -> {OUT}")
 
-    if a.preview:
+    if a.preview and a.only == "island":
         fx, fy = (float(v) for v in a.focus.split(","))
         preview(a.preview, a.night, a.yaw, (fx, fy), a.span)
+
+
+def build_library(a):
+    reset_scene()
+    import interior  # noqa: E402
+    interior.build()
+    export("library.glb")
+    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'library.glb'}")
+
+    if a.preview and a.only == "library":
+        preview(a.preview, a.night, -30.0, (-0.5, 3.0), 21.0, sea=False)
+
+
+def main():
+    a = args()
+    if a.preview and not a.only:
+        a.only = "island"
+    if a.only != "library":
+        build_island(a)
+    if a.only != "island":
+        build_library(a)
 
 
 main()

@@ -82,3 +82,20 @@ CAT_NOSE = "#e39a9a"
 EAR_PINK = "#eab3a8"
 FLEECE = "#1f4f5a"
 FLEECE_DARK = "#173c46"
+
+# the library, inside: bottle-green walls, walnut shelves, a red rug, a black upright piano
+WALLPAPER = "#2f4f47"
+WALLPAPER_STRIPE = "#365a50"
+WALL_CUT = "#231e2b"          # the sawn-off top of the dollhouse walls
+WALNUT = "#4a2c1e"
+WALNUT_BACK = "#2e1b14"
+RUG = "#7a2c3a"
+RUG_DARK = "#5e2230"
+PIANO = "#241820"
+PIANO_EDGE = "#3a2a33"
+KEYS = "#f3ecdc"
+LEATHER = "#8c3a2a"
+LEATHER_DARK = "#6a2a20"
+LAMP_GREEN = "#2f6a4a"
+FIREBOX = "#1a1216"
+SKY_DAY = "#a9dcff"           # window glass; the runtime recolours it with the time of day

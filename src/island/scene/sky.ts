@@ -70,7 +70,7 @@ function moodFor(alt: number, climb: number) {
 }
 
 /** A stepped radial halo: fake bloom that stays pixel-crisp. */
-function haloTexture(): THREE.Texture {
+export function haloTexture(): THREE.Texture {
   const s = 32;
   const cv = document.createElement('canvas');
   cv.width = cv.height = s;

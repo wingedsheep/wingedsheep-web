@@ -20,7 +20,7 @@ function icon(rows: string[], color: string): THREE.Texture {
   return tex;
 }
 
-const ICONS = {
+export const ICONS = {
   heart: icon(['.#.#.', '#####', '#####', '.###.', '..#..'], '#e46f5a'),
   note: icon(['...##', '...#.', '...#.', '...#.', '.###.', '####.', '.##..'], '#fff3c4'),
   zzz: icon(['###', '..#', '.#.', '#..', '###'], '#cdc6cf'),

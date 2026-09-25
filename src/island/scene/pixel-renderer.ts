@@ -7,6 +7,9 @@ import * as THREE from 'three';
  *
  * The target is one texel larger on each side so the camera can move in whole texels while
  * the final image shifts by the sub-texel remainder: smooth panning without pixel crawl.
+ *
+ * `uFade` closes an ordered-dither iris over the picture (0 = open, 1 = shut), for walking
+ * through doors.
  */
 export class PixelRenderer {
   readonly target: THREE.WebGLRenderTarget;
@@ -39,6 +42,8 @@ export class PixelRenderer {
         uGrade: { value: new THREE.Vector3(1, 1, 1) }, // saturation, contrast, brightness
         uHeat: { value: 0 }, // 0..1: heat shimmer on a scorching day
         uTime: { value: 0 },
+        uFade: { value: 0 },
+        uFadeColor: { value: new THREE.Color(0x15111c) },
       },
       vertexShader: /* glsl */ `
         void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
@@ -56,6 +61,10 @@ export class PixelRenderer {
         uniform vec3 uGrade;
         uniform float uHeat;
         uniform float uTime;
+        uniform float uFade;
+        uniform vec3 uFadeColor;
+
+        const float BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
 
         float viewZ(ivec2 p) {
           // orthographic: depth is linear in [near, far]
@@ -88,6 +97,14 @@ export class PixelRenderer {
           col = mix(vec3(l), col, uGrade.x);
           col = (col - 0.5) * uGrade.y + 0.5;
           col *= uGrade.z;
+
+          // the iris: the edges dither shut first, and it opens again from the middle
+          if (uFade > 0.0) {
+            vec2 mid = vec2(textureSize(tDepth, 0)) * 0.5;
+            float d = length(vec2(p) - mid) / length(mid);
+            float b = (BAYER[(p.x & 3) + (p.y & 3) * 4] + 0.5) / 16.0;
+            if (b < uFade * 1.5 - (1.0 - d) * 0.5) col = uFadeColor;
+          }
           gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
           #include <colorspace_fragment>
         }

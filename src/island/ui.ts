@@ -3,12 +3,15 @@
  * Panels are server-rendered by Astro; this only shows/hides them and swaps article content.
  */
 import type { PanelName } from './content';
+import { Reader } from './reader';
 
 type Open = { kind: 'panel'; name: PanelName } | { kind: 'article'; slug: string } | null;
 
 export interface UIEvents {
   /** a panel opened (the island may want to glide the camera there) */
   panelOpened(name: PanelName | 'article'): void;
+  /** everything closed: back to the open island */
+  closed(): void;
 }
 
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel);
@@ -20,13 +23,22 @@ export class UI {
   private backdrop = $('#backdrop')!;
   private article = $('#article')!;
   private articleBody = $('#article-body')!;
+  private articleBack = $('.book-back')!;
+  private reader = new Reader(this.article);
   private current: Open = null;
+  /** The panel a post was opened from; closing the post goes back there. */
+  private returnTo: PanelName = 'library';
   private articleCache = new Map<string, Promise<string>>();
 
   constructor(private events: UIEvents) {
-    for (const btn of $$('[data-close]')) btn.addEventListener('click', () => this.close());
-    this.backdrop.addEventListener('click', () => this.close());
-    document.addEventListener('keydown', (e) => e.key === 'Escape' && this.close());
+    for (const btn of $$('[data-close]')) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.back();
+      });
+    }
+    this.backdrop.addEventListener('click', () => this.back());
+    document.addEventListener('keydown', (e) => e.key === 'Escape' && this.back());
 
     // books in the library open in place, without a page load
     document.addEventListener('click', (e) => {
@@ -61,16 +73,19 @@ export class UI {
   openPanel(name: PanelName, push = true) {
     const el = $(`[data-panel="${name}"]`);
     if (!el) return;
+    if (this.current?.kind === 'panel' && this.current.name === name) return;
     this.hideAll();
     el.hidden = false;
     el.scrollTop = 0;
     this.current = { kind: 'panel', name };
+    if (name === 'library') document.title = 'The library · wingedsheep';
     if (push) history.pushState(null, '', name === 'library' ? '/blog/' : `/#${name}`);
     this.events.panelOpened(name);
     ($('[data-autofocus]', el) ?? $('h2', el))?.focus({ preventScroll: true });
   }
 
   async openArticle(slug: string, push = true) {
+    if (this.current?.kind === 'panel') this.returnTo = this.current.name;
     if (push) history.pushState(null, '', `/blog/${slug}/`);
     this.hideAll();
     this.article.hidden = false;
@@ -89,12 +104,19 @@ export class UI {
     this.showArticle(slug);
   }
 
+  /** Step back one level: from a post to the shelf it came from, from a panel out to the island. */
+  back() {
+    if (this.current?.kind === 'article') this.openPanel(this.returnTo);
+    else this.close();
+  }
+
   close(push = true) {
     if (!this.current) return;
     this.hideAll();
     this.current = null;
     document.title = document.body.dataset.title ?? document.title;
     if (push) history.pushState(null, '', '/');
+    this.events.closed();
   }
 
   /** Follows the pointer; pass null to hide. */
@@ -153,6 +175,8 @@ export class UI {
     this.article.removeAttribute('aria-busy');
     this.article.scrollTop = 0;
     this.current = { kind: 'article', slug };
+    this.articleBack.textContent = `← back to the ${this.returnTo === 'library' ? 'shelves' : this.returnTo}`;
+    this.reader.opened();
     this.events.panelOpened('article');
     $('h1', this.articleBody)?.focus({ preventScroll: true });
   }

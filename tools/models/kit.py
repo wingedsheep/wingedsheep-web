@@ -188,10 +188,10 @@ def group(name: str, loc=(0, 0, 0), rot_z=0.0, parent=None, **props) -> bpy.type
     return e
 
 
-def light(parent, loc, color: str, radius: float, intensity: float = 1.0, flicker: float = 0.0, day=False):
-    """Marker the runtime turns into a point light + glow halo."""
+def light(parent, loc, color: str, radius: float, intensity: float = 1.0, flicker: float = 0.0, day=False, halo=True):
+    """Marker the runtime turns into a point light + glow halo (halo=False: just the light)."""
     return group("light", loc, parent=parent, light=1, color=color, radius=radius,
-                 intensity=intensity, flicker=flicker, day=int(day))
+                 intensity=intensity, flicker=flicker, day=int(day), halo=int(halo))
 
 
 def emitter(parent, loc, kind: str):

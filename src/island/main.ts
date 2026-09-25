@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import piano from '../data/piano.json';
 import songs from '../data/songs.json';
 import { type IslandContext, type PanelName, SECRETS, labelFor, placeFor } from './content';
 import { type WeatherKind, fetchForecast } from './forecast';
 import { bindHud, renderJournal } from './hud';
 import { Journal } from './journal';
+import { Library } from './library';
 import { CameraRig } from './scene/camera-rig';
 import { createFoliage } from './scene/foliage';
 import { createGrass, wind } from './scene/grass';
@@ -48,7 +50,7 @@ export async function bootIsland(host: HTMLElement) {
   const pixels = new PixelRenderer(renderer, pixelSizeFor(host.clientWidth));
   const sky = new Sky(scene, island, pixels, water.uniforms);
   const life = new Life(scene, island, sky);
-  const sound = new Sound(songs);
+  const sound = new Sound(songs, piano);
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
@@ -58,6 +60,7 @@ export async function bootIsland(host: HTMLElement) {
   const bounds = new THREE.Box2(new THREE.Vector2(x0 + 8, -y1 + 6), new THREE.Vector2(x1 - 8, -y0 - 10));
   const rig = new CameraRig(renderer.domElement, bounds, {
     hover(ndc, client) {
+      if (library.wanted) return library.hover(ndc, client);
       const hit = ndc && picker.pick(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       picker.highlight(place && hit ? (island.get(hit.id) ?? null) : null);
@@ -65,6 +68,7 @@ export async function bootIsland(host: HTMLElement) {
       ui.tooltip(place ? labelFor(place, ctx) : null, client.x, client.y);
     },
     click(ndc) {
+      if (library.wanted) return library.click(ndc);
       const hit = picker.pick(ndc) ?? pickMoon(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       if (!hit || !place) return;
@@ -91,11 +95,13 @@ export async function bootIsland(host: HTMLElement) {
 
   const ui = new UI({
     panelOpened(name) {
+      library.enter(name === 'library' || name === 'article');
       const pos = PANEL_HOME[name] && island.positionOf(PANEL_HOME[name]!);
       if (!pos) return;
       const wide = innerWidth > 900;
       rig.focus(pos, 20, wide ? Math.min(560, innerWidth * 0.45) / 2 : 0, reducedMotion);
     },
+    closed: () => library.enter(false),
   });
 
   const ctx: IslandContext = {
@@ -107,6 +113,8 @@ export async function bootIsland(host: HTMLElement) {
     sound,
     journal,
     openPanel: (name) => ui.openPanel(name),
+    openArticle: (slug) => void ui.openArticle(slug),
+    close: () => ui.close(),
     toast: (text) => ui.toast(text),
     ask: (text, choices) => ui.ask(text, choices),
     discover(id) {
@@ -115,6 +123,7 @@ export async function bootIsland(host: HTMLElement) {
       renderJournal(ctx);
     },
   };
+  const library = new Library(ctx, ui, pixels, host, reducedMotion);
 
   // keyboard and screen-reader twins of the clickable places
   document.querySelectorAll<HTMLElement>('[data-goto]').forEach((el) =>
@@ -138,6 +147,7 @@ export async function bootIsland(host: HTMLElement) {
     pixels.pixelSize = pixelSizeFor(w);
     pixels.setSize(w, h);
     rig.resize(w, h);
+    library.resize();
   }
   new ResizeObserver(resize).observe(host);
   resize();
@@ -162,6 +172,9 @@ export async function bootIsland(host: HTMLElement) {
   void live();
   setInterval(live, 30 * 60 * 1000);
   ui.route(true);
+  library.enter(library.wanted, true); // landing on /blog/…: start inside, no iris
+  // the room loads once the island is up and the browser has a moment
+  (window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500)))(() => void library.load());
 
   const campfire = island.positionOf('campfire')!;
   const clock = new THREE.Clock();
@@ -186,7 +199,9 @@ export async function bootIsland(host: HTMLElement) {
       ctx.discover('guitar');
       life.burst('notes', island.positionOf('vincent')!.add(new THREE.Vector3(0, 1.4, 0)));
     }
-    pixels.render(scene, rig.camera, rig.subTexel);
+    library.update(dt, sky.lamps);
+    if (library.inside) library.render();
+    else pixels.render(scene, rig.camera, rig.subTexel);
   });
 
   host.classList.add('ready');

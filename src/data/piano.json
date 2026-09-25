@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "file": "piano-1.mp3",
+    "title": "The Art of Dreaming",
+    "duration": 174.64,
+    "loudness": -15.7
+  },
+  {
+    "id": 2,
+    "file": "piano-2.mp3",
+    "title": "Twist of Fate",
+    "duration": 162.56,
+    "loudness": -16.8
+  }
+]

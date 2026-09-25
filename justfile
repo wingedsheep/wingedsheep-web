@@ -21,6 +21,11 @@ preview mode="day":
     blender -b --factory-startup -P tools/models/build.py -- --preview /tmp/island-preview.png {{ if mode == "night" { "--night" } else { "" } }}
     open /tmp/island-preview.png
 
+# render a quick Blender preview of the library's inside
+preview-library:
+    blender -b --factory-startup -P tools/models/build.py -- --only library --preview /tmp/library-preview.png
+    open /tmp/library-preview.png
+
 # typecheck
 check:
     npx astro check

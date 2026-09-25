@@ -7,6 +7,9 @@
  *    through the setlist until you wander off. The recordings run through an "outdoors" chain:
  *    levelled to one loudness, the room boom and harsh top trimmed, a little ground bounce and
  *    open-air scatter added, and duller the further away you stand.
+ *  - piano: Vincent's own compositions, on the upright in the library. Indoors, so they get
+ *    the opposite of the guitar's treatment: a small wooden room that rings a little. While
+ *    you're inside, the sea and the weather are heard through the walls.
  *  - the winged sheep: a baa when you click it (short clips, decoded up front)
  *  - Charlie and George: a synthesised purr when you pet them
  *  - weather: hissing rain, rolling thunder, gusting wind and cicadas on a hot day (synthesised)
@@ -18,6 +21,15 @@ export interface Song {
   title: string;
   duration: number;
   /** Integrated loudness of the recording in LUFS, so every song plays at the same level. */
+  loudness?: number;
+}
+
+/** One of Vincent's piano pieces (src/data/piano.json). */
+export interface Piece {
+  id: number;
+  file: string;
+  title: string;
+  duration: number;
   loudness?: number;
 }
 
@@ -43,6 +55,13 @@ export class Sound {
   rain = 0;
   wind = 0;
   cicadas = 0;
+  /** In the library: the outdoors is muffled by the walls. */
+  indoors = false;
+  /** Told whenever the piano starts or stops (null). */
+  onPiano?: (piece: Piece | null) => void;
+  private pianoBus?: GainNode;
+  private piano?: { el: HTMLAudioElement; gain: GainNode; piece: Piece };
+  private lastPiece = -1;
   private song?: { el: HTMLAudioElement; gain: GainNode; id: number; live: boolean };
   private asked = false;
   private loudness = 0;
@@ -54,7 +73,10 @@ export class Sound {
   private lastSong = -1;
   private readonly ext: 'webm' | 'm4a';
 
-  constructor(private songs: Song[]) {
+  constructor(
+    private songs: Song[],
+    private pieces: Piece[] = [],
+  ) {
     const probe = document.createElement('audio');
     this.ext = probe.canPlayType('audio/webm; codecs="opus"') ? 'webm' : 'm4a';
 
@@ -72,13 +94,51 @@ export class Sound {
     return this.songs.find((s) => s.id === this.song!.id) ?? null;
   }
 
+  /** The piano piece playing in the library, if any. */
+  get pianoPiece(): Piece | null {
+    return this.piano?.piece ?? null;
+  }
+
   /** Must be called from a user gesture. */
   setEnabled(on: boolean) {
     this.enabled = on;
     if (on) this.start();
     if (!this.ctx || !this.master) return;
     this.master.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.3);
-    if (!on) this.dropSong();
+    if (!on) {
+      this.dropSong();
+      this.stopPiano();
+    }
+  }
+
+  /** Play a piano piece from the top (by default the one after the last). Call from a gesture. */
+  playPiano(id?: number): Piece | null {
+    if (!this.pieces.length) return null;
+    if (!this.enabled) this.setEnabled(true);
+    this.start();
+    const next = this.pieces[(this.pieces.findIndex((p) => p.id === this.lastPiece) + 1) % this.pieces.length];
+    const piece = this.pieces.find((p) => p.id === id) ?? next;
+    this.stopPiano(false);
+    this.lastPiece = piece.id;
+    const trim = this.ctx!.createGain();
+    trim.gain.value = 10 ** ((TARGET_LUFS - (piece.loudness ?? TARGET_LUFS)) / 20);
+    trim.connect(this.pianoBus!);
+    const { el, gain } = this.stream(piece.file, false, trim);
+    gain.gain.value = 0;
+    gain.gain.setTargetAtTime(0.85, this.ctx!.currentTime, 0.15);
+    el.addEventListener('ended', () => this.piano?.el === el && this.stopPiano());
+    void el.play();
+    this.piano = { el, gain, piece };
+    this.onPiano?.(piece);
+    return piece;
+  }
+
+  /** Let the last notes ring out and close the lid. */
+  stopPiano(tell = true) {
+    if (!this.piano) return;
+    this.fadeOutAndDrop(this.piano.el, this.piano.gain, 0.5);
+    this.piano = undefined;
+    if (tell) this.onPiano?.(null);
   }
 
   /** Ask Vincent for a song. He plays while you stay close, and stops once you wander off. */
@@ -164,12 +224,13 @@ export class Sound {
   update(campfireNearness: number, view: number, dt: number) {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
-    const near = Math.max(0, Math.min(1, campfireNearness));
+    const near = this.indoors ? 0 : Math.max(0, Math.min(1, campfireNearness));
+    const walls = this.indoors ? 0.3 : 1; // indoors the sea and the wind come through the walls
     this.fireGain?.gain.setTargetAtTime(near * 0.5, t, 0.2);
-    this.seaGain?.gain.setTargetAtTime(0.28 - near * 0.12, t, 0.5);
-    this.rainGain?.gain.setTargetAtTime(this.rain * 0.22, t, 1);
-    this.windGain?.gain.setTargetAtTime(this.wind * 0.35, t, 1);
-    this.cicadaGain?.gain.setTargetAtTime(this.cicadas * 0.05, t, 1.5);
+    this.seaGain?.gain.setTargetAtTime((0.28 - near * 0.12) * walls, t, 0.5);
+    this.rainGain?.gain.setTargetAtTime(this.rain * 0.22 * (this.indoors ? 0.55 : 1), t, 1); // rain on the roof
+    this.windGain?.gain.setTargetAtTime(this.wind * 0.35 * walls, t, 1);
+    this.cicadaGain?.gain.setTargetAtTime(this.cicadas * 0.05 * walls, t, 1.5);
     if (near > 0 && t > this.nextCrackle) this.crackle(near);
 
     // the guitar only carries when you're zoomed right in on the fire
@@ -196,7 +257,7 @@ export class Sound {
 
   private playFrom(id: number) {
     this.lastSong = id;
-    const { el, gain } = this.stream(`guitar-${id}`, false, this.songTrim(id));
+    const { el, gain } = this.stream(`guitar-${id}.${this.ext}`, false, this.songTrim(id));
     gain.gain.value = 0;
     el.addEventListener('ended', () => {
       if (this.song?.el !== el) return;
@@ -267,6 +328,7 @@ export class Sound {
     lfo.start();
 
     this.buildSongChain(ctx);
+    this.buildPianoChain(ctx);
 
     this.fireGain = ctx.createGain();
     this.fireGain.gain.value = 0;
@@ -424,6 +486,43 @@ export class Sound {
     this.songAir.connect(scatterTone).connect(scatter).connect(scatterGain).connect(this.master!);
   }
 
+  /**
+   * The piano as heard in the library: a wood-panelled room full of books, so a warm, short
+   * bloom rather than a hall. Books soak up the highs; the low end is kept but not boomy.
+   */
+  private buildPianoChain(ctx: AudioContext) {
+    this.pianoBus = ctx.createGain();
+    const lows = ctx.createBiquadFilter();
+    lows.type = 'highpass';
+    lows.frequency.value = 45;
+    const soft = ctx.createBiquadFilter();
+    soft.type = 'highshelf';
+    soft.frequency.value = 8000;
+    soft.gain.value = -2;
+    this.pianoBus.connect(lows).connect(soft).connect(this.master!);
+
+    const room = ctx.createConvolver();
+    room.buffer = this.roomImpulse(ctx);
+    const roomTone = ctx.createBiquadFilter();
+    roomTone.type = 'lowpass';
+    roomTone.frequency.value = 4500;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.28;
+    soft.connect(room).connect(roomTone).connect(wet).connect(this.master!);
+  }
+
+  /** A dense, smooth ~1.4s tail, a little different per ear: a room, not open air. */
+  private roomImpulse(ctx: AudioContext) {
+    const len = Math.floor(ctx.sampleRate * 1.4);
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    const pre = Math.floor(ctx.sampleRate * 0.012);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = pre; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp((-(i - pre) / len) * 5.5) * 0.5;
+    }
+    return ir;
+  }
+
   /** Sparse echoes over ~0.7s, different per ear, fading fast: trees and rocks, not walls. */
   private scatterImpulse(ctx: AudioContext) {
     const len = Math.floor(ctx.sampleRate * 0.7);
@@ -455,8 +554,8 @@ export class Sound {
     this.nextCrackle = t + 0.04 + Math.random() * (0.35 / Math.max(near, 0.2));
   }
 
-  private stream(name: string, loop: boolean, into: AudioNode = this.master!) {
-    const el = new Audio(`${AUDIO}${name}.${this.ext}`);
+  private stream(file: string, loop: boolean, into: AudioNode = this.master!) {
+    const el = new Audio(`${AUDIO}${file}`);
     el.loop = loop;
     el.preload = 'auto';
     const gain = this.ctx!.createGain();
@@ -464,12 +563,12 @@ export class Sound {
     return { el, gain };
   }
 
-  private fadeOutAndDrop(el: HTMLAudioElement, gain: GainNode) {
-    gain.gain.setTargetAtTime(0, this.ctx!.currentTime, 0.25);
+  private fadeOutAndDrop(el: HTMLAudioElement, gain: GainNode, seconds = 0.25) {
+    gain.gain.setTargetAtTime(0, this.ctx!.currentTime, seconds);
     setTimeout(() => {
       el.pause();
       el.src = '';
       gain.disconnect();
-    }, 1200);
+    }, seconds * 4800);
   }
 }

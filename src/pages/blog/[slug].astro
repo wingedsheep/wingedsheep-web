@@ -2,6 +2,7 @@
 import 'katex/dist/katex.min.css';
 import { getCollection, render } from 'astro:content';
 import IslandShell from '../../components/IslandShell.astro';
+import { SUBJECTS, spineColor } from '../../data/subjects';
 import Base from '../../layouts/Base.astro';
 
 export async function getStaticPaths() {
@@ -13,21 +14,56 @@ export async function getStaticPaths() {
 }
 
 const { post, prev, next } = Astro.props;
-const { Content } = await render(post);
-const date = post.data.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const { Content, headings } = await render(post);
+const long = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const short = (d: Date) => d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+// reading time from the words in the text (tags and markup stripped)
+const words = (post.body ?? '').replace(/<[^>]+>|!\[[^\]]*\]\([^)]*\)|[#*_`>|-]/g, ' ').split(/\s+/).filter(Boolean).length;
+const minutes = Math.max(1, Math.round(words / 230));
+// a contents list for longer posts, unless the post already links to its own sections
+const ownContents = ((post.body ?? '').match(/\]\(#/g) ?? []).length >= 3;
+const contents = ownContents ? [] : headings.filter((h) => h.depth === 2);
+const subject = SUBJECTS[post.data.shelf];
 ---
 <Base title={post.data.title} description={post.data.excerpt} image={post.data.cover}>
   <IslandShell hasArticle>
-    <header class="article-head">
-      <p class="article-meta">{date}{post.data.tags.length > 0 && <> · {post.data.tags.join(', ')}</>}</p>
+    <header class="article-head" style={`--spine:${spineColor(post.id, post.data.shelf)}`}>
+      <p class="article-meta">
+        <span class="article-subject">{subject.name}</span>
+        <time datetime={post.data.date.toISOString().slice(0, 10)}>{long(post.data.date)}</time>
+        <span>{minutes} min read</span>
+      </p>
       <h1 tabindex="-1">{post.data.title}</h1>
       <p class="article-excerpt">{post.data.excerpt}</p>
+      {post.data.tags.length > 0 && <p class="article-tags">{post.data.tags.map((t) => <span>{t}</span>)}</p>}
+      <div class="fleuron" aria-hidden="true"><i></i><i></i><i></i></div>
     </header>
-    {post.data.cover && <img class="article-cover" src={post.data.cover} alt="" />}
+    {post.data.cover && <figure class="article-cover"><img src={post.data.cover} alt="" /></figure>}
+    {contents.length >= 3 && (
+      <nav class="article-contents" aria-label="Contents">
+        <p class="article-contents-title">In this book</p>
+        <ol>{contents.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}</ol>
+      </nav>
+    )}
     <div class="prose"><Content /></div>
-    <nav class="article-nav">
-      {prev ? <a href={`/blog/${prev.id}/`} data-book={prev.id}>← {prev.data.title}</a> : <span />}
-      {next ? <a href={`/blog/${next.id}/`} data-book={next.id}>{next.data.title} →</a> : <span />}
-    </nav>
+    <footer class="article-end">
+      <div class="fleuron" aria-hidden="true"><i></i><i></i><i></i></div>
+      <nav class="article-nav" aria-label="More books">
+        {prev ? (
+          <a class="shelf-neighbour" href={`/blog/${prev.id}/`} data-book={prev.id} style={`--spine:${spineColor(prev.id, prev.data.shelf)}`}>
+            <span class="neighbour-dir">← older</span>
+            <strong>{prev.data.title}</strong>
+            <span class="neighbour-date">{short(prev.data.date)}</span>
+          </a>
+        ) : <span />}
+        {next ? (
+          <a class="shelf-neighbour next" href={`/blog/${next.id}/`} data-book={next.id} style={`--spine:${spineColor(next.id, next.data.shelf)}`}>
+            <span class="neighbour-dir">newer →</span>
+            <strong>{next.data.title}</strong>
+            <span class="neighbour-date">{short(next.data.date)}</span>
+          </a>
+        ) : <span />}
+      </nav>
+    </footer>
   </IslandShell>
 </Base>

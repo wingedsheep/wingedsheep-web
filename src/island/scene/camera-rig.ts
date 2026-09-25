@@ -19,6 +19,8 @@ export class CameraRig {
   readonly target = new THREE.Vector3(0, 1, -3);
   view = 46; // visible world height
   yaw = 0; // radians, 0 = looking north
+  /** Locked, it still reports hovers and clicks but won't pan or zoom (e.g. while indoors). */
+  locked = false;
   readonly subTexel = new THREE.Vector2();
 
   private goal: { target: THREE.Vector3; view: number; yaw: number } | null = null;
@@ -175,13 +177,14 @@ export class CameraRig {
     const dx = e.clientX - prev.x;
     const dy = e.clientY - prev.y;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    this.dragDistance += Math.abs(dx) + Math.abs(dy);
+    if (this.locked) return;
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       this.view = THREE.MathUtils.clamp((this.viewAtPinch * this.pinchStart) / Math.max(d, 1), MIN_VIEW, MAX_VIEW);
       return;
     }
-    this.dragDistance += Math.abs(dx) + Math.abs(dy);
     this.pan(dx, dy);
     this.velocity.set(dx, dy);
     this.el.style.cursor = 'grabbing';
@@ -199,6 +202,7 @@ export class CameraRig {
 
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();
+    if (this.locked) return;
     const around = this.groundAt(this.ndc(e.clientX, e.clientY));
     this.zoom(Math.pow(1.0015, e.deltaY), around);
   };

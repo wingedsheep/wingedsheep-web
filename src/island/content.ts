@@ -10,6 +10,7 @@ import { interests } from '../data/interests';
 import type { Forecast } from './forecast';
 import type { Journal } from './journal';
 import type { CameraRig } from './scene/camera-rig';
+import type { Interior } from './scene/interior';
 import type { Island } from './scene/island';
 import type { Life } from './scene/life';
 import type { Sky } from './scene/sky';
@@ -28,7 +29,12 @@ export interface IslandContext {
   life: Life;
   sound: Sound;
   journal: Journal;
+  /** The library's inside, once it has loaded. */
+  interior?: Interior;
   openPanel(name: PanelName): void;
+  openArticle(slug: string): void;
+  /** Close whatever is open (from the library: step back outside). */
+  close(): void;
   toast(text: string): void;
   /** A toast with buttons; picking one dismisses it. */
   ask(text: string, choices: { label: string; pick?(): void }[]): void;
@@ -56,6 +62,7 @@ export const SECRETS = {
   kayak: { title: 'Wet paddles', hint: 'Check the water by the dock.' },
   ufo: { title: 'Unidentified', hint: 'Only at night. Only for a moment.' },
   moons: { title: 'Two moons', hint: 'Count the moons in the sea at night.' },
+  piano: { title: 'Two originals', hint: 'Not all the music on the island is played outdoors.' },
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
 } as const;
 
@@ -86,10 +93,7 @@ export const PLACES: Record<string, Place> = {
     label: (ctx) => (ctx.sound.playing ? `Vincent · playing ${ctx.sound.playing.title}` : 'Vincent · ask for a song'),
     activate(ctx, at) {
       ctx.life.burst('notes', at);
-      if (!ctx.sound.enabled) {
-        ctx.sound.setEnabled(true);
-        document.querySelector('[data-action="sound"]')?.setAttribute('aria-pressed', 'true');
-      }
+      soundOn(ctx);
       if (ctx.sound.playing) return;
       // pull up a log: the camera settles in close enough to hear him
       ctx.sound.ask();
@@ -197,6 +201,76 @@ export const PLACES: Record<string, Place> = {
     },
   },
 };
+
+/** Things inside the library. Books are `book:<slug>` and open their post. */
+export const LIBRARY_PLACES: Record<string, Place> = {
+  piano: {
+    label: (ctx) => {
+      const piece = ctx.sound.pianoPiece;
+      return piece ? `The piano · ${piece.title} (click to stop)` : "The piano · play one of Vincent's compositions";
+    },
+    activate: (ctx) => togglePiano(ctx),
+  },
+  door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
+  fireplace: {
+    label: 'The fireplace',
+    activate(ctx) {
+      ctx.interior?.sparks();
+      ctx.toast('A log settles and sends up sparks. Someone keeps this fire going for whoever comes in to read.');
+    },
+  },
+  painting: {
+    label: 'A portrait of the winged sheep',
+    activate(ctx) {
+      ctx.sound.baa();
+      ctx.toast('Its eyes follow you around the room.');
+    },
+  },
+  armchair: {
+    label: 'A worn armchair',
+    activate: say('Still warm. Someone was reading here a minute ago, and left their book face down on the arm.'),
+  },
+  catalogue: {
+    label: 'The card catalogue',
+    activate(ctx) {
+      ctx.openPanel('library');
+      document.querySelector<HTMLElement>('[data-subject]')?.focus();
+      ctx.toast('Every book has a card. Pick a subject or a tag to find the ones you want.');
+    },
+  },
+  globe: {
+    label: 'A globe',
+    activate(ctx) {
+      ctx.interior?.spinGlobe();
+      ctx.toast('You spin the globe and stop it with a finger. It lands on a small island that isn’t on any map.');
+    },
+  },
+};
+
+/** Start the piano (or stop it if that piece is already playing). */
+export function togglePiano(ctx: IslandContext, id?: number) {
+  soundOn(ctx);
+  const now = ctx.sound.pianoPiece;
+  if (now && (id === undefined || id === now.id)) {
+    ctx.sound.stopPiano();
+    return;
+  }
+  const piece = ctx.sound.playPiano(id);
+  if (!piece) return;
+  ctx.toast(`The keys begin to move on their own. Vincent wrote this one: ${piece.title}.`);
+  ctx.discover('piano');
+}
+
+/** Clicking something that makes music turns the sound on. */
+function soundOn(ctx: IslandContext) {
+  if (ctx.sound.enabled) return;
+  ctx.sound.setEnabled(true);
+  document.querySelector('[data-action="sound"]')?.setAttribute('aria-pressed', 'true');
+}
+
+export function libraryPlaceFor(id: string): Place | undefined {
+  return LIBRARY_PLACES[id];
+}
 
 export function placeFor(id: string): Place | undefined {
   return PLACES[id] ?? (id.startsWith('cairn_') ? PLACES.cairn : undefined);

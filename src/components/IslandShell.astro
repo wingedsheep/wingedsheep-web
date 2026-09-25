@@ -7,8 +7,10 @@
 import { getCollection } from 'astro:content';
 import { SECRETS } from '../island/content';
 import { career } from '../data/career';
+import piano from '../data/piano.json';
 import { projects } from '../data/projects';
 import { site } from '../data/site';
+import { type BookInfo, SUBJECTS, type Subject, spineColor, tagKey } from '../data/subjects';
 import PixelIcon from './PixelIcon.astro';
 
 interface Props {
@@ -16,19 +18,32 @@ interface Props {
 }
 const { hasArticle = false } = Astro.props;
 
-const SHELF_NAMES = { ai: 'Artificial minds', games: 'Games & tables', music: 'Music', craft: 'Craft' } as const;
-const SHELF_COLORS = { ai: ['#2f5d8c', '#23384f', '#6b3f8c'], games: ['#8c2f39', '#3d7a4a', '#b5562d'], music: ['#c9a23f', '#b27a48'], craft: ['#5a5264', '#7f7688'] };
+// the library: every post is an index card, filed by year, newest first
 const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-const shelves = (Object.keys(SHELF_NAMES) as (keyof typeof SHELF_NAMES)[])
-  .map((shelf) => ({ shelf, name: SHELF_NAMES[shelf], posts: posts.filter((p) => p.data.shelf === shelf) }))
-  .filter((s) => s.posts.length);
-const spine = (slug: string, shelf: keyof typeof SHELF_COLORS) => {
-  let h = 0;
-  for (const ch of slug) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const colors = SHELF_COLORS[shelf];
-  return `--spine:${colors[h % colors.length]};--h:${78 + (h % 5) * 5}%;--w:${30 + (h % 3) * 4}px`;
-};
-const fmt = (d: Date) => d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+const years = [...new Set(posts.map((p) => p.data.date.getFullYear()))].map((year) => ({
+  year,
+  posts: posts.filter((p) => p.data.date.getFullYear() === year),
+}));
+const subjects = (Object.keys(SUBJECTS) as Subject[])
+  .map((id) => ({ id, ...SUBJECTS[id], count: posts.filter((p) => p.data.shelf === id).length }))
+  .filter((s) => s.count);
+const tagMap = new Map<string, { key: string; label: string; count: number }>();
+for (const tag of posts.flatMap((p) => p.data.tags)) {
+  const t = tagMap.get(tagKey(tag)) ?? tagMap.set(tagKey(tag), { key: tagKey(tag), label: tag, count: 0 }).get(tagKey(tag))!;
+  t.count++;
+}
+const tags = [...tagMap.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+const commonTags = tags.filter((t) => t.count > 1);
+const rareTags = tags.filter((t) => t.count === 1).sort((a, b) => a.label.localeCompare(b.label));
+const books: BookInfo[] = posts.map((p) => ({
+  slug: p.id,
+  title: p.data.title,
+  date: p.data.date.toISOString().slice(0, 10),
+  subject: p.data.shelf,
+  tags: p.data.tags.map(tagKey),
+}));
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const minutes = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const places = [
   { id: 'library', label: 'Library', hint: 'the blog' },
   { id: 'workshop', label: 'Workshop', hint: 'projects' },
@@ -57,30 +72,66 @@ const places = [
   <p class="hint">Drag to explore · scroll to zoom · Q/E to turn · click what looks interesting</p>
 
   <!-- panels ------------------------------------------------------------------------ -->
-  <section class="panel" data-panel="library" hidden aria-labelledby="library-title">
+  <section class="panel panel-library" data-panel="library" hidden aria-labelledby="library-title">
     <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
     <h2 id="library-title" tabindex="-1">The library</h2>
-    <p class="panel-lede">Everything I've written, shelved by subject. Pull out a book.</p>
-    {shelves.map((s) => (
-      <div class="shelf">
-        <h3 class="shelf-name">{s.name}</h3>
-        <ul class="books">
-          {s.posts.map((p) => (
-            <li>
-              <a class="book" href={`/blog/${p.id}/`} data-book={p.id} style={spine(p.id, s.shelf)}>
-                <span class="book-title">{p.data.title}</span>
-                <span class="book-card" aria-hidden="true">
-                  <strong>{p.data.title}</strong>
-                  <em>{fmt(p.data.date)}</em>
-                  <span>{p.data.excerpt}</span>
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    ))}
+    <p class="panel-lede">Everything I've written, one shelf for every year. Every book has a card in
+      this drawer. And the piano in the corner plays.</p>
+
+    <div class="filters" role="group" aria-label="Filter by subject">
+      {subjects.map((s) => (
+        <button class="subject" data-subject={s.id} aria-pressed="false" style={`--spine:${s.colors[0]}`}>
+          <i class="swatch" aria-hidden="true"></i><span data-name>{s.name}</span> <span class="count">{s.count}</span>
+        </button>
+      ))}
+    </div>
+    <div class="filters tag-filters" role="group" aria-label="Filter by tag">
+      {commonTags.map((t) => (
+        <button class="tag" data-tag={t.key} aria-pressed="false"><span data-name>{t.label}</span> <span class="count">{t.count}</span></button>
+      ))}
+      <span class="tags-more" hidden>
+        {rareTags.map((t) => <button class="tag" data-tag={t.key} aria-pressed="false"><span data-name>{t.label}</span></button>)}
+      </span>
+      {rareTags.length > 0 && <button class="tag tag-more" data-more={`+${rareTags.length} more`} aria-expanded="false">+{rareTags.length} more</button>}
+    </div>
+    <p class="filter-status" data-status hidden aria-live="polite"><span data-status-text></span> <button data-clear>show all</button></p>
+
+    <ol class="catalogue">
+      {years.map((y) => (
+        <li class="drawer" data-year={y.year}>
+          <h3 class="drawer-label"><span class="drawer-plate">{y.year}</span><span class="drawer-count">{y.posts.length} {y.posts.length === 1 ? 'post' : 'posts'}</span></h3>
+          <ol class="cards">
+            {y.posts.map((p) => (
+              <li class="card" data-slug={p.id} data-subject-of={p.data.shelf} data-tags={p.data.tags.map(tagKey).join('|')} style={`--spine:${spineColor(p.id, p.data.shelf)}`}>
+                <a class="card-link" href={`/blog/${p.id}/`} data-book={p.id}>
+                  <time class="card-stamp" datetime={p.data.date.toISOString().slice(0, 10)}>
+                    <b>{String(p.data.date.getDate()).padStart(2, '0')}</b>{MONTHS[p.data.date.getMonth()]}
+                  </time>
+                  <strong class="card-title">{p.data.title}</strong>
+                  <span class="card-excerpt">{p.data.excerpt}</span>
+                </a>
+                <p class="card-tags">
+                  <span class="card-subject">{SUBJECTS[p.data.shelf].name}</span>
+                  {p.data.tags.map((t) => <button class="tag" data-tag={tagKey(t)}>{t}</button>)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </li>
+      ))}
+    </ol>
+
+    <div class="music-stand">
+      <h3>On the piano</h3>
+      <p>Two pieces I wrote. Click the piano in the corner, or pick one here.</p>
+      <ul>
+        {piano.map((piece) => (
+          <li><button data-piano={piece.id} aria-pressed="false"><span class="glyph" data-glyph aria-hidden="true">▶</span> {piece.title} <span class="count">{minutes(piece.duration)}</span></button></li>
+        ))}
+      </ul>
+    </div>
     <p class="panel-foot"><a href="/rss.xml">RSS</a></p>
+    <script is:inline type="application/json" id="library-books" set:html={JSON.stringify(books).replace(/</g, '\\u003c')} />
   </section>
 
   <section class="panel" data-panel="workshop" hidden aria-labelledby="workshop-title">
@@ -143,10 +194,20 @@ const places = [
   <!-- the book: an article opened over the island ------------------------------------ -->
   <div id="backdrop" class="backdrop" hidden></div>
   <article id="article" class="book-open" hidden={!hasArticle} aria-live="polite">
-    <a class="book-back" href="/blog/" data-close>← back to the island</a>
+    <div class="book-bar">
+      <a class="book-back" href="/blog/" data-close>← back to the shelves</a>
+      <span class="book-bar-title" data-bar-title aria-hidden="true"></span>
+      <span class="book-tools">
+        <button data-read="smaller" aria-label="Smaller text">A<small>−</small></button>
+        <button data-read="larger" aria-label="Larger text">A<small>+</small></button>
+        <button data-read="candle" aria-pressed="false" aria-label="Read by candlelight (dark page)"><PixelIcon name="candle" /></button>
+      </span>
+      <span class="book-ribbon" aria-hidden="true"><i data-progress></i></span>
+    </div>
     <div id="article-body"><slot /></div>
   </article>
 
+  <div id="plates" class="plates" hidden aria-hidden="true"></div>
   <div id="tip" class="tip" hidden></div>
   <div id="toasts" class="toasts" role="status"></div>
 
