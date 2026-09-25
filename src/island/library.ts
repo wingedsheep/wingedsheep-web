@@ -126,6 +126,7 @@ export class Library implements RoomInput {
     const slug = hit?.id.startsWith('book:') ? hit.id.slice(5) : null;
     const place = hit && !slug ? libraryPlaceFor(hit.id) : undefined;
     room.setHot(slug);
+    room.setHotPin(hit?.id.startsWith('pin:') ? hit.id : null);
     this.catalogue.markHot(slug);
     room.picker.highlight(place && hit ? (room.named.get(hit.id) ?? null) : null);
     canvas.style.cursor = slug || place ? 'pointer' : '';
@@ -158,6 +159,7 @@ export class Library implements RoomInput {
     // the sheet was dragged or snapped: the room fills whatever it leaves free
     if (this.inside && narrow() && this.panel.offsetHeight !== this.sheetHeight) this.resize();
     if (this.inside && this.interior) {
+      if (this.interior.view.step(dt)) this.pinPlates(); // gliding in to something (the globe)
       this.interior.playing = this.ctx.sound.pianoPiece !== null;
       this.interior.update(dt, night);
     }

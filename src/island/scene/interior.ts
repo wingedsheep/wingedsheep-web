@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import land from '../../data/land.json';
 import { type BookInfo, hash, spineColor } from '../../data/subjects';
+import { travels } from '../../data/travels';
 import { ICONS } from './life';
 import { Particles } from './particles';
 import { Picker } from './picking';
@@ -16,7 +18,54 @@ const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const DEG = Math.PI / 180;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
+
+const GLOBE_R = 0.38; // the ball's radius in tools/models/interior.py
+const PIN_RED = new THREE.Color('#c8403a');
+/** Where the globe turns when you click it up close: Europe, the Americas, Indonesia and New Zealand. */
+const GLOBE_STOPS = [
+  { lat: 46, lon: 10 },
+  { lat: 28, lon: -95 },
+  { lat: -22, lon: 143 },
+];
+/** The island itself, out in the Atlantic: it isn't on any map, but it is on this globe. */
+export const HOME_PIN = { lat: 29, lon: -58 };
+
+/** Where a latitude/longitude sits on a unit sphere made by THREE.SphereGeometry. */
+function onSphere(lat: number, lon: number) {
+  const phi = (lon + 180) * DEG;
+  const la = lat * DEG;
+  return V(-Math.cos(phi) * Math.cos(la), Math.sin(la), Math.sin(phi) * Math.cos(la));
+}
+
+/** The world in little pixels (src/data/land.json): sea, green land, ice towards the poles, a gold equator. */
+function worldMap(): THREE.Texture {
+  const { width: w, height: h, rows } = land;
+  const cv = document.createElement('canvas');
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext('2d')!;
+  ctx.fillStyle = '#3a6ea5';
+  ctx.fillRect(0, 0, w, h);
+  rows.forEach((row, y) => {
+    const lat = 90 - ((y + 0.5) / h) * 180;
+    const bits = [...row].map((c) => parseInt(c, 16).toString(2).padStart(4, '0')).join('');
+    for (let x = 0; x < w; x++) {
+      if (bits[x] === '1') {
+        ctx.fillStyle = Math.abs(lat) > 62 ? '#e9f0f7' : (x * 7 + y * 3) % 5 === 0 ? '#4a8a45' : '#5a9a4a';
+        ctx.fillRect(x, y, 1, 1);
+      } else if (y === h / 2 && x % 2 === 0) {
+        ctx.fillStyle = '#c9a23f';
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  });
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
 /** A seeded random stream, so the shelves are dressed the same way on every visit. */
 function seeded(seed: number) {
@@ -114,7 +163,11 @@ export class Interior {
   private lid?: THREE.Object3D;
   private lidOpen = 0;
   private globe?: THREE.Object3D;
-  private spin = 0;
+  /** Which of GLOBE_STOPS the globe is turned to while you're up close (null: it idles round). */
+  private globeStop: number | null = null;
+  private globeRest = new THREE.Euler(); // its tilt on the stand, which it goes back to afterwards
+  private pins = new Map<string, { head: THREE.Mesh; mat: THREE.MeshToonMaterial; color: THREE.Color }>();
+  private hotPin: string | null = null;
   private glass = new THREE.MeshBasicMaterial({ color: SKY_DAY.clone() });
   private hemi = new THREE.HemisphereLight('#c9b3d6', '#4a3226', 1.2);
   private key = new THREE.DirectionalLight('#ffe9cc', 1);
@@ -167,6 +220,8 @@ export class Interior {
     });
     this.lid = root.getObjectByName('piano_lid');
     this.globe = root.getObjectByName('globe_ball');
+    if (this.globe) this.globeRest.copy(this.globe.rotation);
+    this.dressGlobe();
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
     root.getObjectByName('fireplace')?.getWorldPosition(this.hearth);
@@ -221,8 +276,32 @@ export class Interior {
     }
   }
 
-  spinGlobe() {
-    this.spin = 9;
+  /** Whether the view has gone in close to the globe (and the globe has stopped to show you). */
+  get globeFocused() {
+    return this.globeStop !== null;
+  }
+
+  /** Go in close to the globe; it stops spinning and turns Europe towards you. */
+  focusGlobe(instant = false) {
+    if (!this.globe) return;
+    this.globeStop = 0;
+    this.view.focus(this.globe.getWorldPosition(V()), this.view.zoomFor(GLOBE_R * 2, 0.7), instant);
+  }
+
+  /** Up close, a click turns it on to the next part of the world with pins in it. */
+  turnGlobe() {
+    this.globeStop = ((this.globeStop ?? -1) + 1) % GLOBE_STOPS.length;
+  }
+
+  /** The pin being pointed at stands taller and turns gold. */
+  setHotPin(id: string | null) {
+    if (id === this.hotPin) return;
+    for (const [key, pin] of this.pins) {
+      const hot = key === id;
+      pin.head.scale.setScalar(hot ? 1.7 : 1);
+      pin.mat.color.copy(hot ? GOLD : pin.color);
+    }
+    this.hotPin = id;
   }
 
   sparks() {
@@ -276,8 +355,20 @@ export class Interior {
     if (this.lid) this.lid.rotation.x = -1.72 * this.lidOpen;
     if (this.playing && this.every('note', 0.8, dt)) this.note();
 
-    this.spin = THREE.MathUtils.damp(this.spin, 0, 1.2, dt);
-    if (this.globe) this.globe.rotation.y += dt * (0.15 + this.spin);
+    if (this.globe) {
+      // zoomed back out (or looked away): it goes back to turning by itself
+      if (this.globeStop !== null && this.view.level < 2 && !this.view.gliding) this.globeStop = null;
+      const g = this.globe;
+      if (this.globeStop === null) {
+        // back to its tilt on the stand, turning slowly
+        const k = 1 - Math.exp(-2 * dt);
+        g.rotation.x += (this.globeRest.x - g.rotation.x) * k;
+        g.rotation.z += (this.globeRest.z - g.rotation.z) * k;
+        g.rotation.y += dt * 0.15;
+      } else {
+        g.quaternion.slerp(this.facing(GLOBE_STOPS[this.globeStop]), 1 - Math.exp(-3 * dt));
+      }
+    }
 
     for (const b of this.books.values()) {
       const goal = b.info.slug === this.hot ? 1 : this.matches?.has(b.info.slug) ? 0.4 : 0;
@@ -291,7 +382,62 @@ export class Interior {
     this.updateFloaters(dt);
   }
 
+  /** How the globe should sit so that (lat, lon) faces the camera, with north up. */
+  private facing({ lat, lon }: { lat: number; lon: number }) {
+    const parent = this.globe!.parent!.getWorldQuaternion(new THREE.Quaternion()).invert();
+    const toCamera = V(0, 0, 1).applyQuaternion(this.camera.quaternion).applyQuaternion(parent);
+    const up = V(0, 1, 0).applyQuaternion(this.camera.quaternion).applyQuaternion(parent);
+    // two frames: the point and north on the ball, the camera and its up in the room
+    const basis = (a: THREE.Vector3, b: THREE.Vector3) => {
+      const side = b.clone().addScaledVector(a, -b.dot(a)).normalize();
+      return new THREE.Matrix4().makeBasis(a, side, a.clone().cross(side));
+    };
+    const ball = basis(onSphere(lat, lon), V(0, 1, 0));
+    const room = basis(toCamera, up);
+    return new THREE.Quaternion().setFromRotationMatrix(room.multiply(ball.transpose()));
+  }
+
   // --- building ----------------------------------------------------------------------
+
+  /** Swap the modelled ball for one wearing the world map, and stick a pin in every trip. */
+  private dressGlobe() {
+    const ball = this.globe;
+    if (!ball) return;
+    const geometry = new THREE.SphereGeometry(GLOBE_R, 48, 24);
+    const material = new THREE.MeshToonMaterial({ map: worldMap(), gradientMap: GRADIENT });
+    if ((ball as THREE.Mesh).isMesh) {
+      const mesh = ball as THREE.Mesh;
+      mesh.geometry.dispose();
+      Object.assign(mesh, { geometry, material });
+    } else {
+      // exported with several materials, the ball arrives as a group of meshes
+      for (const c of ball.children.filter((c) => (c as THREE.Mesh).isMesh)) ball.remove(c);
+      const sphere = new THREE.Mesh(geometry, material);
+      sphere.castShadow = sphere.receiveShadow = true;
+      ball.add(sphere);
+    }
+    travels.forEach((t, i) => this.addPin(ball, `pin:${i}`, t.lat, t.lon, PIN_RED));
+    this.addPin(ball, 'pin:home', HOME_PIN.lat, HOME_PIN.lon, new THREE.Color('#f2ece2'));
+  }
+
+  private addPin(ball: THREE.Object3D, id: string, lat: number, lon: number, color: THREE.Color) {
+    const up = onSphere(lat, lon);
+    const pin = new THREE.Group();
+    pin.position.copy(up).multiplyScalar(GLOBE_R);
+    pin.quaternion.setFromUnitVectors(V(0, 1, 0), up);
+    pin.userData.id = id;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.04, 4), toonIndoors('#c9c6c0'));
+    stem.position.y = 0.02;
+    const mat = new THREE.MeshToonMaterial({ color: color.clone(), gradientMap: GRADIENT });
+    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.012, 1), mat);
+    head.position.y = 0.042;
+    // an invisible, bigger target so the tiny pins are easy to point at
+    const hit = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 4), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+    hit.position.y = 0.035;
+    pin.add(stem, head, hit);
+    ball.add(pin);
+    this.pins.set(id, { head, mat, color });
+  }
 
   /** One year per row, newest at the top; if there are more years than rows the oldest share the bottom one. */
   private shelve(rows: Row[], books: BookInfo[]) {

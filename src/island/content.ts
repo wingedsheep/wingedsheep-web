@@ -8,6 +8,7 @@
 import type * as THREE from 'three';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
+import { travels, yearsOf } from '../data/travels';
 import type { Forecast } from './forecast';
 import type { Journal } from './journal';
 import type { CameraRig } from './scene/camera-rig';
@@ -71,6 +72,7 @@ export const SECRETS = {
   piano: { title: 'Two originals', hint: 'Not all the music on the island is played outdoors.' },
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
   robot: { title: 'The workshop robot', hint: 'Someone in the workshop keeps tripping over things.' },
+  travels: { title: 'Pins in the globe', hint: 'Lean in close to the globe in the library.' },
   beike: { title: 'Beike', hint: 'Someone in the meadow has a ball and all the time in the world.' },
 } as const;
 
@@ -275,13 +277,40 @@ export const LIBRARY_PLACES: Record<string, Place> = {
     },
   },
   globe: {
-    label: 'A globe',
+    label: (ctx) => (ctx.interior?.globeFocused ? 'The globe · click to turn it' : 'A globe'),
     activate(ctx) {
-      ctx.interior?.spinGlobe();
-      ctx.toast('You spin the globe and stop it with a finger. It lands on a small island that isn’t on any map.');
+      const room = ctx.interior;
+      if (!room) return;
+      if (room.globeFocused) {
+        room.turnGlobe();
+        return;
+      }
+      room.focusGlobe(matchMedia('(prefers-reduced-motion: reduce)').matches);
+      ctx.toast('You lean in close. There are little pins in it, one for every trip.');
     },
   },
 };
+
+/** A pin in the library globe: "pin:<index into travels>", or "pin:home" for the island. */
+function pinPlace(id: string): Place | undefined {
+  if (id === 'pin:home') {
+    return {
+      label: 'A small island · not on any map',
+      activate: say('A small island that isn’t on any map. You are here.'),
+    };
+  }
+  const trip = travels[Number(id.slice(4))];
+  if (!trip) return undefined;
+  const when = yearsOf(trip);
+  return {
+    label: `${trip.place} · ${when}`,
+    activate(ctx) {
+      const where = trip.place === trip.country ? trip.place : `${trip.place}, ${trip.country}`;
+      ctx.toast(`${where} (${when}). ${trip.note}`.trim());
+      ctx.discover('travels');
+    },
+  };
+}
 
 /** Start the piano (or stop it if that piece is already playing). */
 export function togglePiano(ctx: IslandContext, id?: number) {
@@ -346,7 +375,7 @@ export function workshopPlaceFor(id: string): Place | undefined {
 }
 
 export function libraryPlaceFor(id: string): Place | undefined {
-  return LIBRARY_PLACES[id];
+  return id.startsWith('pin:') ? pinPlace(id) : LIBRARY_PLACES[id];
 }
 
 export function placeFor(id: string): Place | undefined {

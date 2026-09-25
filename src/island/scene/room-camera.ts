@@ -4,6 +4,7 @@ const ELEVATION = THREE.MathUtils.degToRad(35); // the same angle as the island 
 const YAW = THREE.MathUtils.degToRad(-22); // looking in from the south-east
 const DISTANCE = 60;
 const MAX_ZOOM = 4;
+const GLIDE = 3.5; // how quickly a focus() glides in
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -17,6 +18,10 @@ export class RoomCamera {
   private zoom = 1;
   /** How far the view has been moved off the framing, in world units along the camera's axes. */
   private offset = new THREE.Vector2();
+  /** Where focus() is gliding to, until it gets there or someone grabs the view. */
+  private goal: { zoom: number; offset: THREE.Vector2 } | null = null;
+  /** focus() may go in closer than the scroll wheel can (and lets it follow); zooming back out drops it again. */
+  private limit = MAX_ZOOM;
   private fit = {
     position: V(),
     right: V(),
@@ -25,6 +30,8 @@ export class RoomCamera {
     perPx: 1, // world units per CSS pixel when framed
     lo: new THREE.Vector2(), // the room's edges, relative to the framed centre
     hi: new THREE.Vector2(),
+    free: new THREE.Vector2(), // the free area's centre, in CSS pixels from the canvas centre
+    freeSize: new THREE.Vector2(1, 1), // and its size
   };
 
   constructor(private bounds: THREE.Box3) {}
@@ -61,13 +68,62 @@ export class RoomCamera {
     fit.perPx = perPx;
     fit.lo.copy(box.min).sub(shift);
     fit.hi.copy(box.max).sub(shift);
+    fit.free.set(fx, fy);
+    fit.freeSize.set(free.w, free.h);
     this.apply();
+  }
+
+  /** How far in the view is (1 = the whole room). */
+  get level() {
+    return this.zoom;
+  }
+
+  /** Whether a focus() is still gliding in. */
+  get gliding() {
+    return this.goal !== null;
+  }
+
+  /** The zoom at which something `size` across fills `share` of the free area. */
+  zoomFor(size: number, share: number) {
+    const { fit } = this;
+    return Math.max(1, (share * Math.min(fit.freeSize.x, fit.freeSize.y) * fit.perPx) / size);
+  }
+
+  /** Glide in until `p` sits in the middle of the free area, `zoom` times closer. */
+  focus(p: THREE.Vector3, zoom: number, instant = false) {
+    const { fit } = this;
+    this.limit = Math.max(MAX_ZOOM, zoom * 2); // and from there, scroll in closer still
+    const rel = p.clone().sub(fit.position);
+    const perPx = fit.perPx / zoom;
+    const offset = new THREE.Vector2(rel.dot(fit.right) - fit.free.x * perPx, rel.dot(fit.up) + fit.free.y * perPx);
+    this.goal = { zoom, offset };
+    if (instant) this.step(Infinity);
+  }
+
+  /** Move a glide along; true while it's still moving (and on the frame it arrives). */
+  step(dt: number) {
+    const goal = this.goal;
+    if (!goal) return false;
+    const k = 1 - Math.exp(-GLIDE * dt);
+    const was = this.offset.clone();
+    this.zoom = Math.exp(THREE.MathUtils.lerp(Math.log(this.zoom), Math.log(goal.zoom), k));
+    this.offset.lerp(goal.offset, k);
+    this.apply(); // (may hold the offset back at the room's edge)
+    // there, or as close as the room's edges allow
+    if (Math.abs(this.zoom - goal.zoom) < 0.01 * goal.zoom && this.offset.distanceTo(was) < 0.001) {
+      this.zoom = goal.zoom;
+      this.goal = null;
+      this.apply();
+    }
+    return true;
   }
 
   /** Zoom by a factor of the visible size (below 1 zooms in), keeping `ndc` where it is. */
   zoomBy(factor: number, ndc: THREE.Vector2) {
+    this.goal = null;
     const before = this.zoom;
-    this.zoom = THREE.MathUtils.clamp(this.zoom / factor, 1, MAX_ZOOM);
+    this.zoom = THREE.MathUtils.clamp(this.zoom / factor, 1, this.limit);
+    if (this.zoom <= MAX_ZOOM) this.limit = MAX_ZOOM;
     this.offset.x += ndc.x * this.fit.half.x * (1 / before - 1 / this.zoom);
     this.offset.y += ndc.y * this.fit.half.y * (1 / before - 1 / this.zoom);
     this.apply();
@@ -75,6 +131,7 @@ export class RoomCamera {
 
   /** Drag the room along by some CSS pixels. */
   pan(dxPx: number, dyPx: number) {
+    this.goal = null;
     const perPx = this.fit.perPx / this.zoom;
     this.offset.x -= dxPx * perPx;
     this.offset.y += dyPx * perPx;
@@ -83,6 +140,8 @@ export class RoomCamera {
 
   /** Back to the whole room. */
   reset() {
+    this.goal = null;
+    this.limit = MAX_ZOOM;
     this.zoom = 1;
     this.offset.set(0, 0);
     this.apply();
