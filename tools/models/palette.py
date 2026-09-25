@@ -138,3 +138,9 @@ TENT_GREEN = "#4f9a3f"     # the little green tent from the mountain tops
 BOOT = "#5a4030"
 RUG_ROUND = "#c9a23f"
 RUG_ROUND_DARK = "#b5562d"
+# the lamp room at the top of the tower: brass, lens glass, red iron, canvas curtains
+LENS = "#c6ebe4"
+LENS_DARK = "#93cfc8"
+BRASS_DARK = "#b5832e"
+CANVAS = "#e9dcc0"
+DECK = "#5a5366"           # the iron floor plates

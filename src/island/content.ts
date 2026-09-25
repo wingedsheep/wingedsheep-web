@@ -375,12 +375,7 @@ const GAMES: Record<string, { label: string; text: string }> = {
 /** Things in the keeper's quarters, inside the lighthouse. */
 export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
-  stairs: {
-    label: 'The stairs · up to the lamp',
-    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
-      ? 'Round and round and up. Far above, the lamp is turning.'
-      : 'Round and round and up to the lamp. It lights itself at dusk.'),
-  },
+  stairs: { label: 'The stairs · up to the lamp' }, // src/island/lighthouse.ts does the climbing
   console: {
     label: 'The telly · play GTA Arnhem',
     activate(ctx) {
@@ -428,6 +423,38 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   ),
 };
 
+/** Things in the lamp room, at the top of the lighthouse. */
+export const LAMP_PLACES: Record<string, Place> = {
+  stairs: { label: 'The stairs · down to the quarters' },
+  lens: {
+    label: 'The lens',
+    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
+      ? 'Rings of glass, each one bending the lamp’s light a little further, until it all leaves in two beams you can see from far out at sea.'
+      : 'Rings of glass round an unlit lamp, turning anyway. By day the blinds come down, or it would set the desk on fire.'),
+  },
+  lamp_log: {
+    label: 'The lamp log',
+    activate(ctx) {
+      // the last entry, written a good three hours ago
+      const then = new Date(Date.now() - 3 * 3600e3 - Math.floor(Math.random() * 40) * 60e3);
+      const at = then.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      ctx.toast(`Lamp log, ${at}: “Wick trimmed, glass polished, clockwork wound. Back down in five minutes.”`);
+    },
+  },
+  telescope: {
+    label: 'A telescope',
+    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
+      ? 'Nothing out there but the dark and, far off, another light answering this one.'
+      : 'Trained on the horizon. A sail, a gull, and a long way off, the next island.'),
+  },
+  radio: { label: 'The radio', activate: say('It murmurs the shipping forecast: wind south-west, four or five, occasionally six. Good.') },
+  clock: {
+    label: 'The clock',
+    activate: (ctx) => ctx.toast(`It says ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. Later than it feels. It always is.`),
+  },
+  gull: { label: 'A herring gull', activate: say('It has been sitting on the rail all day, and it’s not leaving. It has seen the wrap downstairs.') },
+};
+
 /** A book on the keeper's shelf: "read:<index into BOOKS>". */
 function readPlace(id: string): Place | undefined {
   const book = BOOKS[Number(id.slice(5))];
@@ -449,7 +476,9 @@ function readPlace(id: string): Place | undefined {
   };
 }
 
-export function lighthousePlaceFor(id: string): Place | undefined {
+/** Something in the lighthouse, on the floor you're on ('quarters' or 'lamp'). */
+export function lighthousePlaceFor(id: string, floor = 'quarters'): Place | undefined {
+  if (floor === 'lamp') return LAMP_PLACES[id];
   return id.startsWith('read:') ? readPlace(id) : LIGHTHOUSE_PLACES[id];
 }
 

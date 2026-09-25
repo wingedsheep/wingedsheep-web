@@ -4,6 +4,7 @@
     blender -b --factory-startup -P tools/models/build.py -- --only library [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only workshop [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only lighthouse [--preview out.png]
+    blender -b --factory-startup -P tools/models/build.py -- --only lamproom [--preview out.png]
 
 Outputs (public/models/):
   island.glb    terrain + every model, with ids, lights and emitters as glTF extras
@@ -12,6 +13,7 @@ Outputs (public/models/):
   library.glb   the library, inside (tools/models/interior.py)
   workshop.glb  the workshop, inside, with the projects and the robot (tools/models/workshop.py)
   lighthouse.glb  the keeper's quarters in the lighthouse (tools/models/quarters.py)
+  lamproom.glb  the lamp room at the top of the tower (tools/models/lamproom.py)
 """
 from __future__ import annotations
 
@@ -41,7 +43,7 @@ def args():
     ap.add_argument("--yaw", type=float, default=0.0)
     ap.add_argument("--focus", default="0,1")
     ap.add_argument("--span", type=float, default=70.0)
-    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse"])
+    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse", "lamproom"])
     return ap.parse_args(argv)
 
 
@@ -172,6 +174,17 @@ def build_lighthouse(a):
         preview(a.preview, a.night, -22.0, (0.0, 0.3), 16.0, sea=False)
 
 
+def build_lamproom(a):
+    reset_scene()
+    import lamproom  # noqa: E402
+    lamproom.build()
+    export("lamproom.glb")
+    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'lamproom.glb'}")
+
+    if a.preview and a.only == "lamproom":
+        preview(a.preview, a.night, -22.0, (0.0, 1.2), 17.0, sea=False)
+
+
 def main():
     a = args()
     if a.preview and not a.only:
@@ -184,6 +197,8 @@ def main():
         build_workshop(a)
     if a.only in (None, "lighthouse"):
         build_lighthouse(a)
+    if a.only in (None, "lamproom"):
+        build_lamproom(a)
 
 
 main()
