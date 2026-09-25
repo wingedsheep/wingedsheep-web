@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { RiverAssets } from './assets';
 import { type Course, type Gate, type Hole, type Ledge, type Obstacle, type Pickup, type Sample, type Thing, type Tongue, channel } from './course';
 import { type Intent, NEUTRAL } from './controls';
+import { waterAt } from './flow';
 
 const HULL = [1.45, 0, -1.45]; // collision circles along the hull, from the bow (m)
 const HULL_R = 0.36;
@@ -13,6 +14,8 @@ const GRAVITY = 20;
 const ALONG = [0.2, 0.025];
 const ACROSS = [1.5, 0.3];
 const INERTIA = 1.1; // (the boat's mass is 1)
+/** Leaning carves: on its edge and moving through the water, the boat turns the way it leans. */
+const CARVE = 0.22;
 const SPIN_DAMP = 0.6;
 
 // the paddle
@@ -64,6 +67,10 @@ export interface KayakEvents {
   tipping?(): void;
   capsize?(): void;
   rolled?(): void;
+  /** Out of the current into an eddy, stopped in the slack water behind a rock or a bend. */
+  eddy?(): void;
+  /** Out of a caught eddy and back into the current, upright. */
+  peel?(): void;
   /** The roll failed: swimming. */
   swim?(): void;
   /** Into a hole (stuck: too slow to punch it), and out the other side. */
@@ -74,8 +81,8 @@ export interface KayakEvents {
   shave?(): void;
   /** All the way round in a spin (1 = a 360, 2 = a 720…). */
   spin?(turns: number): void;
-  /** A stroke went in: how hard, and forward or back. */
-  stroke?(power: number, back: boolean): void;
+  /** A stroke went in: how hard, forward or back, and on which side. */
+  stroke?(power: number, back: boolean, side: -1 | 1): void;
 }
 
 /**
@@ -98,6 +105,8 @@ export class Kayak {
   readonly model: THREE.Object3D;
   readonly pos = new THREE.Vector3();
   readonly vel = new THREE.Vector2(); // x, z
+  /** Its velocity through the water (x, z): what makes a wake. */
+  readonly through = new THREE.Vector2();
   heading = 0; // like the river's: 0 = north
   /** Turning: radians a second, + is to the right. */
   yawRate = 0;
@@ -107,8 +116,6 @@ export class Kayak {
   /** Roll: + is over to the right. */
   tilt = 0;
   balance: Balance = 'up';
-  /** 0..1: breath for paddling. */
-  stamina = 1;
   /** The roll-up: where the needle is (0..1) and how wide the window (centred on 0.5). */
   roll = { needle: 0, window: 0.3, time: 0 };
   airborne = false;
@@ -117,6 +124,8 @@ export class Kayak {
   events: KayakEvents = {};
   /** The river where the kayak is. */
   here!: Sample;
+  /** 0..1: how deep in an eddy the boat is (its bow and stern together). */
+  eddy = 0;
   /** When on a touch screen, the paddler balances himself (mostly). */
   assisted = false;
   /** How many times you've rolled up this run: each roll gets harder. */
@@ -160,6 +169,11 @@ export class Kayak {
   private spinFwd = 0;
   private spinRev = 0;
   private difficulty = 0;
+  /** Being summed up this step: the eddy under the bow and the stern. */
+  private eddyAt = 0;
+  /** In an eddy you caught (until you peel out), and when you were last out in the current. */
+  private caught = false;
+  private inCurrent = -9;
 
   constructor(assets: RiverAssets) {
     this.model = assets.clone('kayak');
@@ -180,7 +194,6 @@ export class Kayak {
     this.here = p;
     this.tilt = this.tiltV = 0;
     this.balance = 'up';
-    this.stamina = 1;
     this.effort = 0;
     this.rolls = 0;
     this.flip = 0;
@@ -189,6 +202,8 @@ export class Kayak {
     this.holed = 0;
     this.skipHole = null;
     this.queued = null;
+    this.line = null;
+    this.caught = false;
     this.blade = { kind: 'none', side: 1, t: 1, dur: 0.5, power: 0, sweep: false };
     this.pitchNow = this.leanNow = 0;
     this.spun = this.spins = this.spinFwd = this.spinRev = 0;
@@ -252,17 +267,15 @@ export class Kayak {
       b.t += dt / b.dur;
       if (b.t < 1) return;
     }
-    const puffed = this.stamina < 0.05 ? 0.45 : 1;
     const start = (kind: 'fwd' | 'rev', side: -1 | 1, power: number, sweep: boolean) => {
-      this.blade = { kind, side, t: 0, dur: kind === 'rev' ? 0.55 : 0.62 - power * 0.16, power: power * puffed, sweep };
+      this.blade = { kind, side, t: 0, dur: kind === 'rev' ? 0.55 : 0.62 - power * 0.16, power, sweep };
       this.lastSide = side;
-      this.stamina = Math.max(0, this.stamina - 0.035 * power);
       this.effort = Math.min(1, this.effort + 0.3 * power);
       if (kind === 'fwd') this.lastCatch = this.clock;
       // a forward stroke turns you away from its side, a reverse sweep towards it
       if (kind === 'fwd') this.spinFwd = -side;
       else this.spinRev = side;
-      this.events.stroke?.(power, kind === 'rev');
+      this.events.stroke?.(power, kind === 'rev', side);
     };
     if (this.queued) {
       start('rev', this.queued.side, 1, true);
@@ -341,7 +354,6 @@ export class Kayak {
     const half = p.width / 2;
     const up = this.balance === 'up' || this.balance === 'over';
 
-    this.stamina = Math.min(1, this.stamina + (this.blade.kind === 'fwd' ? 0 : 0.14) * dt);
     this.effort *= Math.exp(-dt * 0.8);
     this.leanNow += (i.lean - this.leanNow) * (1 - Math.exp(-dt * 10));
     this.pitchNow += (i.pitch - this.pitchNow) * (1 - Math.exp(-dt * 10));
@@ -349,7 +361,7 @@ export class Kayak {
     // what's in the water here: holes, tongues, ledges, and the rest
     let hole: Hole | null = null;
     let tongue: Tongue | null = null;
-    const things = course.near(this.s - 8, this.s + 8);
+    const things = course.near(this.s - 14, this.s + 8); // (a big rock's eddy reaches a long way down)
     for (const t of things) {
       if (!('kind' in t)) {
         this.gateCheck(t, p);
@@ -383,6 +395,7 @@ export class Kayak {
     let cross = 0;
     let relAlongMid = 0;
     let relAcrossMid = 0;
+    this.eddyAt = 0;
     for (const a of [ENDS, -ENDS]) {
       const px = this.pos.x + hx * a;
       const pz = this.pos.z + hz * a;
@@ -403,12 +416,15 @@ export class Kayak {
       relAcrossMid += vl * 0.5;
     }
     this.crossflow = cross;
+    this.through.set(hx * relAlongMid + ex * relAcrossMid, hz * relAlongMid + ez * relAcrossMid);
     const blade = up ? this.bladeForce(relAlongMid, relAcrossMid) : null;
     if (blade) {
       fx0 += hx * blade.fa + ex * blade.fl;
       fz0 += hz * blade.fa + ez * blade.fl;
       tau += blade.tau;
     }
+    // on its edge, moving through the water, it carves round the way it's leaning
+    if (up) tau += this.leanNow * Math.max(-1, Math.min(4, relAlongMid)) * CARVE;
     // leaning forward drives the boat on a little; a hole pours back and turns you sideways
     fx0 += hx * this.pitchNow * 0.3 * (up ? 1 : 0);
     fz0 += hz * this.pitchNow * 0.3 * (up ? 1 : 0);
@@ -492,6 +508,8 @@ export class Kayak {
     }
     this.inTongue = tongue;
 
+    this.eddy = this.eddyAt;
+    if (running) this.eddying(up);
     if (up) this.rollPhysics(dt, p, hole, running);
 
     // up and down: riding the water, or flying off a ledge
@@ -517,24 +535,37 @@ export class Kayak {
    * into a hole.
    */
   private current(x: number, z: number, p: Sample, things: Thing[], hole: Hole | null, tongue: Tongue | null) {
-    const near = this.course!.nearest(x, z, p.s);
-    const q = near.sample;
-    const fx = Math.sin(q.a);
-    const fz = -Math.cos(q.a);
-    const across = Math.max(-1, Math.min(1, near.side / (q.width / 2)));
-    const ch = channel(q, near.side);
-    let flow = q.speed * ch.speed * (1 - 0.32 * across * across);
-    // slack water along an island's shore
-    if (q.isle > 0) flow *= 0.72 + 0.28 * Math.min(1, Math.max(0, (Math.abs(near.side - q.isleU) - q.isle) / 2));
-    if (tongue) flow += 2.2;
-    let eddy = 0;
-    for (const t of things) if ('kind' in t && t.kind === 'rock') eddy = Math.max(eddy, inEddy(t, x, z, fx, fz));
-    flow *= 1 - Math.min(1, eddy) * 1.25;
+    const w = waterAt(this.course!, x, z, p.s, things);
+    const q = w.sample;
+    let flow = w.along;
+    if (tongue) flow += 2.2 * (1 - w.eddy);
     const fwd = Math.max(0, this.pitchNow);
     const back = Math.max(0, -this.pitchNow);
     if (hole) flow *= 1 - hole.strength * (1.5 + back * 0.8 - fwd * 0.6) * Math.max(0.3, 1 - Math.max(0, this.holed - 1.5) * 0.3);
-    const churn = Math.min(1, q.rough * ch.rough) * 1.4 * (Math.sin(this.clock * 1.7 + q.s * 0.21) + Math.sin(this.clock * 3.1 + q.s * 0.07) * 0.5);
-    return { x: fx * flow + Math.cos(q.a) * churn, z: fz * flow + Math.sin(q.a) * churn };
+    // white water jostles you sideways: quick little shoves, never so long or so hard that you
+    // can't paddle out of them (an eddy's water is calmer)
+    const churn = Math.min(1, q.rough * channel(q, w.side).rough) * 0.6 * (1 - w.eddy * 0.7)
+      * (Math.sin(this.clock * 2.3 + q.s * 0.45) + Math.sin(this.clock * 4.1 + q.s * 0.17 + w.side) * 0.5);
+    this.eddyAt += w.eddy * 0.5;
+    return { x: w.fx * flow - w.fz * churn + w.px, z: w.fz * flow + w.fx * churn + w.pz };
+  }
+
+  /**
+   * Catching an eddy: in from the current (it has to be a real move, not drifting into it) and
+   * brought to a stop in the slack water. Out again into the current, upright: peeled out.
+   */
+  private eddying(up: boolean) {
+    const moving = this.speed;
+    if (this.eddy < 0.15 && moving > 3) {
+      if (this.caught && up) this.events.peel?.();
+      this.caught = false;
+      this.inCurrent = this.clock;
+    }
+    if (!this.caught && up && this.eddy > 0.5 && moving < 3 && this.clock - this.inCurrent < 4) {
+      this.caught = true;
+      this.events.eddy?.();
+    }
+    if (!up) this.caught = false;
   }
 
   /** Whether the kayak is in a patch of water (a hole, a tongue) at arc length ts, u across, `half` wide. */
@@ -574,8 +605,9 @@ export class Kayak {
     let torque = this.rough * (3.2 + this.difficulty * 2) * stance * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
     if (Math.random() < dt * this.rough * 2.2) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * this.rough * stance;
     if (hole) torque += Math.sin(t * 5) * 5.5 * hole.strength * stance * (1 + Math.min(2, this.holed));
-    torque += Math.max(-6, Math.min(6, this.crossflow * Math.abs(this.crossflow) * 0.9));
-    torque += this.yawRate * Math.max(0, this.speed - 3) * 0.25;
+    torque += Math.max(-5, Math.min(5, this.crossflow * Math.abs(this.crossflow) * 0.75));
+    // a hard turn at speed throws you to the outside of it: lean into the turn
+    torque -= this.yawRate * Math.max(0, this.speed - 3) * 0.25;
     // the paddler: leaning shifts his weight, and a boat being paddled sits steadier
     let lean = this.leanNow;
     if (this.assisted) lean = Math.max(-1, Math.min(1, lean - this.tilt * 1.4 - this.tiltV * 0.35));
@@ -849,17 +881,6 @@ export class Kayak {
     const side = Math.sign(this.tilt) || 1;
     m.rotation.z = this.tilt * (1 - this.flip) + side * Math.PI * this.flip; // + rolls the right side down
   }
-}
-
-/** How deep in the eddy behind a rock (x, z) is (0 not at all … ~1.4 right behind it). */
-function inEddy(o: { x: number; z: number; r: number }, x: number, z: number, fx: number, fz: number) {
-  const dx = x - o.x;
-  const dz = z - o.z;
-  const along = dx * fx + dz * fz;
-  const across = Math.abs(-dx * fz + dz * fx);
-  const len = o.r * 4;
-  if (along < o.r * 0.5 || along > len || across > o.r * 1.1) return 0;
-  return (1 - along / len) * (1 - across / (o.r * 1.1)) * 1.4;
 }
 
 /** An angle wrapped to -π..π. */

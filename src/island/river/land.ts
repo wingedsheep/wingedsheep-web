@@ -252,7 +252,9 @@ export class Land {
     }
     for (const f of course.features) if (f.s >= s0 && f.s < s1) this.feature(chunk, f.kind, f.s, f.side, r);
     // a distance post on the bank every 250 m
-    for (let s = Math.ceil(s0 / 250) * 250; s < s1; s += 250) if (s > 0) this.post(chunk, s, r);
+    for (let s = Math.ceil(s0 / 250) * 250; s < s1; s += 250) if (s > 0 && s < course.finish - 30) this.post(chunk, s, r);
+    // and the finish, on both banks by the bridge
+    if (course.finish >= s0 && course.finish < s1) for (const side of [-1, 1]) this.post(chunk, course.finish - 4, r, 'FINISH', side);
     this.banks(chunk, s0, s1, r);
     this.islands(chunk, s0, s1, r);
 
@@ -388,8 +390,7 @@ export class Land {
     if (m) this.glowAt(chunk, m);
   }
 
-  private post(chunk: Chunk, s: number, r: () => number) {
-    const side = r() < 0.5 ? -1 : 1;
+  private post(chunk: Chunk, s: number, r: () => number, text?: string, side = r() < 0.5 ? -1 : 1) {
     const at = this.beside(s, side, 1.6);
     if (!at) return;
     // turned to the river, and a little upstream, so you can read it coming
@@ -397,7 +398,7 @@ export class Land {
     const m = this.put(chunk, 'sign', at, facing(-side * Math.cos(a) - Math.sin(a) * 0.8, -side * Math.sin(a) + Math.cos(a) * 0.8));
     if (!m) return;
     // the model's boxes have no UVs: the painted face is a plane just in front of the board
-    const face = new THREE.Mesh(BOARD, signMaterial(s >= 1000 ? `${(s / 1000).toFixed(s % 1000 ? 2 : 0)} km` : `${s} m`));
+    const face = new THREE.Mesh(BOARD, signMaterial(text ?? (s >= 1000 ? `${(s / 1000).toFixed(s % 1000 ? 2 : 0)} km` : `${s} m`)));
     face.position.set(0, 1.45, 0.125);
     m.add(face);
   }

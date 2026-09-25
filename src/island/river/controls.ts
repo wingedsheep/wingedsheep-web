@@ -50,9 +50,12 @@ export class Controls {
   private keys = new Set<string>();
   private taps = { left: false, right: false, brace: false };
   private fingers = new Map<number, { side: -1 | 1; back: boolean }>();
-  private padWas = { go: false, pause: false, l1: false, r1: false };
+  /** (Everything starts out held: a button only counts once it's been seen let go.) */
+  private padWas = { go: true, pause: true, l1: true, r1: true };
   /** A stick only counts once it's been seen at rest: a pad lying on a stick, or one that drifts, can't lean. */
   private centred = [false, false, false, false];
+  /** …and the same for the triggers (L2, R2): one held down all along (the pad face down on the desk) can't paddle. */
+  private released = [false, false];
   private active = false;
 
   constructor(private el: HTMLElement) {
@@ -89,6 +92,7 @@ export class Controls {
   enable(on: boolean) {
     this.active = on;
     this.taps = { left: false, right: false, brace: false };
+    this.padWas = { go: true, pause: true, l1: true, r1: true };
     if (!on) {
       this.keys.clear();
       this.fingers.clear();
@@ -142,8 +146,13 @@ export class Controls {
       const r1 = b(5) > 0.5;
       const go = !!pad.buttons[0]?.pressed;
       const pause = !!(pad.buttons[9]?.pressed || pad.buttons[8]?.pressed);
-      const l2 = b(6) > 0.12 ? b(6) : 0;
-      const r2 = b(7) > 0.12 ? b(7) : 0;
+      const trigger = (n: 0 | 1) => {
+        const v = b(6 + n);
+        if (v < 0.05) this.released[n] = true;
+        return this.released[n] && v > 0.12 ? v : 0;
+      };
+      const l2 = trigger(0);
+      const r2 = trigger(1);
       if (Math.abs(lean) > 0.3 || Math.abs(pitch) > 0.3 || l2 > 0.3 || r2 > 0.3 || l1 || r1 || go) this.device = 'pad';
       i.left = Math.max(i.left, l2);
       i.right = Math.max(i.right, r2);

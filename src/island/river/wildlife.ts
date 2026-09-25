@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { season } from '../scene/season';
 import type { RiverAssets } from './assets';
-import type { Course } from './course';
+import type { Course, Thing } from './course';
+import { waterAt } from './flow';
 import type { Spot } from './land';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -28,6 +29,8 @@ interface Actor {
 // --- particles --------------------------------------------------------------------------------
 
 const MAX = 900;
+/** A second, finer set for the froth afloat on the water: many of them, and small. */
+const FROTH_MAX = 500;
 
 /**
  * Little square specks, one texel each (or two): spray off the bow and the rocks, drips off the
@@ -36,27 +39,32 @@ const MAX = 900;
  */
 class Specks {
   readonly points: THREE.Points;
-  private pos = new Float32Array(MAX * 3);
-  private col = new Float32Array(MAX * 3);
-  private vel = new Float32Array(MAX * 3);
-  private life = new Float32Array(MAX);
-  private kind = new Uint8Array(MAX); // 0 falls with gravity, 1 floats on the current, 2 drifts, 3 flits
+  private pos: Float32Array;
+  private col: Float32Array;
+  private vel: Float32Array;
+  private life: Float32Array;
+  private kind: Uint8Array; // 0 falls with gravity, 1 floats on the current, 2 drifts, 3 flits
   private next = 0;
 
-  constructor() {
+  constructor(private max = MAX, size = 2) {
+    this.pos = new Float32Array(max * 3);
+    this.col = new Float32Array(max * 3);
+    this.vel = new Float32Array(max * 3);
+    this.life = new Float32Array(max);
+    this.kind = new Uint8Array(max);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3).setUsage(THREE.DynamicDrawUsage));
     geo.boundingSphere = new THREE.Sphere(V(), 1e6);
-    this.points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, vertexColors: true, fog: true }));
+    this.points = new THREE.Points(geo, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: true, fog: true }));
     this.points.frustumCulled = false;
     this.life.fill(0);
-    for (let i = 0; i < MAX; i++) this.pos[i * 3 + 1] = -1e4;
+    for (let i = 0; i < this.max; i++) this.pos[i * 3 + 1] = -1e4;
   }
 
   emit(at: THREE.Vector3, v: THREE.Vector3, color: THREE.Color, life: number, kind = 0) {
     const i = this.next;
-    this.next = (this.next + 1) % MAX;
+    this.next = (this.next + 1) % this.max;
     this.pos.set([at.x, at.y, at.z], i * 3);
     this.vel.set([v.x, v.y, v.z], i * 3);
     this.col.set([color.r, color.g, color.b], i * 3);
@@ -67,7 +75,7 @@ class Specks {
   /** `flow` gives the current at a point (for things floating on it). */
   update(dt: number, t: number, flow: (x: number, z: number, out: THREE.Vector3) => THREE.Vector3) {
     const f = V();
-    for (let i = 0; i < MAX; i++) {
+    for (let i = 0; i < this.max; i++) {
       if (this.life[i] <= 0) continue;
       this.life[i] -= dt;
       const k = i * 3;
@@ -99,7 +107,7 @@ class Specks {
 
   clear() {
     this.life.fill(0);
-    for (let i = 0; i < MAX; i++) this.pos[i * 3 + 1] = -1e4;
+    for (let i = 0; i < this.max; i++) this.pos[i * 3 + 1] = -1e4;
   }
 }
 
@@ -123,17 +131,20 @@ const BLOSSOM = ['#f2c3d6', '#fbe0ea'].map((c) => new THREE.Color(c));
 export class Wildlife {
   readonly group = new THREE.Group();
   readonly specks = new Specks();
+  readonly froths = new Specks(FROTH_MAX, 1);
   events: WildlifeEvents = {};
   /** The ground's height at (x, z), for animals on the bank. */
   ground: (x: number, z: number) => number = () => 0;
   private actors: Actor[] = [];
   private clock = 0;
+  /** Everything in the water round the kayak, for the specks floating on it to go round. */
+  private things: Thing[] = [];
   private kingfisherIn = rand(12, 30);
   private sheepIn = rand(90, 200);
   private beikeDone = false;
 
   constructor(private assets: RiverAssets, private course: Course) {
-    this.group.add(this.specks.points);
+    this.group.add(this.specks.points, this.froths.points);
   }
 
   reset(course: Course) {
@@ -141,6 +152,7 @@ export class Wildlife {
     for (const a of this.actors) a.root.removeFromParent();
     this.actors = [];
     this.specks.clear();
+    this.froths.clear();
     this.kingfisherIn = rand(12, 30);
     this.sheepIn = rand(90, 200);
     this.beikeDone = false;
@@ -183,13 +195,15 @@ export class Wildlife {
     }
 
     this.ambient(dt, kayak, s, night, rain, snow);
+    this.things = this.course.near(s - 20, s + 60);
     this.specks.update(dt, this.clock, (x, z, out) => this.flow(x, z, out));
+    this.froths.update(dt, this.clock, (x, z, out) => this.flow(x, z, out));
   }
 
-  /** The current at (x, z): for leaves and foam floating on it. */
+  /** The current at (x, z): for leaves and foam floating on it (round and back up in an eddy). */
   private flow(x: number, z: number, out: THREE.Vector3) {
-    const { sample: p } = this.course.nearest(x, z);
-    return out.set(Math.sin(p.a) * p.speed, 0, -Math.cos(p.a) * p.speed);
+    const w = waterAt(this.course, x, z, undefined, this.things);
+    return out.set(w.fx * w.along + w.px, 0, w.fz * w.along + w.pz);
   }
 
   // --- specks ---------------------------------------------------------------------------------
@@ -230,8 +244,8 @@ export class Wildlife {
   }
 
   /** Froth left behind on the water, floating off downstream. */
-  froth(at: THREE.Vector3) {
-    this.specks.emit(at.clone().setY(at.y + 0.05), V(), FOAM, rand(0.8, 1.6), 1);
+  froth(at: THREE.Vector3, life = rand(0.8, 1.6)) {
+    this.froths.emit(at.clone().setY(at.y + 0.05), V(), FOAM, life, 1);
   }
 
   private ambient(dt: number, kayak: THREE.Vector3, s: number, night: number, rain: number, snow: number) {

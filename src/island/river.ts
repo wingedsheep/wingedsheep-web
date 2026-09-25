@@ -1,8 +1,9 @@
 /**
  * Wild water: the kayak off the pier goes a lot further than round the island. Through the iris
- * like a room, but outdoors: an endless mountain river (src/island/river/), made up ahead of you,
- * lit by the island's own sun and weather. Distance times flow is the score, and the best stays
- * in this browser.
+ * like a room, but outdoors: a mountain river (src/island/river/), made up ahead of you, lit by the
+ * island's own sun and weather, 1.8 km down to the take-out. Distance times flow is the score,
+ * less a bit for each capsize; make it down and every second under par, gate and ball pays on
+ * top. The best stays in this browser.
  */
 import * as THREE from 'three';
 import type { IslandContext } from './content';
@@ -10,15 +11,17 @@ import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import type { Device } from './river/controls';
 import type { Stretch } from './river/course';
-import type { Hint, RiverGame, Tally } from './river/game';
+import { FLIP, type Hint, LENGTH, PAR, type RiverGame, type Tally } from './river/game';
 import { TIP } from './river/kayak';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
-const BEST = 'wingedsheep:river';
+// a new key for the run with a take-out: the endless river's scores don't compare
+const BEST = 'wingedsheep:river:takeout';
 
 /** What the river is like as you come into it, for the banner. */
 function banner(s: Stretch, index: number) {
+  if (s.takeout) return 'The take-out: under the bridge. Sprint!';
   switch (s.kind) {
     case 'rapids': return `Grade ${s.grade} · ${s.name}`;
     case 'cascade': return `Grade ${s.grade} · ${s.name}, all the way down`;
@@ -71,22 +74,44 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     pad: 'Aim for the dark V between the rocks: that’s the fast line',
     touch: 'Aim for the dark V between the rocks: that’s the fast line',
   },
+  eddy: {
+    keys: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
+    pad: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
+    touch: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
+  },
+  peel: {
+    keys: 'Eddy caught! Crossing the foamy line back out, lean into the turn (← / →) or the current will trip you',
+    pad: 'Eddy caught! Crossing the foamy line back out, lean into the turn with the stick or the current will trip you',
+    touch: 'Eddy caught! Point back downstream and paddle hard across the foamy line',
+  },
 };
 
 /** How it ends. */
 const SWIMS = [
-  'Vincent swims the kayak to the bank, still holding the paddle.',
+  'You swim the kayak to the bank, still holding the paddle.',
   'Upside down, briefly. Then for rather longer.',
   'The river wins this one. It usually does.',
-  'Out, on the bank, emptying the kayak. Then the other shoe.',
+  'Out on the bank, emptying the kayak. Then your other shoe.',
+];
+
+/** How it ends, the good way. */
+const FINISHES = [
+  'Under the bridge, soaked to the skin, grinning.',
+  'You drift into the take-out and just sit there for a bit.',
+  'All the way down. Beike would want to go again.',
+  'The river lets you go, this time.',
 ];
 
 interface Best {
   score: number;
   metres: number;
+  /** The quickest you've made it all the way down (s). */
+  time?: number;
 }
 
 const round = (n: number) => Math.round(n).toLocaleString('en-GB');
+/** Seconds as m:ss. */
+const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
 export class River implements RoomInput {
   /** Whether the river (rather than the island) is on screen. */
@@ -101,6 +126,7 @@ export class River implements RoomInput {
   private lastHud = '';
   private mile = 0;
   private swims = 0;
+  private finishes = 0;
   private best: Best = readBest();
   private fresh = false; // a new best this run
   private $: Record<string, HTMLElement> = {};
@@ -114,7 +140,7 @@ export class River implements RoomInput {
     private island: THREE.Scene,
   ) {
     this.el = document.querySelector<HTMLElement>('[data-panel="river"]')!;
-    for (const name of ['metres', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'breath', 'gauge', 'roll', 'praise', 'flash']) {
+    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'praise', 'flash']) {
       this.$[name] = this.el.querySelector<HTMLElement>(`[data-river-${name}]`)!;
     }
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-go]')) b.addEventListener('click', () => this.go());
@@ -135,6 +161,8 @@ export class River implements RoomInput {
       .then(({ RiverGame }) => RiverGame.load(this.host.querySelector('canvas')!, () => this.pixels.height))
       .then((game) => {
         this.game = game;
+        // (to poke at it from the console while working on it)
+        if (import.meta.env.DEV) Object.assign(window, { river: game });
         this.wire(game);
         this.resize();
         return game;
@@ -274,8 +302,8 @@ export class River implements RoomInput {
       stretch: (s, i) => this.say(banner(s, i)),
       split: (s) => this.say(s.kind === 'bar' ? `A gravel bar · the fast water's on the ${s.hero < 0 ? 'left' : 'right'}` : `The river splits · hero line ${s.hero < 0 ? 'left' : 'right'}, sneak ${s.hero < 0 ? 'right' : 'left'}`),
       praise: (text, big) => this.praise(text, big),
-      broke: (why) => {
-        this.praise(`${why} · flow lost`, false, true);
+      broke: (why, cost) => {
+        this.praise(cost ? `${why} · −${round(cost)}` : `${why} · flow lost`, false, true);
         this.bounce(this.$.flow, 'lost');
       },
       tier: (flow) => {
@@ -343,20 +371,23 @@ export class River implements RoomInput {
 
   private hud(t: Tally) {
     const pace = Math.round((t.pace - 1) * 10) * 10;
-    const key = `${t.metres}|${t.balls}|${t.flow}|${Math.round(t.score)}|${pace}`;
+    const key = `${t.metres}|${Math.floor(t.time)}|${t.balls}|${t.flow}|${Math.round(t.score)}|${pace}`;
     if (key === this.lastHud) return;
     this.lastHud = key;
     // every 500 m, a moment
     const mile = Math.floor(t.metres / 500);
-    if (mile > this.mile) {
+    if (mile > this.mile && t.metres < LENGTH) {
       this.mile = mile;
       this.bounce(this.$.metres.parentElement!, 'pop');
       this.ctx.sound.river('mile');
-      if (this.bannerTimer <= 0) this.say(`${round(mile * 500)} m down`);
+      if (this.bannerTimer <= 0) this.say(`${round(LENGTH - mile * 500)} m to the take-out`);
     }
     this.$.pace.textContent = pace > 0 ? `+${pace}%` : '';
     this.$.pace.style.setProperty('--pace', String(pace / 100));
-    this.$.metres.textContent = round(t.metres);
+    this.$.metres.textContent = round(LENGTH - t.metres);
+    this.$.time.textContent = clock(t.time);
+    // past par, the clock's not paying any more
+    this.$.time.parentElement!.classList.toggle('late', t.time > PAR);
     this.$.balls.textContent = String(t.balls);
     this.$.score.textContent = round(t.score);
     this.$.flow.textContent = `×${t.flow.toFixed(1)}`;
@@ -364,13 +395,13 @@ export class River implements RoomInput {
     if (t.score > this.best.score && t.score > 0) {
       if (!this.fresh && this.best.score > 0) this.say('A new best!');
       this.fresh = true;
-      this.best = { score: Math.round(t.score), metres: t.metres };
+      this.best = { ...this.best, score: Math.round(t.score), metres: t.metres };
       writeBest(this.best);
       this.showBest();
     }
   }
 
-  /** The things that follow the kayak: its balance, the roll-up meter, a flash, your breath. */
+  /** The things that follow the kayak: its balance, the roll-up meter, a flash. */
   private follow(game: RiverGame) {
     const k = game.kayak;
     const at = game.onScreen(k.pos, this.host.clientWidth, this.host.clientHeight);
@@ -394,10 +425,6 @@ export class River implements RoomInput {
       roll.style.setProperty('--needle', String(k.roll.needle));
       roll.style.setProperty('--window', String(k.roll.window));
     }
-    // breath: only when you've used some
-    this.$.breath.hidden = k.stamina > 0.98 || game.state !== 'running';
-    this.$.breath.style.setProperty('--breath', String(k.stamina));
-    this.$.breath.classList.toggle('puffed', k.stamina < 0.08);
     // the flash
     this.$.flash.style.opacity = String(game.flash.amount * 0.6);
     this.$.flash.style.background = `#${game.flash.color.getHexString()}`;
@@ -405,6 +432,9 @@ export class River implements RoomInput {
 
   private showBest() {
     for (const el of this.el.querySelectorAll('[data-river-best]')) el.textContent = round(this.best.score);
+    for (const el of this.el.querySelectorAll<HTMLElement>('[data-river-fastest]')) {
+      el.textContent = this.best.time ? clock(this.best.time) : '–';
+    }
   }
 
   private over(t: Tally) {
@@ -412,14 +442,30 @@ export class River implements RoomInput {
       const el = this.el.querySelector(sel);
       if (el) el.textContent = text;
     };
-    set('[data-river-line]', SWIMS[this.swims++ % SWIMS.length]);
-    set('[data-over-metres]', `${round(t.metres)} m`);
+    // the tally's score already has the bonus in it; a new best score was saved as it came in
+    const quickest = t.finished && (!this.best.time || t.time < this.best.time);
+    if (quickest) {
+      this.best = { ...this.best, time: t.time };
+      writeBest(this.best);
+    }
+    if (t.score > this.best.score) {
+      this.fresh = true;
+      this.best = { ...this.best, score: Math.round(t.score), metres: t.metres };
+      writeBest(this.best);
+    }
+    this.showBest();
+    set('[data-river-line]', t.finished ? FINISHES[this.finishes++ % FINISHES.length] : SWIMS[this.swims++ % SWIMS.length]);
+    set('[data-over-metres]', t.finished ? 'All the way' : `${round(t.metres)} m`);
+    set('[data-over-time]', clock(t.time));
+    set('[data-over-bonus]', t.finished ? `+${round(t.bonus.time)}` : '–');
+    set('[data-over-gates]', t.finished ? `${t.gates} · +${round(t.bonus.gates)}` : String(t.gates));
+    set('[data-over-balls]', t.finished ? `${t.balls} · +${round(t.bonus.balls)}` : String(t.balls));
+    set('[data-over-flips]', t.flips ? `${t.flips} · −${round(t.flips * FLIP)}` : '0');
     set('[data-over-flow]', `×${t.bestFlow.toFixed(1)}`);
-    set('[data-over-balls]', String(t.balls));
     set('[data-over-score]', round(t.score));
     const title = this.el.querySelector('[data-over-title]');
-    if (title) title.textContent = this.fresh ? 'A new best' : 'Swimming';
-    if (this.fresh) this.ctx.sound.river('best');
+    if (title) title.textContent = this.fresh ? 'A new best' : quickest ? 'Your quickest yet' : t.finished ? 'Down' : 'Swimming';
+    if (this.fresh || quickest) this.ctx.sound.river('best');
     this.$.gauge.hidden = this.$.roll.hidden = true;
     this.card('over');
   }

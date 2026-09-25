@@ -539,6 +539,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .river-hud .panel-close { top: 50%; right: 8px; transform: translateY(-50%); width: 30px; height: 30px; }
 .river-stat { font: 700 20px/1 var(--ui); color: var(--ink); display: flex; align-items: baseline; gap: 4px; }
 .river-stat small { font-size: 13px; font-weight: 400; color: var(--ink-soft); }
+.river-stat span { font-variant-numeric: tabular-nums; }
 .river-best { font-size: 14px; font-weight: 400; color: var(--ink-soft); }
 .river-best span { color: var(--ink); font-weight: 700; }
 .river-ball { display: inline-block; width: 12px; height: 12px; background: #d4dc3c; box-shadow: inset -2px -2px 0 #a8ae28, 0 0 0 2px var(--ink); align-self: center; }
@@ -590,6 +591,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .river-stat.pop { animation: flow-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.6); }
 .river-pace { --pace: 0; min-width: 34px; font: 700 13px/1 var(--ui); font-style: normal; color: color-mix(in srgb, var(--ink-soft), #e0582c calc(var(--pace) * 100%)); }
 .river-score span { color: var(--wood); }
+.river-time span { min-width: 3.2em; font-variant-numeric: tabular-nums; }
+.river-time.late span { color: var(--ink-soft); }
 .river-flash { position: absolute; inset: 0; opacity: 0; pointer-events: none; mix-blend-mode: screen; }
 .river-praise { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .river-word {
@@ -618,9 +621,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background-image: linear-gradient(90deg, transparent calc((0.5 - var(--window) / 2) * 100%), #6fd06a calc((0.5 - var(--window) / 2) * 100%) calc((0.5 + var(--window) / 2) * 100%), transparent calc((0.5 + var(--window) / 2) * 100%));
 }
 .river-roll b::after { content: ''; position: absolute; top: -3px; bottom: -3px; width: 4px; left: calc(var(--needle) * 100% - 2px); background: var(--paper); }
-.river-breath { --breath: 1; position: absolute; left: 50%; bottom: 22px; width: 160px; height: 8px; margin-left: -80px; background: rgba(29, 26, 44, 0.6); clip-path: var(--notch); pointer-events: none; }
-.river-breath i { display: block; height: 100%; width: calc(var(--breath) * 100%); background: #8fd3f0; }
-.river-breath.puffed i { background: #ff5a3c; }
 .river-hint {
   position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); margin: 0; padding: 6px 14px 8px; max-width: calc(100vw - 32px);
   font: 17px var(--ui); color: var(--ink); background: var(--gold); clip-path: var(--notch); text-align: center; animation: banner-in 0.35s;

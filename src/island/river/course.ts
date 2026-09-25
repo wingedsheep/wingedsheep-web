@@ -51,6 +51,11 @@ export interface Sample {
   isleU: number;
   /** Which channel round the island is the fast, white one: -1 river left, 1 right (0: no island). */
   hero: number;
+  /**
+   * How hard it's bending (rad/m, + to the right), smoothed and lagging a little behind the bank,
+   * as the water does: the fast core swings out after the bend's apex (see flow.ts).
+   */
+  bend: number;
 }
 
 /**
@@ -169,14 +174,16 @@ export interface Stretch {
   heat: number;
   /** The chute before the first white water: fast, but with room to learn to dodge. */
   fast?: boolean;
+  /** The last pool, with the finish in it. */
+  takeout?: boolean;
 }
 
 const BASE: Record<Kind, Character> = {
   pool: { width: 19, speed: 2.4, rough: 0, rocks: 0.006, bend: 0.35, slope: 0, clear: 1, gorge: 0, heat: 0 },
-  run: { width: 12, speed: 5.0, rough: 0.3, rocks: 0.045, bend: 0.8, slope: 0.015, clear: 0.3, gorge: 0, heat: 0 },
-  rapids: { width: 9.5, speed: 6.8, rough: 0.9, rocks: 0.13, bend: 1, slope: 0.05, clear: 0, gorge: 0.15, heat: 0 },
+  run: { width: 13, speed: 5.0, rough: 0.3, rocks: 0.045, bend: 0.8, slope: 0.015, clear: 0.3, gorge: 0, heat: 0 },
+  rapids: { width: 13.5, speed: 6.8, rough: 0.9, rocks: 0.13, bend: 1, slope: 0.05, clear: 0, gorge: 0.15, heat: 0 },
   cascade: { width: 11, speed: 5.0, rough: 0.55, rocks: 0.03, bend: 0.3, slope: 0.01, clear: 0, gorge: 0.35, heat: 0 },
-  gorge: { width: 8, speed: 6.4, rough: 0.65, rocks: 0.07, bend: 0.9, slope: 0.035, clear: 0, gorge: 1, heat: 0 },
+  gorge: { width: 11, speed: 6.4, rough: 0.65, rocks: 0.07, bend: 0.9, slope: 0.035, clear: 0, gorge: 1, heat: 0 },
   falls: { width: 12, speed: 4.6, rough: 0.3, rocks: 0.01, bend: 0.2, slope: 0.005, clear: 0.2, gorge: 0.5, heat: 0 },
 };
 
@@ -237,12 +244,17 @@ export class Course {
   private y = SOURCE;
   private falling: { from: number; height: number } | null = null;
   private churn = 0; // white water at the foot of a ledge, settling downstream
+  private bend = 0;
   private placedTo = 0; // rocks and the rest are placed up to here
   private names: string[];
   /** The lips still to come, in order. */
   private lips: Ledge[] = [];
 
-  constructor(readonly seed: number) {
+  /**
+   * `finish`: the take-out, where the run ends (a bridge over a last slow pool). Past it the river
+   * only pools on, for the kayak to drift in.
+   */
+  constructor(readonly seed: number, readonly finish = Infinity) {
     this.random = rng(seed);
     this.names = [...RAPIDS].sort(() => this.random() - 0.5);
     // a slow green pool to get the feel of it, an easy forest run, a fast chute to learn to
@@ -289,9 +301,9 @@ export class Course {
     return this.at(s)?.heat ?? 0;
   }
 
-  /** Harder the further you get: nothing through the opening, then easing up to 1 by ~3 km. */
+  /** Harder the further you get: nothing through the opening, then easing up to 1 by the take-out. */
   private ramp(s: number) {
-    const t = Math.max(0, Math.min(1, (s - 550) / 2500));
+    const t = Math.max(0, Math.min(1, (s - 550) / 1300));
     return t * t * (3 - 2 * t) * 0.6 + t * 0.4;
   }
 
@@ -376,10 +388,12 @@ export class Course {
 
     // wind: noise sets the curvature, never tighter than the river can take, and a gentle pull
     // back towards north keeps it from wandering off sideways
-    const tight = 1 / Math.max(22, c.width * 2.4);
+    const tight = 1 / Math.max(26, c.width * 2.6);
     const curve = noise1(s / 38, this.seed) * 0.8 + noise1(s / 13, this.seed + 7) * 0.35 * c.bend;
+    const was = this.a;
     this.a += (curve * tight * (0.4 + c.bend) - this.a * 0.012) * STEP;
     this.a = Math.max(-MAX_TURN, Math.min(MAX_TURN, this.a));
+    this.bend += ((this.a - was) / STEP - this.bend) * (1 - Math.exp(-STEP / 7));
     this.x += Math.sin(this.a) * STEP;
     this.z -= Math.cos(this.a) * STEP;
 
@@ -420,6 +434,7 @@ export class Course {
       isle: 0,
       isleU: 0,
       hero: 0,
+      bend: this.bend,
     });
     if (split && s > split.s0 && s < split.s1) {
       // never so wide that either channel's too narrow to get down
@@ -441,7 +456,7 @@ export class Course {
     if (stretch.kind === 'rapids' || stretch.kind === 'gorge') {
       // the first rapid is a friendly one: a bit slower, wider and less white than the rest
       t.speed += -0.9 + h * 3;
-      t.width += 1.5 - h * 3;
+      t.width += 1 - h * 1.5;
       t.slope += h * 0.02;
       t.rough *= 0.65 + h * 0.35;
     } else {
@@ -475,6 +490,16 @@ export class Course {
     let [lo, hi] = [0, 0];
     let heat: number;
     let fast = false;
+    if (s > this.finish - 180) {
+      // the take-out: one last slow pool, the bridge over it the finish line
+      const next: Stretch = { kind: 'pool', start: s, end: s + 400, heat: 0, takeout: true };
+      if (this.finish >= s && this.finish < next.end) {
+        this.features.push({ kind: 'bridge', s: this.finish, side: 0 });
+        this.features.push({ kind: 'cabin', s: this.finish + 40, side: r() < 0.5 ? -1 : 1 });
+      }
+      this.stretches.push(next);
+      return next;
+    }
     if (n === 1) {
       kind = 'run';
       [lo, hi] = [110, 130];
@@ -519,7 +544,8 @@ export class Course {
         [lo, hi] = lengths[kind];
       }
     }
-    const next: Stretch = { kind, start: s, end: s + Math.round(lo + r() * (hi - lo)), heat, fast };
+    // nothing runs on into the take-out: it's always the pool
+    const next: Stretch = { kind, start: s, end: Math.min(this.finish - 60, s + Math.round(lo + r() * (hi - lo))), heat, fast };
     if (kind === 'rapids' || kind === 'gorge' || kind === 'cascade') {
       next.name = this.names[this.stretches.filter((x) => x.name).length % this.names.length];
       next.grade = Math.max(2, Math.min(5, 2 + Math.round((heat - 0.2) * 3.4 + (kind === 'cascade' ? 0.4 : 0))));
@@ -639,8 +665,8 @@ export class Course {
       // (the chute gets a few more, spread out, to practise dodging on)
       const density = BASE[stretch.kind].rocks * (0.55 + h * 1.6) * (stretch.fast ? 1.7 : 1);
       // rows of rocks come closer together the hotter it gets: a couple of seconds apart in the
-      // first rapid, hardly more than one in the big stuff
-      const spacing = Math.max(white ? 14 - h * 7 : 7, Math.min(40, 1.4 / Math.max(density, 0.01) / 3.2));
+      // first rapid, hardly more than one in the big stuff (in seconds, whatever the speed)
+      const spacing = Math.max(white ? Math.max(6, p.speed) * (1.9 - h * 0.6) : 7, Math.min(40, 1.4 / Math.max(density, 0.01) / 3.2));
       const step = spacing * (0.8 + r() * 0.4);
       this.placedTo += step;
       if (s < 120) continue; // a clear start
@@ -669,7 +695,8 @@ export class Course {
       const perRow = stretch.kind === 'rapids' ? 1 + Math.floor(r() * (1.6 + h * 2.6))
         : stretch.kind === 'gorge' ? 1 + Math.floor(r() * (1.5 + h * 1.5))
           : stretch.kind === 'run' || stretch.kind === 'cascade' ? 1 + Math.floor(r() * (1.2 + h)) : 1;
-      const inRow = r() < density * spacing * 1.6 ? perRow : 0;
+      // (a wider river has room for more of them)
+      const inRow = r() < density * spacing * 1.6 ? Math.max(1, Math.round(perRow * Math.min(1.5, half / 5.5))) : 0;
       let left = false;
       let right = false;
       for (let k = 0; k < inRow; k++) {

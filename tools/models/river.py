@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 import random
 
+import bmesh
 import palette as P
 import beike
 import characters
@@ -19,7 +20,6 @@ from kit import Model, group, light
 from mathutils import Vector
 
 MOSS = ["#4f7a3a", "#5f8a42", "#6f9a4a"]
-WET_ROCK = ["#4a3f52", "#574b5f", "#5d5063"]
 # river rocks are paler than the island's, so they stand out from the water
 RIVER_ROCK = ["#9a90a2", "#a89fae", "#8a8094", "#b3aab5"]
 BIRCH = "#e8e2d6"
@@ -51,6 +51,28 @@ EARTH = "#4a3a2e"
 DRIFT = ["#c9bca6", "#b5a892", "#d8cdb8", "#a89a84"]
 WILLOW = ["#7fa84a", "#8fb85a", "#6f9a4a"]
 SWING_ROPE = "#c9a56a"
+# river rocks: dry and pale on top, dark where the spray keeps them wet, darker still underwater
+ROCK_DRY = RIVER_ROCK
+ROCK_TOP = ["#bdb4c0", "#c6bec9", "#aaa1b2", "#cbc3cc"]
+ROCK_WET = ["#4e4358", "#554a60", "#4a3f52"]
+ROCK_UNDER = "#352e40"
+# the white-water kayak: a red-orange creek boat, a pale deck line, black trim
+CREEK = "#e8502a"
+CREEK_DECK = "#f26a34"
+CREEK_BELLY = "#b43c22"
+CREEK_STRIPE = "#fbe3c4"
+CREEK_TRIM = "#1d1a24"
+SPRAY_DECK = "#2b2e3a"
+GRAB_LOOP = "#f2c52e"
+# the paddler's kit: yellow helmet, blue buoyancy vest, yellow blades on a black shaft
+HELMET = "#f6c630"
+HELMET_DARK = "#c9951e"
+PFD = "#2f6ad0"
+PFD_DARK = "#224f9e"
+PFD_TRIM = "#f2ece2"
+BLADE = "#f6c630"
+BLADE_EDGE = "#1d1a24"
+SHAFT = "#26242b"
 
 _n = 0
 
@@ -65,25 +87,46 @@ def _root(kind: str, **extras):
 # --- in the water ------------------------------------------------------------------------
 
 def rocks():
-    """Boulders for the river to break on: rounded, wet-dark below the waterline and paler,
-    sometimes mossy, above it. Radius about 1 (the runtime scales them); z = 0 is the water."""
+    """Boulders for the river to break on: rounded and knobbly, cut into bands like a real wet
+    boulder: dark underwater, a clearly darker wet band just above the waterline where the spray
+    keeps it soaked, pale dry stone above that, the flattest tops palest of all, and on some a
+    mossy shoulder. Radius about 1 (the runtime scales them); z = 0 is the water."""
     shapes = [
-        (1.0, (1.2, 1.0, 0.7), 0.14, False),
-        (1.0, (1.0, 0.9, 0.85), 0.16, True),
-        (1.0, (1.4, 0.8, 0.5), 0.1, False),     # a low slab the water pours over
-        (0.9, (0.9, 0.9, 1.25), 0.14, True),    # a tall one, standing up out of the current
-        (1.0, (1.1, 1.1, 0.6), 0.18, True),
+        # r, scale, jitter, moss (the side it grows on, or None)
+        (1.0, (1.2, 1.0, 0.7), 0.14, None),
+        (1.0, (1.0, 0.9, 0.85), 0.16, 0.8),
+        (1.0, (1.4, 0.8, 0.5), 0.1, None),      # a low slab the water pours over
+        (0.9, (0.9, 0.9, 1.25), 0.14, 2.6),     # a tall one, standing up out of the current
+        (1.0, (1.1, 1.1, 0.6), 0.18, 4.2),
     ]
-    for i, (r, scale, jitter, mossy) in enumerate(shapes):
+    for i, (r, scale, jitter, moss) in enumerate(shapes):
         root = _root(f"rock_{i}", radius=round(max(scale[0], scale[1]) * r, 3))
         m = Model(f"rock_{i}", seed=40 + i)
-        top = RIVER_ROCK[i % 4]
-        m.ball(r, (0, 0, 0.05), top, subdiv=2, scale=scale, jitter=jitter)
-        m.ball(r * 1.04, (0, 0, -0.35), WET_ROCK[i % 3], subdiv=1, scale=(scale[0], scale[1], 0.45), jitter=jitter)
-        if mossy:
-            m.ball(r * 0.6, (-0.1, 0.05, r * scale[2] * 0.62), MOSS[i % 3], subdiv=1,
-                   scale=(scale[0], scale[1], 0.35), jitter=0.05)
-        # a few pebbles lodged round it
+        m.ball(r, (0, 0, 0.05), ROCK_DRY[i % 4], subdiv=2, scale=scale, jitter=jitter)
+        # slice it at the waterline and at the top of the wet band, so the bands have clean edges
+        top = r * scale[2] + 0.05
+        band = 0.1 + top * 0.36                     # up past its widest, so it rings it seen from above
+        for z in (0.0, band):
+            bm = m.bm
+            bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces),
+                                   plane_co=(0, 0, z), plane_no=(0, 0, 1))
+        m.bm.normal_update()
+        wet = m._slot(ROCK_WET[i % 3], False)
+        under = m._slot(ROCK_UNDER, False)
+        light_top = m._slot(ROCK_TOP[i % 4], False)
+        greens = [m._slot(c, False) for c in MOSS[:2]]
+        for k, f in enumerate(m.bm.faces):
+            c = f.calc_center_median()
+            if c.z < 0:
+                f.material_index = under
+            elif c.z < band:
+                f.material_index = wet
+            elif moss is not None and c.z > band + 0.08 and f.normal.z > 0.3 \
+                    and abs(math.remainder(math.atan2(c.y, c.x) - moss, math.tau)) < 0.85:
+                f.material_index = greens[k % 2]
+            elif f.normal.z > 0.8:
+                f.material_index = light_top
+        # a few pebbles lodged round it, wet at the waterline
         rng = random.Random(i)
         for _ in range(3):
             a = rng.uniform(0, math.tau)
@@ -633,9 +676,113 @@ def animals():
     characters.sheep(_root("wingedsheep"))
 
 
+def _creek_hull(m: Model, length=2.8, beam=0.66):
+    """A creek boat's hull, lofted from cross-sections along y (bow at -y): short, round-ended,
+    rockered (the keel sweeps up at both ends) and high-decked, with a pale deck line along the
+    sheer. Each section is a ring: keel, chine, sheer (the widest point), deck line, deck."""
+    half = length / 2
+    ts = [-1.0, -0.94, -0.84, -0.66, -0.42, -0.14, 0.14, 0.42, 0.66, 0.84, 0.94, 1.0]
+    belly, side, stripe, deck = (m._slot(c, False) for c in (CREEK_BELLY, CREEK, CREEK_STRIPE, CREEK_DECK))
+    rings = []
+    for t in ts:
+        y = t * half
+        u = abs(t)
+        w = beam / 2 * max(0.0, 1 - u ** 2.6) ** 0.55              # blunt, full ends
+        keel = -0.12 + 0.3 * u ** 2.2                              # the rocker
+        sheer = 0.1 + 0.1 * u ** 2
+        # the deck: domed high over the bow (for punching through holes), lower behind him
+        crown = 0.44 - 0.16 * u ** 2 if t < 0 else 0.37 - 0.15 * u ** 1.6
+        if u == 1.0:                                                # the very tip: one point
+            rings.append([m.bm.verts.new((0, y, sheer + 0.03))])
+            continue
+        right = [(0.0, keel), (w * 0.72, keel + 0.05), (w, sheer), (w * 0.9, sheer + 0.07),
+                 (w * 0.5, crown - 0.03), (0.0, crown)]
+        ring = right + [(-x, z) for x, z in reversed(right[1:-1])]
+        rings.append([m.bm.verts.new((x, y, z)) for x, z in ring])
+    # which band of the ring each face belongs to: 0 keel-chine, 1 chine-sheer, 2 the stripe, 3/4 the deck
+    colour = [belly, side, stripe, deck, deck, deck, deck, stripe, side, belly]
+    for a, b in zip(rings, rings[1:]):
+        if len(a) == 1 or len(b) == 1:
+            tip, ring = (a[0], b) if len(a) == 1 else (b[0], a)
+            for k in range(len(ring)):
+                f = m.bm.faces.new((ring[k], ring[(k + 1) % len(ring)], tip))
+                f.material_index = colour[k]
+            continue
+        for k in range(len(a)):
+            j = (k + 1) % len(a)
+            f = m.bm.faces.new((a[k], a[j], b[j], b[k]))
+            f.material_index = colour[k]
+    bmesh.ops.recalc_face_normals(m.bm, faces=m.bm.faces)
+
+
+def _creek_head(root):
+    """His head in a white-water helmet: a chunky yellow shell over the top and ears (so it reads
+    from above), a short peak over the eyes and a chin strap. The helmet is part of `head`, so it
+    turns with him. Pivots at the neck like the island's head, a touch smaller than on the island
+    so it hides less of the bow from the camera behind him."""
+    h = characters.head(root, "head", (0, 0, 0.95), cap=False)
+    h.scale = (0.85, 0.85, 0.85)
+    hm = Model("helmet")
+    hm.box((0.52, 0.5, 0.14), (0, 0.01, 0.49), HELMET)                                 # the shell
+    hm.box((0.42, 0.4, 0.06), (0, 0.01, 0.58), HELMET)                                # its dome
+    for x in (-0.25, 0.25):
+        hm.box((0.05, 0.3, 0.16), (x, 0.04, 0.34), HELMET)                             # over the ears
+        hm.box((0.02, 0.02, 0.18), (x * 0.94, -0.06, 0.18), CREEK_TRIM)               # chin strap
+    hm.box((0.44, 0.1, 0.04), (0, -0.28, 0.44), HELMET_DARK, rot=(-0.2, 0, 0))        # the peak
+    hm.box((0.06, 0.38, 0.02), (0, 0.02, 0.615), HELMET_DARK)                           # a vent ridge
+    hm.box((0.5, 0.06, 0.14), (0, 0.24, 0.38), HELMET)                                 # down over the back of the head
+    hm.box((0.28, 0.02, 0.06), (0, 0.275, 0.41), HELMET_DARK)                          # the back vent
+    hm.build(h)
+    return h
+
+
 def kayak():
-    """Vincent in his kayak: the same model as round the island (hull, head, paddle)."""
-    characters.vincent_kayak(_root("kayak"))
+    """Vincent in a white-water creek boat, faces -y (bow towards -y), z = 0 the waterline: a
+    short, chunky, rockered hull in red-orange so it pops off the water, a pale deck line, yellow
+    grab loops, a black cockpit rim and spray deck. He wears a yellow helmet (part of `head`) and
+    a blue buoyancy vest over his tee. The runtime turns `head` and swings `paddle` (the shaft,
+    the yellow blades and his forearms, pivoting at his chest; its right end is -x) stroke by
+    stroke."""
+    root = _root("kayak")
+    m = Model("kayak_hull")
+    _creek_hull(m)
+    # the cockpit: a black rim, the spray deck stretched over it, him sitting in the middle
+    m.ball(0.32, (0, 0.12, 0.36), CREEK_TRIM, subdiv=2, scale=(0.95, 1.45, 0.18))
+    m.ball(0.29, (0, 0.12, 0.39), SPRAY_DECK, subdiv=2, scale=(0.92, 1.4, 0.16))
+    # grab loops at bow and stern, and a pair of deck lines over the front deck
+    for y, z in ((-1.34, 0.24), (1.34, 0.23)):
+        s = -1 if y < 0 else 1
+        m.plank_line((-0.07, y - s * 0.06, z), (-0.07, y + s * 0.1, z + 0.03), 0.035, 0.035, GRAB_LOOP)
+        m.plank_line((0.07, y - s * 0.06, z), (0.07, y + s * 0.1, z + 0.03), 0.035, 0.035, GRAB_LOOP)
+        m.box((0.18, 0.035, 0.035), (0, y + s * 0.1, z + 0.03), GRAB_LOOP)
+    for x in (-0.12, 0.12):
+        m.plank_line((x, -0.95, 0.33), (x * 1.7, -0.45, 0.385), 0.03, 0.03, CREEK_TRIM)
+    # him: tee, and the buoyancy vest over it (chunkier than the tee, straps and a buckle)
+    characters._tee(m, 0.24)
+    m.box((0.62, 0.4, 0.44), (0, 0.02, 0.58), PFD)
+    m.box((0.64, 0.42, 0.08), (0, 0.02, 0.39), PFD_DARK)                                # its hem
+    for x in (-0.17, 0.17):
+        m.box((0.13, 0.36, 0.1), (x, 0.02, 0.83), PFD)                                  # shoulder straps
+    m.box((0.36, 0.03, 0.05), (0, -0.19, 0.54), PFD_TRIM)                               # the chest buckle strap
+    m.box((0.1, 0.03, 0.08), (0, -0.2, 0.54), PFD_DARK)
+    m.box((0.2, 0.03, 0.14), (0.13, -0.19, 0.68), PFD_DARK)                             # a chest pocket
+    m.box((0.3, 0.03, 0.12), (0, 0.23, 0.66), PFD_TRIM)                                  # reflective patch on the back
+    for s in (-1, 1):                                                                   # upper arms, out to the elbows
+        m.plank_line((s * 0.33, 0.0, 0.84), (s * 0.4, -0.22, 0.7), 0.15, 0.15, P.TEE)
+    m.build(root)
+    _creek_head(root)
+    p = Model("paddle")
+    p.plank_line((-1.08, 0, 0), (1.08, 0, 0), 0.05, 0.05, SHAFT)
+    blade = [(0.0, -0.06), (0.1, -0.11), (0.4, -0.13), (0.47, -0.07), (0.47, 0.07), (0.4, 0.12),
+             (0.1, 0.1), (0.0, 0.05)]
+    for s in (-1, 1):
+        # blades: big and yellow, with a dark tip, so they read as they dip left and right
+        p.prism([(s * (1.0 + x), z) for x, z in blade][::s], 0.04, (0, 0, 0), BLADE)
+        p.prism([(s * (1.44 + x * 0.1), z * 0.95) for x, z in blade][::s], 0.05, (0, 0, 0), BLADE_EDGE)
+        p.plank_line((s * 0.4, 0.2, 0.0), (s * 0.36, 0.0, 0.0), 0.11, 0.11, P.SKIN)    # forearms
+        p.box((0.1, 0.12, 0.12), (s * 0.36, 0, 0), P.SKIN)                              # hands on the shaft
+    p.plank_line((0.36, 0.08, 0.0), (0.36, 0.14, 0.0), 0.13, 0.13, P.WATCH)
+    p.build(root, loc=(0, -0.42, 0.7))
 
 
 def build():

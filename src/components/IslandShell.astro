@@ -250,11 +250,12 @@ const places = [
     </aside>
   </section>
 
-  <!-- wild water: an endless river down the far side of the hill (src/island/river.ts). The
+  <!-- wild water: a river down the far side of the hill to a take-out (src/island/river.ts). The
        HUD along the top, and a card for pushing off, pausing and swimming. -->
   <section class="river" data-panel="river" hidden aria-labelledby="river-title" data-device="keys">
     <header class="river-hud">
-      <p class="river-stat"><span data-river-metres>0</span><small>m</small></p>
+      <p class="river-stat" title="Metres to the take-out"><span data-river-metres>0</span><small>m to go</small></p>
+      <p class="river-stat river-time" title="Every second under par at the take-out is worth points"><span data-river-time>0:00</span></p>
       <p class="river-flow" data-river-flow title="Flow: builds as you paddle well, gone on a knock or a swim">×1.0</p>
       <p class="river-stat river-score"><span data-river-score>0</span><small>pts</small><em class="river-pace" data-river-pace title="Speed bonus: the faster you go, the more each metre's worth"></em></p>
       <p class="river-stat river-balls" title="Beike's tennis balls, fished out"><i class="river-ball" aria-hidden="true"></i><span data-river-balls>0</span></p>
@@ -265,20 +266,19 @@ const places = [
     <div class="river-praise" data-river-praise aria-hidden="true"></div>
     <div class="river-gauge" data-river-gauge hidden aria-hidden="true"><i></i></div>
     <div class="river-roll" data-river-roll hidden aria-hidden="true"><span>Roll!</span><b></b></div>
-    <div class="river-breath" data-river-breath hidden aria-label="Breath"><i></i></div>
     <p class="river-banner" data-river-banner hidden aria-live="polite"></p>
     <p class="river-hint" data-river-hint hidden aria-live="polite"></p>
     <div class="river-card" data-river-card="ready">
       <h2 id="river-title" tabindex="-1">Wild water</h2>
-      <p class="river-lede">A mountain river, as far down as you can get. Keep her upright, pick your lines, and don't swim.</p>
+      <p class="river-lede">A mountain river, 1.8 km down to the take-out. Keep her upright, pick your lines, don't swim, and don't hang about.</p>
       <ul class="river-keys">
         <li data-for="keys"><kbd>↑</kbd> paddle (or <kbd>A</kbd> <kbd>D</kbd> one side) · <kbd>Q</kbd> <kbd>E</kbd> brake / reverse sweep<br><kbd>←</kbd><kbd>→</kbd> lean · <kbd>W</kbd><kbd>S</kbd> lean forward / back · <kbd>Space</kbd> brace · <kbd>P</kbd> pause</li>
         <li data-for="pad"><kbd>L2</kbd> <kbd>R2</kbd> paddle on that side (both: straight on)<br><kbd>L1</kbd> <kbd>R1</kbd> brake / reverse sweep / brace · left stick leans</li>
         <li data-for="touch">Hold both sides of the screen to paddle, one side to turn away from it; low down to brake on that side.</li>
       </ul>
-      <p class="river-hint-line">Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, and up to double for speed: don't drift.</p>
+      <p class="river-hint-line">Read the water: long bright streaks are the fast line; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball.</p>
       <button class="river-go" data-river-go data-autofocus>Push off</button>
-      <p class="river-best-line">Your best: <span data-river-best>0</span></p>
+      <p class="river-best-line">Your best: <span data-river-best>0</span> · quickest down: <span data-river-fastest>–</span></p>
     </div>
     <div class="river-card" data-river-card="paused" hidden>
       <h2>Paused</h2>
@@ -290,8 +290,12 @@ const places = [
       <p class="river-lede" data-river-line></p>
       <dl class="river-tally">
         <dt>Distance</dt><dd data-over-metres>0 m</dd>
+        <dt>Time</dt><dd data-over-time>0:00</dd>
+        <dt>Time bonus</dt><dd data-over-bonus>–</dd>
         <dt>Best flow</dt><dd data-over-flow>×1.0</dd>
+        <dt>Gates</dt><dd data-over-gates>0</dd>
         <dt>Tennis balls</dt><dd data-over-balls>0</dd>
+        <dt>Capsizes</dt><dd data-over-flips>0</dd>
         <dt>Score</dt><dd data-over-score>0</dd>
         <dt>Best</dt><dd data-river-best>0</dd>
       </dl>
