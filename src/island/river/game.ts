@@ -9,7 +9,8 @@ import { waterAt } from './flow';
 import { MAX_HOLES, MAX_RIPPLES, MAX_ROCKS, MAX_TONGUES, riverWater } from './water';
 import { Wildlife } from './wildlife';
 
-const ELEVATION = THREE.MathUtils.degToRad(48);
+// lower than straight down, like the island's diorama view (35°), but high enough to see the lines
+const ELEVATION = THREE.MathUtils.degToRad(40);
 const DISTANCE = 140;
 const FLOW_MAX = 5;
 /** Speed pays: at or below SLOW m/s a metre's worth its flow, at FAST and over twice that. */
@@ -230,8 +231,9 @@ export class RiverGame {
 
   resize(width: number, height: number) {
     this.aspect = width / height;
-    // enough river either side on a narrow phone, and not a postage stamp on a wide screen
-    this.view = Math.max(22, Math.min(32, 20 / this.aspect + 9));
+    // enough river either side on a narrow phone, and not a postage stamp on a wide screen; far
+    // enough out that an art pixel's about the size it is on the island
+    this.view = Math.max(29, Math.min(38, 22 / this.aspect + 16));
   }
 
   /** Where something is on screen, in CSS px. */
@@ -715,10 +717,6 @@ export class RiverGame {
     u.uLight.value.copy(o.hemi.color).lerp(o.sun.color, 0.3).lerp(new THREE.Color(1, 1, 1), 0.35).multiplyScalar(0.3 + Math.min(o.sun.intensity, 2.5) * 0.29);
     u.uNight.value = o.night;
     u.uRain.value = o.rain;
-    u.uSunDir.value.copy(dir);
-    u.uSky.value.copy(o.hemi.color).lerp(o.fog, 0.5);
-    // the camera looks down the river from behind, ELEVATION above the horizon
-    u.uView.value.set(Math.sin(this.yaw) * Math.cos(ELEVATION), -Math.sin(ELEVATION), -Math.cos(this.yaw) * Math.cos(ELEVATION));
   }
 
   /**
@@ -733,7 +731,7 @@ export class RiverGame {
     this.yaw += (ahead.a - this.yaw) * (dt ? 1 - Math.exp(-dt * 1.4) : 1);
     // the faster it goes, the more river you see ahead: about three seconds of it
     const fast = THREE.MathUtils.clamp((k.speed - 3) / 7, 0, 1);
-    this.zoom += (1 + fast * 0.32 - this.zoom) * (dt ? 1 - Math.exp(-dt * 1.2) : 1);
+    this.zoom += (1 + fast * 0.22 - this.zoom) * (dt ? 1 - Math.exp(-dt * 1.2) : 1);
     // a kick (a boof, a tier) punches the view in a touch as well as down
     const view = this.view * this.zoom * (1 - this.kick * 0.06);
     const h = view / 2;

@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { createFoliage } from '../scene/foliage';
+import { createGrass } from '../scene/grass';
+import type { CanopyMarker } from '../scene/island';
 import { leavesAt, season } from '../scene/season';
 import { toon } from '../scene/toon';
 import type { RiverAssets } from './assets';
@@ -42,6 +45,27 @@ function noise2(x: number, z: number) {
 }
 const fbm = (x: number, z: number) => noise2(x * 0.045, z * 0.045) * 0.65 + noise2(x * 0.13, z * 0.13) * 0.35;
 
+/** Let go of a tile of ground and its grass. */
+function dropTile(mesh: THREE.Mesh) {
+  mesh.geometry.dispose();
+  for (const grass of mesh.children as THREE.InstancedMesh[]) {
+    grass.geometry.dispose();
+    (grass.material as THREE.Material).dispose();
+    grass.dispose();
+  }
+}
+
+/** …and of a chunk's water and leaves (every chunk grows its own). */
+function dropChunk(chunk: Chunk) {
+  chunk.water.geometry.dispose();
+  if (!chunk.foliage) return;
+  const mat = chunk.foliage.material as THREE.MeshToonMaterial;
+  mat.map?.dispose();
+  mat.dispose();
+  chunk.foliage.geometry.dispose();
+  chunk.foliage.dispose();
+}
+
 /** One bit of the riverside that stands somewhere: an animal's spot, a tree, a heron's pool. */
 export interface Spot {
   kind: 'heron' | 'ducks' | 'deer' | 'sheep' | 'fish';
@@ -62,6 +86,9 @@ interface Chunk {
   things: Map<object, THREE.Object3D>;
   glows: THREE.Sprite[];
   spots: Spot[];
+  /** Where its trees' leaves go, and the leaf cards grown there (as on the island). */
+  canopies: CanopyMarker[];
+  foliage?: THREE.InstancedMesh;
 }
 
 /**
@@ -117,7 +144,7 @@ export class Land {
     }
     for (const [k, mesh] of this.tiles) {
       if (want.has(k)) continue;
-      mesh.geometry.dispose();
+      dropTile(mesh);
       mesh.removeFromParent();
       this.tiles.delete(k);
     }
@@ -128,7 +155,7 @@ export class Land {
     for (let c = c0; c <= c1; c++) if (!this.chunks.has(c)) this.chunk(c);
     for (const [c, chunk] of this.chunks) {
       if (c >= c0 && c <= c1) continue;
-      chunk.water.geometry.dispose();
+      dropChunk(chunk);
       chunk.group.removeFromParent();
       this.chunks.delete(c);
       this.onDrop?.(c);
@@ -155,8 +182,8 @@ export class Land {
   }
 
   clear() {
-    for (const mesh of this.tiles.values()) mesh.geometry.dispose();
-    for (const chunk of this.chunks.values()) chunk.water.geometry.dispose();
+    for (const mesh of this.tiles.values()) dropTile(mesh);
+    for (const chunk of this.chunks.values()) dropChunk(chunk);
     this.tiles.clear();
     this.chunks.clear();
     this.group.clear();
@@ -215,6 +242,9 @@ export class Land {
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     mesh.raycast = () => {};
+    // the island's grass, blade by blade, on the green of the banks
+    mesh.updateMatrixWorld();
+    mesh.add(createGrass(mesh));
     return mesh;
   }
 
@@ -228,7 +258,7 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
@@ -257,6 +287,10 @@ export class Land {
     if (course.finish >= s0 && course.finish < s1) for (const side of [-1, 1]) this.post(chunk, course.finish - 4, r, 'FINISH', side);
     this.banks(chunk, s0, s1, r);
     this.islands(chunk, s0, s1, r);
+    if (chunk.canopies.length) {
+      chunk.foliage = createFoliage(chunk.canopies, group);
+      group.add(chunk.foliage);
+    }
 
     this.group.add(group);
     this.chunks.set(c, chunk);
@@ -323,14 +357,26 @@ export class Land {
     m.position.set(at.x, at.y, at.z);
     m.rotation.y = turn;
     if (scale !== 1) m.scale.multiplyScalar(scale);
-    this.dress(m);
     chunk.group.add(m);
+    this.dress(m, chunk);
     return m;
   }
 
-  /** Colour the crowns for the season (or take them off, in winter) and light the lanterns. */
-  private dress(m: THREE.Object3D) {
+  /**
+   * Colour the crowns for the season (or take them off, in winter), and note where the leafy
+   * trees want their leaf cards (the chunk grows them all at once, like the island's foliage).
+   */
+  private dress(m: THREE.Object3D, chunk: Chunk) {
+    m.updateMatrixWorld(true);
+    const tree = hash2(m.position.x, m.position.z) * 1e4;
     m.traverse((o) => {
+      if (o.userData.canopy) {
+        const scale = m.scale.x;
+        chunk.canopies.push({
+          position: o.getWorldPosition(new THREE.Vector3()), radius: o.userData.canopy * scale,
+          palette: o.userData.palette ?? 'leaf', squash: o.userData.squash ?? 1, tree,
+        });
+      }
       if (o.name.startsWith('crown') && (o as THREE.Mesh).isMesh) {
         if (!this.crowns) o.visible = false;
         else (o as THREE.Mesh).material = this.crowns[Math.floor(hash2(m.position.x, m.position.z) * this.crowns.length)];

@@ -16,6 +16,7 @@ import palette as P
 import beike
 import characters
 import fauna
+from nature import LEAF, canopy
 from kit import Model, group, light
 from mathutils import Vector
 
@@ -205,8 +206,8 @@ def lily():
 # --- on the banks -------------------------------------------------------------------------
 
 def trees():
-    """Trees for the banks. The leafy crowns are their own parts named `crown` so the runtime can
-    colour them for the season (fresh in spring, turning in autumn, bare in winter)."""
+    """Trees for the banks. Their crowns are `canopy` markers, as on the island (nature.py): the
+    runtime grows fluffy leaf cards there, coloured for the season."""
     for i in range(3):
         root = _root(f"pine_{i}", height=round(6 + i * 1.3, 2))
         rng = random.Random(100 + i)
@@ -232,14 +233,12 @@ def trees():
             m.plank_line((0, 0, h * 0.65), (math.cos(a) * 1.0 * size, math.sin(a) * 1.0 * size, h * 1.2),
                          0.13 * size, 0.13 * size, P.BARK)
         m.build(root)
-        c = Model("crown", seed=121 + i)
-        c.ball(1.8 * size, (0, 0, h + 1.1 * size), P.LEAF[2], subdiv=1, jitter=0.25 * size, scale=(1, 1, 0.85))
+        # the leaves are the island's own fluffy leaf cards, grown by the runtime at these markers
+        canopy(root, (0, 0, h + 1.1 * size), 1.8 * size, LEAF, squash=0.85)
         for k in range(3):
             a = rng.uniform(0, math.tau)
-            c.ball(rng.uniform(1.0, 1.3) * size, (math.cos(a) * 1.1 * size, math.sin(a) * 1.1 * size,
-                                                  h + rng.uniform(0.3, 1.3) * size),
-                   P.LEAF[1 + k % 3], subdiv=1, jitter=0.18 * size)
-        c.build(root)
+            canopy(root, (math.cos(a) * 1.1 * size, math.sin(a) * 1.1 * size, h + rng.uniform(0.3, 1.3) * size),
+                   rng.uniform(1.0, 1.3) * size, LEAF)
 
     # birches: pale and thin, for the sandy stretches
     for i in range(2):
@@ -251,23 +250,17 @@ def trees():
             m.box((0.2, 0.2, 0.07), (0, 0, 0.5 + k * 0.65 + rng.uniform(-0.1, 0.1)), BIRCH_MARK,
                   rot=(0, 0, rng.uniform(0, math.tau)))
         m.build(root)
-        c = Model("crown", seed=141 + i)
         for k in range(4):
             a = rng.uniform(0, math.tau)
-            c.ball(rng.uniform(0.8, 1.1), (math.cos(a) * 0.6, math.sin(a) * 0.6, 4.2 + k * 0.45),
-                   P.LEAF[2 + k % 2], subdiv=1, jitter=0.15, scale=(1, 1, 1.2))
-        c.build(root)
+            canopy(root, (math.cos(a) * 0.6, math.sin(a) * 0.6, 4.2 + k * 0.45), rng.uniform(0.8, 1.1), LEAF)
 
 
 def bushes():
     for i in range(2):
         root = _root(f"bush_{i}")
-        c = Model("crown", seed=160 + i)
         rng = random.Random(160 + i)
         for k in range(3):
-            c.ball(rng.uniform(0.55, 0.8), (rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), 0.45),
-                   P.LEAF[1 + k % 3], subdiv=1, jitter=0.1, scale=(1, 1, 0.75))
-        c.build(root)
+            canopy(root, (rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), 0.45), rng.uniform(0.55, 0.8), LEAF, squash=0.7)
 
 
 def reeds():
@@ -616,14 +609,11 @@ def swing():
         m.box((0.16, 0.16, 0.16), (4.0, y, 3.72), SWING_ROPE)
     m.box((0.45, 0.9, 0.1), (4.0, 0, 0.8), P.WOOD_LIGHT)
     m.build(root)
-    c = Model("crown", seed=441)
-    rng = random.Random(441)
-    c.ball(2.4, (0.1, 0, 5.3), P.LEAF[2], subdiv=1, jitter=0.25, scale=(1.1, 1, 0.8))
+    canopy(root, (0.1, 0, 5.3), 2.4, LEAF, squash=0.8)
     for x, y, z, r in ((-1.5, 0.6, 5.0, 1.5), (1.4, -0.7, 5.6, 1.5), (0.0, 1.2, 6.3, 1.3), (2.4, 0.3, 4.9, 1.2),
                        (-0.6, -1.3, 4.6, 1.2)):
-        c.ball(r, (x, y, z), P.LEAF[1 + rng.randrange(3)], subdiv=1, jitter=0.18)
-    c.ball(0.75, (3.9, 0.0, 4.35), P.LEAF[3], subdiv=1, jitter=0.1, scale=(1.3, 1, 0.7))   # leaves on the branch end
-    c.build(root)
+        canopy(root, (x, y, z), r, LEAF)
+    canopy(root, (3.9, 0.0, 4.35), 0.75, LEAF, squash=0.7)                             # leaves on the branch end
 
 
 def gravel():

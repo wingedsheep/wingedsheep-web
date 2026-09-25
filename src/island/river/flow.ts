@@ -16,9 +16,9 @@ import { type Course, type Rock, type Sample, type Thing, channel } from './cour
  */
 
 /** The fast core is pushed this far out (as a fraction of the half-width) per unit of bend. */
-const CORE = 16;
+export const CORE = 16;
 /** A bend sharper than this (rad/m) leaves an eddy on its inside. */
-const EDDY_BEND = 0.011;
+export const EDDY_BEND = 0.011;
 /** How fast an eddy runs back upstream, against the river's speed. */
 export const BACKFLOW = 0.4;
 /** How hard an eddy draws water (and boats) in across its line, against the river's speed. */
