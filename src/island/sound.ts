@@ -43,6 +43,8 @@ export interface Disc {
   title: string;
   set: string;
   duration: number;
+  /** Where the music starts: the silence before it is skipped. */
+  start?: number;
 }
 
 const AUDIO = '/audio/';
@@ -168,13 +170,15 @@ export class Sound {
     if (!this.records.length) return null;
     if (!this.enabled) this.setEnabled(true);
     this.start();
-    if (!this.recordOrder.length) this.recordOrder = this.records.map((r) => r.id).sort(() => Math.random() - 0.5);
-    const track = this.records.find((r) => r.id === (id ?? this.recordOrder.shift()))!;
+    if (!this.recordOrder.length) this.recordOrder = shuffle(this.records.map((r) => r.id));
+    const want = id ?? this.recordOrder.shift();
+    const track = this.records.find((r) => r.id === want)!;
     this.stopRecord(false);
     this.recordsOn = true;
     const { el, gain } = this.stream(`${track.file}.${this.ext}`, false, this.recordBus);
     el.preservesPitch = false; // so the wind-up and the wow bend the pitch, like a real platter
     el.playbackRate = 0.8;
+    el.currentTime = track.start ?? 0;
     gain.gain.value = 0;
     gain.gain.setTargetAtTime(0.9, this.ctx!.currentTime + 0.35, 0.2); // the needle finds the groove
     el.addEventListener('ended', () => {
@@ -708,4 +712,13 @@ export class Sound {
       gain.disconnect();
     }, seconds * 4800);
   }
+}
+
+/** A fair shuffle (Fisher-Yates), in place. */
+function shuffle<T>(xs: T[]): T[] {
+  for (let i = xs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [xs[i], xs[j]] = [xs[j], xs[i]];
+  }
+  return xs;
 }

@@ -4,21 +4,24 @@
     "file": "records/cwt-01",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 5",
-    "duration": 91.2
+    "duration": 91.2,
+    "start": 1.63
   },
   {
     "id": 2,
     "file": "records/cwt-02",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 10",
-    "duration": 78.7
+    "duration": 78.7,
+    "start": 0.61
   },
   {
     "id": 3,
     "file": "records/cwt-03",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 6",
-    "duration": 102.6
+    "duration": 102.6,
+    "start": 1.12
   },
   {
     "id": 4,
@@ -32,42 +35,48 @@
     "file": "records/cwt-05",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 3",
-    "duration": 102.1
+    "duration": 102.1,
+    "start": 0.28
   },
   {
     "id": 6,
     "file": "records/cwt-06",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 2",
-    "duration": 105.3
+    "duration": 105.3,
+    "start": 0.31
   },
   {
     "id": 7,
     "file": "records/cwt-07",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 1",
-    "duration": 98.9
+    "duration": 98.9,
+    "start": 1.14
   },
   {
     "id": 8,
     "file": "records/cwt-08",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 7",
-    "duration": 94.6
+    "duration": 94.6,
+    "start": 0.56
   },
   {
     "id": 9,
     "file": "records/cwt-09",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 8",
-    "duration": 103.3
+    "duration": 103.3,
+    "start": 0.47
   },
   {
     "id": 10,
     "file": "records/cwt-10",
     "set": "Compound Word Transformer \u00b7 POP909",
     "title": "Compound Word Transformer \u00b7 POP909 \u00b7 9",
-    "duration": 106.9
+    "duration": 106.9,
+    "start": 0.2
   },
   {
     "id": 11,
@@ -109,28 +118,32 @@
     "file": "records/par-06",
     "set": "Perceiver AR \u00b7 4096",
     "title": "Perceiver AR \u00b7 4096 \u00b7 17",
-    "duration": 50.1
+    "duration": 50.1,
+    "start": 0.7
   },
   {
     "id": 17,
     "file": "records/par-07",
     "set": "Perceiver AR \u00b7 4096",
     "title": "Perceiver AR \u00b7 4096 \u00b7 16",
-    "duration": 50.1
+    "duration": 50.1,
+    "start": 0.7
   },
   {
     "id": 18,
     "file": "records/par-08",
     "set": "Perceiver AR \u00b7 4096",
     "title": "Perceiver AR \u00b7 4096 \u00b7 15",
-    "duration": 40.1
+    "duration": 40.1,
+    "start": 1.19
   },
   {
     "id": 19,
     "file": "records/par-09",
     "set": "Perceiver AR \u00b7 4096",
     "title": "Perceiver AR \u00b7 4096 \u00b7 14",
-    "duration": 88.1
+    "duration": 88.1,
+    "start": 0.2
   },
   {
     "id": 20,
@@ -179,7 +192,8 @@
     "file": "records/par-16",
     "set": "Perceiver AR \u00b7 4096",
     "title": "Perceiver AR \u00b7 4096 \u00b7 7",
-    "duration": 72.1
+    "duration": 72.1,
+    "start": 1.45
   },
   {
     "id": 27,
