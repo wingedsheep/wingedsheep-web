@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { Beike } from './beike';
+import { Bottle } from './bottle';
 import { Companion } from './companion';
 import { Fauna } from './fauna';
 import { Floaters } from './floaters';
 import type { Island } from './island';
+import { Mischief } from './mischief';
 import { Particles } from './particles';
 import { season } from './season';
-import { Shelter } from './shelter';
+import { Shelter, type Waypoint } from './shelter';
 import type { Sky } from './sky';
 import { Vincent } from './vincent';
 
@@ -28,6 +30,8 @@ const SHEEP_PASS = 30; // seconds for the winged sheep to cross the island
 const q = new THREE.Quaternion();
 const axis = new THREE.Vector3();
 const MOUTH = new THREE.Vector3();
+/** Beike's way over to the campfire from his meadow (Blender x, y: tools/models/layout.py), round the west log. */
+const TO_THE_FIRE: [number, number][] = [[-8.5, -10.5], [-3, -9.8], [3.6, -9.5], [9, -11], [15, -10.5], [21, -6], [23.6, -2.4], [24.7, 1.5]];
 const FACING = new THREE.Vector3();
 
 export type Burst = 'hearts' | 'notes' | 'chalk' | 'petals' | 'zzz' | 'silk';
@@ -62,6 +66,16 @@ export class Life {
   readonly companion: Companion;
   /** Where Vincent is: the guitar, the kayak, his game or bed. See vincent.ts (main.ts drives it). */
   readonly vincent: Vincent;
+  /** The gull with its eye on Vincent's dinner: see mischief.ts. */
+  readonly mischief: Mischief;
+  /** A message in a bottle, now and then: see bottle.ts. */
+  readonly bottle: Bottle;
+  /** Beike's way over to the fire, and where he drops his ball (at Vincent's feet). */
+  private fireRoute: Waypoint[] = [];
+  private fireSpot = V();
+  /** Seconds till Vincent kicks the ball Beike's dropped at his feet, and his foot flicking it. */
+  private kickIn = 0;
+  private kick = 0;
   /** How hard it's raining (or hailing), 0..1 (set every frame). */
   rain = 0;
   /** How wet the weather is, 0..1 (set every frame): rabbits and robins shelter from the rain. */
@@ -102,6 +116,18 @@ export class Life {
     this.shelter = new Shelter(island, this.beike);
     this.companion = new Companion(island);
     this.vincent = new Vincent(island, this.beike.ground);
+    this.mischief = new Mischief(scene, island, this.fauna.template('gull'));
+    this.mischief.onSnatch = (at) => this.fauna.onCall?.('gull', at);
+    this.bottle = new Bottle(island, this.beike.ground);
+    const ground = this.beike.ground;
+    const seat = island.positionOf('vincent');
+    const fire = island.positionOf('campfire');
+    if (seat && fire) {
+      // just in front of him, on the fire side, a little to his left
+      this.fireSpot.copy(seat).lerp(fire, 0.4).add(V(-0.35, 0, 0));
+      this.fireSpot.y = ground.at(this.fireSpot.x, this.fireSpot.z);
+      this.fireRoute = TO_THE_FIRE.map(([x, y]) => ({ at: V(x, ground.at(x, -y), -y), fixed: false }));
+    }
 
     this.mixer = new THREE.AnimationMixer(island.root);
     for (const clip of island.clips.filter((c) => c.name.endsWith('_idle'))) {
@@ -191,12 +217,44 @@ export class Life {
     this.flyFlock();
     this.shelter.update(dt, this.rain);
     this.beike.update(dt);
+    this.fetchAtTheFire(dt);
+    this.mischief.update(dt, night < 0.8, this.vincent.atTheFire);
+    this.bottle.update(dt);
     this.fauna.update(dt, { night, season: season.name, wet: this.wet, storm: this.storm });
     this.visitors(dt, night);
     this.emitters(dt, night);
     this.breath(dt, night);
     this.floaters.update(dt);
     this.particles.update(dt);
+  }
+
+  /**
+   * Mid-song, now and then, Beike trots all the way over from his meadow and drops his ball at
+   * Vincent's feet. Vincent flicks it away with his foot without missing a chord; a couple of
+   * those, and Beike goes home happy.
+   */
+  private fetchAtTheFire(dt: number) {
+    const beike = this.beike;
+    if (!this.fireRoute.length) return;
+    const atFire = this.vincent.atTheFire;
+    if (atFire && this.playing && !beike.visiting && this.every('beike:visit', 70, dt) && Math.random() < 0.6) {
+      beike.visit(this.fireRoute, this.fireSpot, this.island.positionOf('vincent')!);
+    }
+    if (!beike.atFire || !atFire) {
+      this.kickIn = rand(1.5, 3);
+      return;
+    }
+    if ((this.kickIn -= dt) > 0) return;
+    if (this.kick === 0) this.kick = 1; // the foot comes up…
+    if (this.kick < 0.5) beike.kicked(); // …and the ball goes at the top of the flick
+  }
+
+  /** Beike, over to the fire with his ball as soon as he can: for previews (?beike=fire). */
+  beikeToTheFire() {
+    const go = () => {
+      if (!this.beike.visit(this.fireRoute, this.fireSpot, this.island.positionOf('vincent')!)) setTimeout(go, 500);
+    };
+    go();
   }
 
   // --- internals -------------------------------------------------------------------
@@ -241,7 +299,9 @@ export class Life {
       head.rotation.z = Math.sin(t * 0.4) * 0.25 * (1 - g) + Math.sin(swing / 4) * 0.06 * g;
     }
     const foot = this.island.part('vincent', 'foot_tap');
-    if (foot) foot.rotation.x = -tap * 0.4 * g;
+    this.kick = Math.max(0, this.kick - dt / 0.6);
+    const flick = Math.sin(this.kick * Math.PI); // toes up and through the ball, and back
+    if (foot) foot.rotation.x = -tap * 0.4 * g - flick * 0.9;
   }
 
   /**

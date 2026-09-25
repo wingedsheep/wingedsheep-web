@@ -218,6 +218,31 @@ def card_table(root):
     m.build(root)
 
 
+def fire_wrap(root):
+    """Dinner by the fire: a wrap on a tin plate on the grass beside Vincent's log. The wrap is
+    its own mesh (`fire_wrap_roll`), since a gull sometimes leaves with it (mischief.ts)."""
+    m = Model("fire_wrap_plate")
+    m.cyl(0.22, 0.03, (0, 0, 0), "#b9c2c8", segs=10)
+    m.cyl(0.17, 0.012, (0, 0, 0.03), "#d7dde0", segs=10)
+    m.build(root)
+    w = Model("fire_wrap_roll")
+    w.cyl(0.07, 0.3, (-0.15, 0, 0.1), "#e8cf9c", segs=6, rot=(0, math.pi / 2, 0))
+    w.cyl(0.05, 0.02, (0.15, 0, 0.1), "#7fae55", segs=6, rot=(0, math.pi / 2, 0))   # lettuce at the open end
+    w.build(root)
+
+
+def bottle(root):
+    """A message in a bottle: green glass, a cork, a rolled-up note inside. The runtime floats it
+    in to the beach (bottle.ts), so it lies on its side, along x."""
+    m = Model("bottle")
+    m.cyl(0.075, 0.26, (-0.13, 0, 0.075), "#4f8f6a", segs=8, rot=(0, math.pi / 2, 0))
+    m.cyl(0.075, 0.07, (0.13, 0, 0.075), "#4f8f6a", segs=8, r_top=0.03, rot=(0, math.pi / 2, 0))
+    m.cyl(0.03, 0.08, (0.2, 0, 0.075), "#4f8f6a", segs=6, rot=(0, math.pi / 2, 0))
+    m.cyl(0.032, 0.05, (0.27, 0, 0.075), P.WOOD, segs=6, rot=(0, math.pi / 2, 0))     # the cork
+    m.cyl(0.045, 0.2, (-0.1, 0, 0.075), "#f2ead2", segs=6, rot=(0, math.pi / 2, 0))   # the note, rolled up
+    m.build(root)
+
+
 def guitar_case(root):
     m = Model("guitar_case")
     m.ball(0.5, (0, 0, 0.08), "#1f1a26", subdiv=1, scale=(1.8, 0.8, 0.25))

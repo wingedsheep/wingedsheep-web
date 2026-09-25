@@ -23,7 +23,8 @@ type Mood =
   | { kind: 'chase' }
   | { kind: 'pickup'; t: number }
   | { kind: 'return' }
-  | { kind: 'trip'; path: Waypoint[]; leg: number; indoors: boolean } // in out of the rain, or back out
+  // in out of the rain, or back out; over to the campfire with his ball (`fire`), or back home from it (`home`)
+  | { kind: 'trip'; path: Waypoint[]; leg: number; indoors: boolean; fire?: boolean; home?: boolean }
   | { kind: 'inside' };
 
 export type Poke = 'greet' | 'offer' | 'throw' | 'busy';
@@ -90,6 +91,8 @@ export class Beike {
   private greeted = -Infinity;
   private face = V(); // where the visitor is standing (the camera, on the ground)
   private dropAt = V(); // where he brings the ball back to
+  /** Over at the campfire, dropping his ball at Vincent's feet mid-song (visit()). */
+  private away: { spot: THREE.Vector3; vincent: THREE.Vector3; back: Waypoint[]; rounds: number } | null = null;
 
   private inMouth = true;
   private ballVel = V();
@@ -152,6 +155,49 @@ export class Beike {
   /** Whether the ball is lying at the visitor's feet, waiting to be thrown. */
   get waiting() {
     return this.mood.kind === 'offer';
+  }
+
+  /** Whether his ball is lying at Vincent's feet by the fire, waiting for a kick. */
+  get atFire() {
+    return !!this.away && this.mood.kind === 'offer' && !this.inMouth;
+  }
+
+  /** Whether he's off at the campfire (or on his way there or back). */
+  get visiting() {
+    return !!this.away || (this.mood.kind === 'trip' && !!this.mood.home);
+  }
+
+  /**
+   * Off to the campfire with his ball, along `route` (from his meadow), to drop it at Vincent's
+   * feet (`spot`) and wait. Only if he's pottering about with his ball, and it isn't raining.
+   */
+  visit(route: Waypoint[], spot: THREE.Vector3, vincent: THREE.Vector3) {
+    const kind = this.mood.kind;
+    if (!this.root || this.sheltering || !this.inMouth || (kind !== 'idle' && kind !== 'wander')) return false;
+    const here: Waypoint = { at: this.root.position.clone(), fixed: false };
+    const at: Waypoint = { at: spot.clone(), fixed: false };
+    this.away = {
+      spot: spot.clone(),
+      vincent: vincent.clone(),
+      back: [...route].reverse().concat({ at: this.home.clone(), fixed: false }),
+      rounds: 2 + Math.floor(Math.random() * 2),
+    };
+    this.mood = { kind: 'trip', path: [here, ...route, at], leg: 1, indoors: false, fire: true };
+    this.joy = 1;
+    return true;
+  }
+
+  /** Vincent flicks the ball away with his foot, without missing a chord. */
+  kicked() {
+    if (this.atFire) this.throwBall();
+  }
+
+  /** Back to his meadow from the fire. */
+  private goHome() {
+    if (!this.root || !this.away) return;
+    const here: Waypoint = { at: this.root.position.clone(), fixed: false };
+    this.mood = { kind: 'trip', path: [here, ...this.away.back], leg: 1, indoors: false, home: true };
+    this.away = null;
   }
 
   /** Whether he's indoors, out of the rain. */
@@ -246,7 +292,8 @@ export class Beike {
         if (m.t > 30) {
           // nobody's throwing: he picks it up and wanders off with it
           this.pickUp();
-          this.mood = { kind: 'idle', until: this.clock + 3 };
+          if (this.away) this.goHome();
+          else this.mood = { kind: 'idle', until: this.clock + 3 };
         }
         break;
       case 'chase':
@@ -270,7 +317,8 @@ export class Beike {
         pace = RUN * 0.8;
         if (this.flatDistance(this.dropAt) < 0.3) {
           this.fetched++;
-          this.mood = { kind: 'offer', t: 0 };
+          if (this.away && --this.away.rounds <= 0) this.goHome();
+          else this.mood = { kind: 'offer', t: 0 };
         }
         break;
       case 'trip': {
@@ -278,7 +326,12 @@ export class Beike {
         pace = RUN * 0.7;
         if (this.flatDistance(target) > 0.3) break;
         if (m.leg < m.path.length - 1) m.leg++;
-        else if (m.indoors) {
+        else if (m.fire && this.away) {
+          // at Vincent's feet: face him, drop the ball, wait
+          this.face.copy(this.away.vincent);
+          this.dropAt.copy(this.away.spot);
+          this.mood = { kind: 'offer', t: 0 };
+        } else if (m.indoors) {
           this.mood = { kind: 'inside' };
           this.root.visible = false;
         } else this.mood = { kind: 'idle', until: this.clock + rand(2, 5) };
@@ -314,6 +367,18 @@ export class Beike {
       ({ kind: 'trip', path: [here, ...trip.path.slice(0, trip.leg).reverse()], leg: 1, indoors: !trip.indoors }) as Mood;
     if (this.sheltering) {
       if (m.kind === 'inside' || (m.kind === 'trip' && m.indoors)) return;
+      // rained off at the campfire: his ball first, then home by way of the meadow
+      if (this.away || (m.kind === 'trip' && m.home)) {
+        if (!this.inMouth) {
+          if (m.kind !== 'chase' && m.kind !== 'pickup') this.mood = { kind: 'chase' };
+          return;
+        }
+        if (m.kind === 'pickup') return;
+        const back = this.away ? this.away.back : m.kind === 'trip' ? m.path.slice(m.leg) : [];
+        this.mood = { kind: 'trip', path: [here, ...back, ...route], leg: 1, indoors: true };
+        this.away = null;
+        return;
+      }
       if (m.kind === 'trip') this.mood = turnRound(m);
       else if (!this.inMouth) {
         if (m.kind !== 'chase' && m.kind !== 'pickup') this.mood = { kind: 'chase' }; // not without his ball
@@ -355,7 +420,8 @@ export class Beike {
   /** Flat grass, on land, not inside anything. */
   private walkable(p: THREE.Vector3) {
     const h = this.ground.at(p.x, p.z);
-    if (!(h > 0.35) || Math.abs(h - this.home.y) > 1.2) return false;
+    const base = this.away?.spot ?? this.home;
+    if (!(h > 0.35) || Math.abs(h - base.y) > 1.2) return false;
     const slope = Math.max(
       Math.abs(this.ground.at(p.x + 0.5, p.z) - h),
       Math.abs(this.ground.at(p.x, p.z + 0.5) - h),
@@ -375,13 +441,13 @@ export class Beike {
     const away = Math.atan2(this.root.position.z - this.face.z, this.root.position.x - this.face.x);
     for (let i = 0; i < 40 && !to; i++) {
       const a = away + rand(-1.4, 1.4) * (1 + i / 20);
-      const d = rand(6, 10) * (1 - i / 60);
+      const d = (this.away ? rand(3, 5.5) : rand(6, 10)) * (1 - i / 60); // a kick doesn't go as far
       const p = this.root.position.clone().add(V(Math.cos(a) * d, 0, Math.sin(a) * d));
       let clear = true;
       for (let k = 0.25; k <= 1 && clear; k += 0.25) clear = this.walkable(this.root.position.clone().lerp(p, k));
       if (clear) to = p;
     }
-    to ??= this.home.clone().add(V(rand(-1, 1), 0, rand(-1, 1)));
+    to ??= (this.away?.spot ?? this.home).clone().add(V(rand(-1, 1), 0, rand(-1, 1)));
     to.y = this.ground.at(to.x, to.z);
 
     const flight = 1.1;

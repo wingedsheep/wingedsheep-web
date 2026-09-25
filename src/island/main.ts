@@ -113,6 +113,7 @@ export async function bootIsland(host: HTMLElement) {
   picker.add(...[...island.named.keys()].filter((id) => placeFor(id)).map((id) => island.get(id)!));
   if (life.beike.tennisBall) picker.add(life.beike.tennisBall);
   picker.add(...life.fauna.pickables);
+  if (life.mischief.thief) picker.add(life.mischief.thief);
 
   /** The second moon only exists as a reflection, so it's found by where you click on the sea. */
   function pickMoon(ndc: THREE.Vector2) {
@@ -253,6 +254,11 @@ export async function bootIsland(host: HTMLElement) {
   // or him: ?vincent=guitar|kayak|yoga|climb|podcast|coding|asleep (and ?time=00:30 to see who's up)
   const where = params.get('vincent') as Whereabouts | null;
   if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where);
+  // a bit of mischief, sooner: ?beike=fire (he brings his ball over mid-song), ?mischief (the
+  // gull goes for the wrap), ?bottle (one's already washed up)
+  if (params.get('beike') === 'fire') life.beikeToTheFire();
+  if (params.has('mischief')) life.mischief.soon();
+  if (params.has('bottle')) life.bottle.ashore();
   void live();
   setInterval(live, 30 * 60 * 1000);
   ui.route(true);

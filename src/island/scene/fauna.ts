@@ -1764,6 +1764,8 @@ export class Fauna {
   /** Every clone, so clicks can find the nearest of a species. */
   private all: Critter[] = [];
   onCall?: (call: Call, at: THREE.Vector3) => void;
+  /** Each species' model, as Blender made it (fauna.py), for anyone else who needs a copy. */
+  private templates = new Map<string, THREE.Object3D>();
 
   constructor(
     scene: THREE.Scene,
@@ -1777,6 +1779,7 @@ export class Fauna {
       if (o.userData.fauna) templates.set(o.userData.fauna, o);
     });
     for (const t of templates.values()) t.removeFromParent();
+    this.templates = templates;
     const T = (s: string) => templates.get(s);
     if (!templates.size) return;
 
@@ -1995,6 +1998,11 @@ export class Fauna {
     if (species === 'wanderer') this.wanderer?.dash();
     if (species === 'gandalf') this.gandalf?.firework();
     if (species === 'supersheep') this.superSheep?.boom();
+  }
+
+  /** A species' model, straight from Blender, to clone (mischief.ts borrows a gull). */
+  template(species: string) {
+    return this.templates.get(species);
   }
 
   /** Whether the geese overhead are flying south (autumn) or north (spring). */

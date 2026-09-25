@@ -104,6 +104,8 @@ export const SECRETS = {
   rocky: { title: 'Fist my bump', hint: 'Someone with five legs and no face very rarely drops by the workshop.' },
   gandalf: { title: 'Precisely when he means to', hint: 'Someone grey, with a staff and a tall pointed hat, very rarely comes up from the dock. Never late.' },
   supersheep: { title: 'Super Sheep', hint: 'Once in a long while, one of the flock has somewhere to be. Fast.' },
+  bottle: { title: 'Message in a bottle', hint: 'Keep an eye on the beach. Now and then the sea brings something in.' },
+  thief: { title: 'Daylight robbery', hint: 'Someone by the fire should keep a closer eye on his dinner.' },
 } as const;
 
 let logPage = -1;
@@ -238,7 +240,7 @@ const WILDLIFE: Record<string, Place> = {
   ], 'wanderer'),
 };
 
-// Harry Potter, taking turns with the twentieth century (and a feminist classic)
+// Harry Potter, taking turns with the twentieth century
 const wellLine = keepsOn('It is very deep. Far below, something winds a spring: kriiik, kriiik.', {
   5: 'Kriiik, kriiik… kriiik?',
   9: 'From far below, a small, tired voice: “Some of us are trying to wind a spring down here.”',
@@ -250,15 +252,29 @@ const benchLine = keepsOn('You squeeze onto the end, next to the cats. Progress 
   14: 'You have rested enough for three journeys. The cats have not moved at all, and are more rested than you.',
 });
 const boulderLine = keepsOn('Yellow holds, V4. You send it on the third try.', {
-  3: 'You send it again. Nobody was watching, so it doesn’t count.',
+  3: 'You send it again. Your forearms have started to file a complaint.',
   6: 'Again, first go. At this point you’re just showing off to the sheep.',
   10: 'The holds have gone shiny where you keep grabbing them. The boulder would like a rest day.',
 });
 const coffeeLine = keepsOn('The most important machine in the lighthouse. The light on the front is never off.', {
-  3: 'Another one. It’s black, so it doesn’t count.',
+  3: 'Another one. Purely for research.',
   6: 'Coffee number six. Your left eye has started to blink on and off, gently, like a lighthouse.',
   10: 'The machine starts pouring before you reach it. It knows.',
 });
+
+/** Notes in bottles, in turn. Nobody's quite sure who writes them. */
+const bottleNote = (() => {
+  const notes = [
+    'If you are reading this, you have found the bottle. That’s it. That’s the secret.',
+    'Please send more hummus.',
+    'Greetings from the other island. Ours has three moons, and we think you’re showing off.',
+    'Beike, if you find this: it was a fake throw. I’m sorry. It won’t happen again. (It will.)',
+    'Your message is important to us. You are number 3 in the queue.',
+    'Wish you were here. Weather lovely. Bring socks.',
+  ];
+  let n = Math.floor(Math.random() * notes.length);
+  return () => notes[n++ % notes.length];
+})();
 
 const reading = inTurn([
   'Prisoner of Azkaban, for the ninth time. She still gasps at the Shrieking Shack.',
@@ -269,12 +285,10 @@ const reading = inTurn([
   'How Democracies Die. She reads the good bits out loud, then looks pointedly at the news.',
   'Half-Blood Prince. She’s at the bit on the tower and has asked not to be spoken to.',
   'A history of the Cold War, full of pencil notes. The margins are winning the arms race.',
-  'Invisible Women. She’s just found out crash-test dummies are built like men, and the whole island is going to hear about it.',
-  'A book on taxing the rich. In fifties America the top rate was ninety-one percent, and the economy boomed anyway. She has folded down the corner of that page.',
 ]);
 const fireside = inTurn([
   'She raises her mug at you. Tea. The schnapps is for later.',
-  'She has a request. He claims not to know it. He knows it.',
+  'She has a request. He plays it the second time she asks.',
   'Toes towards the fire, hands round the mug. This is the good log, and it’s taken.',
 ]);
 const workout = inTurn([
@@ -286,17 +300,18 @@ const workout = inTurn([
 const yoga = inTurn([
   'She opens one eye, sees him wobbling in tree pose, and very nearly loses her balance laughing.',
   'Deep breath in. Deep breath out. Somewhere behind her, a gull disagrees.',
-  'She’s better at this than him, and has been kind enough to mention it only twice.',
+  'Child’s pose, held for a suspiciously long time. She may have fallen asleep.',
 ]);
 const hisYoga = inTurn([
   'Tree pose. The tree is swaying a bit. It’s the wind, he says.',
-  'He breathes out very slowly and pretends not to have noticed you watching.',
+  'Eyes shut, breathing out very slowly. For a moment he is completely still. Then his nose itches.',
   'Downward dog. Beike, from across the island, takes this as an invitation.',
 ]);
 const climbing = inTurn([
   'Off to the summit, pack on, no reason. He’ll be back for the guitar.',
   'He points up at the flag, then at his boots, then at the flag again. Right.',
-  'Up top, arms in the air as if it were Everest. It’s a thirteen-metre hill. It still counts.',
+  'Up top, arms in the air as if it were Everest. It’s a thirteen-metre hill.',
+  'Halfway up he stops, looks back down at the lighthouse and thinks about coffee. He keeps climbing. He’s still thinking about coffee.',
 ]);
 
 // him: AI, mostly, and Sam Harris for everything else; big black noise-cancellers, pacing
@@ -522,6 +537,33 @@ export const PLACES: Record<string, Place> = {
       ctx.discover('moons');
     },
   },
+  fire_wrap: {
+    label: (ctx) => (ctx.life.mischief.stolen ? 'An empty plate' : 'A wrap on a plate'),
+    activate: (ctx) => {
+      if (!ctx.life.mischief.stolen) return ctx.toast('Hummus, tuna and whatever vegetables were left, for later. One of the gulls overhead has been circling it for some time.');
+      ctx.toast('An empty plate, a smear of hummus, and one webbed footprint.');
+      ctx.discover('thief');
+    },
+  },
+  thief: {
+    label: 'A gull · with a whole wrap',
+    activate(ctx, at) {
+      ctx.sound.call('gull', 1);
+      ctx.toast(ctx.life.mischief.flying && !ctx.life.mischief.stolen
+        ? 'You wave your arms. The gull doesn’t even slow down.'
+        : 'It has a whole wrap, and it is not sharing. From somewhere near the fire, a very quiet “hey”.');
+      ctx.life.burst('silk', at);
+      ctx.discover('thief');
+    },
+  },
+  bottle: {
+    label: 'A bottle with a note in it',
+    activate(ctx) {
+      ctx.life.bottle.take();
+      ctx.toast(`You uncork it and unroll the note: “${bottleNote()}”`);
+      ctx.discover('bottle');
+    },
+  },
   ...WILDLIFE,
 };
 
@@ -704,6 +746,7 @@ const DESK: Place = {
       'The little hero jumps, misses the platform, and falls through the floor. He writes something on a sticky note.',
       'He turns the screen so you can see: a level, a coin, a winged sheep somewhere up in the clouds. “Don’t tell anyone yet.”',
       'His phone lights up: “you’re still coming, right?” He types “omw!!” and goes back to the jump. On his way, in the loosest possible sense.',
+      'He holds his empty mug out without looking round. He’d love a coffee. He always would.',
     ]);
     // small hours: he said he'd stop at eleven
     const small = inTurn([
@@ -839,12 +882,10 @@ let guestPage = -1;
 let dreamPage = -1;
 
 /** Things in the mountain hut. */
-// she's a feminist; the pie is a bit
 const waiting = inTurn([
-  '“Look at me, a proper tradwife.” She says it with The Second Sex open next to the pie tin.',
-  'The timer says twenty minutes. She says eighteen, and she’s never wrong about pie.',
+  'The timer says twenty minutes. She checks the oven anyway, every two.',
   'Tradwife hour, she announces. It lasts exactly as long as the pie is in the oven, not a minute longer.',
-  'She offers you the first slice. Whoever says “a woman’s place” does the washing up.',
+  'She offers you the first slice. It’s far too hot, and you both eat it anyway.',
 ]);
 
 export const HUT_PLACES: Record<string, Place> = {
@@ -871,7 +912,7 @@ export const HUT_PLACES: Record<string, Place> = {
       const lines = [
         'He mumbles something about a double jump, smiles, and rolls over.',
         'Out like a light. The alarm is set for the sunrise; the alarm is going to lose.',
-        'A small snore. Then a bigger one. Nobody up here is going to mention it in the morning.',
+        'Fast asleep, and already looking forward to the first coffee.',
       ];
       let n = 0;
       return (ctx: IslandContext) => ctx.toast(lines[n++ % lines.length]);
