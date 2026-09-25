@@ -221,8 +221,8 @@ export async function bootIsland(host: HTMLElement) {
   bindHud(ctx);
 
   // the visitor's own weather, checked again every half hour. To preview: ?weather=rain (any
-  // WEATHER_KINDS), optionally with &wind=<m/s>, &gusts=<m/s>, &dir=<degrees it comes from>
-  // and &temp=<°C>
+  // WEATHER_KINDS), optionally with &k=<0..1 intensity: ?weather=partly&k=0.2 is the odd cloud>,
+  // &wind=<m/s>, &gusts=<m/s>, &dir=<degrees it comes from> and &temp=<°C>
   const params = new URLSearchParams(location.search);
   const preview = params.get('weather') as WeatherKind | null;
   let first = true;
@@ -239,7 +239,7 @@ export async function bootIsland(host: HTMLElement) {
   };
   if (preview) {
     const num = (k: string) => (params.has(k) ? Number(params.get(k)) : undefined);
-    weather.set(preview, 0.8, { wind: num('wind'), gusts: num('gusts'), direction: num('dir'), temperature: num('temp'), instant: true });
+    weather.set(preview, num('k') ?? 0.8, { wind: num('wind'), gusts: num('gusts'), direction: num('dir'), temperature: num('temp'), instant: true });
     life.shelter.settle();
     life.companion.settle();
     life.vincent.settle();

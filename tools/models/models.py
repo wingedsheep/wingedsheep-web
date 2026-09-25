@@ -57,7 +57,9 @@ def landmarks(t: Terrain):
     # his dinner, on the grass by his log (a gull has its eye on it: src/island/scene/mischief.ts)
     place(t, "fire_wrap", cx + 1.3, cy + 1.9, props.fire_wrap, rot_z=0.3, id="fire_wrap")
     # a message in a bottle, parked under the island till the tide brings it in (bottle.ts)
-    props.bottle(group("bottle", (0, 0, -20), id="bottle"))
+    bottle = group("bottle", (0, 0, -20), id="bottle")
+    bottle.scale = (1.8,) * 3                                                         # big enough to spot from the default view
+    props.bottle(bottle)
     place(t, "log", cx + 2.0, cy - 0.4, props.log_seat, rot_z=1.9)
     place(t, "log", cx - 2.2, cy + 0.6, props.log_seat, rot_z=-1.3)
     # her spots: on the east log, facing the fire, on a blanket under the blossom, and on an

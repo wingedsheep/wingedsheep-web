@@ -75,6 +75,8 @@ export class Life {
   private fireSpot = V();
   /** Seconds till Vincent kicks the ball Beike's dropped at his feet, and his foot flicking it. */
   private kickIn = 0;
+  /** Seconds since the music stopped (or Vincent left the fire), so Beike can get up and go. */
+  private quiet = 0;
   private kick = 0;
   /** How hard it's raining (or hailing), 0..1 (set every frame). */
   rain = 0;
@@ -119,6 +121,12 @@ export class Life {
     this.mischief = new Mischief(scene, island, this.fauna.template('gull'));
     this.mischief.onSnatch = (at) => this.fauna.onCall?.('gull', at);
     this.bottle = new Bottle(island, this.beike.ground);
+    this.bottle.onGlint = (at) => {
+      if (this.sky.lamps > 0.6) return; // no sun to catch at night
+      for (let i = 0; i < 3; i++) {
+        this.particles.emit({ position: at.clone().add(V(rand(-0.1, 0.1), rand(0, 0.15), rand(-0.1, 0.1))), velocity: V(0, rand(0.2, 0.5), 0), color: '#fffbe8', life: rand(0.4, 0.7), size: 2 });
+      }
+    };
     const ground = this.beike.ground;
     const seat = island.positionOf('vincent');
     const fire = island.positionOf('campfire');
@@ -231,12 +239,16 @@ export class Life {
   /**
    * Mid-song, now and then, Beike trots all the way over from his meadow and drops his ball at
    * Vincent's feet. Vincent flicks it away with his foot without missing a chord; a couple of
-   * those, and Beike goes home happy.
+   * those, a few mad laps round the fire, and he lies down at Vincent's feet for the rest of the
+   * song. He goes home when the playing stops.
    */
   private fetchAtTheFire(dt: number) {
     const beike = this.beike;
     if (!this.fireRoute.length) return;
     const atFire = this.vincent.atTheFire;
+    // settled down by the fire: up and home once there's been no music a few seconds (not between songs)
+    this.quiet = this.playing && atFire ? 0 : this.quiet + dt;
+    if (beike.settled && this.quiet > 4) beike.wakeUp();
     if (atFire && this.playing && !beike.visiting && this.every('beike:visit', 70, dt) && Math.random() < 0.6) {
       beike.visit(this.fireRoute, this.fireSpot, this.island.positionOf('vincent')!);
     }
@@ -254,7 +266,7 @@ export class Life {
     const go = () => {
       if (!this.beike.visit(this.fireRoute, this.fireSpot, this.island.positionOf('vincent')!)) setTimeout(go, 500);
     };
-    go();
+    setTimeout(go, 2000); // once he's been put where the weather says he is
   }
 
   // --- internals -------------------------------------------------------------------

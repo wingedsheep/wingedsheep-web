@@ -71,7 +71,7 @@ export class Mischief {
 
   /** Straight to the robbery: for previews (?mischief). */
   soon() {
-    this.next = 2;
+    this.next = 12;
   }
 
   /** `gulls`: whether it's light enough for gulls to be about. `atFire`: whether Vincent's at the fire. */

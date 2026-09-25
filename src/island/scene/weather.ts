@@ -32,13 +32,14 @@ type Blend = { cloud: number; shadows: number; fog: number; rain: number; fine: 
 const NONE: Blend = { cloud: 0, shadows: 0, fog: 0, rain: 0, fine: 0, snow: 0, hail: 0, storm: 0 };
 
 /**
- * What each kind of weather does at full intensity. cloud mutes the light, shadows are drifting
- * cloud shadows, fine turns rain into drizzle, and storm brings lightning.
+ * What each kind of weather does at full intensity. cloud mutes the light (and, as it closes over,
+ * softens every shadow), shadows are drifting cloud shadows, fine turns rain into drizzle, and
+ * storm brings lightning. Under a full lid of cloud nothing drifts: it's all one even grey.
  */
 const LOOKS: Record<WeatherKind, Partial<Blend>> = {
   clear: {},
   partly: { cloud: 0.15, shadows: 1 },
-  cloudy: { cloud: 1, shadows: 0.4 },
+  cloudy: { cloud: 1 },
   windy: { cloud: 0.1, shadows: 0.7 },
   warm: {},
   hot: {},
@@ -233,7 +234,8 @@ export class Weather {
       ...look,
       // cloud cover scales gently with intensity; precipitation fully
       cloud: look.cloud * (0.5 + k * 0.5),
-      shadows: look.shadows * (0.4 + k * 0.6),
+      // a mostly clear sky has the odd cloud going over; a broken one, most of them
+      shadows: look.shadows * k,
       rain: look.rain * k,
       snow: look.snow * k,
       hail: look.hail * k,
@@ -300,10 +302,12 @@ export class Weather {
     // the sea works in blender coordinates (y north = -z)
     (water.uWindDir.value as THREE.Vector2).set(windDir.value.x, -windDir.value.y);
     const day = 1 - sky.lamps;
-    sky.sun.intensity *= 1 - cloud * 0.6;
+    // overcast light comes from the whole sky rather than the sun: shadows go soft and faint
+    sky.sun.intensity *= 1 - cloud * 0.65;
+    sky.sun.shadow.intensity = 1 - cloud * 0.8;
     mute(sky.sun.color, cloud * 0.7);
     tintTo(sky.sun.color, tint, k * 0.7);
-    sky.hemi.intensity *= 1 + cloud * 0.15 + flash * 2.5;
+    sky.hemi.intensity *= 1 + cloud * 0.25 + flash * 2.5;
     mute(sky.hemi.color, cloud * 0.6);
     tintTo(sky.hemi.color, tint, k);
 

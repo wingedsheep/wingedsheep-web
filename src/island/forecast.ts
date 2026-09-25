@@ -18,11 +18,13 @@ export interface Forecast {
   place: string;
 }
 
-const CACHE_KEY = 'island-weather-4';
+const CACHE_KEY = 'island-weather-5';
 const CACHE_FOR = 20 * 60 * 1000;
 
 /** WMO weather interpretation codes, as Open-Meteo reports them. */
-function interpret(code: number): Pick<Forecast, 'kind' | 'intensity'> {
+function interpret(code: number, cover?: number): Pick<Forecast, 'kind' | 'intensity'> {
+  // a sky with some cloud in it: how much, if we know, decides how many shadows drift over
+  if ((code === 1 || code === 2) && typeof cover === 'number') return { kind: 'partly', intensity: cover / 100 };
   const table: [number[], WeatherKind, number][] = [
     [[0], 'clear', 0],
     [[1], 'partly', 0.35],
@@ -59,14 +61,14 @@ export async function fetchForecast(): Promise<Forecast | null> {
     const q = new URLSearchParams({
       latitude: where.lat.toFixed(2),
       longitude: where.lon.toFixed(2),
-      current: 'weather_code,temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,snow_depth',
+      current: 'weather_code,cloud_cover,temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,snow_depth',
       wind_speed_unit: 'ms',
     });
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${q}`);
     if (!res.ok) return null;
     const { current } = await res.json();
     const forecast: Forecast = {
-      ...interpret(current.weather_code),
+      ...interpret(current.weather_code, current.cloud_cover),
       wind: current.wind_speed_10m,
       gusts: current.wind_gusts_10m ?? current.wind_speed_10m,
       direction: current.wind_direction_10m ?? 250,

@@ -33,6 +33,9 @@ export class Bottle {
   private clock = 0;
   private seed = Math.random() * 10;
   private heading = 0;
+  private glint = 2;
+  /** The sun catching the glass now and then, so you notice it (life.ts makes the sparkle). */
+  onGlint?: (at: THREE.Vector3) => void;
 
   constructor(
     island: Island,
@@ -83,6 +86,10 @@ export class Bottle {
       root.rotation.set(0.25, this.heading + Math.sin(t * 0.7) * 0.03, 0.05, 'YZX');
     }
     root.position.copy(p);
+    if ((this.glint -= dt) <= 0) {
+      this.glint = rand(1.8, 3.2);
+      this.onGlint?.(p.clone().add(V(0, 0.2, 0)));
+    }
   }
 
   /** Pick a stretch of beach, and set off towards it. False if there's nowhere to land. */

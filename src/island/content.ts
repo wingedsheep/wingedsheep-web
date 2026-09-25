@@ -893,7 +893,7 @@ export const HUT_PLACES: Record<string, Place> = {
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
   pie: { label: 'A pie in the oven', activate: (ctx) => ctx.toast('A cherry pie, baking. Twenty minutes to go, and the whole hut already smells of it.') },
   bed: {
-    label: 'Vincent’s bed',
+    label: 'The bed',
     activate(ctx) {
       const him = indoors.has('vincent_asleep');
       const her = indoors.has('companion_bed_reading') || indoors.has('companion_bed_asleep');
@@ -971,7 +971,7 @@ export const HUT_PLACES: Record<string, Place> = {
     activate: say('A stamp from every hut he’s slept in: the Tour du Mont Blanc, La Fouly, Gavarnie, the Dolomites, Ramsau am Dachstein, and fresh ink from the Peaks of the Balkans.'),
   },
   boots: { label: 'A row of boots', activate: say('Lined up by the door, still drying out. The muddiest pair has just done the Peaks of the Balkans.') },
-  cat: indoorPet('The dock cat · on Vincent’s bed', [
+  cat: indoorPet('The dock cat · on the bed', [
     'She came all the way up the trail to sleep on the red check duvet. Mrrp. She is not getting off it.',
     'A slow blink, a purr, and she tucks her white paws back under her chin. The stove ticks. The rain keeps on.',
     'Paw prints across the duvet, still a little damp. Nobody is going to say anything about it.',
