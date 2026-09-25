@@ -32,6 +32,7 @@ LIGHTHOUSE = (-31.5, -3)
 CAMPFIRE = (27, -1)
 WELL = (20, -14)
 BENCH = (-17, -11)
+BEIKE = (-12.5, -12.5)             # Beike's spot in the meadow; he fetches the ball around it
 SIGNPOST = (-2.6, -15.5)
 BOULDER = (19, 6)
 SUMMIT = (5.0, 18.6)

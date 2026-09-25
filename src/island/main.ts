@@ -52,6 +52,7 @@ export async function bootIsland(host: HTMLElement) {
   const sky = new Sky(scene, island, pixels, water.uniforms);
   const life = new Life(scene, island, sky);
   const sound = new Sound(songs, piano, records);
+  life.beike.onBark = () => sound.bark();
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
@@ -82,6 +83,7 @@ export async function bootIsland(host: HTMLElement) {
   }, () => pixels.height);
   const picker = new Picker(rig.camera);
   picker.add(...[...island.named.keys()].filter((id) => placeFor(id)).map((id) => island.get(id)!));
+  if (life.beike.tennisBall) picker.add(life.beike.tennisBall);
 
   /** The second moon only exists as a reflection, so it's found by where you click on the sea. */
   function pickMoon(ndc: THREE.Vector2) {

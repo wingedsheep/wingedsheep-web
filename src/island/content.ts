@@ -71,6 +71,7 @@ export const SECRETS = {
   piano: { title: 'Two originals', hint: 'Not all the music on the island is played outdoors.' },
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
   robot: { title: 'The workshop robot', hint: 'Someone in the workshop keeps tripping over things.' },
+  beike: { title: 'Beike', hint: 'Someone in the meadow has a ball and all the time in the world.' },
 } as const;
 
 let logPage = -1;
@@ -153,6 +154,34 @@ export const PLACES: Record<string, Place> = {
     activate(ctx) {
       ctx.toast('It is very deep. Far below, something winds a spring: kriiik, kriiik.');
       ctx.discover('well');
+    },
+  },
+  beike: {
+    label: (ctx) =>
+      ctx.life.beike.waiting ? 'Beike’s ball · throw it' : ctx.journal.has('beike') ? 'Beike · Dad’s dog' : 'A black-and-white dog',
+    activate(ctx, at) {
+      const beike = ctx.life.beike;
+      switch (beike.poke(ctx.rig.camera.position)) {
+        case 'greet':
+          ctx.sound.bark();
+          ctx.life.burst('hearts', at);
+          ctx.toast('Beike spots you, launches himself at your knees, then flops over and rolls right round.');
+          ctx.discover('beike');
+          break;
+        case 'offer':
+          ctx.toast('Beike drops his ball at your feet. He looks at the ball. Then at you. Then at the ball.');
+          break;
+        case 'throw': {
+          const said: Record<number, string> = {
+            0: 'You throw the ball. Beike is gone before it lands.',
+            4: 'Five throws. Beike is just getting warmed up.',
+            9: 'Ten throws. Beike is not tired. Beike will never be tired.',
+            24: 'Twenty-five throws. Your arm is tired. Beike is not.',
+          };
+          if (said[beike.fetched]) ctx.toast(said[beike.fetched]);
+          break;
+        }
+      }
     },
   },
   blossom: {

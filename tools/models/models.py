@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 import random
 
+import beike
 import buildings
 import cats
 import characters
@@ -48,6 +49,7 @@ def landmarks(t: Terrain):
         c, s = math.cos(0.3), math.sin(0.3)
         x, y = bx + c * along + s * 0.02, by + s * along - c * 0.02
         place(t, name, x, y, build, rot_z=0.3, z=bench.location.z + 0.56, id=name)
+    place(t, "beike", *L.BEIKE, beike.beike, rot_z=2.4, id="beike")
     place(t, "boulder", *L.BOULDER, props.boulder, id="boulder")
     place(t, "summit", *L.SUMMIT, props.summit_flag, id="summit")
     for i, (x, y) in enumerate(L.CAIRNS):
@@ -67,7 +69,7 @@ def scatter(t: Terrain, seed=11):
     taken: list[tuple[float, float, float]] = []
     # clearances around landmarks
     for (x, y), r in [(L.LIBRARY, 8.5), (L.WORKSHOP, 7.5), (L.LIGHTHOUSE, 5), (L.CAMPFIRE, 5.5), (L.WELL, 3),
-                      (L.BENCH, 2), (L.BOULDER, 3), (L.SIGNPOST, 1.5), (L.PLAZA, 6.5), (L.SUMMIT, 2)]:
+                      (L.BENCH, 2), (L.BEIKE, 3.5), (L.BOULDER, 3), (L.SIGNPOST, 1.5), (L.PLAZA, 6.5), (L.SUMMIT, 2)]:
         taken.append((x, y, r))
 
     def free(x, y, r, levels=(-1, 0, 1)):

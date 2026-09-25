@@ -13,7 +13,7 @@
  *  - the gramophone in the workshop: music from Vincent's music generation experiments, played
  *    like an old 78: a honky horn with no real bass or treble, a wind-up as the platter gets
  *    to speed, a slow wow in the pitch, and the hiss and crackle of the needle in the groove.
- *  - the winged sheep: a baa when you click it (short clips, decoded up front)
+ *  - the winged sheep: a baa when you click it; Beike: a bark (short clips, decoded up front)
  *  - Charlie and George: a synthesised purr when you pet them
  *  - weather: hissing rain, rolling thunder, gusting wind and cicadas on a hot day (synthesised)
  * Sound is on by default, but browsers only allow audio after a user gesture, so it starts on
@@ -48,7 +48,12 @@ export interface Disc {
 }
 
 const AUDIO = '/audio/';
-const BAAS = ['sheep-1', 'sheep-2', 'sheep-3'];
+/** Short clips, decoded up front: one of each set plays, never the same one twice in a row. */
+const CLIPS = {
+  baa: ['sheep-1', 'sheep-2', 'sheep-3'],
+  bark: ['bark-1', 'bark-2'],
+};
+type Clip = keyof typeof CLIPS;
 /** Every song is trimmed to this loudness (LUFS) before it hits the outdoor chain. */
 const TARGET_LUFS = -16;
 const MAKEUP = 0.85;
@@ -89,8 +94,8 @@ export class Sound {
   private loudness = 0;
   private silentFor = 0;
   private noise?: AudioBuffer;
-  private baas: Promise<AudioBuffer>[] = [];
-  private lastBaa = -1;
+  private clips = new Map<Clip, Promise<AudioBuffer>[]>();
+  private lastClip = new Map<Clip, number>();
   private nextCrackle = 0;
   private lastSong = -1;
   private readonly ext: 'webm' | 'm4a';
@@ -219,17 +224,29 @@ export class Sound {
     this.silentFor = 0;
   }
 
-  /** One of the sheep's baas, never the same one twice in a row. Silent while sound is off. */
+  /** The winged sheep says baa. Silent while sound is off. */
   baa() {
-    if (!this.enabled || !this.ctx) return;
-    const i = (this.lastBaa + 1 + Math.floor(Math.random() * (BAAS.length - 1))) % BAAS.length;
-    this.lastBaa = i;
-    void this.baas[i].then((buffer) => {
+    this.clip('baa', 0.7);
+  }
+
+  /** Beike barks. Silent while sound is off. */
+  bark() {
+    this.clip('bark', 0.6);
+  }
+
+  /** One clip from a set, never the same one twice in a row, a touch higher or lower each time. */
+  private clip(kind: Clip, volume: number) {
+    const buffers = this.clips.get(kind);
+    if (!this.enabled || !this.ctx || !buffers) return;
+    const n = buffers.length;
+    const i = ((this.lastClip.get(kind) ?? -1) + 1 + Math.floor(Math.random() * (n - 1))) % n;
+    this.lastClip.set(kind, i);
+    void buffers[i].then((buffer) => {
       const src = this.ctx!.createBufferSource();
       src.buffer = buffer;
       src.playbackRate.value = 0.95 + Math.random() * 0.1;
       const gain = this.ctx!.createGain();
-      gain.gain.value = 0.7;
+      gain.gain.value = volume;
       src.connect(gain).connect(this.master!);
       src.start();
     });
@@ -484,11 +501,13 @@ export class Sound {
     fast.start();
     slow.start();
 
-    this.baas = BAAS.map((name) =>
-      fetch(`${AUDIO}${name}.mp3`)
-        .then((r) => r.arrayBuffer())
-        .then((data) => ctx.decodeAudioData(data)),
-    );
+    for (const [kind, names] of Object.entries(CLIPS) as [Clip, string[]][]) {
+      this.clips.set(kind, names.map((name) =>
+        fetch(`${AUDIO}${name}.mp3`)
+          .then((r) => r.arrayBuffer())
+          .then((data) => ctx.decodeAudioData(data)),
+      ));
+    }
   }
 
   /**

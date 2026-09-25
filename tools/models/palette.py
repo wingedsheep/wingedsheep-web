@@ -82,6 +82,14 @@ CAT_NOSE = "#e39a9a"
 EAR_PINK = "#eab3a8"
 FLEECE = "#1f4f5a"
 FLEECE_DARK = "#173c46"
+# Beike, a Frisian Stabij: black and white, ticked legs, blue harness, and his tennis ball
+DOG_BLACK = "#211d26"
+DOG_WHITE = "#f1ede6"
+DOG_NOSE = "#141116"
+DOG_EYE = "#6b3a1f"
+DOG_TONGUE = "#e0707a"
+COLLAR = "#3f6fb0"
+TENNIS = "#d4dc3c"
 
 # the library, inside: bottle-green walls, walnut shelves, a red rug, a black upright piano
 WALLPAPER = "#2f4f47"

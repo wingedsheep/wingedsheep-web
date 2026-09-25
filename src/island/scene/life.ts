@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Beike } from './beike';
 import type { Island } from './island';
 import { Particles } from './particles';
 import type { Sky } from './sky';
@@ -37,8 +38,8 @@ interface Floater {
 
 /**
  * Everything that moves by itself: flames, flags, the weathervane, smoke and embers,
- * fireflies after dark, the winged sheep's flight, the occasional UFO, and the clips keyframed
- * in Blender (Charlie and George breathing, twitching and dreaming on the bench).
+ * fireflies after dark, the winged sheep's flight, the occasional UFO, Beike and his ball, and the
+ * clips keyframed in Blender (Charlie and George breathing, twitching and dreaming on the bench).
  */
 export class Life {
   readonly particles = new Particles();
@@ -51,6 +52,7 @@ export class Life {
   private ufo?: THREE.Object3D;
   private mixer: THREE.AnimationMixer;
   private idles = new Map<string, THREE.AnimationAction>();
+  readonly beike: Beike;
   /** Whether Vincent's song is audible; he eases into and out of playing. */
   playing = false;
   private groove = 0;
@@ -64,6 +66,7 @@ export class Life {
     this.sheep = island.get('sheep');
     this.ufo = island.get('ufo');
     if (this.ufo) this.ufo.visible = false;
+    this.beike = new Beike(island);
 
     this.mixer = new THREE.AnimationMixer(island.root);
     for (const clip of island.clips.filter((c) => c.name.endsWith('_idle'))) {
@@ -150,6 +153,7 @@ export class Life {
     this.strum(dt);
     this.flySheep(dt);
     this.flyFlock();
+    this.beike.update(dt);
     this.visitors(dt, night);
     this.emitters(dt, night);
     this.updateFloaters(dt);
