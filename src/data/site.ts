@@ -7,6 +7,7 @@ export const site = {
   links: [
     { label: 'LinkedIn', href: 'https://www.linkedin.com/in/vincentbons2/' },
     { label: 'GitHub', href: 'https://github.com/wingedsheep' },
+    { label: 'X', href: 'https://x.com/bons_vincent' },
     { label: 'RSS', href: '/rss.xml' },
   ],
 };
