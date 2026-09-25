@@ -6,7 +6,8 @@
  *    from the wall clock, so he always picks up mid-song), but he only plays once you've
  *    zoomed in close to the campfire and asked him to (clicked him).
  *  - the winged sheep: a baa when you click it (short clips, decoded up front)
- * Nothing makes a sound until the visitor turns sound on.
+ * Sound is on by default, but browsers only allow audio after a user gesture, so it starts on
+ * the visitor's first click, tap or key press (unless they've muted it by then).
  */
 export interface Song {
   id: number;
@@ -18,7 +19,7 @@ const AUDIO = '/audio/';
 const BAAS = ['sheep-1', 'sheep-2', 'sheep-3'];
 
 export class Sound {
-  enabled = false;
+  enabled = true;
   private ctx?: AudioContext;
   private master?: GainNode;
   private seaGain?: GainNode;
@@ -38,6 +39,13 @@ export class Sound {
     const probe = document.createElement('audio');
     this.ext = probe.canPlayType('audio/webm; codecs="opus"') ? 'webm' : 'm4a';
     this.setlistLength = songs.reduce((sum, s) => sum + s.duration, 0);
+
+    const gestures = ['pointerdown', 'keydown', 'touchstart'] as const;
+    const unlock = () => {
+      gestures.forEach((type) => window.removeEventListener(type, unlock, true));
+      if (this.enabled) this.setEnabled(true);
+    };
+    gestures.forEach((type) => window.addEventListener(type, unlock, true));
   }
 
   /** The song you can currently hear, if you're close enough to hear one. */
