@@ -98,6 +98,7 @@ export class Beike {
   private greeted = -Infinity;
   private face = V(); // where the visitor is standing (the camera, on the ground)
   private dropAt = V(); // where he brings the ball back to
+  private mouthScale = V(1, 1, 1); // the ball's scale in his mouth: attach() bakes his scale in when he drops it
   /** Over at the campfire, dropping his ball at Vincent's feet mid-song (visit()). */
   private away: { spot: THREE.Vector3; vincent: THREE.Vector3; back: Waypoint[]; rounds: number } | null = null;
 
@@ -139,6 +140,7 @@ export class Beike {
     this.legs = ['fl', 'fr', 'bl', 'br'].map((n) => part(`beike_leg_${n}`)).filter((o): o is THREE.Object3D => !!o);
     if (this.ball) {
       this.mouth.copy(this.ball.position);
+      this.mouthScale.copy(this.ball.scale);
       this.ball.userData.id = 'beike'; // clicking the ball counts as clicking him, even once he's dropped it
     }
 
@@ -575,6 +577,7 @@ export class Beike {
     this.head.add(this.ball);
     this.ball.position.copy(this.mouth);
     this.ball.rotation.set(0, 0, 0);
+    this.ball.scale.copy(this.mouthScale);
     this.ballVel.set(0, 0, 0);
     this.ballFlying = false;
     this.inMouth = true;
