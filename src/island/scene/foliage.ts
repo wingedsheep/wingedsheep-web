@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { CanopyMarker } from './island';
-import { wind } from './grass';
-import { GRADIENT } from './toon';
+import { wind, windGust } from './grass';
+import { GRADIENT, snowCover } from './toon';
 
 const PALETTES: Record<string, string[]> = {
   leaf: ['#2f6a3c', '#3a7a40', '#4a8c45', '#5d9f4c'],
@@ -68,8 +68,10 @@ export function createFoliage(canopies: CanopyMarker[], island: THREE.Object3D) 
   const mat = new THREE.MeshToonMaterial({ gradientMap: GRADIENT, map: leafTexture(), alphaTest: 0.5, side: THREE.DoubleSide });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uWind = wind;
+    shader.uniforms.uSnow = snowCover;
+    shader.uniforms.uGust = windGust;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uWind;\nattribute vec3 aLeafNormal;')
+      .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uGust;\nattribute vec3 aLeafNormal;\nvarying float vLeafUp;')
       .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = aLeafNormal;')
       .replace(
         '#include <project_vertex>',
@@ -78,11 +80,19 @@ export function createFoliage(canopies: CanopyMarker[], island: THREE.Object3D) 
         vec4 centre = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
         float scale = length(instanceMatrix[0].xyz);
         vec4 wc = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-        float sway = sin(uWind * 1.3 + wc.x * 0.4 + wc.z * 0.3) * 0.06;
-        vec4 mvPosition = centre + vec4(position.xy * scale + vec2(sway, 0.0), 0.0, 0.0);
+        float sway = sin(uWind * 1.3 + wc.x * 0.4 + wc.z * 0.3) * 0.06 * (1.0 + uGust * 4.0);
+        // in a gale every leaf shakes on its own, and the whole crown leans downwind
+        float shake = sin(uWind * 13.0 + wc.x * 3.1 + wc.y * 5.7) * uGust;
+        vec2 blow = vec2(sway + shake * 0.09 + uGust * 0.12, cos(uWind * 11.0 + wc.z * 4.3) * uGust * 0.06);
+        vec4 mvPosition = centre + vec4(position.xy * scale + blow, 0.0, 0.0);
         gl_Position = projectionMatrix * mvPosition;
+        // snow settles on the upper leaves first; the seed keeps its edge ragged
+        vLeafUp = aLeafNormal.y * 0.7 + fract(sin(wc.x * 12.9 + wc.z * 78.2) * 43758.5) * 0.3;
         `,
       );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uSnow;\nvarying float vLeafUp;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 1.0), step(1.0 - uSnow * 0.9, vLeafUp) * step(0.001, uSnow));');
   };
 
   const mesh = new THREE.InstancedMesh(quad, mat, leaves.length);

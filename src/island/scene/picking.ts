@@ -45,6 +45,7 @@ export class Picker {
         let lit = this.glowing.get(src);
         if (!lit) {
           lit = src.clone();
+          lit.onBeforeCompile = src.onBeforeCompile; // clone() drops shader hooks (e.g. snow cover)
           (lit as THREE.MeshToonMaterial).emissive?.add(HIGHLIGHT);
           this.glowing.set(src, lit);
         }

@@ -7,11 +7,13 @@
  */
 import type * as THREE from 'three';
 import { interests } from '../data/interests';
+import type { Forecast } from './forecast';
 import type { Journal } from './journal';
 import type { CameraRig } from './scene/camera-rig';
 import type { Island } from './scene/island';
 import type { Life } from './scene/life';
 import type { Sky } from './scene/sky';
+import type { Weather } from './scene/weather';
 import type { Sound } from './sound';
 
 export type PanelName = 'library' | 'workshop' | 'campfire' | 'trail' | 'places' | 'journal';
@@ -20,6 +22,9 @@ export interface IslandContext {
   island: Island;
   rig: CameraRig;
   sky: Sky;
+  weather: Weather;
+  /** The visitor's real weather, once it's in (null if we couldn't find it). */
+  forecast?: Forecast | null;
   life: Life;
   sound: Sound;
   journal: Journal;

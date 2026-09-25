@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import type { Island } from './island';
 import type { PixelRenderer } from './pixel-renderer';
+import { sunPosition, visitorLocation } from './sun';
 import { glowMaterials } from './toon';
 
-/** How the island looks at an hour of the day. In-between hours are interpolated. */
+const MOON = new THREE.Vector3(35, 63, 52); // high in the south
+
+/** How the island looks under a given sun. Between keys, moods are interpolated. */
 interface Mood {
   sun: string; // direct light colour
   sunI: number;
@@ -15,45 +18,55 @@ interface Mood {
   grade: [number, number, number]; // saturation, contrast, brightness
 }
 
-const KEYS: [number, Mood][] = [
-  [0, { sun: '#9fb2ff', sunI: 1.5, sky: '#6a7cc4', ground: '#34325a', hemiI: 1.25, fog: '#1a2244', lamps: 1, grade: [0.9, 1.05, 1.0] }],
-  [5, { sun: '#9fb2ff', sunI: 1.5, sky: '#6a7cc4', ground: '#34325a', hemiI: 1.25, fog: '#1a2244', lamps: 1, grade: [0.9, 1.05, 1.0] }],
-  [6.4, { sun: '#ffb38a', sunI: 1.3, sky: '#c29ac4', ground: '#5a4660', hemiI: 0.8, fog: '#d9a3b0', lamps: 0.45, grade: [1.0, 1.02, 1.0] }],
-  [8, { sun: '#fff1d6', sunI: 2.3, sky: '#bfe0ff', ground: '#6b7a4a', hemiI: 0.95, fog: '#a8d4e6', lamps: 0, grade: [1.08, 1.02, 1.02] }],
-  [16.5, { sun: '#fff4dd', sunI: 2.4, sky: '#bfe0ff', ground: '#6b7a4a', hemiI: 0.95, fog: '#a8d4e6', lamps: 0, grade: [1.08, 1.02, 1.02] }],
-  [18.3, { sun: '#ffb366', sunI: 2.0, sky: '#f0b08a', ground: '#6a4a3a', hemiI: 0.8, fog: '#f2b184', lamps: 0.25, grade: [1.15, 1.04, 1.02] }],
-  [19.6, { sun: '#d86a8a', sunI: 0.9, sky: '#6a5a9a', ground: '#2f2440', hemiI: 0.75, fog: '#5a4a80', lamps: 0.8, grade: [1.0, 1.05, 0.98] }],
-  [21, { sun: '#9fb2ff', sunI: 1.5, sky: '#6a7cc4', ground: '#34325a', hemiI: 1.25, fog: '#1a2244', lamps: 1, grade: [0.9, 1.05, 1.0] }],
-  [24, { sun: '#9fb2ff', sunI: 1.5, sky: '#6a7cc4', ground: '#34325a', hemiI: 1.25, fog: '#1a2244', lamps: 1, grade: [0.9, 1.05, 1.0] }],
-];
+const NIGHT: Mood = { sun: '#9fb2ff', sunI: 1.5, sky: '#6a7cc4', ground: '#34325a', hemiI: 1.25, fog: '#1a2244', lamps: 1, grade: [0.9, 1.05, 1.0] };
+const DAWN: Mood = { sun: '#ffb38a', sunI: 1.3, sky: '#c29ac4', ground: '#5a4660', hemiI: 0.8, fog: '#d9a3b0', lamps: 0.45, grade: [1.0, 1.02, 1.0] };
+const DAY: Mood = { sun: '#fff4dd', sunI: 2.4, sky: '#bfe0ff', ground: '#6b7a4a', hemiI: 0.95, fog: '#a8d4e6', lamps: 0, grade: [1.08, 1.02, 1.02] };
+const GOLDEN: Mood = { sun: '#ffb366', sunI: 2.0, sky: '#f0b08a', ground: '#6a4a3a', hemiI: 0.8, fog: '#f2b184', lamps: 0.25, grade: [1.15, 1.04, 1.02] };
+const DUSK: Mood = { sun: '#d86a8a', sunI: 0.9, sky: '#6a5a9a', ground: '#2f2440', hemiI: 0.75, fog: '#5a4a80', lamps: 0.8, grade: [1.0, 1.05, 0.98] };
 
-export const PHASES = [
-  { name: 'dawn', hour: 6.5 },
-  { name: 'day', hour: 12 },
-  { name: 'golden hour', hour: 18.2 },
-  { name: 'dusk', hour: 19.8 },
-  { name: 'night', hour: 23.5 },
-] as const;
+// keyed by the sun's elevation in degrees; mornings and evenings get different colours
+const RISING: [number, Mood][] = [[-10, NIGHT], [0, DAWN], [10, DAY]];
+const SETTING: [number, Mood][] = [[-11, NIGHT], [-4, DUSK], [5, GOLDEN], [14, DAY]];
 
-const c = (hex: string) => new THREE.Color(hex);
+interface Blend {
+  sun: THREE.Color;
+  sunI: number;
+  sky: THREE.Color;
+  ground: THREE.Color;
+  hemiI: number;
+  fog: THREE.Color;
+  lamps: number;
+  grade: [number, number, number];
+}
 
-function moodAt(hour: number) {
-  const h = ((hour % 24) + 24) % 24;
-  const i = KEYS.findIndex(([k], j) => h >= k && h <= KEYS[j + 1]?.[0]);
-  const [h0, a] = KEYS[Math.max(0, i)];
-  const [h1, b] = KEYS[Math.max(0, i) + 1];
-  const t = (h - h0) / (h1 - h0);
+const blend = (a: Mood | Blend, b: Mood | Blend, t: number): Blend => {
   const lerp = (x: number, y: number) => x + (y - x) * t;
+  const col = (x: string | THREE.Color, y: string | THREE.Color) => new THREE.Color(x).lerp(new THREE.Color(y), t);
   return {
-    sun: c(a.sun).lerp(c(b.sun), t),
+    sun: col(a.sun, b.sun),
     sunI: lerp(a.sunI, b.sunI),
-    sky: c(a.sky).lerp(c(b.sky), t),
-    ground: c(a.ground).lerp(c(b.ground), t),
+    sky: col(a.sky, b.sky),
+    ground: col(a.ground, b.ground),
     hemiI: lerp(a.hemiI, b.hemiI),
-    fog: c(a.fog).lerp(c(b.fog), t),
+    fog: col(a.fog, b.fog),
     lamps: lerp(a.lamps, b.lamps),
     grade: a.grade.map((v, k) => lerp(v, b.grade[k])) as [number, number, number],
   };
+};
+
+function moodAt(keys: [number, Mood][], alt: number) {
+  const i = keys.findIndex(([k]) => alt < k);
+  if (i === 0) return blend(keys[0][1], keys[0][1], 0);
+  if (i < 0) return blend(keys[keys.length - 1][1], keys[keys.length - 1][1], 0);
+  const [a0, a] = keys[i - 1];
+  const [a1, b] = keys[i];
+  return blend(a, b, (alt - a0) / (a1 - a0));
+}
+
+/** The mood for the sun's elevation, leaning on the morning or evening palette by where it's heading. */
+function moodFor(alt: number, climb: number) {
+  const rising = THREE.MathUtils.clamp(0.5 + climb, 0, 1); // climb: degrees gained over 20 minutes
+  return blend(moodAt(SETTING, alt), moodAt(RISING, alt), rising);
 }
 
 /** A stepped radial halo: fake bloom that stays pixel-crisp. */
@@ -86,16 +99,13 @@ interface Lamp {
 }
 
 /**
- * Sun, moon, sky and every lamp on the island, driven by the visitor's local time
- * (or by the time dial).
+ * Sun, moon, sky and every lamp on the island, following the real sun where the visitor is.
  */
 export class Sky {
-  hour = localHour();
   lamps = 0;
   readonly sun = new THREE.DirectionalLight();
   readonly hemi = new THREE.HemisphereLight();
-  private target: number | null = null;
-  private manual = false;
+  private where = visitorLocation();
   private clock = 0;
   private lampsList: Lamp[] = [];
   private beam: THREE.Mesh;
@@ -141,34 +151,20 @@ export class Sky {
     scene.add(this.beam);
   }
 
-  /** Sweep to an hour (animated), or back to the visitor's own clock with null. */
-  setHour(hour: number | null) {
-    this.manual = hour !== null;
-    this.target = hour ?? localHour();
-  }
-
-  get isNight() {
-    return this.lamps > 0.6;
-  }
-
   update(dt: number) {
     this.clock += dt;
-    if (this.target !== null) {
-      const diff = (((this.target - this.hour) % 24) + 24) % 24; // always forward: sunsets are the fun part
-      this.hour = (this.hour + Math.min(diff, dt * 5)) % 24;
-      if (diff < 0.01) this.target = null;
-    } else if (!this.manual) {
-      this.hour = localHour();
-    }
-    const m = moodAt(this.hour);
+    const now = Date.now();
+    const { lat, lon } = this.where;
+    const { alt, az } = sunPosition(now, lat, lon);
+    const climb = sunPosition(now + 6e5, lat, lon).alt - sunPosition(now - 6e5, lat, lon).alt;
+    const m = moodFor(alt, climb);
     this.lamps = m.lamps;
 
-    // the sun arcs east → west; at night the same light plays the moon, high in the south
-    const day = this.hour > 5.5 && this.hour < 20.5;
-    const t = day ? (this.hour - 5.5) / 15 : 0.5;
-    const az = day ? Math.PI * t : Math.PI * 0.3; // 0 = east (+x), π = west
-    const el = day ? Math.max(0.2, Math.sin(t * Math.PI) * 0.8) : 0.9; // a lowish sun: long, readable shadows
-    this.sun.position.set(Math.cos(az) * 60, Math.sin(el) * 80, 40 + Math.cos(el) * 20);
+    // the sun where it really is (south = +z, east = +x), kept lowish for long, readable shadows;
+    // through twilight the same light slides over to play the moon
+    const el = THREE.MathUtils.clamp(alt * (Math.PI / 180), 0.2, 0.9);
+    const sunPos = new THREE.Vector3(-Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(90);
+    this.sun.position.copy(sunPos.lerp(MOON, THREE.MathUtils.smoothstep(-alt, 2, 8)));
     this.sun.color.copy(m.sun);
     this.sun.intensity = m.sunI;
     this.hemi.color.copy(m.sky);
@@ -197,7 +193,3 @@ export class Sky {
   }
 }
 
-function localHour() {
-  const d = new Date();
-  return d.getHours() + d.getMinutes() / 60;
-}

@@ -37,6 +37,8 @@ export class PixelRenderer {
         uOutline: { value: new THREE.Color(0x1d1a2c) },
         uOutlineStrength: { value: 0.55 },
         uGrade: { value: new THREE.Vector3(1, 1, 1) }, // saturation, contrast, brightness
+        uHeat: { value: 0 }, // 0..1: heat shimmer on a scorching day
+        uTime: { value: 0 },
       },
       vertexShader: /* glsl */ `
         void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
@@ -52,6 +54,8 @@ export class PixelRenderer {
         uniform vec3 uOutline;
         uniform float uOutlineStrength;
         uniform vec3 uGrade;
+        uniform float uHeat;
+        uniform float uTime;
 
         float viewZ(ivec2 p) {
           // orthographic: depth is linear in [near, far]
@@ -62,6 +66,11 @@ export class PixelRenderer {
           // +1 for the margin, then shift by the camera's sub-texel remainder
           vec2 t = gl_FragCoord.xy / uPixel + vec2(1.0) + uOffset;
           ivec2 p = ivec2(floor(t));
+          // heat shimmer: rows of texels wavering a pixel left and right
+          if (uHeat > 0.0) {
+            float w = sin(float(p.y) * 0.8 + uTime * 6.0) * sin(float(p.y) * 0.17 - uTime * 1.7 + float(p.x) * 0.02);
+            p.x += int(step(1.0 - uHeat * 0.3, abs(w)) * sign(w));
+          }
           vec3 col = texelFetch(tColor, p, 0).rgb;
 
           float z = viewZ(p);

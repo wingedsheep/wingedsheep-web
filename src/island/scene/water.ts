@@ -18,6 +18,8 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       uNight: { value: 0 },
       uMoon: { value: new THREE.Vector2(12, -28) }, // where moonlight glitters (blender x, y: south-east sea)
       uSecondMoon: { value: 0 },
+      uRain: { value: 0 }, // 0..1: raindrop rings on the sea, and no sun glints
+      uWind: { value: 0 }, // 0 calm … 1 gale: swell, whitecaps and a restless shore
     },
   ]);
   uniforms.tShore.value = shore;
@@ -44,6 +46,8 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       uniform float uNight;
       uniform vec2 uMoon;
       uniform float uSecondMoon;
+      uniform float uRain;
+      uniform float uWind;
       varying vec3 vWorld;
       #include <fog_pars_fragment>
 
@@ -64,7 +68,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         vec3 shallow = vec3(0.30, 0.75, 0.70);
         vec3 mid = vec3(0.12, 0.50, 0.62);
         vec3 deep = vec3(0.07, 0.25, 0.42);
-        float wob = (noise(p * 0.35 + uTime * 0.05) - 0.5) * 0.08;
+        float wob = (noise(p * 0.35 + uTime * (0.05 + uWind * 0.2)) - 0.5) * (0.08 + uWind * 0.1);
         float t = clamp(d + wob, 0.0, 1.0);
         vec3 col = mix(shallow, mid, smoothstep(0.0, 0.25, t));
         col = mix(col, deep, smoothstep(0.2, 0.8, t));
@@ -75,8 +79,17 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         float c = abs(noise(p * 0.9 + vec2(uTime * 0.15, -uTime * 0.1)) - 0.5);
         col += vec3(0.10, 0.14, 0.10) * step(c, 0.03) * (1.0 - smoothstep(0.05, 0.3, d));
 
-        // foam: a line hugging the coast and a second one breathing in and out
-        float breathe = sin(uTime * 0.9) * 0.012;
+        // wind: long swells rolling downwind (east), darker in the troughs, with whitecaps
+        // breaking on the crests out where it's deep
+        if (uWind > 0.0) {
+          float swell = sin((p.x - uTime * (2.0 + uWind * 3.0)) * 0.45 + p.y * 0.12 + noise(p * 0.08) * 6.0);
+          col *= 1.0 - step(swell, -0.55) * uWind * 0.12;
+          float crest = step(0.86 - uWind * 0.08, swell) * step(0.62 - uWind * 0.12, noise(p * vec2(0.9, 0.5) + vec2(-uTime * 1.5, 0.0)));
+          col = mix(col, vec3(0.9, 0.96, 0.95), crest * smoothstep(0.08, 0.3, d) * min(1.0, uWind * 1.5));
+        }
+
+        // foam: a line hugging the coast and a second one breathing in and out (surging in a gale)
+        float breathe = sin(uTime * (0.9 + uWind * 0.9)) * (0.012 + uWind * 0.02);
         float foam = step(d, 0.012 + breathe * 0.5);
         foam = max(foam, step(abs(d - (0.045 + breathe)), 0.006) * step(0.45, noise(p * 1.2 + uTime * 0.2)));
         col = mix(col, vec3(0.92, 0.97, 0.94), foam * inside);
@@ -84,7 +97,16 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         // sparkles: sun glints by day, moonlight by night
         vec2 cell = floor(p * 2.0);
         float glint = step(0.9975, hash(cell + floor(uTime * 1.5)));
-        col += vec3(1.0) * glint * (1.0 - uNight * 0.6) * 0.6;
+        col += vec3(1.0) * glint * (1.0 - uNight * 0.6) * 0.6 * (1.0 - uRain);
+
+        // rain: little rings spreading where drops land, one per cell now and then
+        if (uRain > 0.0) {
+          vec2 rc = floor(p * 0.6);
+          float phase = fract(uTime * 0.9 + hash(rc));
+          vec2 centre = (rc + 0.2 + 0.6 * vec2(hash(rc + 1.7), hash(rc + 4.3))) / 0.6;
+          float ring = step(abs(length(p - centre) - phase * 0.7), 0.09) * step(hash(rc + floor(uTime * 0.9 + hash(rc)) * 0.13), uRain * 0.8);
+          col = mix(col, vec3(0.75, 0.88, 0.9), ring * (1.0 - phase) * 0.7);
+        }
         col *= uLight;
 
         // moon reflections: a shimmering column on the water (sometimes two)

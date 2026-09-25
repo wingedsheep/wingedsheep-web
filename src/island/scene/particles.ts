@@ -10,26 +10,32 @@ export interface ParticleSpec {
   wobble?: number;
 }
 
-const MAX = 1200;
-
 /**
  * Single-texel particles: GL points sized in render-target pixels, so every ember and firefly
  * is one crisp art pixel.
  */
 export class Particles {
   readonly points: THREE.Points;
-  private pos = new Float32Array(MAX * 3);
-  private col = new Float32Array(MAX * 4);
-  private size = new Float32Array(MAX);
-  private vel = new Float32Array(MAX * 3);
-  private age = new Float32Array(MAX);
-  private life = new Float32Array(MAX);
-  private grav = new Float32Array(MAX);
-  private wob = new Float32Array(MAX);
+  private pos: Float32Array;
+  private col: Float32Array;
+  private size: Float32Array;
+  private vel: Float32Array;
+  private age: Float32Array;
+  private life: Float32Array;
+  private grav: Float32Array;
+  private wob: Float32Array;
   private next = 0;
   private clock = 0;
 
-  constructor() {
+  constructor(private max = 1200) {
+    this.pos = new Float32Array(max * 3);
+    this.col = new Float32Array(max * 4);
+    this.size = new Float32Array(max);
+    this.vel = new Float32Array(max * 3);
+    this.age = new Float32Array(max);
+    this.life = new Float32Array(max);
+    this.grav = new Float32Array(max);
+    this.wob = new Float32Array(max);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('color', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
@@ -64,7 +70,7 @@ export class Particles {
 
   emit(s: ParticleSpec) {
     const i = this.next;
-    this.next = (this.next + 1) % MAX;
+    this.next = (this.next + 1) % this.max;
     this.pos.set([s.position.x, s.position.y, s.position.z], i * 3);
     const v = s.velocity ?? new THREE.Vector3();
     this.vel.set([v.x, v.y, v.z], i * 3);
@@ -79,7 +85,7 @@ export class Particles {
 
   update(dt: number) {
     this.clock += dt;
-    for (let i = 0; i < MAX; i++) {
+    for (let i = 0; i < this.max; i++) {
       if (this.life[i] <= 0) continue;
       this.age[i] += dt;
       const t = this.age[i] / this.life[i];

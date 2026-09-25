@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import songs from '../data/songs.json';
 import { type IslandContext, type PanelName, SECRETS, labelFor, placeFor } from './content';
+import { type WeatherKind, fetchForecast } from './forecast';
 import { bindHud, renderJournal } from './hud';
 import { Journal } from './journal';
 import { CameraRig } from './scene/camera-rig';
@@ -12,6 +13,7 @@ import { Picker } from './scene/picking';
 import { PixelRenderer } from './scene/pixel-renderer';
 import { Sky } from './scene/sky';
 import { createWater } from './scene/water';
+import { Weather } from './scene/weather';
 import { Sound } from './sound';
 import { UI } from './ui';
 
@@ -49,6 +51,8 @@ export async function bootIsland(host: HTMLElement) {
   const sound = new Sound(songs);
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const weather = new Weather(scene, reducedMotion);
+  weather.onThunder = (distance) => sound.thunder(distance);
 
   const [x0, y0, x1, y1] = island.info.extent;
   const bounds = new THREE.Box2(new THREE.Vector2(x0 + 8, -y1 + 6), new THREE.Vector2(x1 - 8, -y0 - 10));
@@ -98,6 +102,7 @@ export async function bootIsland(host: HTMLElement) {
     island,
     rig,
     sky,
+    weather,
     life,
     sound,
     journal,
@@ -138,6 +143,24 @@ export async function bootIsland(host: HTMLElement) {
   resize();
 
   bindHud(ctx);
+
+  // the visitor's own weather, checked again every half hour. To preview: ?weather=rain (any
+  // WEATHER_KINDS), optionally with &wind=<m/s> and &temp=<°C>
+  const params = new URLSearchParams(location.search);
+  const preview = params.get('weather') as WeatherKind | null;
+  let first = true;
+  const live = async () => {
+    ctx.forecast = await fetchForecast();
+    const f = ctx.forecast;
+    if (f && !preview) weather.set(f.kind, f.intensity, { wind: f.wind, lying: f.lying, temperature: f.temperature, instant: first });
+    first = false;
+  };
+  if (preview) {
+    const num = (k: string) => (params.has(k) ? Number(params.get(k)) : undefined);
+    weather.set(preview, 0.8, { wind: num('wind'), temperature: num('temp') });
+  }
+  void live();
+  setInterval(live, 30 * 60 * 1000);
   ui.route(true);
 
   const campfire = island.positionOf('campfire')!;
@@ -145,10 +168,15 @@ export async function bootIsland(host: HTMLElement) {
   let notes = 0;
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
-    wind.value += dt;
+    wind.value += dt * (1 + Math.min(weather.wind, 15) / 20); // the grass sways faster on a windy day
     water.uniforms.uTime.value += dt;
     rig.update(dt);
+    weather.update(dt, rig.camera, rig.target, rig.view, sky.lamps);
     sky.update(dt);
+    weather.shade(sky, scene, pixels, water.uniforms);
+    sound.rain = weather.now.rain + weather.now.hail * 0.5;
+    sound.wind = weather.gust;
+    sound.cicadas = weather.heat.scorch * (1 - sky.lamps);
     life.playing = sound.playing !== null;
     if (!reducedMotion) life.update(dt);
     const near = 1 - rig.target.distanceTo(campfire.clone().setY(1)) / 14;

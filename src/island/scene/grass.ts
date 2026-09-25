@@ -1,7 +1,9 @@
 import * as THREE from 'three';
-import { GRADIENT } from './toon';
+import { GRADIENT, snowCover } from './toon';
 
 export const wind = { value: 0 }; // shared clock uniform for everything that sways
+export const windGust = { value: 0 }; // 0 calm … 1 gale: how hard things sway
+export const drought = { value: 0 }; // 0..1: grass bleaching to straw in the heat
 
 const BLADES_PER_M2 = 14;
 
@@ -55,17 +57,31 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
   const mat = new THREE.MeshToonMaterial({ gradientMap: GRADIENT, vertexColors: true, side: THREE.DoubleSide });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uWind = wind;
+    shader.uniforms.uSnow = snowCover;
+    shader.uniforms.uGust = windGust;
+    shader.uniforms.uDry = drought;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uWind;')
+      .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSnow;\nuniform float uGust;')
       .replace(
         '#include <begin_vertex>',
         /* glsl */ `
         #include <begin_vertex>
         vec4 rootW = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
         float gust = sin(uWind * 1.7 + rootW.x * 0.35 + rootW.z * 0.2) * 0.5 + sin(uWind * 3.1 + rootW.x * 1.3) * 0.2;
+        // in a gale the blades flatten downwind and flutter
+        gust = gust * (1.0 + uGust * 1.5) + uGust * (1.2 + sin(uWind * 11.0 + rootW.x * 2.1 + rootW.z) * 0.35);
         transformed.x += gust * 0.16 * position.y * 2.0;
         transformed.z += gust * 0.08 * position.y * 2.0;
+        transformed.y *= 1.0 - uSnow * 0.85; // buried in snow
         `,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uSnow;\nuniform float uDry;')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.7, 0.4) * dot(diffuseColor.rgb, vec3(0.5, 0.8, 0.2)), uDry * 0.6);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 1.0), uSnow * 0.8);`,
       );
   };
 

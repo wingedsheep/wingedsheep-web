@@ -1,6 +1,5 @@
-/** Buttons around the island (places, journal, time of day, sound), Q/E to turn, and small global delights. */
+/** Buttons around the island (places, journal, sound), Q/E to turn, and small global delights. */
 import { type IslandContext, SECRETS } from './content';
-import { PHASES } from './scene/sky';
 
 const on = (sel: string, fn: (el: HTMLElement) => void) =>
   document.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
@@ -13,16 +12,6 @@ export function bindHud(ctx: IslandContext) {
   });
   on('[data-action="journal"]', () => ctx.openPanel('journal'));
   on('[data-action="places"]', () => ctx.openPanel('places'));
-
-  // time of day: cycles now → dawn → day → golden hour → dusk → night → now
-  let phase = -1;
-  on('[data-action="time"]', (el) => {
-    phase = phase + 1 >= PHASES.length ? -1 : phase + 1;
-    ctx.sky.setHour(phase < 0 ? null : PHASES[phase].hour);
-    const label = phase < 0 ? 'now' : PHASES[phase].name;
-    el.querySelector('[data-label]')!.textContent = label;
-    el.setAttribute('aria-label', `Time of day: ${label}`);
-  });
 
   on('[data-action="sound"]', (el) => {
     ctx.sound.setEnabled(!ctx.sound.enabled);
