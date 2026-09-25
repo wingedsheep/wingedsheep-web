@@ -14,7 +14,7 @@ const legacyRedirects = Object.fromEntries(
 
 export default defineConfig({
   site: 'https://wingedsheep.com',
-  redirects: legacyRedirects,
+  redirects: { ...legacyRedirects, '/rss': '/rss.xml' },
   markdown: {
     remarkPlugins: [[remarkMath, { singleDollarTextMath: false }]],
     rehypePlugins: [rehypeKatex],
