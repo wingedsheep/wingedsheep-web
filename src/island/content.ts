@@ -187,7 +187,7 @@ export const PLACES: Record<string, Place> = {
   moons: {
     label: 'The moon, reflected. Twice?',
     activate(ctx) {
-      ctx.toast('Two moons tonight. You might be in 1Q84.');
+      ctx.toast('Two moons tonight. Nobody else seems to notice.');
       ctx.discover('moons');
     },
   },

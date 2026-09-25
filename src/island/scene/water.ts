@@ -87,7 +87,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         col += vec3(1.0) * glint * (1.0 - uNight * 0.6) * 0.6;
         col *= uLight;
 
-        // moon reflections: a shimmering column on the water (sometimes two, as in 1Q84)
+        // moon reflections: a shimmering column on the water (sometimes two)
         for (int k = 0; k < 2; k++) {
           vec2 m = uMoon + vec2(float(k) * 5.0, float(k) * 1.5);
           float on = k == 0 ? 1.0 : uSecondMoon;
