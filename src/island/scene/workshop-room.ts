@@ -61,7 +61,7 @@ export class WorkshopRoom {
   private night = 0;
 
   static async load(base = '/models/'): Promise<WorkshopRoom> {
-    const gltf = await new GLTFLoader().loadAsync(`${base}workshop.glb`);
+    const gltf = await new GLTFLoader().loadAsync(`${base}workshop.glb?v=${__MODELS__}`);
     return new WorkshopRoom(gltf.scene);
   }
 

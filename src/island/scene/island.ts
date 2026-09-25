@@ -116,9 +116,9 @@ export class Island {
 
   static async load(base = '/models/'): Promise<Island> {
     const [gltf, shore, info] = await Promise.all([
-      new GLTFLoader().loadAsync(`${base}island.glb`),
-      new THREE.TextureLoader().loadAsync(`${base}shore.png`),
-      fetch(`${base}island.json`).then((r) => r.json() as Promise<IslandInfo>),
+      new GLTFLoader().loadAsync(`${base}island.glb?v=${__MODELS__}`),
+      new THREE.TextureLoader().loadAsync(`${base}shore.png?v=${__MODELS__}`),
+      fetch(`${base}island.json?v=${__MODELS__}`).then((r) => r.json() as Promise<IslandInfo>),
     ]);
     shore.magFilter = THREE.LinearFilter;
     shore.colorSpace = THREE.NoColorSpace;

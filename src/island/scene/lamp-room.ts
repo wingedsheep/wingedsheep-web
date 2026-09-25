@@ -47,7 +47,7 @@ export class LampRoom {
   private clock = 0;
 
   static async load(base = '/models/'): Promise<LampRoom> {
-    const gltf = await new GLTFLoader().loadAsync(`${base}lamproom.glb`);
+    const gltf = await new GLTFLoader().loadAsync(`${base}lamproom.glb?v=${__MODELS__}`);
     return new LampRoom(gltf.scene);
   }
 

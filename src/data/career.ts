@@ -200,10 +200,16 @@ export const chapters: Chapter[] = [
     text: 'I would like to live in a solarpunk world, and we’re building towards it: solar panels on every roof, wind turbines on the horizon. But the grid is full. At the end of 2025 more than fifteen thousand Dutch companies were waiting in line for a connection, and cables can’t be laid fast enough to catch up. So the grid we have has to be used more cleverly. There’s plenty of flexibility out there, in batteries, heat pumps, electric cars and factories, that could take power when there’s lots of it and hold back when there isn’t, if a market made it worth their while. That’s what ENTRNCE, part of Alliander, is for: making it easier for more parties to trade on the energy and flexibility markets. I was a developer on the ENTRNCE Trader, for peer-to-peer trading between individual grid connections, and now I lead development of Direct+, which gives smaller parties direct access to the wholesale power exchange.',
     roles: [
       {
-        years: '2020 – now',
+        years: '2020 – 2025',
+        role: 'Developer',
+        org: 'ENTRNCE · Arnhem',
+        text: 'Worked on the ENTRNCE Trader, for peer-to-peer energy trading between individual grid connections.',
+      },
+      {
+        years: '2025 – now',
         role: 'Lead developer',
         org: 'ENTRNCE · Arnhem',
-        text: 'Technical direction and architecture for Direct+, built with EPEX SPOT so smaller parties can trade directly on the wholesale power market: exchange access, BRP-as-a-service and prepaid clearing in one setup. A modular monolith in Kotlin, Spring Boot, PostgreSQL and React. I also help shape how our teams build with AI. Before that I was a developer on the ENTRNCE Trader, for peer-to-peer energy trading between individual grid connections.',
+        text: 'Technical direction and architecture for Direct+, built with EPEX SPOT so smaller parties can trade directly on the wholesale power market: exchange access, BRP-as-a-service and prepaid clearing in one setup. A modular monolith in Kotlin, Spring Boot, PostgreSQL and React. I also help shape how our teams build with AI.',
       },
     ],
     scene: true,

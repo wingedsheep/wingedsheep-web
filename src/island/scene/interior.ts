@@ -183,7 +183,7 @@ export class Interior {
   private beamFall = (y: number) => y;
 
   static async load(books: BookInfo[], base = '/models/'): Promise<Interior> {
-    const gltf = await new GLTFLoader().loadAsync(`${base}library.glb`);
+    const gltf = await new GLTFLoader().loadAsync(`${base}library.glb?v=${__MODELS__}`);
     return new Interior(gltf.scene, books);
   }
 

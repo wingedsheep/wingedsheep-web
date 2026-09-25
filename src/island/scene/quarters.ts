@@ -92,7 +92,7 @@ export class QuartersRoom {
   onMew?: () => void;
 
   static async load(base = '/models/'): Promise<QuartersRoom> {
-    const gltf = await new GLTFLoader().loadAsync(`${base}lighthouse.glb`);
+    const gltf = await new GLTFLoader().loadAsync(`${base}lighthouse.glb?v=${__MODELS__}`);
     return new QuartersRoom(gltf.scene);
   }
 

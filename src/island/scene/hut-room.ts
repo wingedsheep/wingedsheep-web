@@ -55,7 +55,7 @@ export class HutRoom {
   private page = { t: 0, next: rand(4, 9) };
 
   static async load(base = '/models/'): Promise<HutRoom> {
-    const gltf = await new GLTFLoader().loadAsync(`${base}hut.glb`);
+    const gltf = await new GLTFLoader().loadAsync(`${base}hut.glb?v=${__MODELS__}`);
     return new HutRoom(gltf.scene);
   }
 

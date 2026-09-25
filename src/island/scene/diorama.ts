@@ -51,7 +51,7 @@ export class Diorama {
   private clock = 0;
 
   static async load(id: string, base = '/models/'): Promise<Diorama> {
-    const gltf = await new GLTFLoader().loadAsync(`${base}career-${id}.glb`);
+    const gltf = await new GLTFLoader().loadAsync(`${base}career-${id}.glb?v=${__MODELS__}`);
     return new Diorama(gltf.scene, gltf.animations);
   }
 
