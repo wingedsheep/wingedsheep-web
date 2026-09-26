@@ -657,7 +657,7 @@ export class RiverGame {
     }
     // bits of froth afloat on the water ahead, going where the water goes: racing down the core,
     // slack by the banks, round and back up in an eddy
-    for (let n = Math.random() < dt * 30 ? 1 : 0; n > 0; n--) {
+    for (let n = Math.random() < dt * 10 ? 1 : 0; n > 0; n--) {
       const at = this.course.at(k.s + 2 + Math.random() * 26);
       const off = (Math.random() * 2 - 1) * at.width * 0.48;
       this.wildlife.froth(new THREE.Vector3(at.x + Math.cos(at.a) * off, at.y + 0.02, at.z + Math.sin(at.a) * off), 3 + Math.random() * 2);

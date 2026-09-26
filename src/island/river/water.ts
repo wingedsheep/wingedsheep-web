@@ -124,7 +124,7 @@ export function riverWater() {
         vec2 l = q / size - cell;
         float h = hash(cell + seed);
         float life = 1.0 - abs(2.0 * t - 1.0);
-        float on = step(h, mix(0.12, 0.32, fast) + rough * 0.12) * step(hash(cell + seed + 3.1), life * 1.6);
+        float on = step(h, mix(0.07, 0.22, fast) + rough * 0.1) * step(hash(cell + seed + 3.1), life * 1.6);
         float len = mix(0.18, 0.75, fast) * (0.6 + 0.4 * hash(cell + seed + 7.7)) + rough * 0.15;
         float x = (l.x - 0.5) * size.x;
         float inLen = step(abs(l.y - 0.5), len * 0.5);
@@ -237,24 +237,24 @@ export function riverWater() {
         // place (choppier in white water, glassy in a tongue), lit from the sun, with a little of
         // the sky in them where they tilt away
         vec2 e = vec2(1.0 / 6.0, 0.0);
-        float chop = 0.25 + rough * 0.6 + fast * 0.15;
-        float h0 = noise(p * 1.7 + drift * 4.0) + noise(p * 3.3 - drift * 6.0) * 0.5;
-        float hx = noise((p + e.xy) * 1.7 + drift * 4.0) + noise((p + e.xy) * 3.3 - drift * 6.0) * 0.5;
-        float hz = noise((p + e.yx) * 1.7 + drift * 4.0) + noise((p + e.yx) * 3.3 - drift * 6.0) * 0.5;
+        float chop = 0.5 + rough * 0.8;
+        float h0 = noise(p * 0.8 + drift * 3.0);
+        float hx = noise((p + e.xy) * 0.8 + drift * 3.0);
+        float hz = noise((p + e.yx) * 0.8 + drift * 3.0);
         vec3 n = normalize(vec3((h0 - hx) * chop * (1.0 - calm * 0.8), 1.0, (h0 - hz) * chop * (1.0 - calm * 0.8)));
         vec3 sun = normalize(uSunDir);
-        float shade = floor((dot(n, sun) - dot(vec3(0.0, 1.0, 0.0), sun)) * 12.0 + 0.5) / 12.0;
-        col *= 1.0 + clamp(shade, -0.1, 0.1);
+        float shade = floor((dot(n, sun) - dot(vec3(0.0, 1.0, 0.0), sun)) * 8.0 + 0.5) / 8.0;
+        col *= 1.0 + clamp(shade, -0.06, 0.06);
         vec3 rf = reflect(normalize(uView), n);
         col = mix(col, uSky, step(0.12, 1.0 - rf.y) * 0.12 * (1.0 - uNight * 0.6) * (1.0 - calm));
         // stepped bands, like a hand-picked palette
         col = floor(col * 14.0 + 0.5) / 14.0;
         // and the sun glinting off the ripples, a pixel at a time
         float spec = pow(max(dot(rf, sun), 0.0), 60.0);
-        col += vec3(1.0, 0.97, 0.88) * step(0.6, spec) * 0.45 * (1.0 - uNight * 0.9) * (1.0 - uRain * 0.8);
+        col += vec3(1.0, 0.97, 0.88) * step(0.8, spec) * 0.4 * (1.0 - uNight * 0.9) * (1.0 - uRain * 0.8);
 
         // caustic squiggles and pebbles in clear, slow shallows
-        float see = clamp(clear * 0.9 + (1.0 - depth) * 0.5 - fast * 0.8, 0.0, 1.0) * (1.0 - rough);
+        float see = clamp(clear * 0.9 + (1.0 - depth) * 0.3 - fast * 1.0, 0.0, 1.0) * (1.0 - rough);
         float c = abs(noise(p * 0.9 + drift) - 0.5);
         col += vec3(0.10, 0.14, 0.10) * step(c, 0.03) * see;
         col = mix(col, col * 0.85, step(0.74, noise(p * 2.2)) * see * 0.6);
@@ -334,9 +334,6 @@ export function riverWater() {
           col = mix(col, vec3(0.84, 0.94, 0.95), on);
         }
 
-        // sparkles: sun glints by day, fewer by night
-        float glint = step(0.9975, hash(floor(wp * 2.0) + floor(uTime * 1.5)));
-        col += vec3(1.0) * glint * (1.0 - uNight * 0.6) * 0.6 * (1.0 - uRain);
         // rain: little rings spreading where drops land
         if (uRain > 0.0) {
           vec2 rc = floor(wp * 0.8);
