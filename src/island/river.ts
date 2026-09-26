@@ -462,8 +462,8 @@ export class River implements RoomInput {
       // light back up towards the day by as much as the real sky is still lighter, keeping the
       // colour of the evening and the weather's cloud
       const noon = sky.noon;
-      // (the real dark by the light there'd be, and cloud dims a dusk as it does a day)
-      const night = darkness(sky.alt, Math.min(1.2, w.cloud * 0.8 + w.storm * 0.4));
+      // (the real dark by the light there'd be, sun and moon, and cloud dims them as it does a day)
+      const night = darkness(sky.alt, Math.min(1.2, w.cloud * 0.8 + w.storm * 0.4), sky.moonlight);
       const lift = THREE.MathUtils.clamp(sky.lamps - night, 0, 1);
       const cloud = 1 - w.cloud * 0.65;
       this.lit.sun.position.copy(sky.sun.position);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Island } from './island';
 import type { PixelRenderer } from './pixel-renderer';
 import { season } from './season';
-import { sunPosition, visitorLocation } from './sun';
+import { moonLux, moonPosition, sunPosition, visitorLocation } from './sun';
 import { glowMaterials } from './toon';
 
 const MOON = new THREE.Vector3(35, 63, 52); // high in the south
@@ -144,6 +144,8 @@ export class Sky {
   haze = 0;
   /** The sun's elevation in degrees. */
   alt = 0;
+  /** The real moon's light on the ground (lux, clear sky): its phase and how high it is. */
+  moonlight = 0;
   /** Whether the sun is climbing: morning rather than evening. */
   rising = true;
   readonly sun = new THREE.DirectionalLight();
@@ -240,6 +242,8 @@ export class Sky {
     const m = moodFor(alt, climb);
     this.lamps = m.lamps;
     this.alt = alt;
+    const moon = moonPosition(now, lat, lon);
+    this.moonlight = moonLux(moon.alt, moon.phase);
     this.rising = climb > 0;
 
     // the sun where it really is (south = +z, east = +x), kept lowish for long, readable shadows;

@@ -1,23 +1,67 @@
 /**
- * Where the real sun is for the visitor, right now. The location is guessed from the browser's
+ * Where the real sun (and moon) is for the visitor, right now. The location is guessed from the browser's
  * time zone (no permission prompt), which is plenty to get sunrise and sunset within minutes.
  */
 
 const RAD = Math.PI / 180;
 const OBLIQUITY = 23.4397 * RAD;
 
-/** Sun elevation (degrees above the horizon) and azimuth (radians from south, positive towards west). */
-export function sunPosition(ms: number, lat: number, lon: number) {
-  const d = ms / 864e5 - 10957.5; // days since J2000.0
+/** Where the sun is on the sky (right ascension, declination, radians) `d` days after J2000.0. */
+function sunCoords(d: number) {
   const m = RAD * (357.5291 + 0.98560028 * d); // mean anomaly
   const l = m + RAD * (1.9148 * Math.sin(m) + 0.02 * Math.sin(2 * m) + 0.0003 * Math.sin(3 * m)) + RAD * 102.9372 + Math.PI;
-  const dec = Math.asin(Math.sin(OBLIQUITY) * Math.sin(l));
-  const ra = Math.atan2(Math.sin(l) * Math.cos(OBLIQUITY), Math.cos(l));
+  return { dec: Math.asin(Math.sin(OBLIQUITY) * Math.sin(l)), ra: Math.atan2(Math.sin(l) * Math.cos(OBLIQUITY), Math.cos(l)) };
+}
+
+/** Elevation (degrees) and azimuth (radians from south, positive towards west) of a body at (ra, dec). */
+function horizon(d: number, ra: number, dec: number, lat: number, lon: number) {
   const h = RAD * (280.16 + 360.9856235 * d) + lon * RAD - ra; // hour angle
   const phi = lat * RAD;
   const alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(h));
   const az = Math.atan2(Math.sin(h), Math.cos(h) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi));
   return { alt: alt / RAD, az };
+}
+
+/** Sun elevation (degrees above the horizon) and azimuth (radians from south, positive towards west). */
+export function sunPosition(ms: number, lat: number, lon: number) {
+  const d = ms / 864e5 - 10957.5; // days since J2000.0
+  const { ra, dec } = sunCoords(d);
+  return horizon(d, ra, dec, lat, lon);
+}
+
+/**
+ * The moon (a short ephemeris, good to a degree or so): its elevation (degrees), azimuth, how much
+ * of it is lit (0 new … 1 full) and the phase angle (degrees, 0 at full).
+ */
+export function moonPosition(ms: number, lat: number, lon: number) {
+  const d = ms / 864e5 - 10957.5;
+  const L = RAD * (218.316 + 13.176396 * d); // mean longitude
+  const M = RAD * (134.963 + 13.064993 * d); // mean anomaly
+  const F = RAD * (93.272 + 13.22935 * d); // mean distance from its node
+  const l = L + RAD * 6.289 * Math.sin(M);
+  const b = RAD * 5.128 * Math.sin(F);
+  const dist = 385001 - 20905 * Math.cos(M); // km
+  const ra = Math.atan2(Math.sin(l) * Math.cos(OBLIQUITY) - Math.tan(b) * Math.sin(OBLIQUITY), Math.cos(l));
+  const dec = Math.asin(Math.sin(b) * Math.cos(OBLIQUITY) + Math.cos(b) * Math.sin(OBLIQUITY) * Math.sin(l));
+  // the angle sun–earth–moon, and from it the angle sun–moon–earth: the phase
+  const sun = sunCoords(d);
+  const elong = Math.acos(Math.sin(sun.dec) * Math.sin(dec) + Math.cos(sun.dec) * Math.cos(dec) * Math.cos(sun.ra - ra));
+  const phase = Math.atan2(149598000 * Math.sin(elong), dist - 149598000 * Math.cos(elong));
+  return { ...horizon(d, ra, dec, lat, lon), lit: (1 + Math.cos(phase)) / 2, phase: phase / RAD };
+}
+
+/**
+ * The moonlight on the ground (lux) with the moon at `alt` degrees and `phase` degrees from full:
+ * ~0.27 from a full moon overhead, a tenth of that at a half moon (the full moon is brighter than
+ * its area: the opposition surge), less again low down through more air, none once it's set.
+ */
+export function moonLux(alt: number, phase: number) {
+  if (alt <= 0) return 0;
+  const a = Math.abs(phase);
+  const bright = 10 ** (-0.4 * (0.026 * a + 4e-9 * a ** 4)); // against full
+  const s = Math.sin(alt * RAD);
+  const air = 1 / (s + 0.025 * Math.exp(-11 * s)); // airmass
+  return 0.32 * bright * s * 10 ** (-0.4 * 0.2 * air);
 }
 
 /**
@@ -45,10 +89,12 @@ export function logLux(alt: number) {
  * see brightness about logarithmically, so it goes by log lux, from a clear sunset (~400 lux, still
  * plainly light) down to ~0.005 (well into nautical dusk, only shapes left). `overcast` is how
  * many factors of ten the cloud takes off (a heavy overcast about one): dusk comes on earlier
- * under it.
+ * under it. `moon` is the moonlight (lux, moonLux): a full moon high up leaves a night you can
+ * see the banks by (~0.15 lux, darkness 0.7), a moonless one is as dark as it gets.
  */
-export function darkness(alt: number, overcast = 0) {
-  return Math.min(1, Math.max(0, (2.6 - (logLux(alt) - overcast)) / 4.9));
+export function darkness(alt: number, overcast = 0, moon = 0) {
+  const lux = Math.log10(10 ** logLux(alt) + moon) - overcast;
+  return Math.min(1, Math.max(0, (2.6 - lux) / 4.9));
 }
 
 // a representative spot for common time zones: [latitude, longitude]
