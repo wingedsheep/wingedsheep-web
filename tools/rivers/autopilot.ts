@@ -307,6 +307,8 @@ function bits(course: Course, start: number, finish: number): Bit[] {
       (from = at), (piece = name);
     }
     out.push({ kind: piece ? `${st.kind}: ${piece}` : st.kind, s0: from, s1 });
+    // below a waterfall, its run-out (the waves and the white water) apart from the flat above it
+    if (st.runout !== undefined && st.runout < finish) out.unshift({ kind: 'falls: run-out', s0: st.runout - start, s1 });
   }
   // the drops, over whatever they're in
   for (const t of course.near(start, finish)) {

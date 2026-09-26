@@ -264,6 +264,10 @@ export interface Stretch {
   pieceAt?: number;
   /** The last pool, with the finish in it. */
   takeout?: boolean;
+  /** Below a waterfall: where the run-out starts, the water it's poured into tearing off fast and white. */
+  runout?: number;
+  /** …and whether its wave train's been laid yet. */
+  trained?: boolean;
 }
 
 const BASE: Record<Kind, Character> = {
@@ -612,6 +616,9 @@ export class Course {
       t.speed += h * 2.2;
       t.width += 0.5 - h * 1.2 - (stretch.slot ? 1 : 0);
       if (stretch.slot) t.gorge = 0.95;
+    } else if (stretch.runout !== undefined && s > stretch.runout) {
+      // below a waterfall: squeezed, fast and white, and straight enough for the waves to stand
+      Object.assign(t, { width: 10.5, speed: 6.8 + h * 1.6, rough: 0.95, slope: 0.045, bend: 0.05, clear: 0, gorge: 0.8 });
     } else {
       t.speed += h * 0.8;
     }
@@ -695,7 +702,7 @@ export class Course {
         heat = Math.max(Math.min(0.3, pr.cap), Math.min(pr.cap, 0.3 + d * 0.6 + wave + (r() - 0.5) * 0.12));
         const lengths: Record<Kind, [number, number]> = {
           pool: [0, 0], run: [0, 0], rapids: [170 + heat * 120, 240 + heat * 200], cascade: [130, 200],
-          gorge: [180, 300], falls: [80, 100], chute: [200 + heat * 80, 260 + heat * 140],
+          gorge: [180, 300], falls: [150, 180], chute: [200 + heat * 80, 260 + heat * 140],
         };
         [lo, hi] = lengths[kind];
       }
@@ -736,7 +743,11 @@ export class Course {
         at += 13 + r() * 9;
       }
     } else if (kind === 'falls') {
-      ledge(next.start + (next.end - next.start) * 0.5, 4 + r() * 1.5 + d);
+      // a slow, flat approach, the drop, and then the run-out: the water it's poured into tearing
+      // off down the gorge, fast and white, with the waves standing up in it
+      const lip = next.start + 40 + r() * 10;
+      ledge(lip, 4 + r() * 1.5 + d);
+      next.runout = Math.round(lip) + 10;
     } else if (n === 3) {
       ledge(next.start + 70, 0.9); // the first one: small, to learn to boof
     } else if (((kind === 'rapids' || kind === 'gorge') && r() < 0.5 + heat * 0.3 || kind === 'run' && r() < 0.2) && n > 3) {
@@ -849,14 +860,19 @@ export class Course {
         gap = this.lane / (p.width / 2);
         continue;
       }
-      const white = stretch.kind === 'rapids' || stretch.kind === 'gorge';
-      const density = BASE[stretch.kind].rocks * (0.55 + h * 1.6);
+      // (below a waterfall, its run-out is white water like any rapid)
+      const runout = stretch.runout !== undefined && s > stretch.runout;
+      const white = stretch.kind === 'rapids' || stretch.kind === 'gorge' || runout;
+      const density = BASE[runout ? 'rapids' : stretch.kind].rocks * (0.55 + h * 1.6);
       // rows of rocks come closer together the hotter it gets: a couple of seconds apart in the
       // first rapid, not much less in the big stuff (in seconds, whatever the speed): fast water
       // with room to pick a line
       const spacing = Math.max(white ? Math.max(6, p.speed) * (2.1 - h * 0.5) : 7, Math.min(40, 1.4 / Math.max(density, 0.01) / 3.2));
       const step = spacing * (0.8 + r() * 0.4);
       this.placedTo += step;
+      // (the flat water above a waterfall is nearly empty: don't stride on past its run-out's waves)
+      const waves = stretch.runout !== undefined && !stretch.trained ? stretch.runout + 12 : Infinity;
+      if (s < waves && this.placedTo > waves) this.placedTo = waves;
       if (s < 120) continue; // a clear start
       // nothing near a lip, except the hole at its foot
       const lip = this.ledges.find((l) => s > l.s - 8 && s < l.s + 10);
@@ -875,7 +891,19 @@ export class Course {
 
       // now and then down a straight, a wave train where the rocks' gap would be: a V of smooth
       // water between two rocks, and the waves standing below it
-      if ((white || stretch.kind === 'run') && s > this.lastTrain + 60 && r() < (stretch.kind === 'run' ? 0.18 : 0.32)) {
+      // (and below a waterfall, for certain: the waves standing up in the water it's poured into)
+      // (and below a waterfall, for certain: the waves standing up in the water it's poured into,
+      // as near the foot as there's a straight for them)
+      const owed = runout && !stretch.trained && s < stretch.runout! + 40;
+      if (owed && s >= stretch.runout! + 12) {
+        const len = this.trainAt(s, stretch, 0, 8, 0.25);
+        if (len) {
+          stretch.trained = true;
+          this.placedTo = s + len + 4;
+          continue;
+        }
+      }
+      if (!owed && (white || stretch.kind === 'run') && s > this.lastTrain + 60 && r() < (stretch.kind === 'run' ? 0.18 : 0.32)) {
         const len = this.trainAt(s + 3, stretch, gap * half);
         if (len) {
           this.placedTo = s + 3 + len + 4;
@@ -969,7 +997,7 @@ export class Course {
    * (no lip, no island, no bend worth the name, and room before the stretch ends). Returns how
    * much river it takes (0: none). Bigger and leaning harder the hotter the water.
    */
-  private trainAt(s0: number, stretch: Stretch, u: number, most = 8): number {
+  private trainAt(s0: number, stretch: Stretch, u: number, most = 8, bigger = 0): number {
     const r = this.scatter;
     const h = stretch.heat;
     const p = this.at(s0);
@@ -993,7 +1021,7 @@ export class Course {
     const room = narrow / 2 - half - 1;
     const t: Train = {
       kind: 'train', s: s0, u: Math.max(-room, Math.min(room, u)), half, length, count,
-      amp: 0.2 + h * 0.65 + r() * 0.1, skew: 0.25 + h * 0.7, seed: r(),
+      amp: 0.2 + h * 0.65 + r() * 0.1 + bigger, skew: 0.25 + h * 0.7, seed: r(),
     };
     this.file(t);
     this.trains.push(t);
