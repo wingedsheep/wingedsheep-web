@@ -15,6 +15,7 @@ import type { Stretch } from './river/course';
 import { FLIP, type Hint, type RiverGame, type Tally } from './river/game';
 import { TIP } from './river/kayak';
 import { RARE, RIVERS, type Rare, type RiverDef } from './river/rivers';
+import { darkness } from './scene/sun';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
@@ -461,7 +462,9 @@ export class River implements RoomInput {
       // light back up towards the day by as much as the real sky is still lighter, keeping the
       // colour of the evening and the weather's cloud
       const noon = sky.noon;
-      const lift = THREE.MathUtils.clamp(sky.lamps - sky.twilight, 0, 1);
+      // (the real dark by the light there'd be, and cloud dims a dusk as it does a day)
+      const night = darkness(sky.alt, Math.min(1.2, w.cloud * 0.8 + w.storm * 0.4));
+      const lift = THREE.MathUtils.clamp(sky.lamps - night, 0, 1);
       const cloud = 1 - w.cloud * 0.65;
       this.lit.sun.position.copy(sky.sun.position);
       this.lit.sun.color.copy(sky.sun.color).lerp(noon.sun.color, lift * 0.3);
@@ -478,7 +481,7 @@ export class River implements RoomInput {
         hemi: this.lit.hemi,
         fog: this.lit.fog,
         // the real dark, not the island's lamps: still light at sundown, properly dark an hour or so after
-        night: sky.twilight,
+        night,
         rain: Math.min(1, w.rain + w.hail),
         snow: w.snow,
         fair: w.storm < 0.3 && w.rain < 0.2,

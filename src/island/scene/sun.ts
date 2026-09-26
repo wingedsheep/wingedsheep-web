@@ -20,6 +20,37 @@ export function sunPosition(ms: number, lat: number, lon: number) {
   return { alt: alt / RAD, az };
 }
 
+/**
+ * Roughly how much light there is on the ground (log10 lux) with the sun at `alt` degrees, under
+ * a clear sky. Measured anchors: ~500 lux at sunset, ~3.4 at the end of civil twilight (−6°),
+ * ~0.008 at the end of nautical (−12°), starlight (~0.001) by −18°; 10,000 or so with the sun 10°
+ * up. In between it falls off exponentially (a straight line in log lux, about a magnitude a
+ * degree in twilight), so straight lines between the anchors.
+ */
+const LUX: [number, number][] = [[-18, -3], [-12, -2.1], [-6, 0.53], [0, 2.7], [10, 4], [30, 4.8]];
+
+export function logLux(alt: number) {
+  if (alt <= LUX[0][0]) return LUX[0][1];
+  for (let i = 1; i < LUX.length; i++) {
+    const [a1, l1] = LUX[i];
+    if (alt > a1) continue;
+    const [a0, l0] = LUX[i - 1];
+    return l0 + ((alt - a0) / (a1 - a0)) * (l1 - l0);
+  }
+  return LUX[LUX.length - 1][1];
+}
+
+/**
+ * How dark it looks out of doors, 0 (day) … 1 (night), to eyes that have had time to adjust: we
+ * see brightness about logarithmically, so it goes by log lux, from a clear sunset (~400 lux, still
+ * plainly light) down to ~0.005 (well into nautical dusk, only shapes left). `overcast` is how
+ * many factors of ten the cloud takes off (a heavy overcast about one): dusk comes on earlier
+ * under it.
+ */
+export function darkness(alt: number, overcast = 0) {
+  return Math.min(1, Math.max(0, (2.6 - (logLux(alt) - overcast)) / 4.9));
+}
+
 // a representative spot for common time zones: [latitude, longitude]
 const ZONES: Record<string, [number, number]> = {
   'Europe/Amsterdam': [52.37, 4.9], 'Europe/Brussels': [50.85, 4.35], 'Europe/London': [51.5, -0.13],

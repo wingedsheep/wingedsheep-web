@@ -144,14 +144,6 @@ export class Sky {
   haze = 0;
   /** The sun's elevation in degrees. */
   alt = 0;
-  /**
-   * How dark it really is out in the open, 0..1, by the sun alone: still light at sunset, dim by
-   * the end of civil twilight (6° under), properly dark by nautical dusk (12° under). The lamps
-   * come on well before this, as lamps do.
-   */
-  get twilight() {
-    return 1 - THREE.MathUtils.smoothstep(this.alt, -12, 1);
-  }
   /** Whether the sun is climbing: morning rather than evening. */
   rising = true;
   readonly sun = new THREE.DirectionalLight();
