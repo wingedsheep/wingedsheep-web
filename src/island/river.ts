@@ -4,7 +4,7 @@
  * island's own sun and weather, a km or two down to the take-out. Six of them, gentlest first
  * (river/rivers.ts): make it all the way down one and the next one opens. Distance times flow is
  * the score, less a bit for each capsize; make it down and every second under par, gate and ball
- * pays on top. Each river's best stays in this browser.
+ * pays on top (and a little more down in the dark, or in a storm). Each river's best stays in this browser.
  */
 import * as THREE from 'three';
 import type { IslandContext } from './content';
@@ -832,6 +832,8 @@ export class River implements RoomInput {
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-over-spotted], [data-over-spotted-label]')) el.hidden = !t.spotted.length;
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-over-storm], [data-over-storm-label]')) el.hidden = !t.bonus.storm;
     set('[data-over-storm]', `+${round(t.bonus.storm)}`);
+    for (const el of this.el.querySelectorAll<HTMLElement>('[data-over-night], [data-over-night-label]')) el.hidden = !t.bonus.night;
+    set('[data-over-night]', `+${round(t.bonus.night)}`);
     set('[data-over-spotted]', t.spotted.map((k) => RARE.find((r) => r.id === k)!.name).join(', '));
     const title = this.el.querySelector('[data-over-title]');
     if (title) title.textContent = this.fresh ? 'A new best' : quickest ? 'Your quickest yet' : t.finished ? 'Down' : 'Swimming';

@@ -31,6 +31,16 @@ export const BALL_POINTS = 100;
 export const FLIP = 300;
 /** Down to the take-out with a storm still blowing: this much on top of everything else. */
 export const STORM_BONUS = 0.15;
+/** Down to the take-out in the dark (by headlamp, or a full moon at best): a little on top too. */
+export const NIGHT_BONUS = 0.05;
+/** How dark it has to be for that (Outside.night; a full moon high up leaves about 0.7). */
+const DARK = 0.6;
+/**
+ * Paddling past somebody's camp after dark (a fire on the bank, a lantern by a fishing line): a
+ * little something, CAMP times the flow, if you come within CAMP_NEAR m of it.
+ */
+const CAMP = 20;
+const CAMP_NEAR = 9;
 /**
  * Off a drop at SEND_FROM m/s or more and landed clean (a boof, a tuck): a send, paid on the spot.
  * SEND a metre of drop, twice that going SEND_TOP and over, times the flow.
@@ -57,7 +67,7 @@ export interface Tally {
   flips: number;
   /** Made it to the take-out (rather than swimming), and what that was worth: the clock, the gates, the balls. */
   finished: boolean;
-  bonus: { time: number; gates: number; balls: number; storm: number };
+  bonus: { time: number; gates: number; balls: number; storm: number; night: number };
   balls: number;
   /** Drops gone off flat out, and what they paid. */
   sends: number;
@@ -175,8 +185,11 @@ export class RiverGame {
   private sun = new THREE.DirectionalLight();
   private hemi = new THREE.HemisphereLight();
   private halo = haloTexture();
-  /** How stormy it is right now (for the bonus at the take-out). */
+  /** How stormy it is right now, and how dark (for the bonuses at the take-out). */
   private storm = 0;
+  private dark = 0;
+  /** The camps passed this run (their lights), each paying once. */
+  private camps = new Set<THREE.Sprite>();
   /** Lightning: the island's last flash (to catch a new strike), and the bolt it brings down. */
   private lastFlash = 0;
   private bolt: THREE.Mesh;
@@ -340,6 +353,7 @@ export class RiverGame {
     this.kayak.launch(this.course, this.start);
     this.kayak.assisted = this.controls.assisted;
     this.tally = fresh();
+    this.camps.clear();
     this.state = 'ready';
     this.paused = false;
     this.stretch = -1;
@@ -442,6 +456,7 @@ export class RiverGame {
     this.land.glow(outside.night, this.lit, this.clock, outside.fair ? 1 : 0.15);
     this.shore();
     this.wildlife.storm = this.storm = outside.storm ?? 0;
+    this.dark = outside.night;
     this.kayak.storm = this.storm;
     const across = k.here?.a ?? 0;
     this.wildlife.blow.set(Math.cos(across), Math.sin(across)).multiplyScalar(k.gust);
@@ -566,6 +581,7 @@ export class RiverGame {
       this.clean = true;
     }
     this.round();
+    this.camp();
     this.flatOut(dt);
     this.goals(false);
     if (metres >= this.length) this.finish();
@@ -633,6 +649,26 @@ export class RiverGame {
     this.wildlife.sparkle(k.pos, 8 + n * 4, undefined, 0.7);
   }
 
+  /**
+   * After dark, past somebody's camp: the smell of their woodsmoke, or slipping by their line
+   * without a splash (not sprinting past it, and not upside down). Each one pays once.
+   */
+  private camp() {
+    if (this.lit < 0.5) return;
+    const k = this.kayak;
+    for (const g of this.land.lamps()) {
+      const camp = (g.userData as Lamp).camp;
+      if (!camp || this.camps.has(g)) continue;
+      if ((g.position.x - k.pos.x) ** 2 + (g.position.z - k.pos.z) ** 2 > CAMP_NEAR * CAMP_NEAR) continue;
+      this.camps.add(g);
+      if (k.balance !== 'up' || (camp === 'angler' && k.sprinting)) continue;
+      const points = Math.round(CAMP * this.tally.flow);
+      this.tally.score += points;
+      this.well(`${camp === 'fire' ? 'Woodsmoke' : 'Quietly past the line'} · +${points}`, 0.1);
+      this.wildlife.sparkle(g.position, 10, new THREE.Color((g.userData as Lamp).color), 0.6);
+    }
+  }
+
   /** Off a drop and landed clean: if you went over it flat out, what that's worth (0 if not). */
   private send(height: number) {
     const fast = (this.kayak.lipSpeed - SEND_FROM) / (SEND_TOP - SEND_FROM);
@@ -649,10 +685,12 @@ export class RiverGame {
   private finish() {
     const t = this.tally;
     t.finished = true;
-    t.bonus = { time: Math.round(Math.max(0, this.par - t.time) * TICK * t.flow), gates: t.gates * GATE, balls: t.balls * BALL_POINTS, storm: 0 };
+    t.bonus = { time: Math.round(Math.max(0, this.par - t.time) * TICK * t.flow), gates: t.gates * GATE, balls: t.balls * BALL_POINTS, storm: 0, night: 0 };
     t.score += t.bonus.time + t.bonus.gates + t.bonus.balls;
-    // and all of it out in a storm
-    if (this.storm >= 0.5) t.score += t.bonus.storm = Math.round(t.score * STORM_BONUS);
+    // and all of it out in a storm, or in the dark (both on what you'd have had without either)
+    const base = t.score;
+    if (this.storm >= 0.5) t.score += t.bonus.storm = Math.round(base * STORM_BONUS);
+    if (this.dark >= DARK) t.score += t.bonus.night = Math.round(base * NIGHT_BONUS);
     this.goals(true);
     this.state = 'over';
     this.overIn = 1.4;
@@ -1385,7 +1423,7 @@ const ICE = new THREE.Color('#dce8ff');
 const MIST = new THREE.Color('#d8e0e2');
 
 function fresh(): Tally {
-  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0, storm: 0 }, balls: 0, sends: 0, sent: 0, longest: 0, flatOut: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1, spotted: [], trains: 0, rode: 0,
+  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0, storm: 0, night: 0 }, balls: 0, sends: 0, sent: 0, longest: 0, flatOut: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1, spotted: [], trains: 0, rode: 0,
     knocks: 0, missed: 0, boofs: 0, spins: 0, fallsSent: 0, pumpedTrains: 0, goals: [], goalPoints: 0 };
 }
 

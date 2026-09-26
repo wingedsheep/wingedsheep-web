@@ -123,6 +123,8 @@ export interface Lamp {
   dim?: number;
   /** How high it hangs over the river's water (m), for its reflection. */
   over?: number;
+  /** Somebody's out here after dark: their fire on the bank, or their lantern by a fishing line. */
+  camp?: 'fire' | 'angler';
 }
 
 /** How bright a light is right now (1, or less as it flickers): a fire's dance, a lantern's waver. */
@@ -940,7 +942,7 @@ export class Land {
       const m = this.put(chunk, 'campfire', { ...at, y: at.y - 0.03 }, r() * 6.3);
       if (!m) return;
       chunk.clearings.push({ x: at.x, z: at.z, r: 5 }); // (room under the sky: no crowns over the fire)
-      this.glowAt(chunk, m);
+      this.camped(chunk, m, 'fire');
       return;
     }
     // (in quiet water: nobody fishes the white water)
@@ -950,7 +952,14 @@ export class Land {
     const m = this.put(chunk, 'angler', { ...at, y: at.y - 0.02 }, toRiver(side, p.a));
     if (!m) return;
     chunk.clearings.push({ x: at.x, z: at.z, r: 2.5 });
+    this.camped(chunk, m, 'angler');
+  }
+
+  /** A camp's lights, marked as somebody's (for the little something paddling past one after dark). */
+  private camped(chunk: Chunk, m: THREE.Object3D, camp: 'fire' | 'angler') {
+    const from = chunk.glows.length;
     this.glowAt(chunk, m);
+    for (const g of chunk.glows.slice(from)) (g.userData as Lamp).camp = camp;
   }
 
   /**
