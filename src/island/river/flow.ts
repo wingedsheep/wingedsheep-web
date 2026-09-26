@@ -1,4 +1,5 @@
 import { type Course, type Rock, type Sample, type Thing, channel } from './course';
+import { gap, reach } from './outline';
 
 /**
  * How the water moves: one model for the kayak to feel, the water to draw and the specks to
@@ -85,25 +86,31 @@ export function rockWater(o: Rock, x: number, z: number, fx: number, fz: number,
   let eddy = 0;
   let px = 0;
   let pz = 0;
-  const len = eddyLength(o.r, v);
-  if (along > -o.r * 0.2 && along < len) {
+  // as wide as the rock is across the current, starting from its back: a slab lying with the
+  // current leaves a narrow eddy, one lying across it a wide one
+  const w0 = reach(o, -fz, fx);
+  const back = reach(o, fx, fz);
+  const len = eddyLength(w0, v);
+  const behind = along - Math.max(0, back - w0);
+  if (behind > -w0 * 0.2 && behind < len) {
     // widest just behind the rock, closing to a point
-    const t = Math.max(0, along) / len;
-    const w = o.r * (1.6 - t * 0.9);
+    const t = Math.max(0, behind) / len;
+    const w = w0 * (1.6 - t * 0.9);
     const a = Math.abs(across);
-    eddy = (1 - smooth(w * 0.6, w, a)) * (1 - t * t * t) * smooth(-o.r * 0.2, o.r * 0.3, along);
+    eddy = (1 - smooth(w * 0.6, w, a)) * (1 - t * t * t) * smooth(-w0 * 0.2, w0 * 0.3, behind);
     // the eddy line draws water in towards the middle of it
     const draw = -Math.sign(across) * Math.abs(v) * DRAW * eddy * (1 - eddy) * 4;
     px += -fz * draw;
     pz += fx * draw;
   }
   // the pillow: water banking up on the upstream face and pouring off round the sides
-  const dist = Math.hypot(dx, dz);
-  const reach = o.r + 0.9;
-  if (along < 0 && dist < reach && dist > 0.01) {
-    const k = (1 - (dist - o.r) / 0.9) * Math.min(1, v / 4) * 1.6;
-    px = (dx / dist) * k;
-    pz = (dz / dist) * k;
+  if (along < 0) {
+    const g = gap(o, x, z, 1);
+    if (g.d < 0.9) {
+      const k = (1 - g.d / 0.9) * Math.min(1, v / 4) * 1.6;
+      px = g.nx * k;
+      pz = g.nz * k;
+    }
   }
   return { eddy, px, pz };
 }

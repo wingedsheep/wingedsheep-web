@@ -7,6 +7,7 @@ import { BOOF_WINDOW, Kayak, LIP_AT } from './kayak';
 import { Land, type Lamp, flicker, fogAt, highAt } from './land';
 import { type Goal, RARE, RIVERS, type Rare, type RiverDef } from './rivers';
 import { waterAt } from './flow';
+import { HIT, outlineOf, reach } from './outline';
 import { MAX_HOLES, MAX_LIPS, MAX_RIPPLES, MAX_ROCKS, MAX_SHORE, MAX_TONGUES, MAX_TRAINS, riverWater } from './water';
 import { type Cry, Wildlife } from './wildlife';
 
@@ -118,7 +119,7 @@ export interface Outside {
 }
 
 export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'plunge' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'growl' | 'spotted' | Cry;
-export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball' | 'waves';
+export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball' | 'waves' | 'big';
 
 export interface GameEvents {
   /** Into a new stretch of river. */
@@ -815,8 +816,12 @@ export class RiverGame {
       if (o.kind === 'tongue' && o.s > k.s + 12 && this.hinted.has('boof')) this.tell('tongue');
       if (o.kind === 'rock' && !o.scenery && o.s > k.s + 14 && t > 50) this.tell('eddy');
       if (o.kind === 'ball' && !o.taken && o.s > k.s + 12) this.tell('ball');
-      if (o.kind === 'train' && o.s > k.s + 6 && o.s < k.s + 30) this.tell('waves', true);
+      // (after the word on big water, not straight on top of it)
+      if (o.kind === 'train' && o.s > k.s + 6 && o.s < k.s + 30) this.tell('waves', !this.hinted.has('big'));
     }
+    // big water coming up: a word on how to ride it before you're in it
+    const ahead = this.course.stretchAt(k.s + 45);
+    if (ahead.big && ahead.start > k.s + 15) this.tell('big', true);
   }
 
   private wire() {
@@ -1017,6 +1022,7 @@ export class RiverGame {
     const k = this.kayak;
     const u = this.water.uniforms;
     const rocks = u.uRocks.value as THREE.Vector4[];
+    const shapes = u.uRockShape.value as THREE.Vector4[];
     const holes = u.uHoles.value as THREE.Vector4[];
     const tongues = u.uTongues.value as THREE.Vector4[];
     let nr = 0;
@@ -1024,9 +1030,19 @@ export class RiverGame {
     let nt = 0;
     for (const o of this.course.near(k.s - 20, k.s + 80)) {
       if (!('kind' in o)) continue;
-      if (o.kind === 'rock' && !o.scenery && nr < MAX_ROCKS) rocks[nr++].set(o.x, o.z, o.r * 0.9, 0);
-      else if (o.kind === 'log') {
-        for (let t = 0.15; t < 1 && nr < MAX_ROCKS; t += 0.25) rocks[nr++].set(o.x0 + (o.x1 - o.x0) * t, o.z0 + (o.z1 - o.z0) * t, o.r, -0.2);
+      if (o.kind === 'rock' && !o.scenery && nr < MAX_ROCKS) {
+        // its outline, and for its eddy how wide it is across the current and how far its back is
+        // past that (as flow.ts's rockWater)
+        const a = this.course.at(o.s).a;
+        const across = reach(o, Math.cos(a), Math.sin(a));
+        const e = outlineOf(o);
+        shapes[nr].set(e.a * HIT, e.b * HIT, e.ux, e.uz);
+        rocks[nr++].set(o.x, o.z, across * HIT, Math.max(0, reach(o, Math.sin(a), -Math.cos(a)) - across));
+      } else if (o.kind === 'log') {
+        for (let t = 0.15; t < 1 && nr < MAX_ROCKS; t += 0.25) {
+          shapes[nr].set(o.r, o.r, 1, 0);
+          rocks[nr++].set(o.x0 + (o.x1 - o.x0) * t, o.z0 + (o.z1 - o.z0) * t, o.r, -0.2);
+        }
       } else if (o.kind === 'hole' && nh < MAX_HOLES) {
         const p = this.course.at(o.s);
         holes[nh++].set(p.x + Math.cos(p.a) * o.u, p.z + Math.sin(p.a) * o.u, o.half, o.strength);

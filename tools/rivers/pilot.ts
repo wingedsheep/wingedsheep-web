@@ -8,6 +8,7 @@ import type { Intent } from '../../src/island/river/controls';
 import { NEUTRAL } from '../../src/island/river/controls';
 import type { Course, Hole, Ledge, Log } from '../../src/island/river/course';
 import { waterAt } from '../../src/island/river/flow';
+import { gap } from '../../src/island/river/outline';
 import type { Kayak } from '../../src/island/river/kayak';
 import { CELLS, DS, DU, HULL_R, cell, clear, dilate, sampleAt, uOf } from './shared';
 
@@ -603,7 +604,7 @@ function room(course: Course, k: Kayak) {
     for (const along of [1.45, 0, -1.45]) {
       const x = k.pos.x + hx * along;
       const z = k.pos.z + hz * along;
-      const d = t.kind === 'rock' ? Math.hypot(x - t.x, z - t.z) - t.r * 0.9 : segment(x, z, t);
+      const d = t.kind === 'rock' ? gap(t, x, z).d : segment(x, z, t);
       best = Math.min(best, d - HULL_R);
     }
   }

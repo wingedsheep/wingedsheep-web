@@ -92,6 +92,11 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     pad: 'Waves! Lean into each crest with the stick, and stroke down their backs',
     touch: 'Waves! Stroke as you slide down the back of each one',
   },
+  big: {
+    keys: 'Big water! Point straight down it, lean forward [W] and keep paddling',
+    pad: 'Big water! Point straight down it, stick forward and keep paddling',
+    touch: 'Big water! Point straight down it and keep paddling',
+  },
   peel: {
     keys: 'Eddy! Lean into the turn on the way out',
     pad: 'Eddy! Lean into the turn on the way out',

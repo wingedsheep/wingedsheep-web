@@ -3,6 +3,7 @@ import type { RiverAssets } from './assets';
 import { CREST_LEAN, type Course, type Gate, type Hole, type Ledge, type Obstacle, type Pickup, type Sample, type Thing, type Tongue, type Train, channel, waveAt } from './course';
 import { type Intent, NEUTRAL } from './controls';
 import { waterAt } from './flow';
+import { gap } from './outline';
 
 const HULL = [1.45, 0, -1.45]; // collision circles along the hull, from the bow (m)
 const HULL_R = 0.36;
@@ -48,6 +49,11 @@ const WAVE_ROLL = 8.5;
 const BROADSIDE = 5;
 const WAVE_PULL = 5;
 const PUMP = 0.55;
+/**
+ * How much the wildest water eases off (0..1): its random jolts, the rough water's own roll and the
+ * crests' roll, and a little more steadiness and damping to settle back upright.
+ */
+const WILD_EASE = 0.25;
 /** Over a crest faster than this (m/s), a big wave throws you off it. */
 const HOP_FROM = 6.8;
 /** A storm's wind across the river at its strongest (m/s²): enough to drift you, not to pin you. */
@@ -829,8 +835,11 @@ export class Kayak {
     // towards the water: lift that edge by leaning away). Leaning forward into the waves steadies
     // you; sitting back lets them push you about.
     const stance = 1 - Math.max(0, this.pitchNow) * 0.35 + Math.max(0, -this.pitchNow) * 0.4;
-    let torque = this.rough * (3.2 + this.difficulty * 2) * stance * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
-    if (Math.random() < dt * this.rough * 2.2) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * this.rough * stance;
+    // the wildest water (big water, the hottest rapids) is a bit kinder than it might be: fewer
+    // jolts out of nowhere and a steadier roll, so riding it out is balance, not luck
+    const wild = THREE.MathUtils.smoothstep(this.rough, 0.7, 1) * WILD_EASE;
+    let torque = this.rough * (3.2 + this.difficulty * 2) * stance * (1 - wild * 0.7) * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
+    if (Math.random() < dt * this.rough * 2.2 * (1 - wild)) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * this.rough * stance * (1 - wild * 0.6);
     if (hole) torque += Math.sin(t * 5) * 5.5 * hole.strength * stance * (1 + Math.min(2, this.holed));
     // below a big waterfall the water boils: long slow heaves one way and then the other, and
     // every so often a boil bursting up under one edge. Lean against it and keep paddling.
@@ -851,7 +860,7 @@ export class Kayak {
     if (w.k >= 0 && !this.airborne) {
       const face = Math.max(0, 1 - Math.abs(w.d + 0.15) / 0.22);
       const square = Math.sin(angle(this.heading - p.a + Math.atan(CREST_LEAN * w.lean)));
-      torque += WAVE_ROLL * square * w.amp * face * stance * THREE.MathUtils.clamp(p.speed / 6, 0.5, 1.2);
+      torque += WAVE_ROLL * square * w.amp * face * stance * (1 - wild * 0.5) * THREE.MathUtils.clamp(p.speed / 6, 0.5, 1.2);
       broadside = THREE.MathUtils.smoothstep(Math.abs(square), 0.55, 0.9) * THREE.MathUtils.smoothstep(w.amp, 0.15, 0.55);
       torque += BROADSIDE * Math.sign(square) * broadside * (0.5 + 0.5 * face);
     }
@@ -864,11 +873,11 @@ export class Kayak {
     torque += this.slam;
     this.slam *= Math.exp(-dt * 2.2);
     const planted = this.blade.kind === 'plant' ? 0.4 : 0; // a blade in the water is something to lean on
-    const steady = (2.2 + this.effort * 3.5 + planted * 3) * (1 - broadside * 0.5);
+    const steady = (2.2 + this.effort * 3.5 + planted * 3) * (1 - broadside * 0.5) * (1 + wild);
     const over = Math.abs(this.tilt) - TIP;
     // upright, it wants to stay that way; past the tipping point it wants to go on over
     torque += over < 0 ? -steady * this.tilt : Math.sign(this.tilt) * (2 + over * 10);
-    this.tiltV += (torque - this.tiltV * (2.2 + this.effort * 1.5)) * dt;
+    this.tiltV += (torque - this.tiltV * (2.2 + this.effort * 1.5 + wild * 3)) * dt;
     this.tilt += this.tiltV * dt;
     if (!running) {
       this.tilt = Math.max(-TIP * 0.8, Math.min(TIP * 0.8, this.tilt));
@@ -1040,26 +1049,28 @@ export class Kayak {
     for (const along of HULL) {
       const cx = this.pos.x + hx * along;
       const cz = this.pos.z + hz * along;
-      let ox: number;
-      let oz: number;
-      let r: number;
+      // how far out of it this bit of the hull is, and the way out
+      let d: number;
+      let nx: number;
+      let nz: number;
       if (o.kind === 'rock') {
-        ox = o.x;
-        oz = o.z;
-        r = o.r * 0.9;
+        const g = gap(o, cx, cz);
+        d = g.d;
+        nx = g.nx;
+        nz = g.nz;
       } else {
         // the nearest point on the log
         const dx = o.x1 - o.x0;
         const dz = o.z1 - o.z0;
         const t = Math.max(0, Math.min(1, ((cx - o.x0) * dx + (cz - o.z0) * dz) / (dx * dx + dz * dz || 1)));
-        ox = o.x0 + dx * t;
-        oz = o.z0 + dz * t;
-        r = o.r;
+        const ex = cx - o.x0 - dx * t;
+        const ez = cz - o.z0 - dz * t;
+        const e = Math.hypot(ex, ez) || 0.001;
+        d = e - o.r;
+        nx = ex / e;
+        nz = ez / e;
       }
-      const dx = cx - ox;
-      const dz = cz - oz;
-      const d = Math.hypot(dx, dz) || 0.001;
-      const pen = HULL_R + r - d;
+      const pen = HULL_R - d;
       closest = Math.min(closest, -pen);
       if (pen <= 0) continue;
       this.touching = true;
@@ -1068,8 +1079,6 @@ export class Kayak {
         const len = Math.hypot(o.x1 - o.x0, o.z1 - o.z0) || 1;
         this.slide.set((o.x1 - o.x0) / len, (o.z1 - o.z0) / len);
       }
-      const nx = dx / d;
-      const nz = dz / d;
       this.pos.x += nx * pen;
       this.pos.z += nz * pen;
       const vn = this.vel.x * nx + this.vel.y * nz;
@@ -1080,7 +1089,7 @@ export class Kayak {
       this.yawRate += (hx * nz - hz * nx) * Math.sign(along) * -vn * 0.5;
       const across = nx * Math.cos(this.heading) + nz * Math.sin(this.heading);
       if (this.balance === 'up' || this.balance === 'over') this.tiltV += Math.sign(across || 1) * vn * 0.45;
-      const at = new THREE.Vector3(ox + nx * r, this.pos.y, oz + nz * r);
+      const at = new THREE.Vector3(cx - nx * d, this.pos.y, cz - nz * d);
       if (this.balance === 'rolling' && -vn > 1.2 && running) {
         this.events.hit?.(-vn, at);
         this.drown(); // upside down on a rock: out you come

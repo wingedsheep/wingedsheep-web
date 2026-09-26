@@ -4,6 +4,7 @@
  */
 
 import { Course, type Log, type Sample } from '../../src/island/river/course';
+import { HIT, gap, outlineOf } from '../../src/island/river/outline';
 import type { RiverDef } from '../../src/island/river/rivers';
 
 // the boat, as kayak.ts has it
@@ -35,7 +36,7 @@ export function make(seed: number, river: RiverDef) {
       for (const dz of [-1, 1]) {
         course.addObstacle({
           kind: 'rock', x: p.x + Math.cos(p.a) * off - Math.sin(p.a) * dz, z: p.z + Math.sin(p.a) * off + Math.cos(p.a) * dz,
-          r: 0.25, s: f.s, variant: 0,
+          r: 0.25, s: f.s, variant: 0, spin: 0,
         });
       }
     }
@@ -94,13 +95,16 @@ export function clear(course: Course, s: number, holes: boolean, margin: number)
   for (const t of course.near(s - 20, s + 20)) {
     if (!('kind' in t)) continue;
     if (t.kind === 'rock') {
-      const R = t.r * 0.9 + HULL_R + margin;
-      // the rock against this slice's line across the river
+      // the rock against this slice's line across the river: wherever on it the boat's middle
+      // would be within reach of its outline
+      const R = HULL_R + margin;
       const u0 = (t.x - p.x) * cos + (t.z - p.z) * sin;
       const d = (t.x - p.x) * sin - (t.z - p.z) * cos; // along the river (+ is downstream)
-      if (Math.abs(d) < R) {
-        const w = Math.sqrt(R * R - d * d);
-        block(u0 - w, u0 + w);
+      const e = outlineOf(t);
+      if (Math.abs(d) > e.a * HIT + R) continue;
+      for (let j = Math.max(0, cell(u0 - e.a - R)); j <= Math.min(CELLS - 1, cell(u0 + e.a + R)); j++) {
+        const u = uOf(j);
+        if (gap(t, p.x + cos * u, p.z + sin * u).d < R) free[j] = 0;
       }
     } else if (t.kind === 'log') {
       blockLog(t, p, block, margin);

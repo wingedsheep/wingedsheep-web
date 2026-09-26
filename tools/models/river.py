@@ -133,6 +133,7 @@ def rocks():
                 f.material_index = greens[k % 2]
             elif f.normal.z > 0.8:
                 f.material_index = light_top
+        _outline(m, f"rock_{i}", max(scale[0], scale[1]) * r)
         # a few pebbles lodged round it, wet at the waterline
         rng = random.Random(i)
         for _ in range(3):
@@ -1131,6 +1132,80 @@ def _bands(m: Model, band: float, top: str, moss=None):
             f.material_index = light_top
 
 
+def _waterline(m: Model, step=0.04):
+    """Where a rock is just above the water: the points of a grid there that are inside it."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    tree = BVHTree.FromBMesh(m.bm)
+    pts = []
+    n = int(2.4 / step)
+    for ix in range(-n, n + 1):
+        for iy in range(-n, n + 1):
+            q = Vector((ix * step, iy * step, 0.02))
+            hit = tree.ray_cast(q, Vector((0, 0, 1)))
+            if hit[0] is not None and hit[1].z > 0:                   # a face looking out and up: we're in it
+                pts.append((q.x, q.y))
+    return pts, step
+
+
+def _footprint(m: Model) -> float:
+    """How big a rock looks where it meets the water, as a radius: the round ones' ellipse measured
+    by its long half, so a sharp one fills its hitbox as a boulder does. (Not the reach of its
+    furthest splinter: the blades flare underwater and lean over above, and those points are
+    thin.)"""
+    pts, step = _waterline(m)
+    # a boulder's ellipse, 1.2 by 1 say, is about 1.1 across on average and gets radius 1.2
+    return math.sqrt(len(pts) * step * step / math.pi) * 1.1
+
+
+# the rocks' outlines at the water, for the game to steer round (see _write_footprints)
+FOOTPRINTS: dict[str, dict[str, float]] = {}
+
+
+def _outline(m: Model, name: str, radius: float):
+    """The ellipse a rock makes at the water, in its own frame and as a share of its radius (the
+    runtime scales it by that): where its middle is, how long and how broad, and which way it lies.
+    Its lie is the way what's inside it spreads most; its length and breadth, how far it reaches
+    along and across that (as the round ones' radius is their reach)."""
+    pts, step = _waterline(m)
+    n = len(pts)
+    cx = sum(x for x, _ in pts) / n
+    cy = sum(y for _, y in pts) / n
+    sxx = sum((x - cx) ** 2 for x, _ in pts) / n
+    syy = sum((y - cy) ** 2 for _, y in pts) / n
+    sxy = sum((x - cx) * (y - cy) for x, y in pts) / n
+    lie = 0.5 * math.atan2(2 * sxy, sxx - syy)                                   # the long axis
+    c, sn = math.cos(lie), math.sin(lie)
+    u = [x * c + y * sn for x, y in pts]
+    v = [-x * sn + y * c for x, y in pts]
+    mu, mv = (max(u) + min(u)) / 2, (max(v) + min(v)) / 2
+    FOOTPRINTS[name] = {
+        "x": (mu * c - mv * sn) / radius, "z": -(mu * sn + mv * c) / radius,     # Blender's (x, y) is the scene's (x, -z)
+        "a": ((max(u) - min(u)) / 2 + step / 2) / radius, "b": ((max(v) - min(v)) / 2 + step / 2) / radius,
+        "lie": -lie,
+    }
+
+
+def _write_footprints():
+    """The outlines for the game, which works out where you hit a rock and the water it moves
+    without loading any models (the autopilot and the validator run with none)."""
+    import os
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "island", "river", "footprints.ts")
+    lines = [
+        "// Written by tools/models/river.py (just models): don't edit by hand.",
+        "// Each rock's outline at the water, an ellipse in the model's own frame (x east, z south) as a",
+        "// share of its radius: its middle (x, z), its half-length a and half-breadth b, and the angle",
+        "// its long axis lies at (lie, radians from +x towards +z).",
+        "export const FOOTPRINTS: Record<string, { x: number; z: number; a: number; b: number; lie: number }> = {",
+    ]
+    for name in sorted(FOOTPRINTS):
+        f = FOOTPRINTS[name]
+        lines.append(f"  {name}: {{ x: {f['x']:.3f}, z: {f['z']:.3f}, a: {f['a']:.3f}, b: {f['b']:.3f}, lie: {f['lie']:.3f} }},")
+    lines.append("};")
+    with open(out, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+
+
 def shards():
     """The hard rivers' rocks: split and sharp, not rolled round. Blades of slate leaning with the
     current, a slab of tilted strata stood up on its edge like a knife, a broken tooth. Banded
@@ -1163,8 +1238,14 @@ def shards():
                 a = rng.uniform(0, math.tau)
                 _blade(m, rng, (math.cos(a) * 0.7, math.sin(a) * 0.7, -0.4), rng.uniform(0.3, 0.45), h * rng.uniform(0.4, 0.6) + 0.3,
                        (math.cos(a) * 0.25, math.sin(a) * 0.25 + 0.15), SHARD_DRY[(i + k + 1) % 4], sides=4)
-        _bands(m, 0.12 + 0.18 * (i != 4), SHARD_TOP[i % 4], moss=2.0 if i == 4 else None)
-        radius = max(math.hypot(v.co.x, v.co.y) for v in m.bm.verts if v.co.z >= -0.01)
+        # scaled to its hitbox by what it covers at the water, it comes out wider; keep it (and its wet
+        # band) no taller than it stood when its furthest splinter set its size
+        radius = _footprint(m)
+        _outline(m, f"shard_{i}", radius)
+        reach = max(math.hypot(v.co.x, v.co.y) for v in m.bm.verts if v.co.z >= -0.01)
+        for v in m.bm.verts:
+            v.co.z *= radius / reach
+        _bands(m, (0.12 + 0.18 * (i != 4)) * radius / reach, SHARD_TOP[i % 4], moss=2.0 if i == 4 else None)
         root = _root(f"shard_{i}", radius=round(radius, 3))
         m.build(root)
 
@@ -2373,6 +2454,7 @@ def build():
     wreck()
     raven()
     shards()
+    _write_footprints()
     jags()
     mine()
     bridge_out()

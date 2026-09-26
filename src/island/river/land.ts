@@ -6,6 +6,7 @@ import { leavesAt, season } from '../scene/season';
 import { toon } from '../scene/toon';
 import type { RiverAssets } from './assets';
 import { type Course, type Gate, type Obstacle, type Sample, type Split, rng } from './course';
+import { HIT, footprint } from './outline';
 import type { Detail, Look } from './rivers';
 import { waterRibbon } from './water';
 
@@ -618,13 +619,16 @@ export class Land {
   private obstacle(chunk: Chunk, o: Obstacle, r: () => number) {
     const y = this.course.at(o.s).y;
     if (o.kind === 'rock') {
-      const kind = o.post ? `post_${o.variant % 3}` : this.rock(o.variant, o.x, o.z);
+      // (turned as the course laid it, and set so its outline is where the course has it)
+      const kind = o.post ? `post_${o.variant % 3}` : `${o.sharp ? 'shard' : 'rock'}_${o.variant % 5}`;
       const m = this.assets.clone(this.assets.has(kind) ? kind : `rock_${o.variant % 5}`);
       const radius = this.assets.extras.get(kind)?.radius ?? 1;
+      const spin = o.spin ?? 0;
+      const { ox, oz } = footprint(kind, o.r, spin);
       m.scale.setScalar(o.r / radius);
       m.scale.y *= o.post ? 0.9 + r() * 0.3 : 0.8 + r() * 0.5;
-      m.position.set(o.x, y, o.z);
-      m.rotation.y = r() * Math.PI * 2;
+      m.position.set(o.x - ox, y, o.z - oz);
+      m.rotation.y = spin;
       chunk.group.add(m);
       chunk.things.set(o, m);
       // a boulder the size of a house has something growing on top
@@ -663,7 +667,7 @@ export class Land {
         m.position.set(p.x + Math.cos(p.a) * u, p.y - 0.4, p.z + Math.sin(p.a) * u);
         m.rotation.y = r() * 6.3;
         chunk.group.add(m);
-        this.boulder(chunk, s, m.position.x, m.position.z, rad);
+        this.boulder(chunk, s, kind, m.position.x, m.position.z, m.rotation.y, rad);
       }
     }
     // a waterfall throws up a mist, and on a sunny day a rainbow hangs in it
@@ -700,16 +704,19 @@ export class Land {
 
   /** Something the land stands in the water, for the kayak to run into. */
   private solid(chunk: Chunk, o: Obstacle) {
+    // (one of the land's with no model of its own is as round as its r: the course doesn't lay it)
+    if (o.kind === 'rock') o.spin ??= 0;
     this.course.addObstacle(o);
     chunk.solids.push(o);
   }
 
   /** A boulder of the land's at the water's edge (its mesh already placed), made solid if you can reach it. */
-  private boulder(chunk: Chunk, s: number, x: number, z: number, radius: number) {
-    const near = this.course.nearest(x, z, s);
+  private boulder(chunk: Chunk, s: number, kind: string, x: number, z: number, spin: number, radius: number) {
+    const { ox, oz, outline } = footprint(kind, radius, spin);
+    const near = this.course.nearest(x + ox, z + oz, s);
     // (the boat can't get closer to the bank than this, so one set further back can't be hit)
-    if (radius * 0.9 < Math.abs(near.side) - near.sample.width / 2 + 0.1) return;
-    this.solid(chunk, { kind: 'rock', x, z, r: radius, s: near.sample.s, variant: 0, scenery: true });
+    if (outline.a * HIT < Math.abs(near.side) - near.sample.width / 2 + 0.1) return;
+    this.solid(chunk, { kind: 'rock', x: x + ox, z: z + oz, r: radius, s: near.sample.s, variant: 0, scenery: true, spin, outline });
   }
 
   private put(chunk: Chunk, kind: string, at: { x: number; y: number; z: number }, turn: number, scale = 1) {
@@ -1343,7 +1350,7 @@ export class Land {
             // (a big one set back, so it doesn't close the edge of the river)
             const rad = (this.assets.extras.get(kind)?.radius ?? 1) * scale;
             if (rad * 0.9 - e > REACH) at = this.beside(s, side, rad * 0.9 - REACH);
-            if (at && this.put(chunk, kind, { ...at, y: Math.max(at.y - 0.3, p.y - 0.3) }, turn, scale)) this.boulder(chunk, s, at.x, at.z, rad);
+            if (at && this.put(chunk, kind, { ...at, y: Math.max(at.y - 0.3, p.y - 0.3) }, turn, scale)) this.boulder(chunk, s, kind, at.x, at.z, turn, rad);
           }
         }
         if (r() < p.gorge * 0.2) {

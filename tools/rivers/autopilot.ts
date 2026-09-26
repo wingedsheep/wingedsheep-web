@@ -37,6 +37,7 @@ import * as THREE from 'three';
 import type { RiverAssets } from '../../src/island/river/assets';
 import type { Course, Log, Rock } from '../../src/island/river/course';
 import { Kayak } from '../../src/island/river/kayak';
+import { gap } from '../../src/island/river/outline';
 import { RIVERS, type RiverDef } from '../../src/island/river/rivers';
 import { DT, S, angle, autopilot, configure, mulberry, segment } from './pilot';
 import { make } from './shared';
@@ -324,7 +325,7 @@ function bits(course: Course, start: number, finish: number): Bit[] {
 
 function dist(t: Rock | Log | object, at: { x: number; z: number }) {
   const o = t as Rock | Log;
-  return o.kind === 'rock' ? Math.hypot(o.x - at.x, o.z - at.z) - o.r : segment(at.x, at.z, o);
+  return o.kind === 'rock' ? gap(o, at.x, at.z, 1).d : segment(at.x, at.z, o);
 }
 
 function parse(argv: string[]) {

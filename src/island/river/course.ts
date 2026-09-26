@@ -16,6 +16,7 @@ rapid is big water: wave train after wave train and hardly a rock, to ride out. 
  * turning more than ~55° off it, so it never doubles back on itself.
  */
 
+import { type Outline, footprint, lying } from './outline';
 import { DEFAULT_PROFILE, type Profile } from './rivers';
 
 export type Kind = 'pool' | 'run' | 'chute' | 'rapids' | 'cascade' | 'gorge' | 'falls';
@@ -108,6 +109,11 @@ export interface Rock {
   post?: boolean;
   /** One of the land's boulders at the water's edge: solid, but it has its own mesh and moves no water. */
   scenery?: boolean;
+  /** Split and sharp, not worn round (on a jagged river): a shard_<variant> rather than a rock_. */
+  sharp?: boolean;
+  /** How it's turned (three's rotation.y), and so its outline at the water (outline.ts; none: round). */
+  spin?: number;
+  outline?: Outline;
 }
 
 export interface Log {
@@ -513,8 +519,27 @@ export class Course {
 
   /** Add a rock or a log (the land adds a bridge's trestles). */
   addObstacle(o: Obstacle) {
+    if (o.kind === 'rock' && !o.scenery && o.spin === undefined) this.lay(o);
     this.obstacles.push(o);
     this.file(o);
+  }
+
+  /**
+   * Which rock it is and how it lies, from where it is (so it's the same rock every time, and
+   * doesn't disturb the river's other dice). On a jagged river (as often as it's jagged) it's split
+   * and sharp, and lies roughly the way the current runs, as slabs do in a river; a round one any
+   * way at all.
+   */
+  private lay(o: Rock) {
+    o.sharp = !o.post && hashAt(o.x * 0.73 + 11, o.z * 1.37 - 5) < this.profile.look.jagged;
+    const kind = o.post ? `post_${o.variant % 3}` : `${o.sharp ? 'shard' : 'rock'}_${o.variant % 5}`;
+    const turn = hashAt(o.x * 1.91 - 3, o.z * 0.57 + 8);
+    if (o.sharp) {
+      const p = this.at(o.s);
+      const down = Math.atan2(-Math.cos(p.a), Math.sin(p.a));
+      o.spin = lying(kind, down + (turn - 0.5) * 0.9 + (hashAt(o.z * 0.31, o.x * 2.3) < 0.5 ? Math.PI : 0));
+    } else o.spin = turn * Math.PI * 2;
+    if (!o.post) o.outline = footprint(kind, o.r, o.spin).outline;
   }
 
   /** Take one back out (the land's, when its stretch of river is dropped). */
@@ -1344,4 +1369,10 @@ function pick<T>(r: () => number, options: [T, number][]): T {
     if (x <= 0) return v;
   }
   return options[0][0];
+}
+
+/** A number in [0, 1) that's always the same for the same (x, z). */
+export function hashAt(x: number, z: number) {
+  const v = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+  return v - Math.floor(v);
 }

@@ -66,6 +66,7 @@ export function riverWater() {
       uShore: { value: Array.from({ length: MAX_SHORE }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uShoreColor: { value: Array.from({ length: MAX_SHORE }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uRocks: { value: Array.from({ length: MAX_ROCKS }, () => new THREE.Vector4(0, 0, 0, 0)) },
+      uRockShape: { value: Array.from({ length: MAX_ROCKS }, () => new THREE.Vector4(1, 1, 1, 0)) },
       uHoles: { value: Array.from({ length: MAX_HOLES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uTongues: { value: Array.from({ length: MAX_TONGUES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uRipples: { value: Array.from({ length: MAX_RIPPLES }, () => new THREE.Vector4(0, 0, 0, 0)) },
@@ -165,7 +166,8 @@ export function riverWater() {
       uniform vec4 uLamp; // x, z, heading, 0..1 how bright
       uniform vec4 uShore[${MAX_SHORE}]; // x, z, reach, how bright (0: none)
       uniform vec4 uShoreColor[${MAX_SHORE}]; // colour, height over the water
-      uniform vec4 uRocks[${MAX_ROCKS}];
+      uniform vec4 uRocks[${MAX_ROCKS}]; // x, z, how wide across the current (0: none), how far its back is past that (a log's: -)
+      uniform vec4 uRockShape[${MAX_ROCKS}]; // its outline: long and short half-axes, the way the long one lies
       uniform vec4 uHoles[${MAX_HOLES}];
       uniform vec4 uTongues[${MAX_TONGUES}];
       uniform vec4 uRipples[${MAX_RIPPLES}];
@@ -301,9 +303,14 @@ export function riverWater() {
         for (int k = 0; k < ${MAX_ROCKS}; k++) {
           vec4 r = uRocks[k];
           if (r.z <= 0.0) continue;
+          vec4 e = uRockShape[k];
           vec2 dd = wp - r.xy;
-          float dist = length(dd) - r.z;
-          if (dist > r.z * 9.0 + 2.0) continue;
+          if (length(dd) - e.x > max(r.z, e.x) * 9.0 + 2.0 + max(r.w, 0.0)) continue;
+          // how far outside its outline (outline.ts's gap)
+          vec2 q = vec2(dot(dd, e.zw), dot(dd, vec2(-e.w, e.z)));
+          vec2 g = q / (e.xy * e.xy);
+          float kk = length(q / e.xy);
+          float dist = (kk - 1.0) * kk / max(length(g), 1e-5);
           float a = dot(dd, dir);
           float c = dot(dd, right);
           float fringe = 0.12 + rough * 0.14 + 0.08 * noise(p * 2.0 + drift * 6.0);
@@ -311,6 +318,7 @@ export function riverWater() {
           wet = max(wet, step(dist, 0.3) * step(-0.25, dist));
           if (a < 0.0) pillow = max(pillow, step(dist, 0.25 + speed * 0.05) * step(abs(c), r.z * 0.8) * step(-0.25, dist));
           if (r.w < 0.0) continue; // (a log along the current leaves no eddy to speak of)
+          a -= r.w; // (the eddy starts at its back)
           float len = r.z * (5.0 + min(4.0, abs(along) * 0.5));
           if (a > -r.z * 0.2 && a < len) {
             float t = max(a, 0.0) / len;
