@@ -8,6 +8,12 @@ export interface ParticleSpec {
   size?: number; // in art pixels (render-target texels)
   gravity?: number;
   wobble?: number;
+  /** How quickly it slows in the air (1/s): a firework's stars bloom out and hang. */
+  drag?: number;
+  /** How much of its life it takes to come up to full brightness (default 0.15; 0 for a spark that's there at once). */
+  fadeIn?: number;
+  /** How much of its life it stays at full brightness before it starts to fade (default 0). */
+  hold?: number;
 }
 
 /**
@@ -24,6 +30,9 @@ export class Particles {
   private life: Float32Array;
   private grav: Float32Array;
   private wob: Float32Array;
+  private drag: Float32Array;
+  private rise: Float32Array;
+  private keep: Float32Array;
   private next = 0;
   private clock = 0;
 
@@ -36,6 +45,9 @@ export class Particles {
     this.life = new Float32Array(max);
     this.grav = new Float32Array(max);
     this.wob = new Float32Array(max);
+    this.drag = new Float32Array(max);
+    this.rise = new Float32Array(max);
+    this.keep = new Float32Array(max);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('color', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
@@ -81,6 +93,9 @@ export class Particles {
     this.life[i] = s.life;
     this.grav[i] = s.gravity ?? 0;
     this.wob[i] = s.wobble ?? 0;
+    this.drag[i] = s.drag ?? 0;
+    this.rise[i] = s.fadeIn ?? 0.15;
+    this.keep[i] = s.hold ?? 0;
   }
 
   update(dt: number) {
@@ -94,12 +109,20 @@ export class Particles {
         this.col[i * 4 + 3] = 0;
         continue;
       }
+      if (this.drag[i]) {
+        const k = Math.exp(-this.drag[i] * dt);
+        this.vel[i * 3] *= k;
+        this.vel[i * 3 + 1] *= k;
+        this.vel[i * 3 + 2] *= k;
+      }
       this.vel[i * 3 + 1] += this.grav[i] * dt;
       const w = this.wob[i] ? Math.sin(this.clock * 2.3 + i) * this.wob[i] * dt : 0;
       this.pos[i * 3] += this.vel[i * 3] * dt + w;
       this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
       this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
-      this.col[i * 4 + 3] = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+      const r = this.rise[i];
+      const k = Math.max(r, this.keep[i]);
+      this.col[i * 4 + 3] = t < r ? t / r : t < k ? 1 : 1 - (t - k) / (1 - k);
     }
     const g = this.points.geometry;
     g.attributes.position.needsUpdate = true;

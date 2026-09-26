@@ -7,6 +7,7 @@ import { Floaters } from './floaters';
 import type { Island } from './island';
 import { Mischief } from './mischief';
 import { Particles } from './particles';
+import { Revel } from './revel';
 import { petting } from './petting';
 import { season } from './season';
 import { Shelter, type Waypoint } from './shelter';
@@ -71,6 +72,8 @@ export class Life {
   readonly mischief: Mischief;
   /** A message in a bottle, now and then: see bottle.ts. */
   readonly bottle: Bottle;
+  /** The fair folk's revel, on some nights: see revel.ts. */
+  readonly revel: Revel;
   /** Beike's way over to the fire, and where he drops his ball (at Vincent's feet). */
   private fireRoute: Waypoint[] = [];
   private fireSpot = V();
@@ -122,8 +125,16 @@ export class Life {
     this.companion = new Companion(island);
     this.vincent = new Vincent(island, this.beike.ground);
     this.mischief = new Mischief(scene, island, this.fauna.template('gull'));
-    this.mischief.onSnatch = (at) => this.fauna.onCall?.('gull', at);
+    this.mischief.onSnatch = (at) => {
+      this.fauna.onCall?.('gull', at);
+      this.fauna.onCall?.('flurry', at); // the plate, and wings going like mad
+    };
+    this.revel = new Revel(scene, (s) => this.fauna.template(s), this.beike.ground, this.particles);
+    this.revel.onCall = (call, at, ambient, loud) => this.fauna.onCall?.(call, at, ambient, loud);
     this.bottle = new Bottle(island, this.beike.ground);
+    this.bottle.onLand = (at) => this.fauna.onCall?.('clink', at, true);
+    this.vincent.onSound = (call, at) => this.fauna.onCall?.(call, at, true);
+    this.companion.onSound = (call, at, loud) => this.fauna.onCall?.(call, at, true, loud);
     this.bottle.onGlint = (at) => {
       if (this.sky.lamps > 0.6) return; // no sun to catch at night
       for (let i = 0; i < 3; i++) {
@@ -226,6 +237,15 @@ export class Life {
     }
     const flag = this.island.part('summit', 'flag');
     if (flag) flag.rotation.y = Math.sin(t * 2.2) * 0.35;
+    // on the special days: King's Day's pennant over it, and birthday balloons tugging at their strings
+    const wimpel = this.island.get('wimpel');
+    if (wimpel) wimpel.rotation.y = Math.sin(t * 2.2 - 0.5) * 0.45 + Math.sin(t * 5.1) * 0.08;
+    for (const id of ['balloons', 'bench_balloons']) {
+      this.island.get(id)?.children.forEach((b, i) => {
+        b.rotation.x = Math.sin(t * 0.9 + i * 1.7) * 0.06;
+        b.rotation.y = Math.sin(t * 0.7 + i * 2.3) * 0.08;
+      });
+    }
     const vane = this.island.get('library')?.getObjectByName('weathervane');
     if (vane) vane.rotation.y = Math.sin(t * 0.13) * 1.2 + Math.sin(t * 0.7) * 0.1;
     const cat = this.island.part('cat', 'cat_body');
@@ -241,6 +261,7 @@ export class Life {
     this.fetchAtTheFire(dt);
     this.mischief.update(dt, night < 0.8, this.vincent.atTheFire);
     this.bottle.update(dt);
+    this.revel.update(dt, night, this.wet, new Date(this.sky.time).getHours() + new Date(this.sky.time).getMinutes() / 60);
     this.fauna.update(dt, { night, season: season.name, wet: this.wet, storm: this.storm });
     this.visitors(dt, night);
     this.emitters(dt, night);
@@ -466,6 +487,9 @@ export class Life {
     const hop = Math.floor(k * 4);
     const local = k * 4 - hop;
     const ease = local < 0.75 ? 0 : THREE.MathUtils.smootherstep(local, 0.75, 1);
+    // a warble as it sets off on each hop
+    const was = (Math.max(0, t - dt) / 12) * 4;
+    if (local >= 0.75 && (was < hop || was - hop < 0.75)) this.fauna.onCall?.('ufo', this.ufo.position.clone(), true);
     const pts = [V(-30, 18, 10), V(-10, 20, -14), V(12, 17, 4), V(28, 21, -18), V(50, 24, -10)];
     this.ufo.position.lerpVectors(pts[hop], pts[hop + 1], ease);
     this.ufo.position.y += Math.sin(this.clock * 2) * 0.2;

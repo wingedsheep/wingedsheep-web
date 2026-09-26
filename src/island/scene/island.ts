@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { type Occasion, occasions } from './calendar';
 import { toon } from './toon';
 import type { Waypoint } from './shelter';
 
@@ -62,6 +63,14 @@ export class Island {
     this.clips = clips;
     this.shore = shore;
     this.info = info;
+    // the special days' things (tools/models/holidays.py): only today's stay, lights and all
+    // ("!sinterklaas": everywhere but that day)
+    const off: THREE.Object3D[] = [];
+    root.traverse((o) => {
+      const tag = o.userData.holiday as string | undefined;
+      if (tag && occasions.has(tag.replace('!', '') as Occasion) === tag.startsWith('!')) off.push(o);
+    });
+    for (const o of off) o.removeFromParent();
     root.updateMatrixWorld(true);
 
     let terrain: THREE.Mesh | undefined;
@@ -107,6 +116,13 @@ export class Island {
         mesh.castShadow = !glow;
         mesh.receiveShadow = true;
       }
+    });
+    // thin things (bunting) would only shadow themselves: they still cast, but take none
+    root.traverse((o) => {
+      if (!o.userData.unshaded) return;
+      o.traverse((m) => {
+        if ((m as THREE.Mesh).isMesh) m.receiveShadow = false;
+      });
     });
     if (!terrain) throw new Error('island.glb has no terrain');
     this.terrain = terrain;

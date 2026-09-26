@@ -44,7 +44,7 @@ function banner(s: Stretch, index: number) {
  * you're busy. [Keys] in brackets show as key caps.
  */
 const HINTS: Record<Hint, Record<Device, string>> = {
-  paddle: { keys: 'Hold [↑] to paddle', pad: 'Hold [L2] and [R2] to paddle', touch: 'Hold both sides of the screen to paddle' },
+  paddle: { keys: 'Hold [↑] to paddle', pad: 'Hold [✕], or [L2] and [R2], to paddle', touch: 'Hold both sides of the screen to paddle' },
   steer: {
     keys: '[A] or [D] alone turns you. [Q] / [E] brakes',
     pad: 'One trigger alone turns you. [L1] / [R1] brakes',
@@ -84,6 +84,11 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     touch: 'Hold Sprint to dig in, while your breath lasts',
   },
   ball: { keys: 'Beike’s tennis balls! Paddle over them', pad: 'Beike’s tennis balls! Paddle over them', touch: 'Beike’s tennis balls! Paddle over them' },
+  waves: {
+    keys: 'Waves! Lean into each crest with [←] / [→], and stroke down their backs',
+    pad: 'Waves! Lean into each crest with the stick, and stroke down their backs',
+    touch: 'Waves! Stroke as you slide down the back of each one',
+  },
   peel: {
     keys: 'Eddy! Lean into the turn on the way out',
     pad: 'Eddy! Lean into the turn on the way out',
@@ -112,6 +117,8 @@ interface Best {
   metres: number;
   /** The quickest you've made it all the way down (s). */
   time?: number;
+  /** Its goals you've ever done (by their place in its list). */
+  goals?: number[];
 }
 
 const round = (n: number) => Math.round(n).toLocaleString('en-GB');
@@ -138,6 +145,7 @@ export class River implements RoomInput {
   private bests: Record<string, Best> = Object.fromEntries(RIVERS.map((r) => [r.id, readBest(r.key)]));
   private pick = 0;
   private fresh = false; // a new best this run
+  private newGoals = new Set<number>(); // goals done for the first time this run
   private named = false; // the river's name has been up this run
   private cardAt = 0; // when the card on screen came up (ms)
   private $: Record<string, HTMLElement> = {};
@@ -255,6 +263,7 @@ export class River implements RoomInput {
     this.game?.reset(this.river);
     this.named = false;
     this.fresh = false;
+    this.newGoals.clear();
     this.lastHud = '';
     this.mile = 0;
   }
@@ -286,7 +295,26 @@ export class River implements RoomInput {
     set('[data-river-pick-name]', r.name);
     set('[data-river-pick-meta]', `Grade ${r.grade} · ${(r.length / 1000).toFixed(1)} km`);
     set('[data-river-pick-lede]', open ? r.lede : `Make it down ${RIVERS[i - 1].name} first.`);
+    const done = this.bests[r.id].goals ?? [];
+    this.goalList(this.el.querySelector('[data-river-goals]'), r, (g) => (done.includes(g) ? 'done' : ''));
     this.el.querySelector('[data-river-chosen]')?.classList.toggle('locked', !open);
+  }
+
+  /** A river's three goals, each ticked (or marked new) as `how` says. */
+  private goalList(el: Element | null, r: RiverDef, how: (i: number) => '' | 'done' | 'new') {
+    el?.replaceChildren(...r.goals.map((g, i) => {
+      const li = document.createElement('li');
+      const state = how(i);
+      if (state) li.classList.add('done');
+      li.textContent = `${g.text} · ${round(g.points)}`;
+      if (state === 'new') {
+        const b = document.createElement('b');
+        b.textContent = 'new';
+        li.append(' ', b);
+      }
+      li.setAttribute('aria-label', `${g.text}, ${round(g.points)} points${state ? ', done' : ''}`);
+      return li;
+    }));
   }
 
   /** Whether the pointer should drive the river rather than the island. */
@@ -356,6 +384,7 @@ export class River implements RoomInput {
     const game = this.game;
     if (!game || game.state !== 'running' || game.paused === on) return;
     game.paused = on;
+    if (!on) game.controls.releaseGo(); // "Carry on" with ✕ doesn't paddle off on the same press
     this.card(on ? 'paused' : null);
   }
 
@@ -473,6 +502,12 @@ export class River implements RoomInput {
         this.word('Fetch!', 'ball');
       },
       hint: (kind) => this.hint(HINTS[kind][game.controls.device]),
+      goal: (_, i) => {
+        const done = this.best.goals ?? [];
+        if (done.includes(i)) return;
+        this.best = { ...this.best, goals: [...done, i] };
+        this.newGoals.add(i);
+      },
       start: () => this.go(),
       over: (tally) => this.over(tally),
       say: (text) => this.ctx.toast(text),
@@ -727,6 +762,9 @@ export class River implements RoomInput {
     set('[data-over-hot]', t.flatOut ? `${Math.floor(t.longest)}s · +${round(t.flatOut)}` : '–');
     set('[data-over-flips]', t.flips ? `${t.flips} · −${round(t.flips * FLIP)}` : '0');
     set('[data-over-flow]', `×${t.bestFlow.toFixed(1)}`);
+    set('[data-over-goals]', t.goals.length ? `${t.goals.length} of ${this.river.goals.length} · +${round(t.goalPoints)}` : `0 of ${this.river.goals.length}`);
+    this.goalList(this.el.querySelector('[data-over-goals-list]'), this.river, (i) => (this.newGoals.has(i) ? 'new' : t.goals.includes(i) ? 'done' : ''));
+    this.showChosen(this.pick);
     set('[data-over-score]', round(t.score));
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-over-spotted], [data-over-spotted-label]')) el.hidden = !t.spotted.length;
     set('[data-over-spotted]', t.spotted.map((k) => RARE.find((r) => r.id === k)!.name).join(', '));

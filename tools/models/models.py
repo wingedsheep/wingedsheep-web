@@ -12,6 +12,7 @@ import cats
 import characters
 import companion
 import fauna
+import holidays
 import layout as L
 import nature
 import props
@@ -283,3 +284,4 @@ def populate(t: Terrain):
     landmarks(t)
     scatter(t)
     fauna.populate()
+    holidays.populate(t)

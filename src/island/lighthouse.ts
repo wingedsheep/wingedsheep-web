@@ -8,7 +8,9 @@ import { type IslandContext, labelFor, lighthousePlaceFor } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { LampRoom } from './scene/lamp-room';
+import { type Show, telly } from './scene/companion';
 import { QuartersRoom } from './scene/quarters';
+import { indoors } from './scene/shelter';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
@@ -46,6 +48,21 @@ export class Lighthouse implements RoomInput {
   /** Whether the pointer should drive the room rather than the island. */
   get wanted() {
     return this.want;
+  }
+
+  /** The floor you're on, 'quarters' or 'lamp' (the sound of each is its own). */
+  get storey(): Floor {
+    return this.floor;
+  }
+
+  /** Whether you're in with Vincent while he's typing away at his desk. */
+  get typing() {
+    return this.inside && this.floor === 'quarters' && !!this.rooms.quarters?.typing;
+  }
+
+  /** What's on the telly, if you're in the room with it and she's in watching it. */
+  get programme(): Show | null {
+    return this.inside && this.floor === 'quarters' && indoors.has('companion_lighthouse') ? telly.show : null;
   }
 
   private get room(): Room | undefined {
@@ -156,6 +173,7 @@ export class Lighthouse implements RoomInput {
   }
 
   private swap() {
+    this.ctx.sound.door(this.inside && this.want ? 'hatch' : 'lighthouse'); // up or down the stairs, or the front door
     if (this.inside) this.leaveFloor();
     this.inside = this.want;
     this.ctx.sound.indoors = this.inside;

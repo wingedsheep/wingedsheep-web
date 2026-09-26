@@ -36,6 +36,8 @@ export class Bottle {
   private glint = 2;
   /** The sun catching the glass now and then, so you notice it (life.ts makes the sparkle). */
   onGlint?: (at: THREE.Vector3) => void;
+  /** It fetched up on the beach. */
+  onLand?: (at: THREE.Vector3) => void;
 
   constructor(
     island: Island,
@@ -81,6 +83,7 @@ export class Bottle {
       root.rotation.set(Math.sin(t * 1.1) * 0.3, this.heading + Math.sin(t * 0.4) * 0.3, Math.sin(t * 1.6 + 1) * 0.15, 'YZX');
     } else {
       // on the sand, just nudged now and then by the last of a wave
+      if (this.phase !== 'ashore') this.onLand?.(p.clone());
       this.phase = 'ashore';
       p.y = this.ground.at(p.x, p.z) - 0.03;
       root.rotation.set(0.25, this.heading + Math.sin(t * 0.7) * 0.03, 0.05, 'YZX');

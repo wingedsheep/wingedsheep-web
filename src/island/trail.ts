@@ -83,6 +83,7 @@ export class Trail implements RoomInput {
     if (!p) {
       p = Diorama.load(c.id)
         .then((room) => {
+          room.onSound = (name) => this.showingId === c.id && this.ctx.sound.here(name);
           this.rooms.set(c.id, room);
           this.resize();
           return room;
@@ -150,6 +151,11 @@ export class Trail implements RoomInput {
     return this.want && this.inside && this.showing !== this.index;
   }
 
+  /** The chapter whose diorama you're in, if you're in one (the island plays its place). */
+  get showingId(): string | null {
+    return this.inside && this.showing >= 0 ? chapters[this.showing].id : null;
+  }
+
   resize() {
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
@@ -188,6 +194,9 @@ export class Trail implements RoomInput {
     if (!hit) return;
     this.ui.tooltip(null);
     if (hit.thing.zoom) this.room?.view.focus(hit.point, hit.thing.zoom, this.reducedMotion);
+    const sound = hit.thing.sound;
+    if (sound === 'baa') this.ctx.sound.baa();
+    else if (sound) this.ctx.sound.here(sound);
     this.say(hit.id, hit.thing);
   }
 
@@ -234,6 +243,7 @@ export class Trail implements RoomInput {
     this.inside = this.want;
     this.ctx.sound.indoors = false;
     if (this.inside) {
+      this.ctx.sound.chime('cairn');
       this.showing = this.index;
       this.ctx.rig.room = this;
       this.room?.view.reset();

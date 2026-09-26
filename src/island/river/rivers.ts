@@ -116,6 +116,18 @@ export interface Profile {
   look: Look;
 }
 
+/**
+ * Something to go back for: three on every river, each worth points every time you do it (and a
+ * tick on the river's card the first time). `n` is how many, how high, or how long, by kind.
+ */
+export type GoalKind = 'balls' | 'flow' | 'time' | 'clean' | 'boofs' | 'spin' | 'upright' | 'gates' | 'sends' | 'falls' | 'train' | 'flat';
+export interface Goal {
+  kind: GoalKind;
+  n?: number;
+  text: string;
+  points: number;
+}
+
 export interface RiverDef extends Profile {
   id: string;
   name: string;
@@ -123,12 +135,16 @@ export interface RiverDef extends Profile {
   lede: string;
   /** Where its best is kept in this browser. */
   key: string;
+  /** Its three goals (they only ever ask for what every run down it has in it). */
+  goals: Goal[];
 }
 
 export const RIVERS: RiverDef[] = [
-  // each one a small step on from the last, with one new thing in it
+  // each one a small step on from the last, with one new thing in it; the middle ones gentle
+  // enough to learn on, and the last one as hard as it likes (you've earned it by then)
   {
     id: 'dawdle', name: 'The Dawdle', grade: 2, lede: 'Slow and green, a few rocks, a lot of ducks.',
+    goals: [{ kind: 'balls', n: 25, text: 'Fetch 25 of Beike’s balls', points: 300 }, { kind: 'flow', n: 2, text: 'Get your flow up to ×2', points: 300 }, { kind: 'time', n: 105, text: 'Down in under 1:45', points: 300 }],
     length: 800, heat: [0, 0.1], cap: 0.3, cascades: Infinity, falls: Infinity, gorges: 0, stairs: 1,
     speed: 0.85, pieces: ['balls'], ledges: false, snags: 0, key: 'wingedsheep:river:dawdle',
     rare: { chance: 0.3, who: { beaver: 3, otter: 2 } }, signature: [], look: { water: { shallow: [0.48, 0.82, 0.42], mid: [0.14, 0.5, 0.3], deep: [0.06, 0.3, 0.22] }, pines: 0.04, birch: 0.25, meadow: 2.4, snow: 0, springs: 0,
@@ -137,7 +153,8 @@ export const RIVERS: RiverDef[] = [
   },
   {
     id: 'meander', name: 'The Meander', grade: 2, lede: 'A bit quicker. The ducks look less sure.',
-    length: 1000, heat: [0, 0.25], cap: 0.34, cascades: Infinity, falls: Infinity, gorges: 0.3, stairs: 1,
+    goals: [{ kind: 'clean', text: 'Not a single knock', points: 400 }, { kind: 'boofs', text: 'Boof every ledge', points: 400 }, { kind: 'spin', text: 'Spin a 360', points: 400 }],
+    length: 1000, heat: [0, 0.2], cap: 0.3, cascades: Infinity, falls: Infinity, gorges: 0.3, stairs: 1,
     speed: 0.92, pieces: ['balls', 'fork', 'slalom'], ledges: true, snags: 0.4, key: 'wingedsheep:river:meander',
     rare: { chance: 0.35, who: { beaver: 3, otter: 3, moose: 1 } }, signature: [], look: { water: { shallow: [0.25, 0.8, 0.62], mid: [0.06, 0.43, 0.48], deep: [0.03, 0.2, 0.33] }, pines: 0.2, birch: 0.45, meadow: 1.7, snow: 0, springs: 0.4,
       earth: ['#8fcf62', 0.2], crags: 0, homely: 0.55, grim: 0, flutter: 1, dark: false, alpine: 0.1,
@@ -145,16 +162,18 @@ export const RIVERS: RiverDef[] = [
   },
   {
     id: 'tumble', name: 'The Tumble', grade: 3, lede: 'Proper white water now. Keep her upright.',
-    length: 1200, heat: [0.05, 0.5], cap: 0.55, cascades: Infinity, falls: Infinity, gorges: 0.6, stairs: 1,
-    speed: 1, pieces: ['balls', 'fork', 'slalom', 'doors', 'strainers'], ledges: true, snags: 0.8, key: 'wingedsheep:river:tumble',
+    goals: [{ kind: 'upright', text: 'Stay upright all the way', points: 500 }, { kind: 'gates', text: 'Every gate clean', points: 500 }, { kind: 'flow', n: 3, text: 'Get your flow up to ×3', points: 500 }],
+    length: 1200, heat: [0.05, 0.38], cap: 0.42, cascades: Infinity, falls: Infinity, gorges: 0.6, stairs: 1,
+    speed: 1, pieces: ['balls', 'fork', 'slalom', 'doors', 'strainers', 'waves'], ledges: true, snags: 0.8, key: 'wingedsheep:river:tumble',
     rare: { chance: 0.45, who: { otter: 2, moose: 2, bear: 1.5, wolves: 0.5 } }, signature: [], look: { water: { shallow: [0.22, 0.78, 0.66], mid: [0.05, 0.4, 0.52], deep: [0.03, 0.17, 0.33] }, pines: 0.45, birch: 0.15, meadow: 1, snow: 0, springs: 0.8,
       earth: ['#6fae4a', 0], crags: 0.1, homely: 0.15, grim: 0, flutter: 0.4, dark: false, alpine: 0.45,
       mood: { air: ['#bfe0f0', 0.15], sight: 1, sun: 1, tint: ['#ffffff', 0], grade: [1.03, 1, 1], vignette: 0.6, mist: 0.3 } },
   },
   {
     id: 'drop', name: 'The Long Drop', grade: 3, lede: 'Ledges all the way down. Boof them.',
-    length: 1400, heat: [0.1, 0.62], cap: 0.62, cascades: 450, falls: Infinity, gorges: 0.8, stairs: 3,
-    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls'], ledges: true, snags: 1, key: 'wingedsheep:river:drop',
+    goals: [{ kind: 'boofs', text: 'Boof every ledge', points: 600 }, { kind: 'sends', n: 3, text: 'Three full sends', points: 600 }, { kind: 'upright', text: 'Stay upright all the way', points: 600 }],
+    length: 1400, heat: [0.08, 0.52], cap: 0.55, cascades: 450, falls: Infinity, gorges: 0.8, stairs: 3,
+    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:drop',
     rare: { chance: 0.5, who: { moose: 2, bear: 2.5, wolves: 1.5, lynx: 0.5 } }, signature: ['cascade'], look: { water: { shallow: [0.24, 0.74, 0.56], mid: [0.05, 0.38, 0.42], deep: [0.03, 0.18, 0.27] }, pines: 0.55, birch: 0.1, meadow: 0.7, snow: 0, springs: 1.2,
       earth: ['#5f8a52', 0.15], crags: 0.3, homely: 0, grim: 0.2, flutter: 0.2, dark: false, alpine: 0.6,
       mood: { air: ['#a8b8c6', 0.35], sight: 0.95, sun: 0.9, tint: ['#d8e2f0', 0.15], grade: [0.93, 1, 0.98], vignette: 0.7, mist: 0.45 } },
@@ -162,16 +181,18 @@ export const RIVERS: RiverDef[] = [
   {
     // (the river as it was before there were six of them: its best carries on here)
     id: 'black', name: 'Black Water', grade: 4, lede: 'Holes, gorges, and a waterfall. Don’t look down.',
-    length: 1800, heat: [0.15, 0.9], cap: 0.88, cascades: 750, falls: 950, gorges: 1, stairs: 1,
-    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls'], ledges: true, snags: 1, key: 'wingedsheep:river:takeout',
+    goals: [{ kind: 'falls', text: 'Send the waterfall', points: 800 }, { kind: 'train', text: 'Pump every wave in a train', points: 800 }, { kind: 'flat', n: 15, text: 'Flat out for 15 seconds', points: 800 }],
+    length: 1800, heat: [0.12, 0.75], cap: 0.78, cascades: 750, falls: 950, gorges: 1, stairs: 1,
+    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:takeout',
     rare: { chance: 0.55, who: { bear: 2, wolves: 2.5, lynx: 1.5, yeti: 0.08 } }, signature: ['falls'], look: { water: { shallow: [0.34, 0.56, 0.4], mid: [0.07, 0.22, 0.25], deep: [0.02, 0.07, 0.11] }, pines: 0.85, birch: 0.03, meadow: 0.2, snow: 0, springs: 1.3,
       earth: ['#4a6656', 0.25], crags: 0.5, homely: 0, grim: 0.6, flutter: 0, dark: true, alpine: 0.3,
       mood: { air: ['#74868a', 0.4], sight: 0.82, sun: 0.85, tint: ['#a8c8c0', 0.25], grade: [0.82, 1, 0.97], vignette: 0.8, mist: 0.9 } },
   },
   {
     id: 'coffee', name: 'Hold My Coffee', grade: 5, lede: 'Grade 5, and a long way down. Beike’s staying on the bank.',
+    goals: [{ kind: 'falls', text: 'Send the waterfall', points: 1000 }, { kind: 'flow', n: 4, text: 'Get your flow up to ×4', points: 1000 }, { kind: 'time', n: 270, text: 'Down in under 4:30', points: 1000 }],
     length: 2200, heat: [0.55, 1], cap: 1, cascades: 600, falls: 650, gorges: 1.5, stairs: 1,
-    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls'], ledges: true, snags: 1, key: 'wingedsheep:river:coffee',
+    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:coffee',
     rare: { chance: 0.6, who: { wolves: 2.5, lynx: 2, bear: 1.5, yeti: 0.15 } }, signature: ['cascade', 'falls'], look: { water: { shallow: [0.4, 0.58, 0.6], mid: [0.1, 0.24, 0.3], deep: [0.02, 0.07, 0.12] }, pines: 0.9, birch: 0, meadow: 0, snow: 1, springs: 1.7,
       earth: ['#5a6662', 0.35], crags: 1, homely: 0, grim: 1, flutter: 0, dark: true, alpine: 1,
       mood: { air: ['#687280', 0.45], sight: 0.8, sun: 0.75, tint: ['#b0bcd8', 0.35], grade: [0.7, 1, 0.95], vignette: 0.9, mist: 0.6 } },

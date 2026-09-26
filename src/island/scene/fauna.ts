@@ -30,7 +30,10 @@ const dark = (e: Env) => e.night > 0.55;
 const daylit = (e: Env) => e.night < 0.35;
 
 /** Sounds the animals make (the island plays them; silent while sound is off). */
-export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap';
+export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap'
+  | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin'
+  | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
+  | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush';
 
 /** Who's out on this visit: some animals only turn up now and then. */
 const LUCK = (() => {
@@ -60,7 +63,7 @@ const LUCK = (() => {
 })();
 
 /** One animal: a clone of its Blender template, with the rest pose of each part remembered. */
-class Body {
+export class Body {
   readonly root: THREE.Object3D;
   private rest = new Map<THREE.Object3D, { p: THREE.Vector3; r: THREE.Euler; s: THREE.Vector3 }>();
   private found = new Map<string, THREE.Object3D | undefined>();
@@ -856,6 +859,8 @@ class Leaper {
   private from = V();
   private dir = 0;
 
+  onSplash?: (at: THREE.Vector3) => void;
+
   constructor(template: THREE.Object3D, scene: THREE.Scene, private seaSpot: () => THREE.Vector3 | null, private particles: Particles) {
     this.body = new Body('fish', template, scene);
   }
@@ -883,6 +888,7 @@ class Leaper {
     if (tail) tail.rotation.y += Math.sin(this.t * 40) * 0.5;
     if (k >= 1) {
       splash(this.particles, b.root.position, 0.8);
+      this.onSplash?.(b.root.position.clone());
       b.hide();
       this.t = -1;
       this.wait = rand(2.5, 8);
@@ -1310,8 +1316,11 @@ class Heron {
     this.body = new Body('heron', template, scene);
   }
 
+  /** Off it goes, complaining (true), unless it's already away. */
   poke() {
-    if (this.flight < 0) this.flight = 0;
+    if (this.flight >= 0) return false;
+    this.flight = 0;
+    return true;
   }
 
   update(dt: number, e: Env) {
@@ -1470,7 +1479,7 @@ class Gandalf {
   private puff = 3;
   private rocket = -1; // seconds since a firework went up, or -1
   private due = 0;
-  onCall?: (call: Call, at: THREE.Vector3) => void;
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
   constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, route: THREE.Vector3[], private particles: Particles) {
     this.body = new Body('gandalf', template, scene);
@@ -1543,6 +1552,7 @@ class Gandalf {
       // an old man's unhurried stride, planting the staff every other step
       if (trunk) trunk.position.y += Math.abs(Math.sin(this.clock * 5)) * 0.03;
       if (staff) staff.rotation.z += Math.sin(this.clock * 2.5) * 0.25;
+      if (Math.sin((this.clock - dt) * 2.5) > 0 && Math.sin(this.clock * 2.5) <= 0) this.onCall?.('staff', this.pos, true); // tock
     }
     if (this.phase === 'stand') {
       if (head) head.rotation.z += Math.sin(this.clock * 0.7) * 0.05;
@@ -1588,10 +1598,14 @@ class Rocky extends Walker {
     this.state = { kind: 'act', name: 'happy', t: 0, length: 2.4 };
   }
 
+  onTap?: () => void;
+
   /** Now and then he stops to tap at something with one hand, the engineer's way. */
   protected next() {
-    if (chance(0.3)) this.state = { kind: 'act', name: 'tap', t: 0, length: rand(2, 4) };
-    else super.next();
+    if (chance(0.3)) {
+      this.state = { kind: 'act', name: 'tap', t: 0, length: rand(2, 4) };
+      this.onTap?.();
+    } else super.next();
   }
 
   protected pose(_dt: number) {
@@ -1636,7 +1650,8 @@ class SuperSheep {
   private roll = 0;
   private smoke = 0;
   private seed = Math.random() * 100;
-  onCall?: (call: Call, at: THREE.Vector3) => void;
+  private fizz = 0;
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
   constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, private meadow: THREE.Vector3, private particles: Particles) {
     this.body = new Body('supersheep', template, scene);
@@ -1667,6 +1682,7 @@ class SuperSheep {
       this.pitch = 0;
       b.show(this.pos);
       this.onCall?.('baa', this.pos);
+      setTimeout(() => this.onCall?.('rocket', this.pos), 500);
     }
     this.t += dt;
     const fwd = () => V(Math.cos(this.heading) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.sin(this.heading) * Math.cos(this.pitch));
@@ -1692,9 +1708,15 @@ class SuperSheep {
       this.roll = damp(this.roll, -turn * 0.6, 3, dt);
       const height = 16 + Math.sin(t * 0.4) * 2.5; // clear of the peak
       this.pitch = damp(this.pitch, clamp((height - this.pos.y) * 0.15, -0.5, 0.5) + Math.sin(t * 2.3) * 0.15, 2, dt);
+      // fizzing overhead the whole way round
+      if ((this.fizz -= dt) < 0) {
+        this.fizz = rand(2.2, 3);
+        this.onCall?.('fizz', this.pos.clone(), true);
+      }
       if (this.t > this.flight) {
         this.phase = 'dive';
         this.t = 0;
+        this.onCall?.('whistle', this.pos); // look out below
       }
     } else if (this.phase === 'dive') {
       this.pitch = damp(this.pitch, -1.2, 2.5, dt);
@@ -1763,7 +1785,10 @@ export class Fauna {
   private ground: Ground;
   /** Every clone, so clicks can find the nearest of a species. */
   private all: Critter[] = [];
-  onCall?: (call: Call, at: THREE.Vector3) => void;
+  /** An animal made a sound at `at`: `ambient` when it called out on its own, unasked; `loud` scales it. */
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean, loud?: number) => void;
+  /** When each voice next calls out on its own. */
+  private due = new Map<Call, number>();
   /** Each species' model, as Blender made it (fauna.py), for anyone else who needs a copy. */
   private templates = new Map<string, THREE.Object3D>();
 
@@ -1855,7 +1880,8 @@ export class Fauna {
     // a squirrel in the eastern woods
     const forest = trees.filter((p) => Math.hypot(p.x - 27, p.z + 4) < 9);
     // very rarely, an engineer from 40 Eridani pops out of the workshop to look round
-    if (LUCK.rocky) walker(Rocky, 'rocky', { home: B(15, -12), roam: 3, den: B(11.5, -7.6), speed: 0.7, run: 1.6, gait: 'legs', band: grass, graze: 0.5, present: () => true, shy: [40, 80] });
+    const rocky = LUCK.rocky ? walker(Rocky, 'rocky', { home: B(15, -12), roam: 3, den: B(11.5, -7.6), speed: 0.7, run: 1.6, gait: 'legs', band: grass, graze: 0.5, present: () => true, shy: [40, 80] }) : undefined;
+    if (rocky) rocky.onTap = () => this.onCall?.('tink', rocky.pos.clone(), true);
     const sq = walker(Squirrel, 'squirrel', { home: B(27, 4), roam: 6, speed: 1.4, run: 4, gait: 'hop', band: grass, graze: 0.5, present: daylit, shy: [20, 40] });
     sq?.setTrees(forest);
 
@@ -1888,6 +1914,7 @@ export class Fauna {
     // water
     const fish = T('fish');
     if (fish) for (let i = 0; i < 2; i++) this.leapers.push(new Leaper(fish, scene, () => this.seaSpot(), particles));
+    this.leapers.forEach((l) => (l.onSplash = (at) => this.onCall?.('plop', at, true)));
     const dolphin = T('dolphin');
     if (dolphin) {
       this.pod = new Pod(dolphin, scene, particles);
@@ -1932,13 +1959,13 @@ export class Fauna {
     if (gandalf && dock && LUCK.gandalf) {
       const route = [B(-0.5, -26.5), B(-0.3, -17), B(0, -12.5), B(3.6, -9.5), B(9, -11), B(15, -10.5), B(21, -6), B(23.6, -3.4)]; // ends by the fire, west of it
       this.gandalf = new Gandalf(gandalf, scene, this.ground, route, particles);
-      this.gandalf.onCall = (call, at) => this.onCall?.(call, at);
+      this.gandalf.onCall = (call, at, ambient) => this.onCall?.(call, at, ambient);
       this.all.push({ species: 'gandalf', body: this.gandalf.body });
     }
     const supersheep = T('supersheep');
     if (supersheep && LUCK.supersheep) {
       this.superSheep = new SuperSheep(supersheep, scene, this.ground, B(12, 16), particles);
-      this.superSheep.onCall = (call, at) => this.onCall?.(call, at);
+      this.superSheep.onCall = (call, at, ambient) => this.onCall?.(call, at, ambient);
       this.all.push({ species: 'supersheep', body: this.superSheep.body });
     }
   }
@@ -1967,8 +1994,10 @@ export class Fauna {
     if (w instanceof Sheep) {
       w.poke();
       this.onCall?.('baa', at);
-    } else if (w instanceof Badger) w.poke();
-    else if (w instanceof Hedgehog) w.poke();
+    } else if (w instanceof Badger || w instanceof Hedgehog) {
+      w.poke();
+      this.onCall?.('snuffle', at);
+    }
     else if (w instanceof Rocky) {
       w.poke();
       this.onCall?.('chord', at);
@@ -1993,7 +2022,7 @@ export class Fauna {
       this.ducks?.poke();
       this.onCall?.('quack', at);
     }
-    if (species === 'heron') this.heron?.poke();
+    if (species === 'heron' && this.heron?.poke()) this.onCall?.('heron', at);
     if (species === 'serpent') this.serpent?.poke();
     if (species === 'wanderer') this.wanderer?.dash();
     if (species === 'gandalf') this.gandalf?.firework();
@@ -2058,5 +2087,41 @@ export class Fauna {
     this.wanderer?.update(dt, e.night < 0.9);
     this.gandalf?.update(dt, true);
     this.superSheep?.update(dt, (e.night < 0.6 && e.wet < 0.7) || LUCK.supersheepSoon);
+    this.voices(e);
+  }
+
+  /**
+   * Now and then someone calls out on their own, if they're about: the robins singing, a gull over
+   * the shore, the owl after dark, the ducks, the hedgehog snuffling, a squirrel scolding, and on
+   * some nights the fox's scream. In autumn the stag bellows. The island only plays the ones in view.
+   */
+  private voices(e: Env) {
+    const shown = (bodies: (Body | undefined)[]) => {
+      const out = bodies.filter((b): b is Body => !!b?.shown);
+      return out.length ? pick(out).root.position : undefined;
+    };
+    const walking = (species: string) => shown(this.walkers.filter((w) => w.body.species === species).map((w) => w.body));
+    const quiet = e.wet > 0.6; // heads down in a downpour
+    this.voice('baa', [20, 55], () => walking('sheep') ?? walking('blacksheep') ?? walking('starsheep'));
+    this.voice('chirp', [7, 20], () => (quiet ? undefined : shown(this.robins.map((r) => r.body))));
+    // (from the ground below it: a gull high overhead is no quieter for it)
+    this.voice('gull', [12, 35], () => shown(this.gulls.map((g) => g.body))?.clone().setY(1));
+    this.voice('hoot', [25, 70], () => shown([this.owl?.body]));
+    this.voice('quack', [30, 80], () => shown(this.ducks?.bodies.slice(0, 1) ?? []));
+    this.voice('snuffle', [20, 50], () => walking('hedgehog') ?? walking('badger'));
+    this.voice('chatter', [40, 100], () => walking('squirrel'));
+    this.voice('fox', [70, 180], () => (quiet ? undefined : walking('fox')));
+    this.voice('dolphin', [5, 12], () => shown(this.pod?.bodies ?? []));
+    this.voice('bellow', [35, 90], () => (e.season === 'autumn' ? walking('stag') : undefined));
+  }
+
+  /** One voice: every so often (`every`, a range of seconds) whoever `who` finds calls out. */
+  private voice(call: Call, every: [number, number], who: () => THREE.Vector3 | undefined) {
+    const due = this.due.get(call);
+    if (due === undefined) return void this.due.set(call, this.clock + rand(...every) * rand(0.2, 1));
+    if (this.clock < due) return;
+    this.due.set(call, this.clock + rand(...every));
+    const at = who();
+    if (at) this.onCall?.(call, at.clone(), true);
   }
 }

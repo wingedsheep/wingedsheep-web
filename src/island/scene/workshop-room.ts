@@ -45,6 +45,10 @@ export class WorkshopRoom {
   readonly anchors = new Map<string, THREE.Vector3>();
   /** Whether a record is on the gramophone. */
   playing = false;
+  /** A noise from the room: its machines or the robot (the island plays it). */
+  onSound?: (name: string, volume?: number) => void;
+  /** Something running in the room, 0..1 (the island keeps it looping while it's up). */
+  onHum?: (name: string, level: number) => void;
 
   private bounds = new THREE.Box3();
   /** Frames the room; you can zoom and look around it. */
@@ -107,8 +111,10 @@ export class WorkshopRoom {
     this.scene.add(this.hemi, this.key, this.key.target, this.particles.points);
 
     const exhibit = (id: string) => this.named.get(`project_${id}`);
-    this.exhibits = new Exhibits({ particles: this.particles, notes: (at) => this.notes(at), exhibit, emitters: this.emitters });
-    this.robot = new Robot(this.named.get('robot'), waypoints, { particles: this.particles, float: (_, at) => this.float(ICONS.zzz, at, V(0, 0.4, 0)), exhibit }, () => this.night > 0.6);
+    const sound = (name: string, volume?: number) => this.onSound?.(name, volume);
+    const hum = (name: string, level: number) => this.onHum?.(name, level);
+    this.exhibits = new Exhibits({ particles: this.particles, notes: (at) => this.notes(at), exhibit, emitters: this.emitters, sound, hum });
+    this.robot = new Robot(this.named.get('robot'), waypoints, { particles: this.particles, float: (_, at) => this.float(ICONS.zzz, at, V(0, 0.4, 0)), exhibit, sound }, () => this.night > 0.6);
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values());
   }

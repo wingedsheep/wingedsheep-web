@@ -117,6 +117,8 @@ export class Beike {
   fetched = 0;
   /** Called when he barks (the island plays the sound). */
   onBark?: () => void;
+  /** His ball bouncing (how hard, 0..1), him panting when he's brought it back, a whine when nobody throws. */
+  onSound?: (kind: 'bounce' | 'pant' | 'whine', at: THREE.Vector3, volume: number) => void;
   /** His way in to the lighthouse when it rains, from his meadow to just inside the door (shelter.ts). */
   shelterRoute?: Waypoint[];
   /** Whether it's raining hard enough to go in (set every frame). */
@@ -351,6 +353,7 @@ export class Beike {
         m.t += dt;
         this.turnTo(this.face, dt);
         if (m.t > 0.35 && this.inMouth) this.dropBall();
+        if (m.t > 9 && m.t - dt <= 9) this.onSound?.('whine', this.position, 1); // well?
         if (m.t > 30) {
           // nobody's throwing: he picks it up and wanders off with it
           this.pickUp();
@@ -379,6 +382,7 @@ export class Beike {
         pace = RUN * 0.8;
         if (this.flatDistance(this.dropAt) < 0.3) {
           this.fetched++;
+          this.onSound?.('pant', this.position, 1);
           if (this.away && --this.away.rounds <= 0) this.zoomies();
           else this.mood = { kind: 'offer', t: 0 };
         }
@@ -616,6 +620,7 @@ export class Beike {
       b.position.addScaledVector(this.ballVel, dt);
       if (!Number.isNaN(floor) && b.position.y < floor + BALL_R && this.ballVel.y < 0) {
         b.position.y = floor + BALL_R;
+        this.onSound?.('bounce', b.getWorldPosition(V()), Math.min(1, -this.ballVel.y / 7));
         this.ballVel.y *= -0.45;
         this.ballVel.x *= 0.7;
         this.ballVel.z *= 0.7;

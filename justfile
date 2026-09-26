@@ -56,6 +56,25 @@ validate-rivers *args:
     @npx esbuild tools/rivers/validate.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/validate-rivers.mjs"
     @node "${TMPDIR:-/tmp}/validate-rivers.mjs" {{args}}
 
+# paddle every river for real with the game's own kayak: clean to the take-out, or knocked, capsized, swum? (e.g. just autopilot --seeds 100, or --river coffee --seed 7 to watch one)
+autopilot *args:
+    @npx esbuild tools/rivers/autopilot.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/autopilot.mjs"
+    @node "${TMPDIR:-/tmp}/autopilot.mjs" {{args}}
+
+# film the autopilot going down the rivers in the game (e.g. just record --river black --seed 3), into recordings/
+record *args:
+    @npx esbuild tools/rivers/record.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/record-rivers.mjs"
+    @node "${TMPDIR:-/tmp}/record-rivers.mjs" {{args}}
+
+# generate the island's sound effects with ElevenLabs (only what's missing; or name some to redo them)
+sounds *names:
+    @npx esbuild tools/sounds/generate.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/sounds.mjs"
+    @node "${TMPDIR:-/tmp}/sounds.mjs" {{names}}
+
+# make the rooms' doors (and the workshop's bell) from scratch, no creaks
+door-sounds:
+    python3 tools/sounds/doors.py
+
 # typecheck
 check:
     npx astro check

@@ -290,17 +290,21 @@ const places = [
         <strong data-river-pick-name>{RIVERS[0].name}</strong>
         <span class="river-chosen-meta" data-river-pick-meta>Grade {RIVERS[0].grade} · {(RIVERS[0].length / 1000).toFixed(1)} km</span>
         <p class="river-pick-lede" data-river-pick-lede>{RIVERS[0].lede}</p>
+        <ul class="river-goals" data-river-goals aria-label="Goals">
+          {RIVERS[0].goals.map((g) => <li>{g.text} · {g.points}</li>)}
+        </ul>
       </div>
       <ul class="river-keys">
         <li data-for="keys"><kbd>↑</kbd> paddle · <kbd>A</kbd><kbd>D</kbd> turn · <kbd>Q</kbd><kbd>E</kbd> brake · <kbd>←</kbd><kbd>→</kbd> lean · <kbd>Space</kbd> brace</li>
-        <li data-for="pad"><kbd>L2</kbd><kbd>R2</kbd> paddle · <kbd>L1</kbd><kbd>R1</kbd> brake / brace · stick leans</li>
+        <li data-for="pad"><kbd>L2</kbd><kbd>R2</kbd> paddle (<kbd>✕</kbd> both) · <kbd>L1</kbd><kbd>R1</kbd> brake / brace · stick leans · <kbd>✕</kbd> braces when you're going over</li>
         <li data-for="touch">Hold both sides of the screen to paddle, one side to turn away from it; low down to brake on that side. Hold Sprint to dig in.</li>
       </ul>
+      <p class="river-pad-tip">Best with a controller: plug one in and press any button. No controller? It plays fine without.</p>
       <details class="river-how">
         <summary>How it works</summary>
         <p class="river-hint-line" data-for="keys"><kbd>W</kbd><kbd>S</kbd> lean forward / back · <kbd>Shift</kbd> (hold) sprint · <kbd>P</kbd> pause</p>
-        <p class="river-hint-line" data-for="pad"><kbd>□</kbd> (hold) sprint · Options pauses · on the cards, the d-pad moves, <kbd>✕</kbd> picks, <kbd>○</kbd> goes back</p>
-        <p class="river-hint-line">Read the water: long bright streaks are the fast line, and arrows ride down the dark V of a tongue; a ledge's lip glows gold at the moment to boof it; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball.</p>
+        <p class="river-hint-line" data-for="pad"><kbd>□</kbd> or <kbd>L3</kbd> (hold) sprint · Options pauses · on the cards, the d-pad moves, <kbd>✕</kbd> picks, <kbd>○</kbd> goes back</p>
+        <p class="river-hint-line">Read the water: long bright streaks are the fast line, and arrows ride down the dark V of a tongue; a ledge's lip glows gold at the moment to boof it; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Down a straight the waves stand in a train: a crest leaning across the river rolls you, so lean into it (or square up), and a stroke as you slide down a wave's back pumps you on. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball. Every river has three goals of its own, and each pays every time you do it.</p>
       </details>
       <button class="river-go" data-river-go data-autofocus>Push off</button>
       <p class="river-best-line">Your best: <span data-river-best>0</span> · quickest down: <span data-river-fastest>–</span></p>
@@ -330,9 +334,11 @@ const places = [
         <dt>Flat out</dt><dd data-over-hot>–</dd>
         <dt>Capsizes</dt><dd data-over-flips>0</dd>
         <dt data-over-spotted-label hidden>Spotted</dt><dd data-over-spotted hidden></dd>
+        <dt>Goals</dt><dd data-over-goals>0 of 3</dd>
         <dt>Score</dt><dd data-over-score>0</dd>
         <dt>Best</dt><dd data-river-best>0</dd>
       </dl>
+      <ul class="river-goals" data-over-goals-list aria-label="Goals"></ul>
       <div class="river-buttons">
         <button class="river-go" data-river-next hidden>On to the next</button>
         <button class="river-go" data-river-go>Go again</button>
@@ -359,6 +365,19 @@ const places = [
       {Object.entries(SECRETS).map(([id, s]) => (<li data-secret={id}><strong data-title>???</strong><span>{s.hint}</span></li>))}
     </ul>
   </section>
+
+  <dialog class="wildlife-book" data-sketchbook aria-labelledby="wildlife-book-title">
+    <h2 id="wildlife-book-title" class="wildlife-sr">Wildlife sketchbook</h2>
+    <button class="wildlife-ribbon" data-sketchbook-close aria-label="Put the sketchbook down" autofocus><PixelIcon name="close" /><span>close</span></button>
+    <div class="wildlife-spread" data-sketchbook-spread aria-live="polite">
+      <div class="wildlife-page wildlife-page-left" data-sketchbook-page="left"></div>
+      <div class="wildlife-page wildlife-page-right" data-sketchbook-page="right"></div>
+    </div>
+    <span class="wildlife-stitches" aria-hidden="true"></span>
+    <button class="wildlife-turn wildlife-turn-back" data-sketchbook-prev aria-label="Turn to previous pages">←</button>
+    <button class="wildlife-turn wildlife-turn-next" data-sketchbook-next aria-label="Turn to next pages">→</button>
+    <span class="wildlife-sr" data-sketchbook-number aria-live="polite"></span>
+  </dialog>
 
   <!-- the book: an article opened over the island ------------------------------------ -->
   <div id="backdrop" class="backdrop" hidden></div>

@@ -6,12 +6,14 @@
  * entry here. Secrets listed in SECRETS show up in the journal automatically.
  */
 import type * as THREE from 'three';
+import { openSketchbook, spotAnimal } from './sketchbook';
 import { BOOKS } from '../data/books';
 import { chapters } from '../data/career';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { travels, yearsOf } from '../data/travels';
 import { hourOf } from './scene/bedtime';
+import { occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
 import { ambush, indoors } from './scene/shelter';
 import type { Forecast } from './forecast';
@@ -20,6 +22,7 @@ import type { CameraRig } from './scene/camera-rig';
 import type { Interior } from './scene/interior';
 import type { Island } from './scene/island';
 import type { Life } from './scene/life';
+import type { Fae } from './scene/revel';
 import type { Sky } from './scene/sky';
 import type { WorkshopRoom } from './scene/workshop-room';
 import type { Weather } from './scene/weather';
@@ -107,6 +110,7 @@ export const SECRETS = {
   supersheep: { title: 'Super Sheep', hint: 'Once in a long while, one of the flock has somewhere to be. Fast.' },
   bottle: { title: 'Message in a bottle', hint: 'Keep an eye on the beach. Now and then the sea brings something in.' },
   thief: { title: 'Daylight robbery', hint: 'Someone by the fire should keep a closer eye on his dinner.' },
+  fairfolk: { title: 'Ill met by moonlight', hint: 'On some dry evenings there’s music down on the beach. Midsummer’s Eve is the surest.' },
 } as const;
 
 let logPage = -1;
@@ -150,8 +154,25 @@ function animal(species: string, label: Place['label'], lines: string[], secret?
     label,
     activate(ctx, at) {
       ctx.life.fauna.poke(species, at, ctx.rig.camera.position);
+      spotAnimal(species);
       ctx.toast(lines[n++ % lines.length]);
       if (secret) ctx.discover(secret);
+    },
+  };
+}
+
+/**
+ * One of the fair folk at their revel (scene/revel.ts): whoever you look at glances back. Look a
+ * third time and that's a stare, and they're gone (main.ts has the line for that).
+ */
+function fae(who: Fae, label: Place['label'], lines: string[]): Place {
+  let n = 0;
+  return {
+    label,
+    activate(ctx) {
+      const stared = ctx.life.revel.poke(who, ctx.rig.camera.position);
+      if (!stared) ctx.toast(lines[n++ % lines.length]);
+      ctx.discover('fairfolk');
     },
   };
 }
@@ -165,12 +186,75 @@ function indoorPet(label: string, lines: string[], secret: keyof typeof SECRETS)
   return {
     label,
     activate(ctx) {
-      ctx.sound.purr();
+      ctx.sound.call('mrrp', 0.8); // a sleepy hello, then the purr
+      setTimeout(() => ctx.sound.purr(), 500);
       ctx.toast(lines[n++ % lines.length]);
       ctx.discover(secret);
     },
   };
 }
+
+/** A jack-o'-lantern (there's one at the hut, and a pair at the library door). */
+const JACK: Place = {
+  label: 'A jack-o’-lantern',
+  activate: say('Carved by the light of the stove up at the hut. It was meant to look frightening. It looks mildly surprised.'),
+};
+
+/** What comes out on the special days (scene/calendar.ts; tools/models/holidays.py). */
+const SPECIAL_DAYS: Record<string, Place> = {
+  vrijmarkt: {
+    label: 'The vrijmarkt · everything must go',
+    activate: (() => {
+      const line = keepsOn(
+        'On King’s Day the whole country sells its attic on the pavement. On offer: four paperbacks, a lamp, a board game, a teddy, and a crate of records nobody will admit to.',
+        { 3: 'You ask about the teddy. It turns out the teddy was never for sale.' },
+      );
+      return (ctx: IslandContext) => ctx.toast(line());
+    })(),
+  },
+  wimpel: {
+    label: 'The summit flag · with an orange pennant for the King',
+    activate: say('On King’s Day the flag gets an orange pennant over it. Even the sheep on it looks a little more orange.'),
+  },
+  shoe: {
+    label: 'A clog by the fire',
+    activate: say(occasions.has('sinterklaas')
+      ? 'The carrot’s gone, and there’s a chocolate letter where it was. Somebody was good this year.'
+      : 'Put out for Sinterklaas, with a carrot in it for his horse. Come back on the fifth of December and see what’s in it.'),
+  },
+  steamboat: {
+    label: 'The steamboat · in from Spain',
+    activate(ctx) {
+      ctx.sound.steamWhistle();
+      ctx.toast('Sinterklaas’s steamboat, in from Spain as it is every year. Tonight is pakjesavond: presents, poems and far too many pepernoten.');
+    },
+  },
+  presents: {
+    label: 'Presents · each with a poem',
+    activate: say('Every present comes with a poem, and every poem teases whoever it’s for. This one rhymes “Vincent” with “the bugs he never meant”.'),
+  },
+  pumpkin: JACK,
+  pumpkin_0: JACK,
+  pumpkin_1: JACK,
+  xmas_tree: {
+    label: () => (occasions.has('christmasday') ? 'The Christmas tree · with presents under it' : 'The Christmas tree'),
+    activate: say(occasions.has('christmasday')
+      ? 'Merry Christmas. The one with the lumpy wrapping is for Beike, and he knows it.'
+      : 'Up the day after Sinterklaas left, as is only proper. Not a day sooner.'),
+  },
+  bench_balloons: {
+    label: 'Balloons · three birthdays on one day',
+    activate: say('Hers, Charlie’s and George’s, all on the fourteenth of August. One cake, three candles, and two cats who think the cake is theirs.'),
+  },
+  cake: {
+    label: 'A birthday cake · three candles',
+    activate: say('Three candles, one for each of them. George has been edging towards it all afternoon.'),
+  },
+  balloons: {
+    label: 'Balloons · it’s Vincent’s birthday',
+    activate: say('Tied to his guitar case so he can’t miss them. Ask nicely and he might play something.'),
+  },
+};
 
 const WILDLIFE: Record<string, Place> = {
   ewe: animal('sheep', 'A sheep', [
@@ -216,6 +300,7 @@ const WILDLIFE: Record<string, Place> = {
     'The old charts had it right, then. Here be dragons.',
     'It rolls on through the waves, in no hurry at all. The sea is its and always was.',
   ], 'serpent'),
+  fish: animal('fish', 'A jumping trout', ['A flash of silver, and the sea closes over it again.']),
   duck: animal('duck', 'A mallard', ['Quack. It paddles on, very much in charge.']),
   duckling: animal('duckling', 'A duckling', ['Tiny, fluffy, and paddling as hard as it possibly can to keep up.']),
   heron: animal('heron', 'A grey heron', ['It unfolds itself, flaps off low over the water with a grumpy croak, and will be back the moment you’ve gone.']),
@@ -456,6 +541,7 @@ export const PLACES: Record<string, Place> = {
         ctx.sound.baa();
         ctx.toast(lines[n++ % lines.length]);
         ctx.discover('sheep');
+        spotAnimal('wingedsheep');
       },
     };
   })(),
@@ -599,15 +685,38 @@ export const PLACES: Record<string, Place> = {
     label: 'A bottle with a note in it',
     activate(ctx) {
       ctx.life.bottle.take();
+      ctx.sound.call('bottle');
       ctx.toast(`You uncork it and unroll the note: “${bottleNote()}”`);
       ctx.discover('bottle');
     },
   },
+  oberon: fae('oberon', (ctx) => (ctx.journal.has('fairfolk') ? 'Oberon, King of the fair folk' : 'A tall figure, crowned with antlers'), [
+    '“Ill met by moonlight.” He doesn’t miss a step, but he’s seen you.',
+    'He inclines his antlered head, very slightly. It is the politest warning you have ever had.',
+  ]),
+  titania: fae('titania', (ctx) => (ctx.journal.has('fairfolk') ? 'Titania, Queen of the fair folk' : 'A lady with wings, dancing'), [
+    'Titania smiles at you over his shoulder, as if you had been invited all along.',
+    'A shimmer of glitter off her fingertips. The toadstools glow a little brighter for it.',
+  ]),
+  puck: fae('puck', (ctx) => (ctx.journal.has('fairfolk') ? 'Puck' : 'Something small with horns, grinning'), [
+    '“Lord, what fools these mortals be!” He means you. He means it fondly.',
+    'Puck, with a purple flower in his hand. Whatever you do, don’t doze off anywhere near him.',
+  ]),
+  pixie: fae('pixie', 'A pixie', [
+    'No bigger than your hand. It loops the loop and is back in the dance before you can blink.',
+    'The pixies are dancing the ring, round and round, faster than their feet seem to move.',
+  ]),
+  fairyring: fae('fairyring', 'A fairy ring', [
+    'A ring of toadstools that wasn’t here this afternoon. Everyone knows you don’t step inside.',
+    'Step inside the ring and you dance till morning, and the morning is a hundred years off. Best watch from here.',
+  ]),
+  ...SPECIAL_DAYS,
   ...WILDLIFE,
 };
 
 /** Things inside the library. Books are `book:<slug>` and open their post. */
 export const LIBRARY_PLACES: Record<string, Place> = {
+  wildlife_book: { label: 'Wildlife sketchbook · leaf through your discoveries', activate: () => openSketchbook() },
   piano: {
     label: (ctx) => {
       const piece = ctx.sound.pianoPiece;
@@ -954,7 +1063,10 @@ export const HUT_PLACES: Record<string, Place> = {
         'Fast asleep, and already looking forward to the first coffee.',
       ];
       let n = 0;
-      return (ctx: IslandContext) => ctx.toast(lines[n++ % lines.length]);
+      return (ctx: IslandContext) => {
+        ctx.sound.here('snore');
+        ctx.toast(lines[n++ % lines.length]);
+      };
     })(),
   },
   companion_bed_reading: {
@@ -963,7 +1075,10 @@ export const HUT_PLACES: Record<string, Place> = {
   },
   companion_bed_asleep: {
     label: 'Asleep, the book on the duvet',
-    activate: say('Asleep, a finger still keeping her page. The candle can stay lit a bit longer.'),
+    activate(ctx) {
+      ctx.sound.here('snore', 0.7);
+      ctx.toast('Asleep, a finger still keeping her page. The candle can stay lit a bit longer.');
+    },
   },
   dream_journal: {
     label: 'A notebook by the bed',

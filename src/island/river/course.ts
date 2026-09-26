@@ -103,6 +103,8 @@ export interface Rock {
   variant: number;
   /** Not a rock but a timber post of an old weir: it knocks you about just the same. */
   post?: boolean;
+  /** One of the land's boulders at the water's edge: solid, but it has its own mesh and moves no water. */
+  scenery?: boolean;
 }
 
 export interface Log {
@@ -166,7 +168,81 @@ export interface Tongue {
   taken: boolean;
 }
 
-export type Thing = Obstacle | Pickup | Gate | Ledge | Hole | Tongue;
+/**
+ * A wave train: a row of standing waves down a straight, where the water's squeezed and running
+ * hard. Each crest leans a little across the river one way or the other (a diagonal), and a crest
+ * that meets the hull at an angle rolls the boat: square up to it, or lean into it. Stroke on the
+ * back of a wave and it pumps you on; hit a big crest fast and you're off it.
+ *
+ * All in river space: `s` is where it starts, `u` its middle across (m, + is river right).
+ */
+export interface Train {
+  kind: 'train';
+  s: number;
+  u: number;
+  half: number;
+  /** How far apart the crests are (m), how many, and how high the biggest (m, crest to mean). */
+  length: number;
+  count: number;
+  amp: number;
+  /** How hard the crests lean (0..1), and the train's own random number for which way each does. */
+  skew: number;
+  seed: number;
+}
+
+/**
+ * Crest k of a train: how far it leans (+: its right end further downstream, so it meets the
+ * boat's left side first and rolls it to the right) and how high it is (the first and the last
+ * lower than the middle). The water's shader works these out the same way.
+ */
+export function crest(t: Train, k: number) {
+  const lean = t.skew * Math.sin(k * 2.4 + t.seed * 6.283);
+  const amp = t.amp * (0.55 + 0.45 * Math.sin((Math.PI * (k + 0.5)) / t.count));
+  return { lean, amp };
+}
+
+/** How far across the river a crest's lean moves it along (m along per m across, at lean 1). */
+export const CREST_LEAN = 0.5;
+
+/**
+ * The water in a train at `along` metres past its start and `c` metres off its middle: its height
+ * over the river's own, the slope along (+ rising downstream), the nearest crest, and how far
+ * from that crest (in wavelengths: - still climbing its face, + sliding down its back).
+ */
+export function waveAt(t: Train, along: number, c: number) {
+  const out = { h: 0, slope: 0, k: -1, d: 0, lean: 0, amp: 0 };
+  if (along < -t.length * 0.5 || along > t.length * (t.count + 0.5)) return out;
+  const side = 1 - smoothstep(0.55, 1, Math.abs(c) / t.half);
+  if (side <= 0) return out;
+  let best = Infinity;
+  const k0 = Math.floor(along / t.length);
+  for (let k = Math.max(0, k0 - 1); k <= Math.min(t.count - 1, k0 + 1); k++) {
+    const w = crest(t, k);
+    const d = along - ((k + 0.5) * t.length + w.lean * CREST_LEAN * c);
+    if (Math.abs(d) < Math.abs(best)) {
+      best = d;
+      out.k = k;
+      out.lean = w.lean;
+      out.amp = w.amp * side;
+    }
+  }
+  if (out.k < 0 || Math.abs(best) > t.length * 0.75) return { ...out, k: -1 };
+  // (fading out past the first and the last crests, back to the river's own water)
+  const x = best / t.length;
+  const fade = Math.abs(x) > 0.5 ? Math.max(0, 1 - (Math.abs(x) - 0.5) * 4) : 1;
+  const edge = (out.k === 0 && x < -0.5) || (out.k === t.count - 1 && x > 0.5) ? fade : 1;
+  out.h = out.amp * Math.cos(2 * Math.PI * x) * edge;
+  out.slope = (-out.amp * 2 * Math.PI * Math.sin(2 * Math.PI * x) * edge) / t.length;
+  out.d = x;
+  return out;
+}
+
+function smoothstep(a: number, b: number, x: number) {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+
+export type Thing = Obstacle | Pickup | Gate | Ledge | Hole | Tongue | Train;
 
 export interface Stretch {
   kind: Kind;
@@ -208,7 +284,7 @@ const RAPIDS = [
 const CHUTES = ['The Luge', 'Greased Lightning', 'The Waterslide', 'Express Lane', 'The Bobsleigh', 'Slip Road', 'Hold Onto Your Hat'];
 
 /** The set pieces (see Course.piece). */
-export type Piece = 'slalom' | 'strainers' | 'doors' | 'funnel' | 'weir' | 'fork' | 'balls';
+export type Piece = 'slalom' | 'strainers' | 'doors' | 'funnel' | 'weir' | 'fork' | 'balls' | 'waves';
 
 /** How fast a boat can ferry across the current (m/s): no piece asks the line to move faster. */
 const FERRY = 1.25;
@@ -282,6 +358,10 @@ export class Course {
   readonly line: { s: number; u: number; piece: Piece | 'rest' }[] = [];
   /** The lips still to come, in order. */
   private lips: Ledge[] = [];
+  /** The wave trains, and where the last one ended (and it itself, just laid). */
+  readonly trains: Train[] = [];
+  private lastTrain = -999;
+  private lastTrainAt: Train | null = null;
 
   /**
    * `finish`: the take-out, where the run ends (a bridge over a last slow pool). Past it the river
@@ -290,8 +370,8 @@ export class Course {
   constructor(readonly seed: number, readonly finish = Infinity, readonly profile: Profile = DEFAULT_PROFILE) {
     this.random = rng(seed);
     this.scatter = rng(seed ^ 0x5bd1e995);
-    this.names = [...RAPIDS].sort(() => this.random() - 0.5);
-    this.chuteNames = [...CHUTES].sort(() => this.random() - 0.5);
+    this.names = shuffle(RAPIDS, this.random);
+    this.chuteNames = shuffle(CHUTES, this.random);
     // a slow green pool to get the feel of it, an easy forest run, a fast chute to learn to
     // dodge in, and then the first white water
     this.stretches.push({ kind: 'pool', start: 0, end: 110, heat: 0 });
@@ -311,6 +391,19 @@ export class Course {
   at(s: number): Sample {
     const i = Math.max(0, Math.min(this.samples.length - 1, Math.round(s / STEP)));
     return this.samples[i];
+  }
+
+  /**
+   * Where the river is at arc length s, interpolated between samples: for anything travelling
+   * along it (a bird, a dog on the bank), which would otherwise hop a metre at a time.
+   */
+  along(s: number): Pick<Sample, 'x' | 'y' | 'z' | 'a' | 'width'> {
+    const i = Math.max(0, Math.min(this.samples.length - 2, Math.floor(s / STEP)));
+    const f = Math.max(0, Math.min(1, s / STEP - i));
+    const p = this.samples[i];
+    const q = this.samples[i + 1] ?? p;
+    const mix = (u: number, v: number) => u + (v - u) * f;
+    return { x: mix(p.x, q.x), y: mix(p.y, q.y), z: mix(p.z, q.z), a: mix(p.a, q.a), width: mix(p.width, q.width) };
   }
 
   /** The water's height at arc length s, interpolated (for the kayak riding over a lip). */
@@ -391,6 +484,15 @@ export class Course {
   addObstacle(o: Obstacle) {
     this.obstacles.push(o);
     this.file(o);
+  }
+
+  /** Take one back out (the land's, when its stretch of river is dropped). */
+  removeObstacle(o: Obstacle) {
+    const i = this.obstacles.indexOf(o);
+    if (i >= 0) this.obstacles.splice(i, 1);
+    const list = this.buckets.get(Math.floor(o.s / BUCKET));
+    const j = list?.indexOf(o) ?? -1;
+    if (j >= 0) list!.splice(j, 1);
   }
 
   /** Everything in the water between arc lengths s0 and s1 (give or take a bucket). */
@@ -765,6 +867,26 @@ export class Course {
       const rz = Math.sin(p.a);
       const across = (u: number) => ({ x: p.x + rx * u * half, z: p.z + rz * u * half });
 
+      // now and then down a straight, a wave train where the rocks' gap would be: a V of smooth
+      // water between two rocks, and the waves standing below it
+      if ((white || stretch.kind === 'run') && s > this.lastTrain + 60 && r() < (stretch.kind === 'run' ? 0.18 : 0.32)) {
+        const len = this.trainAt(s + 3, stretch, gap * half);
+        if (len) {
+          this.placedTo = s + 3 + len + 4;
+          const t = this.lastTrainAt!;
+          const flank = t.half + 0.55 + r() * 0.3;
+          for (const side of [-1, 1]) {
+            const u = t.u + side * (flank + 0.5);
+            if (Math.abs(u) < half - 0.4) {
+              const at = this.across(this.at(s))(u);
+              this.addObstacle({ kind: 'rock', ...at, r: 0.55 + r() * 0.25, s, variant: Math.floor(r() * 5) });
+            }
+          }
+          this.file({ kind: 'tongue', s, u: t.u, half: t.half * 0.7, taken: false } satisfies Tongue);
+          continue;
+        }
+      }
+
       // the row's gap: somewhere new, but reachable
       const reach = Math.min(0.9, (step / Math.max(p.speed, 2)) * 2.6 / half);
       gap = Math.max(-0.7, Math.min(0.7, gap + (r() * 2 - 1) * reach * (0.3 + h * 0.5)));
@@ -836,6 +958,44 @@ export class Course {
       this.file({ kind: 'hole', s: foot.s, u: 0, half: foot.width / 2, strength: Math.min(1, 0.35 + l.height * 0.15) });
     }
   }
+  /**
+   * A wave train from s0, round `u` across, if the river's straight and clear enough for one there
+   * (no lip, no island, no bend worth the name, and room before the stretch ends). Returns how
+   * much river it takes (0: none). Bigger and leaning harder the hotter the water.
+   */
+  private trainAt(s0: number, stretch: Stretch, u: number, most = 8): number {
+    const r = this.scatter;
+    const h = stretch.heat;
+    const p = this.at(s0);
+    const length = 4.5 + p.speed * 0.3;
+    const count = Math.min(most, 4 + Math.floor(r() * 3 + h * 2));
+    const len = length * count;
+    if (s0 + len > stretch.end - 10) return 0;
+    while (this.length < s0 + len + 2) this.grow();
+    if (this.ledges.some((l) => l.s > s0 - 12 && l.s < s0 + len + 12)) return 0;
+    if (this.splits.some((x) => x.s1 > s0 - 15 && x.s0 < s0 + len + 15)) return 0;
+    // (nor over where a run or a rapid has its own set piece coming)
+    if (stretch.pieceAt !== undefined && stretch.pieceAt > s0 - 60 && stretch.pieceAt < s0 + len + 10) return 0;
+    let narrow = p.width;
+    for (let s = s0; s <= s0 + len; s += 2) {
+      const q = this.at(s);
+      if (Math.abs(q.bend) > 0.013) return 0; // (a straight: nothing that bends enough for an eddy on its inside)
+      narrow = Math.min(narrow, q.width);
+    }
+    const half = Math.min(narrow / 2 - 1.6, 2.2 + h * 1.2 + r() * 0.6);
+    if (half < 1.6) return 0;
+    const room = narrow / 2 - half - 1;
+    const t: Train = {
+      kind: 'train', s: s0, u: Math.max(-room, Math.min(room, u)), half, length, count,
+      amp: 0.2 + h * 0.65 + r() * 0.1, skew: 0.25 + h * 0.7, seed: r(),
+    };
+    this.file(t);
+    this.trains.push(t);
+    this.lastTrain = s0 + len;
+    this.lastTrainAt = t;
+    return len;
+  }
+
   // --- set pieces ------------------------------------------------------------------------
 
   /** How long a beat of a set piece is (m) at arc length s: about a second and a half of water, less when it's hot. */
@@ -895,17 +1055,29 @@ export class Course {
     const B = this.beat(s0, h);
     const T = 1.75 - h * 0.45;
     const shift = FERRY * T; // the furthest the line can move in a beat
-    const gh = 1.9 - h * 0.45; // half the gap left round the line
+    const gh = 2.2 - h * 0.7; // half the gap left round the line (roomy low down, as tight as ever at the top)
     const all: [Piece, number][] = chute
-      ? [['slalom', 1], ['strainers', 0.8], ['doors', 1], ['funnel', 0.6], ['weir', 0.8], ['fork', 0.8], ['balls', 0.5 + (1 - h) * 0.6]]
+      ? [['slalom', 1], ['strainers', 0.8], ['doors', 1], ['funnel', 0.6], ['weir', 0.8], ['fork', 0.8], ['balls', 0.5 + (1 - h) * 0.6], ['waves', 0.9]]
       : stretch.kind === 'run' ? [['strainers', 1], ['weir', 1], ['fork', 0.8], ['balls', 0.8]] : [['doors', 1], ['fork', 1], ['funnel', 0.6]];
     // only the pieces this river has (and on a gentle one, that can be just the balls)
     const allowed = all.filter(([k]) => this.profile.pieces.includes(k));
     const options: [Piece, number][] = allowed.length ? allowed : [['balls', 1]];
-    const kind = pick(r, options.map(([k, w]) => [k, k === this.lastPiece ? 0 : w] as [Piece, number]));
+    let kind = pick(r, options.map(([k, w]) => [k, k === this.lastPiece ? 0 : w] as [Piece, number]));
     this.lastPiece = kind;
+    if (kind === 'waves') {
+      // a wave train down the line (and if the chute bends too much here for one, the balls)
+      const got = this.trainAt(s0 + 2, stretch, this.lane, 7);
+      if (got) {
+        const t = this.lastTrainAt!;
+        this.lane = t.u;
+        for (let k = 0; k < t.count; k++) this.line.push({ s: s0 + 2 + (k + 0.5) * t.length, u: t.u, piece: 'waves' });
+        return got + 4;
+      }
+      kind = 'balls';
+    }
     const beats = kind === 'fork' || kind === 'funnel' ? 3 : kind === 'balls' ? 6 + Math.floor(r() * 3) : 3 + Math.floor(r() * (1.5 + h * 2.5));
-    const len = B * (kind === 'weir' ? beats * 0.7 + 0.5 : kind === 'balls' ? beats * 0.55 + 0.8 : beats + (kind === 'fork' ? 0.5 : 0));
+    const wide = kind === 'slalom' || kind === 'strainers' ? 1.3 - h * 0.3 : 1; // (see the slalom's walls)
+    const len = B * (kind === 'weir' ? beats * 0.7 + 0.5 : kind === 'balls' ? beats * 0.55 + 0.8 : beats * wide + (kind === 'fork' ? 0.5 : 0));
     while (this.length < s0 + len + 20) this.grow();
     // nothing near a lip, and nothing past the end of the stretch
     const ok = (s: number) => s < stretch.end - 8 && !this.ledges.some((l) => s > l.s - 8 && s < l.s + 10);
@@ -936,8 +1108,10 @@ export class Course {
         const p0 = this.at(s0);
         const A = Math.max(0.6, Math.min(this.clampLane(99, p0, gh), shift * 0.5));
         let side = this.lane > 0 ? -1 : this.lane < 0 ? 1 : r() < 0.5 ? -1 : 1; // the bank this beat's wall comes from
+        // the walls further apart than a beat, except in the very hardest water: time to swing round each
+        const W = B * wide;
         for (let i = 0; i < beats; i++) {
-          const at = s0 + B * (i + 0.5);
+          const at = s0 + W * (i + 0.5);
           if (!ok(at)) continue;
           const p = this.at(at);
           const L = this.clampLane(-side * A, p, gh);
@@ -984,7 +1158,7 @@ export class Course {
       }
       case 'weir': {
         // posts in rows across the river, each row's gaps halfway between the last's
-        const gap = 2.7 - h * 0.5;
+        const gap = 3.6 - h * 0.3; // (room enough between them even in the hardest water)
         const phase = r() * gap;
         for (let i = 0; i < beats; i++) {
           const at = s0 + B * (0.5 + i * 0.7);
@@ -1055,6 +1229,19 @@ export class Course {
 
 function key(cx: number, cz: number) {
   return cx * 100003 + cz;
+}
+
+/**
+ * A copy of `list` in a random order (Fisher–Yates). Not sort() with a random comparator: how often
+ * that calls it differs from one JavaScript engine to the next, and so would the river after it.
+ */
+function shuffle<T>(list: readonly T[], r: () => number): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 function pick<T>(r: () => number, options: [T, number][]): T {

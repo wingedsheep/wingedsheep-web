@@ -176,6 +176,7 @@ export class Library implements RoomInput {
   private swap() {
     this.inside = this.want;
     this.ctx.sound.indoors = this.inside;
+    this.ctx.sound.door('library');
     if (this.inside) {
       this.ctx.rig.room = this;
       this.interior?.view.reset();

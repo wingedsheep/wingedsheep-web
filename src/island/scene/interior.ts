@@ -9,6 +9,7 @@ import { Picker } from './picking';
 import { RoomCamera } from './room-camera';
 import { haloTexture } from './sky';
 import { GRADIENT } from './toon';
+import { createWildlifeBook } from './wildlife-book';
 
 /** Every row starts with room for its year plate; the books stand to the right of it. */
 const PLATE_SPACE = 0.62;
@@ -239,6 +240,10 @@ export class Interior {
     this.scene.add(this.hemi, this.key, this.key.target, this.particles.points);
     if (sunbeam) this.addSunbeam(sunbeam);
 
+    const fieldBook = createWildlifeBook();
+    this.scene.add(fieldBook);
+    this.named.set('wildlife_book', fieldBook);
+    named.push(fieldBook);
     this.shelve(rows, books);
     this.picker = new Picker(this.camera);
     this.picker.add(...named, ...[...this.books.values()].map((b) => b.group));

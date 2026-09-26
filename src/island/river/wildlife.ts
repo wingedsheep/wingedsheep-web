@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { spotAnimal, type Animal } from '../sketchbook';
 import { season } from '../scene/season';
 import type { RiverAssets } from './assets';
 import type { Course, Thing } from './course';
@@ -10,6 +11,12 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 /** The turn that points a model's front (+x, as the animals are built) along (dx, dz). */
 const face = (dx: number, dz: number) => Math.atan2(-dz, dx);
+/** An angle eased a share `k` of the way to another, the short way round. */
+const turn = (from: number, to: number, k: number) => from + Math.atan2(Math.sin(to - from), Math.cos(to - from)) * Math.min(1, k);
+/** A value eased towards another at `rate` per second, however long the frame. */
+const ease = (from: number, to: number, rate: number, dt: number) => from + (to - from) * (1 - Math.exp(-dt * rate));
+
+export type Cry = 'heron' | 'kingfisher' | 'otter' | 'grunt' | 'yeti' | 'raven';
 
 export interface WildlifeEvents {
   /** Something happened worth a line on screen. */
@@ -20,7 +27,9 @@ export interface WildlifeEvents {
   bark?(): void;
   /** One of the rare ones, seen for the first time this run. */
   spotted?(kind: Rare): void;
-  /** A beaver's tail smacked on the water; wolves howling; a bear's (or a moose's) huff. */
+  /** A heron put up off the shallows, a kingfisher going by, an otter, a moose, and whatever that was. */
+  cry?(kind: Cry): void;
+  /** A beaver's tail smacked on the water; wolves howling; a bear's huff. */
   slap?(): void;
   howl?(): void;
   huff?(): void;
@@ -28,6 +37,8 @@ export interface WildlifeEvents {
 
 
 interface Actor {
+  species?: Animal;
+  sketched?: boolean;
   s: number;
   root: THREE.Object3D;
   /** Returns false once it's done and can go. */
@@ -150,11 +161,13 @@ export class Wildlife {
   ground: (x: number, z: number) => number = () => 0;
   /** Whether something (a tree, a rock, the land itself) stands between a point and the camera. */
   hidden: (at: THREE.Vector3) => boolean = () => false;
+  inView: (at: THREE.Vector3) => boolean = () => true;
   private actors: Actor[] = [];
   private clock = 0;
   /** Everything in the water round the kayak, for the specks floating on it to go round. */
   private things: Thing[] = [];
   private kingfisherIn = rand(12, 30);
+  private frogIn = rand(4, 10);
   private sheepIn = rand(90, 200);
   private ravensIn = rand(6, 14);
   /** 0..1: how stormy it is on the island (the rain comes in sideways on the wind). */
@@ -178,6 +191,7 @@ export class Wildlife {
     this.specks.clear();
     this.froths.clear();
     this.kingfisherIn = rand(12, 30);
+    this.frogIn = rand(4, 10);
     this.sheepIn = rand(90, 200);
     this.ravensIn = rand(6, 14);
     this.storm = 0;
@@ -204,7 +218,11 @@ export class Wildlife {
   settle(spots: Spot[]) {
     for (const spot of spots) {
       const a = this.spawn(spot);
-      if (a) this.actors.push(a);
+      if (a) {
+        const species = { heron: 'heron', ducks: 'duck', deer: 'deer', sheep: 'sheep', fish: 'fish', swans: 'swan' } as const;
+        a.species = species[spot.kind];
+        this.actors.push(a);
+      }
     }
   }
 
@@ -212,6 +230,10 @@ export class Wildlife {
     this.clock += dt;
     this.actors = this.actors.filter((a) => {
       const keep = a.s > s - 45 && a.update(dt, kayak);
+      if (keep && a.species && !a.sketched && a.root.visible && a.root.position.distanceToSquared(kayak) < 32 * 32 && this.inView(a.root.position) && !this.hidden(a.root.position)) {
+        a.sketched = true;
+        if (spotAnimal(a.species, 'Along the river')) this.events.say?.('A new sketch in your wildlife book.');
+      }
       if (!keep) a.root.removeFromParent();
       return keep;
     });
@@ -219,18 +241,24 @@ export class Wildlife {
     // a kingfisher, straight up the river past you, low over the water
     if ((this.kingfisherIn -= dt) < 0 && night < 0.3) {
       this.kingfisherIn = rand(25, 60);
-      this.actors.push(this.kingfisher(s));
+      this.actors.push({ ...this.kingfisher(s), species: 'kingfisher' });
+    }
+    // frogs in the slack water along the edges, from dusk, in the warm half of the year
+    if ((this.frogIn -= dt) < 0) {
+      this.frogIn = rand(6, 18);
+      if (night > 0.25 && snow < 0.1 && season.name !== 'winter' && this.course.at(s).rough < 0.25) this.events.croak?.();
     }
     // on the hard rivers, ravens wheeling overhead, waiting to see how it goes
     const look = this.course.profile.look;
     if (look.grim > 0 && (this.ravensIn -= dt) < 0 && night < 0.7) {
       this.ravensIn = rand(25, 50) / look.grim;
-      for (let n = 1 + Math.floor(Math.random() * 3); n > 0; n--) this.actors.push(this.raven(s));
+      for (let n = 1 + Math.floor(Math.random() * 3); n > 0; n--) this.actors.push(Object.assign(this.raven(s), { species: 'raven' as const }));
+      this.events.cry?.('raven');
     }
     // the winged sheep, crossing high over the river
     if ((this.sheepIn -= dt) < 0 && fair) {
       this.sheepIn = rand(180, 360);
-      this.actors.push(this.wingedSheep(s));
+      this.actors.push({ ...this.wingedSheep(s), species: 'wingedsheep' });
     }
     // Beike, once a trip: somewhere open, a few hundred metres down
     const p = this.course.at(s);
@@ -401,18 +429,21 @@ export class Wildlife {
       update: (dt, kayak) => {
         if (flying < 0 && root.position.distanceTo(kayak) < 11) {
           flying = 0;
-          root.rotation.y = face(away.x + Math.sin(spot.a) * 0.6, away.z - Math.cos(spot.a) * 0.6);
-          this.events.croak?.();
+          this.events.cry?.('heron');
         }
         if (flying < 0) {
-          if (neck) neck.rotation.z = Math.sin(this.clock * 0.4 + spot.s) > 0.97 ? -0.6 : 0; // now and then, a strike
+          // now and then, a strike: quick down, slower back up
+          if (neck) neck.rotation.z = ease(neck.rotation.z, Math.sin(this.clock * 0.4 + spot.s) > 0.97 ? -0.6 : 0, 14, dt);
           return true;
         }
         flying += dt;
+        root.rotation.y = turn(root.rotation.y, face(away.x + Math.sin(spot.a) * 0.6, away.z - Math.cos(spot.a) * 0.6), dt * 5);
+        // (a few heavy beats to get off the water, winding up as it goes)
+        const lift = Math.min(1, flying * 1.5);
         const beat = Math.sin(flying * 9);
-        wings.forEach((w, i) => w && (w.rotation.x = (i ? -1 : 1) * beat * 0.9));
-        root.position.addScaledVector(away, dt * 4).add(V(Math.sin(spot.a) * dt * 3, dt * Math.min(3, 1 + flying), -Math.cos(spot.a) * dt * 3));
-        if (neck) neck.rotation.z = 0.5;
+        wings.forEach((w, i) => w && (w.rotation.x = (i ? -1 : 1) * beat * 0.9 * lift));
+        root.position.addScaledVector(away, dt * 4 * lift).add(V(Math.sin(spot.a) * dt * 3 * lift, dt * Math.min(3, 1 + flying) * lift, -Math.cos(spot.a) * dt * 3 * lift));
+        if (neck) neck.rotation.z = ease(neck.rotation.z, 0.5, 4, dt);
         return flying < 7;
       },
     };
@@ -447,7 +478,7 @@ export class Wildlife {
           this.events.quack?.();
         }
         if (fled) {
-          root.rotation.y += (face(bank.x, bank.z) - root.rotation.y) * Math.min(1, dt * 2);
+          root.rotation.y = turn(root.rotation.y, face(bank.x, bank.z), dt * 2);
           root.position.addScaledVector(bank, dt * 0.8);
         } else {
           root.position.add(V(-Math.sin(spot.a) * dt * 0.25, 0, Math.cos(spot.a) * dt * 0.25));
@@ -467,6 +498,7 @@ export class Wildlife {
     const neck = root.getObjectByName('deer_neck');
     const legs = ['fl', 'fr', 'bl', 'br'].map((k) => root.getObjectByName(`deer_leg_${k}`));
     let bolt = -1;
+    let flee = 0;
     return {
       s: spot.s,
       root,
@@ -475,7 +507,7 @@ export class Wildlife {
         const wary = d < 20;
         if (bolt < 0 && d < 11) {
           bolt = 0;
-          root.rotation.y = face(-toWater.x + rand(-0.3, 0.3), -toWater.z);
+          flee = face(-toWater.x + rand(-0.3, 0.3), -toWater.z);
         }
         if (bolt < 0) {
           // drinking, and looking up when something's coming
@@ -483,11 +515,14 @@ export class Wildlife {
           return true;
         }
         bolt += dt;
+        // wheeling round, and away up the bank, picking up speed
+        root.rotation.y = turn(root.rotation.y, flee, dt * 9);
+        const pace = Math.min(1, bolt * 2.5);
         const run = Math.sin(bolt * 14);
-        legs.forEach((l, i) => l && (l.rotation.z = (i < 2 ? 1 : -1) * run * 0.7));
-        root.position.addScaledVector(toWater, -dt * 6);
-        root.position.y += Math.abs(run) * 0.02;
-        if (neck) neck.rotation.z = 0.2;
+        legs.forEach((l, i) => l && (l.rotation.z = (i < 2 ? 1 : -1) * run * 0.7 * pace));
+        root.position.add(V(Math.cos(root.rotation.y) * dt * 6 * pace, 0, -Math.sin(root.rotation.y) * dt * 6 * pace));
+        root.position.y = Math.max(spot.y, this.ground(root.position.x, root.position.z)) + Math.abs(run) * 0.12 * pace;
+        if (neck) neck.rotation.z = ease(neck.rotation.z, 0.2, 8, dt);
         return bolt < 4;
       },
     };
@@ -509,8 +544,8 @@ export class Wildlife {
     return {
       s: spot.s,
       root,
-      update: (_, kayak) => {
-        for (const f of flock) if (f.head) f.head.rotation.z = Math.sin(this.clock * 0.7 + f.seed) > 0 ? -0.7 : 0;
+      update: (dt, kayak) => {
+        for (const f of flock) if (f.head) f.head.rotation.z = ease(f.head.rotation.z, Math.sin(this.clock * 0.7 + f.seed) > 0 ? -0.7 : 0, 3, dt);
         if (!said && root.position.distanceTo(kayak) < 10) {
           said = true;
           if (Math.random() < 0.5) this.events.baa?.();
@@ -585,7 +620,7 @@ export class Wildlife {
         pair.forEach((w, i) => (w.position.y = Math.sin(t * 1.4 + i) * 0.015));
         brood.forEach((c, i) => (c.position.y = Math.sin(t * 2.5 + i) * 0.012));
         // (turning, unhurried, to the bank as you come by)
-        if (root.position.distanceTo(kayak) < 10) heading += (face(bank.x, bank.z) - heading) * Math.min(1, dt * 0.8);
+        if (root.position.distanceTo(kayak) < 10) heading = turn(heading, face(bank.x, bank.z), dt * 0.8);
         root.rotation.y = heading;
         root.position.add(V(Math.cos(heading) * dt * 0.3, 0, -Math.sin(heading) * dt * 0.3));
         return true;
@@ -593,7 +628,10 @@ export class Wildlife {
     };
   }
 
-  /** A raven, wheeling high over the river ahead, keeping pace with you for a while. */
+  /**
+   * A raven, wheeling high over the river ahead, keeping pace with you for a while; then it's
+   * seen enough, and beats off up and away over the trees.
+   */
   private raven(s: number): Actor {
     const root = this.assets.clone('raven');
     root.scale.setScalar(2);
@@ -601,31 +639,56 @@ export class Wildlife {
     const radius = rand(5, 10);
     const height = rand(9, 14);
     const spin = (Math.random() < 0.5 ? -1 : 1) * rand(0.35, 0.6);
+    const lead = rand(10, 20); // how far ahead of you its circle stays
+    const out = Math.random() < 0.5 ? -1 : 1; // which bank it leaves over
     let a = rand(0, Math.PI * 2);
-    let at = s + rand(15, 30);
+    let at = s + lead + rand(0, 10);
     let life = rand(18, 30);
+    let away = 0;
     let flap = 0;
+    let beat = 0;
+    const last = V();
     this.group.add(root);
-    return {
-      s,
+    const place = () => {
+      const p = this.course.along(at);
+      const r = radius + away * away * 1.2;
+      const side = away * away * 1.5 * out;
+      root.position.set(
+        p.x + Math.cos(a) * r + Math.cos(p.a) * side,
+        p.y + height + away * away * 0.8,
+        p.z + Math.sin(a) * r + Math.sin(p.a) * side,
+      );
+    };
+    place();
+    last.copy(root.position);
+    root.rotation.y = face(-Math.sin(a) * spin, Math.cos(a) * spin);
+    const actor: Actor = {
+      s: at,
       root,
-      update: (dt) => {
+      update: (dt, kayak) => {
         life -= dt;
-        a += spin * dt;
-        at += dt * 3.5;
-        const p = this.course.at(at);
-        // circling, and leaving: up and away when it's seen enough
-        const up = life < 0 ? -life * 4 : 0;
-        root.position.set(p.x + Math.cos(a) * radius, p.y + height + up, p.z + Math.sin(a) * radius);
-        root.rotation.y = face(-Math.sin(a) * spin, Math.cos(a) * spin);
-        root.rotation.z = -spin * 0.5; // banked into the turn
-        // gliding mostly, with a few lazy beats now and then
+        if (life < 0) away += dt;
+        // circling, while the circle drifts along to stay ahead of you (and, leaving, winds out wide)
+        a += spin * dt * (1 - Math.min(0.8, away * 0.3));
+        at = ease(at, this.kayakS(kayak) + lead + away * 6, 0.6, dt) + dt * away * 4;
+        actor.s = at;
+        place();
+        // facing the way it's actually going
+        const dx = root.position.x - last.x;
+        const dz = root.position.z - last.z;
+        if (dx * dx + dz * dz > 1e-8) root.rotation.y = turn(root.rotation.y, face(dx, dz), dt * 4);
+        last.copy(root.position);
+        root.rotation.z = ease(root.rotation.z, away > 0 ? 0 : -spin * 0.5, 2, dt); // banked into the turn
+        // gliding mostly, with a few lazy beats now and then; beating hard to climb away
         if ((flap -= dt) < -rand(2, 4)) flap = 0.8;
-        const beat = flap > 0 ? Math.sin(this.clock * 12) * 0.7 : 0.12;
-        wings.forEach((w, i) => w && (w.rotation.x = (i ? -1 : 1) * beat));
-        return life > -6;
+        const want = away > 0 || flap > 0 ? 0.7 : 0;
+        beat = ease(beat, want, 5, dt);
+        const w = 0.12 + Math.sin(this.clock * (away > 0 ? 14 : 12)) * beat;
+        wings.forEach((g, i) => g && (g.rotation.x = (i ? -1 : 1) * w));
+        return away < 7;
       },
     };
+    return actor;
   }
 
   private kingfisher(s: number): Actor {
@@ -635,12 +698,18 @@ export class Wildlife {
     let at = s + 40;
     const wings = [root.getObjectByName('kingfisher_wing_l'), root.getObjectByName('kingfisher_wing_r')];
     this.group.add(root);
+    let called = false;
     return {
       s,
       root,
       update: (dt) => {
         at -= dt * 14;
-        const p = this.course.at(at);
+        // its piping call as it comes level with you
+        if (!called && at < s + 8) {
+          called = true;
+          this.events.cry?.('kingfisher');
+        }
+        const p = this.course.along(at);
         const u = side * p.width / 2;
         root.position.set(p.x + Math.cos(p.a) * u, p.y + 0.9 + Math.sin(at * 0.5) * 0.2, p.z + Math.sin(p.a) * u);
         root.rotation.y = face(-Math.sin(p.a), Math.cos(p.a));
@@ -695,41 +764,43 @@ export class Wildlife {
     const run = rand(16, 24);
     this.events.say?.('Beike has spotted you. He’ll keep pace along the bank for a bit.');
     let e = 3;
-    const place = (sPos: number) => {
-      const q = this.course.at(sPos);
+    let want = 3; // (easing out to it, not hopping, where the water comes close)
+    const place = (sPos: number, dt: number) => {
+      const q = this.course.along(sPos);
+      e = dt ? ease(e, want, 3, dt) : want;
       const u = side * (q.width / 2 + e);
       const x = q.x + Math.cos(q.a) * u;
       const z = q.z + Math.sin(q.a) * u;
       const near = this.course.nearest(x, z);
-      if (near.d - near.sample.width / 2 < 1) e = Math.min(e + 0.5, 8);
+      if (near.d - near.sample.width / 2 < 1) want = Math.min(Math.max(want, e) + 0.5, 8);
       root.position.set(x, this.ground(x, z), z);
       return q;
     };
-    place(at);
+    place(at, 0);
     return {
       s,
       root,
       update: (dt, kayak) => {
         t += dt;
         const running = t < run;
-        const q = this.course.at(at);
+        const q = this.course.along(at);
         if (running) {
           // keep level with the kayak, a boat's length ahead
           const target = this.course.nearest(kayak.x, kayak.z).sample.s + 4;
           at += Math.max(0, Math.min(9, (target - at) * 2 + 3)) * dt;
           const g = Math.sin(t * 16);
           legs.forEach((l, i) => l && (l.rotation.z = (i % 2 ? 1 : -1) * g * 0.8));
-          root.rotation.y = face(Math.sin(q.a), -Math.cos(q.a));
+          root.rotation.y = turn(root.rotation.y, face(Math.sin(q.a), -Math.cos(q.a)), dt * 8);
           if ((barkIn -= dt) < 0) {
             barkIn = rand(2.5, 5);
             this.events.bark?.();
           }
         } else {
-          legs.forEach((l) => l && (l.rotation.z *= 0.9));
-          root.rotation.y += (face(-Math.cos(q.a) * side, -Math.sin(q.a) * side) - root.rotation.y) * Math.min(1, dt * 3);
+          legs.forEach((l) => l && (l.rotation.z = ease(l.rotation.z, 0, 6, dt)));
+          root.rotation.y = turn(root.rotation.y, face(-Math.cos(q.a) * side, -Math.sin(q.a) * side), dt * 3);
         }
         if (tail) tail.rotation.x = Math.sin(t * 12) * 0.3;
-        place(at);
+        place(at, dt);
         if (running) root.position.y += Math.abs(Math.sin(t * 16)) * 0.08;
         return !running ? t < run + 20 : true;
       },
@@ -816,8 +887,9 @@ export class Wildlife {
   private spotter(kind: Rare, range = 17) {
     let seen = false;
     return (at: THREE.Vector3, kayak: THREE.Vector3) => {
-      if (seen || at.distanceTo(kayak) > range) return;
+      if (seen || at.distanceTo(kayak) > range || !this.inView(at) || this.hidden(at)) return;
       seen = true;
+      spotAnimal(kind, 'Along the river');
       this.events.spotted?.(kind);
     };
   }
@@ -971,15 +1043,15 @@ export class Wildlife {
         // turning back from the bank
         if (near.d > near.sample.width / 2 - 1.2) {
           const c = near.sample;
-          heading += (face(c.x - o.position.x, c.z - o.position.z) - heading) * Math.min(1, dt * 2);
+          heading = turn(heading, face(c.x - o.position.x, c.z - o.position.z), dt * 2);
         }
         switch (mode) {
           case 'swim':
             heading += Math.sin(t * 0.7) * dt * 0.6;
             o.position.add(V(Math.cos(heading) * dt * 0.9, 0, -Math.sin(heading) * dt * 0.9));
             o.position.y = y + Math.sin(t * 3) * 0.02;
-            o.rotation.x *= 0.9;
-            o.rotation.z *= 0.9;
+            o.rotation.x = ease(o.rotation.x, 0, 6, dt);
+            o.rotation.z = ease(o.rotation.z, 0, 6, dt);
             if (timer < 0) {
               const r = Math.random();
               if (r < 0.45) mode = 'back';
@@ -1007,12 +1079,13 @@ export class Wildlife {
               o.visible = true;
               o.rotation.x = 0;
               this.spray(o.position, 5, 0.4);
+              if (wary) this.events.cry?.('otter'); // up behind you, whistling
               mode = wary ? 'watch' : 'swim';
               timer = rand(2, 4);
             }
             break;
           case 'watch': // head up out of the water, turned to watch you go
-            heading += (face(kayak.x - o.position.x, kayak.z - o.position.z) - heading) * Math.min(1, dt * 3);
+            heading = turn(heading, face(kayak.x - o.position.x, kayak.z - o.position.z), dt * 3);
             o.rotation.z += (0.45 - o.rotation.z) * Math.min(1, dt * 4);
             o.position.y = y + 0.12 + Math.sin(t * 2.5) * 0.02;
             gone += dt;
@@ -1058,7 +1131,7 @@ export class Wildlife {
         const d = m.position.distanceTo(kayak);
         if (!noticed && d < 16) {
           noticed = true;
-          this.events.huff?.();
+          this.events.cry?.('grunt');
         }
         if (off < 0 && noticed && this.kayakS(kayak) > at + 10) off = 0;
         if (neck) {
@@ -1076,8 +1149,8 @@ export class Wildlife {
         if (off < 0) return true;
         // off to the trees, unhurried
         off += dt;
-        if (neck) neck.rotation.y *= 0.95;
-        m.rotation.y += (face(-across.x, -across.z) - m.rotation.y) * Math.min(1, dt * 0.8);
+        if (neck) neck.rotation.y = ease(neck.rotation.y, 0, 3, dt);
+        m.rotation.y = turn(m.rotation.y, face(-across.x, -across.z), dt * 0.8);
         m.position.add(V(Math.cos(m.rotation.y) * dt * 1.2, 0, -Math.sin(m.rotation.y) * dt * 1.2));
         m.position.y = Math.max(q.y - 0.55, Math.min(this.ground(m.position.x, m.position.z), m.position.y + dt * 0.4));
         const g = Math.sin(off * 5);
@@ -1178,7 +1251,7 @@ export class Wildlife {
         if (off < 0 && rear > 4 && this.kayakS(kayak) > at + 6) off = 0;
         if (off < 0) return true;
         off += dt;
-        b.rotation.y += (face(-toWater.x, -toWater.z) - b.rotation.y) * Math.min(1, dt * 1.5);
+        b.rotation.y = turn(b.rotation.y, face(-toWater.x, -toWater.z), dt * 1.5);
         if (off > 1) b.position.add(V(Math.cos(b.rotation.y) * dt * 2, 0, -Math.sin(b.rotation.y) * dt * 2));
         b.position.y = Math.max(q.y - 0.3, this.ground(b.position.x, b.position.z));
         const g = Math.sin(off * 8);
@@ -1221,7 +1294,7 @@ export class Wildlife {
     let howl = night > 0.3 || Math.random() < 0.6 ? 0.4 : -1;
     const spot = this.spotter('wolves');
     const place = (f: (typeof pack)[number]) => {
-      const q = this.course.at(along + f.ds);
+      const q = this.course.along(along + f.ds);
       let e = f.e + f.out;
       let x = 0;
       let z = 0;
@@ -1257,7 +1330,7 @@ export class Wildlife {
               howl -= dt;
               if (f.head) f.head.rotation.z += (1.0 - f.head.rotation.z) * Math.min(1, dt * 4);
             } else {
-              if (f.head) f.head.rotation.z *= 0.9;
+              if (f.head) f.head.rotation.z = ease(f.head.rotation.z, 0, 6, dt);
               this.look(f.head, f.w, kayak, 0.9, dt);
             }
             if (f.tail) f.tail.rotation.y = Math.sin(t * 2 + f.seed) * 0.15;
@@ -1281,10 +1354,10 @@ export class Wildlife {
           f.w.position.y += Math.abs(run) * 0.06;
           const dx = Math.sin(q.a) + (mode === 'away' ? Math.cos(q.a) * side * 2 : 0);
           const dz = -Math.cos(q.a) + (mode === 'away' ? Math.sin(q.a) * side * 2 : 0);
-          f.w.rotation.y += (face(dx, dz) - f.w.rotation.y) * Math.min(1, dt * 4);
+          f.w.rotation.y = turn(f.w.rotation.y, face(dx, dz), dt * 4);
           if (f.head) {
-            f.head.rotation.z *= 0.9;
-            f.head.rotation.y *= 0.9;
+            f.head.rotation.z = ease(f.head.rotation.z, 0, 6, dt);
+            f.head.rotation.y = ease(f.head.rotation.y, 0, 6, dt);
           }
           if (f.tail) f.tail.rotation.y = Math.sin(t * 6 + f.seed) * 0.2;
         }
@@ -1323,8 +1396,8 @@ export class Wildlife {
           return true;
         }
         off += dt;
-        if (head) head.rotation.y *= 0.9;
-        l.rotation.y += (face(-toWater.x, -toWater.z) - l.rotation.y) * Math.min(1, dt * 5);
+        if (head) head.rotation.y = ease(head.rotation.y, 0, 6, dt);
+        l.rotation.y = turn(l.rotation.y, face(-toWater.x, -toWater.z), dt * 5);
         if (off > 0.3) l.position.add(V(Math.cos(l.rotation.y) * dt * 2.2, 0, -Math.sin(l.rotation.y) * dt * 2.2));
         l.position.y = this.ground(l.position.x, l.position.z);
         const g = Math.sin(off * 10);
@@ -1365,12 +1438,15 @@ export class Wildlife {
         if (off < 0) {
           this.look(head, y, kayak, 0.8, dt);
           arms.forEach((a, i) => a && (a.rotation.z = Math.sin(t * 1.2 + i) * 0.05));
-          if (y.position.distanceTo(kayak) < 13) off = 0;
+          if (y.position.distanceTo(kayak) < 13) {
+            off = 0;
+            this.events.cry?.('yeti'); // one call off the cliffs as it turns, and gone
+          }
           return true;
         }
         off += dt;
-        if (head) head.rotation.y *= 0.95;
-        y.rotation.y += (face(-toWater.x + Math.sin(q.a) * 0.4, -toWater.z - Math.cos(q.a) * 0.4) - y.rotation.y) * Math.min(1, dt * 2);
+        if (head) head.rotation.y = ease(head.rotation.y, 0, 3, dt);
+        y.rotation.y = turn(y.rotation.y, face(-toWater.x + Math.sin(q.a) * 0.4, -toWater.z - Math.cos(q.a) * 0.4), dt * 2);
         if (off > 0.6) y.position.add(V(Math.cos(y.rotation.y) * dt * 2.6, 0, -Math.sin(y.rotation.y) * dt * 2.6));
         const g = Math.sin(off * 4.5);
         y.position.y = this.ground(y.position.x, y.position.z) + Math.abs(g) * 0.08;

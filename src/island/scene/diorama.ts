@@ -50,12 +50,15 @@ export class Diorama {
   private mixer: THREE.AnimationMixer;
   private clock = 0;
 
+  /** Something happening in the scene that makes a noise (the trail plays it while you're here). */
+  onSound?: (name: string) => void;
+
   static async load(id: string, base = '/models/'): Promise<Diorama> {
     const gltf = await new GLTFLoader().loadAsync(`${base}career-${id}.glb?v=${__MODELS__}`);
-    return new Diorama(gltf.scene, gltf.animations);
+    return new Diorama(gltf.scene, gltf.animations, id);
   }
 
-  private constructor(root: THREE.Group, clips: THREE.AnimationClip[]) {
+  private constructor(root: THREE.Group, clips: THREE.AnimationClip[], private id: string) {
     this.scene.add(root);
     this.scene.background = this.sky;
     root.updateMatrixWorld(true);
@@ -106,6 +109,19 @@ export class Diorama {
     return this.view.camera;
   }
 
+  /**
+   * What happens on its own, on the scene's clock: bikes ringing past on the campus path; in the
+   * Backbone loop, the bus sighing into its halte and pulling away again (BUS, below).
+   */
+  private cues(t: number, dt: number) {
+    const crossed = (at: number, every: number) => (t - at) % every < dt && t >= at;
+    if (this.id === 'student' && crossed(9, 23)) this.onSound?.('bike-bell');
+    if (this.id === 'backbone') {
+      if (crossed(BUS.drive, BUS.lap)) this.onSound?.('bus-doors');
+      if (crossed(BUS.lap - 0.6, BUS.lap)) this.onSound?.('bus-go');
+    }
+  }
+
   frame(width: number, height: number, free: { x: number; y: number; w: number; h: number }) {
     this.view.frame(width, height, free);
   }
@@ -114,6 +130,7 @@ export class Diorama {
   update(dt: number, night: number) {
     this.clock += dt;
     const t = this.clock;
+    this.cues(t, dt);
     const day = 1 - night;
     this.mixer.update(dt);
     for (const l of this.lamps) {

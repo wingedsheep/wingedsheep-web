@@ -46,6 +46,9 @@ export class HutRoom {
   /** Where steam rises, and the thing it rises from (the pie only steams while she's here). */
   private steam: { at: THREE.Vector3; from: THREE.Object3D }[] = [];
   private clock = 0;
+  private lastGlance = 0;
+  /** A noise from the room: the oven timer (the island plays it). */
+  onSound?: (name: string, volume?: number) => void;
   /** Who's in out of the rain (shelter.ts): shown only while they're indoors. */
   readonly guests: Guests;
   /** Rain on the glass and lightning in the panes. */
@@ -160,6 +163,9 @@ export class HutRoom {
     const sip = k > 5 && k < 7 ? Math.sin(((k - 5) / 2) * Math.PI) : 0;
     mug.rotation.x = -sip * 0.55;
     const g = t % 14;
+    // now and then the timer goes as she looks round: not done yet
+    if (g < this.lastGlance && Math.random() < 0.35) this.onSound?.('ding');
+    this.lastGlance = g;
     const glance = g < 2.5 ? Math.sin((g / 2.5) * Math.PI) : 0; // is it done yet?
     head?.rotation.set(-sip * 0.15, -glance * 1.0 + Math.sin(t * 0.3) * 0.1, 0);
   }

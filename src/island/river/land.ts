@@ -105,6 +105,9 @@ export interface Spot {
   side: number;
 }
 
+/** How far a boulder on the bank may reach out into the river (m, from the edge of the water to its collision edge). */
+const REACH = 1;
+
 interface Chunk {
   index: number;
   group: THREE.Group;
@@ -128,6 +131,8 @@ interface Chunk {
   mists: THREE.Sprite[];
   /** Ground kept clear round a cottage or a picnic, for the trees to stay off. */
   clearings: { x: number; z: number; r: number }[];
+  /** What it added to the course to be run into (a jetty's end, a bridge's trestles, its boulders), taken out again with it. */
+  solids: Obstacle[];
 }
 
 /**
@@ -201,6 +206,7 @@ export class Land {
     for (const [c, chunk] of this.chunks) {
       if (c >= c0 && c <= c1) continue;
       dropChunk(chunk);
+      for (const o of chunk.solids) this.course.removeObstacle(o);
       chunk.group.removeFromParent();
       this.chunks.delete(c);
       this.onDrop?.(c);
@@ -353,7 +359,7 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], chimneys: [], mists: [], clearings: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], chimneys: [], mists: [], clearings: [], solids: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
@@ -378,7 +384,7 @@ export class Land {
           m.scale.x = (p.width + 3 + Math.abs(off) * 2) / span;
           group.add(m);
         }
-      } else if (thing.kind === 'rock' || thing.kind === 'log') this.obstacle(chunk, thing, r);
+      } else if ((thing.kind === 'rock' && !thing.scenery) || thing.kind === 'log') this.obstacle(chunk, thing, r);
       else if (thing.kind === 'ball' && !thing.taken) {
         const m = new THREE.Group();
         const ball = this.assets.clone('ball');
@@ -511,12 +517,17 @@ export class Land {
     const p = this.course.at(s);
     for (const side of [-1, 1]) {
       for (let k = 0; k < 2; k++) {
-        const u = side * (p.width / 2 + 0.3 + k * 1.4);
-        const m = this.assets.clone(`rock_${Math.floor(r() * 5)}`);
-        m.scale.setScalar(0.9 + height * 0.35 + r() * 0.3);
+        const kind = `rock_${Math.floor(r() * 5)}`;
+        const m = this.assets.clone(kind);
+        const scale = 0.9 + height * 0.35 + r() * 0.3;
+        m.scale.setScalar(scale);
+        // (a big one set back, so it doesn't close the edge of the lip)
+        const rad = (this.assets.extras.get(kind)?.radius ?? 1) * scale;
+        const u = side * (p.width / 2 + Math.max(0.3, rad * 0.9 - REACH) + k * 1.4);
         m.position.set(p.x + Math.cos(p.a) * u, p.y - 0.4, p.z + Math.sin(p.a) * u);
         m.rotation.y = r() * 6.3;
         chunk.group.add(m);
+        this.boulder(chunk, s, m.position.x, m.position.z, rad);
       }
     }
     // a waterfall throws up a mist, and on a sunny day a rainbow hangs in it
@@ -540,6 +551,20 @@ export class Land {
     const near = this.course.nearest(x, z);
     if (near.d - near.sample.width / 2 < Math.min(e * 0.7, e - 0.2)) return null; // another bend of the river
     return { x, z, y: this.heightAt(x, z), p };
+  }
+
+  /** Something the land stands in the water, for the kayak to run into. */
+  private solid(chunk: Chunk, o: Obstacle) {
+    this.course.addObstacle(o);
+    chunk.solids.push(o);
+  }
+
+  /** A boulder of the land's at the water's edge (its mesh already placed), made solid if you can reach it. */
+  private boulder(chunk: Chunk, s: number, x: number, z: number, radius: number) {
+    const near = this.course.nearest(x, z, s);
+    // (the boat can't get closer to the bank than this, so one set further back can't be hit)
+    if (radius * 0.9 < Math.abs(near.side) - near.sample.width / 2 + 0.1) return;
+    this.solid(chunk, { kind: 'rock', x, z, r: radius, s: near.sample.s, variant: 0, scenery: true });
   }
 
   private put(chunk: Chunk, kind: string, at: { x: number; y: number; z: number }, turn: number, scale = 1) {
@@ -624,7 +649,7 @@ export class Land {
             kind: 'rock', x: p.x + Math.cos(p.a) * off - Math.sin(p.a) * dz, z: p.z + Math.sin(p.a) * off + Math.cos(p.a) * dz,
             r: 0.25, s, variant: 0,
           };
-          this.course.addObstacle(rock); // collisions only: it has no mesh of its own
+          this.solid(chunk, rock); // collisions only: it has no mesh of its own
         }
       }
       return;
@@ -769,7 +794,7 @@ export class Land {
       if (at && this.put(chunk, 'jetty', { ...at, y: p.y }, inland)) {
         // (its end post and the boat stand in the water: things to steer round, not through)
         const out = -side * 3.2;
-        this.course.addObstacle({ kind: 'rock', x: at.x + Math.cos(p.a) * out, z: at.z + Math.sin(p.a) * out, r: 0.8, s, variant: 0 });
+        this.solid(chunk, { kind: 'rock', x: at.x + Math.cos(p.a) * out, z: at.z + Math.sin(p.a) * out, r: 0.8, s, variant: 0 });
       }
     } else if (pick < home * 0.52) {
       const at = this.beside(s, side, 3 + r() * 3);
@@ -865,8 +890,17 @@ export class Land {
         }
         // mossy boulders at the water's edge, and crags along the top of a gorge
         if (r() < 0.05 + p.rough * 0.05) {
-          const at = this.beside(s, side, -0.4 + r() * 1.2);
-          if (at) this.put(chunk, `rock_${Math.floor(r() * 5)}`, { ...at, y: Math.max(at.y - 0.3, p.y - 0.3) }, r() * 6.3, 0.9 + r() * 0.8);
+          const e = -0.4 + r() * 1.2;
+          let at = this.beside(s, side, e);
+          if (at) {
+            const kind = `rock_${Math.floor(r() * 5)}`;
+            const turn = r() * 6.3;
+            const scale = 0.9 + r() * 0.8;
+            // (a big one set back, so it doesn't close the edge of the river)
+            const rad = (this.assets.extras.get(kind)?.radius ?? 1) * scale;
+            if (rad * 0.9 - e > REACH) at = this.beside(s, side, rad * 0.9 - REACH);
+            if (at && this.put(chunk, kind, { ...at, y: Math.max(at.y - 0.3, p.y - 0.3) }, turn, scale)) this.boulder(chunk, s, at.x, at.z, rad);
+          }
         }
         if (r() < p.gorge * 0.2) {
           const at = this.beside(s, side, 2.2 + r() * 4);

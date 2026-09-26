@@ -134,7 +134,7 @@ export function waterAt(course: Course, x: number, z: number, hint: number | und
   let px = 0;
   let pz = 0;
   for (const t of things) {
-    if (!('kind' in t) || t.kind !== 'rock') continue;
+    if (!('kind' in t) || t.kind !== 'rock' || t.scenery) continue;
     const w = rockWater(t, x, z, fx, fz, st.along);
     rock = Math.max(rock, w.eddy);
     px += w.px;

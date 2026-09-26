@@ -75,6 +75,8 @@ export class QuartersRoom {
   private screen?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; next: number };
   private painting?: THREE.MeshBasicMaterial;
   private clock = 0;
+  /** Whether Vincent's at his desk and typing right now (the lighthouse plays the keys). */
+  typing = false;
   /** Who's in out of the rain (shelter.ts): each shown only while they're indoors. */
   readonly guests: Guests;
   /** Rain on the glass and lightning in the panes. */
@@ -262,9 +264,11 @@ export class QuartersRoom {
       hero: this.scene.getObjectByName('desk_hero'),
     });
     const { him, left, right, head, hero } = at;
+    this.typing = false;
     if (!him?.visible) return;
     const flinch = this.stalk.flinch;
     const burst = Math.sin(t * 0.6) > -0.3 && flinch < 0.2; // typing, then a pause to think
+    this.typing = burst;
     for (const [arm, k] of [[left, 0], [right, 1.7]] as const) {
       if (!arm) continue;
       const rest = (arm.userData.rest ??= arm.rotation.clone()) as THREE.Euler;

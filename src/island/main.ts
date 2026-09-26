@@ -17,14 +17,17 @@ import { CameraRig } from './scene/camera-rig';
 import { Ambience } from './scene/ambience';
 import { Mist } from './scene/mist';
 import { Beacons } from './scene/beacons';
+import { greeting, occasions } from './scene/calendar';
+import { Fireworks } from './scene/fireworks';
 import { createFoliage } from './scene/foliage';
 import { createGrass, wind, windDir } from './scene/grass';
 import { Icicles } from './scene/icicles';
 import { Island } from './scene/island';
+import type { Call } from './scene/fauna';
 import { Life, type Rhythm } from './scene/life';
 import { Picker } from './scene/picking';
 import { PixelRenderer } from './scene/pixel-renderer';
-import { dressIsland } from './scene/season';
+import { dressIsland, season } from './scene/season';
 import { Sky } from './scene/sky';
 import { createWater } from './scene/water';
 import { Weather } from './scene/weather';
@@ -47,7 +50,12 @@ const PANEL_HOME: Partial<Record<PanelName | 'article', string>> = {
  * CSS pixels per art pixel: bigger screens get chunkier pixels so detail stays readable (and a
  * TV isn't asked to draw four times the art pixels of a laptop).
  */
-const pixelSizeFor = (w: number, h: number) => (w < 700 ? 2 : Math.max(3, Math.floor(h / 400)));
+/** How loud the night crickets and the daytime birds get in each season, 0..1. */
+const CRICKETS = { spring: 0.35, summer: 1, autumn: 0.55, winter: 0 };
+const BIRDSONG = { spring: 1, summer: 0.75, autumn: 0.35, winter: 0.12 };
+/** …and how much leaf there is on the trees for the wind to rustle. */
+const LEAVES = { spring: 0.7, summer: 1, autumn: 0.8, winter: 0.1 };
+const pixelSizeFor =(w: number, h: number) => (w < 700 ? 2 : Math.max(3, Math.floor(h / 400)));
 /**
  * Device pixels per CSS pixel. The art is blown up nearest-neighbour, so past a laptop's worth of
  * device pixels (a 4K TV) a finer canvas shows nothing more; it only costs the GPU.
@@ -79,11 +87,20 @@ export async function bootIsland(host: HTMLElement) {
   const life = new Life(scene, island, sky);
   const sound = new Sound(songs, piano, records);
   life.beike.onBark = () => sound.bark();
-  // animals nearer the middle of the view sound louder
-  life.fauna.onCall = (call, at) => {
-    sound.call(call, THREE.MathUtils.clamp(1.2 - at.distanceTo(rig.target) / rig.view, 0.15, 1));
+  // animals nearer the middle of the view sound louder, and off to the side they're heard from
+  // that side; the ones calling out unasked only carry from somewhere near what's on screen
+  const right = new THREE.Vector3();
+  const heard = (call: Call, at: THREE.Vector3, ambient = false, loud = 1) => {
+    const off = at.distanceTo(rig.target) / rig.view;
+    const volume = ambient ? THREE.MathUtils.clamp(1.1 - off * 1.4, 0, 0.8) : THREE.MathUtils.clamp(1.2 - off, 0.15, 1);
+    if (ambient && (volume < 0.05 || !sound.outdoors)) return;
+    right.setFromMatrixColumn(rig.camera.matrixWorld, 0);
+    const pan = (at.clone().sub(rig.target).dot(right) / (rig.view * (host.clientWidth / host.clientHeight) * 0.5)) * 0.8;
+    sound.call(call, volume * loud, pan);
     if (call === 'roar') weather.bolt(); // in a storm, lightning shows it for what it is
   };
+  life.fauna.onCall = heard;
+  life.beike.onSound = (kind, at, loud) => heard(kind, at, true, loud);
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
@@ -92,6 +109,19 @@ export async function bootIsland(host: HTMLElement) {
   const mist = new Mist(scene, reducedMotion);
   const beacons = new Beacons(scene, island, reducedMotion);
   const icicles = new Icicles(scene, island);
+  // the special days (scene/calendar.ts): New Year's fireworks, and the sounds the day needs
+  const fireworks = occasions.has('newyear') ? new Fireworks(scene, island, reducedMotion) : null;
+  if (fireworks || occasions.has('sinterklaas')) sound.festive();
+  if (fireworks) {
+    fireworks.onSound = (kind, at, big) => {
+      if (!sound.outdoors && kind !== 'burst') return;
+      const off = at.distanceTo(rig.target);
+      const volume = THREE.MathUtils.clamp(1.25 - off / 60, 0.12, 1) * (kind === 'burst' ? Math.min(1.2, 0.7 + big * 0.2) : 1);
+      right.setFromMatrixColumn(rig.camera.matrixWorld, 0);
+      const pan = THREE.MathUtils.clamp(at.clone().sub(rig.target).dot(right) / 60, -0.8, 0.8);
+      sound.firework(kind, volume, pan, kind === 'launch' ? 0 : off / 170); // the bang comes a beat after the flash
+    };
+  }
 
   const [x0, y0, x1, y1] = island.info.extent;
   const bounds = new THREE.Box2(new THREE.Vector2(x0 + 8, -y1 + 6), new THREE.Vector2(x1 - 8, -y0 - 10));
@@ -129,6 +159,12 @@ export async function bootIsland(host: HTMLElement) {
   if (life.beike.tennisBall) picker.add(life.beike.tennisBall);
   picker.add(...life.fauna.pickables);
   if (life.mischief.thief) picker.add(life.mischief.thief);
+  picker.add(...life.revel.pickables);
+  // the fair folk gone again: a word, if you were watching (or if you stared them away)
+  life.revel.onEnd = (stared, watched) => {
+    if (stared) ui.toast('You stared. The music stops, every head in the ring turns your way, and they’re gone. The fair folk don’t like to be stared at.');
+    else if (watched) ui.toast('The music stops. They bow to one another, and they’re gone. It felt like a minute. It might have been a hundred years.');
+  };
 
   /** The second moon only exists as a reflection, so it's found by where you click on the sea. */
   function pickMoon(ndc: THREE.Vector2) {
@@ -193,6 +229,7 @@ export async function bootIsland(host: HTMLElement) {
     ask: (text, choices) => ui.ask(text, choices),
     discover(id) {
       if (!journal.discover(id)) return;
+      sound.chime('found');
       ui.toast(`✦ Discovered: ${SECRETS[id].title} (${journal.count}/${journal.size})`, 'secret');
       renderJournal(ctx);
     },
@@ -277,10 +314,11 @@ export async function bootIsland(host: HTMLElement) {
   const where = params.get('vincent') as Whereabouts | null;
   if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where, fuss);
   // a bit of mischief, sooner: ?beike=fire (he brings his ball over mid-song), ?mischief (the
-  // gull goes for the wrap), ?bottle (one's already washed up)
+  // gull goes for the wrap), ?bottle (one's already washed up), ?revel (the fair folk, at any hour)
   if (params.get('beike') === 'fire') life.beikeToTheFire();
   if (params.has('mischief')) life.mischief.soon();
   if (params.has('bottle')) life.bottle.ashore();
+  if (params.has('revel')) life.revel.soon();
   void live();
   setInterval(live, 30 * 60 * 1000);
   ui.route(true);
@@ -299,6 +337,9 @@ export async function bootIsland(host: HTMLElement) {
   });
 
   const campfire = island.positionOf('campfire')!;
+  const summit = island.positionOf('summit');
+  let lastChill = 0;
+  let thaw = 0;
   const clock = new THREE.Clock();
   let notes = 0;
   renderer.setAnimationLoop(() => {
@@ -315,11 +356,36 @@ export async function bootIsland(host: HTMLElement) {
     ambience.shade(sky);
     beacons.update(dt, sky.lamps);
     icicles.update(weather.heat.chill);
-    sound.rain = weather.now.rain + weather.now.hail * 0.5;
+    if (fireworks) {
+      fireworks.update(dt, sky.time, sky.lamps);
+      sound.fireworks = Math.min(1, fireworks.level * (0.3 + sky.lamps * 0.7)); // the far-off barrage is a night thing
+    }
+    sound.rain = weather.now.rain + weather.now.hail * 0.2;
+    sound.hail = weather.now.hail;
+    sound.snow = weather.now.snow;
+    sound.leaves = LEAVES[season.name];
+    // up at the top, zoomed in: more wind, and the flag snapping
+    sound.summit = summit ? THREE.MathUtils.clamp(1 - rig.target.distanceTo(summit) / 12, 0, 1) * THREE.MathUtils.clamp((30 - rig.view) / 12, 0, 1) : 0;
+    // icicles melting (it's warming while they're still up there): they drip for a while
+    const chill = weather.heat.chill;
+    thaw = chill < lastChill - 1e-6 && chill > 0.3 ? 1 : Math.max(0, thaw - dt / 30);
+    lastChill = chill;
+    sound.thaw = thaw;
     sound.wind = weather.gust;
     sound.sea = weather.swell;
     sound.cicadas = weather.heat.scorch * (1 - sky.lamps);
-    life.wet = Math.min(1, weather.now.rain + weather.now.snow + weather.now.hail);
+    const wet = Math.min(1, weather.now.rain + weather.now.snow + weather.now.hail);
+    sound.crickets = CRICKETS[season.name] * THREE.MathUtils.smoothstep(sky.lamps, 0.35, 0.8) * (1 - wet) * (1 - weather.heat.chill);
+    const hour = new Date(sky.time).getHours() + new Date(sky.time).getMinutes() / 60;
+    const dawn = Math.max(0, 1 - Math.abs(hour - 6.5) / 2.5); // the chorus, strongest around half six
+    sound.birdsong = BIRDSONG[season.name] * (1 - sky.lamps) * (0.45 + dawn * 0.55) * (1 - wet * 0.85) * (1 - Math.min(1, weather.gust) * 0.5);
+    sound.fog = weather.now.fog;
+    sound.night = sky.lamps;
+    sound.telly = lighthouse.programme;
+    sound.diorama = trail.showingId;
+    sound.room = hut.inside ? 'hut' : workshop.inside ? 'workshop' : library.inside ? 'library' : lighthouse.inside ? lighthouse.storey : null;
+    sound.typing = lighthouse.typing;
+    life.wet = wet;
     life.chill = weather.heat.chill;
     life.drift.copy(windDir.value).multiplyScalar(Math.min(weather.wind, 12) / 6);
     life.playing = sound.playing !== null;
@@ -358,7 +424,20 @@ export async function bootIsland(host: HTMLElement) {
 
   host.classList.add('ready');
   greet();
+  sayTheDay(ctx);
   missYou();
+}
+
+/** On a special day, a word about it when you arrive: once that day, not on every visit. */
+function sayTheDay(ctx: IslandContext) {
+  const line = greeting();
+  if (!line) return;
+  const key = `said:${new Date().toDateString()}`;
+  try {
+    if (localStorage.getItem('island:day') === key) return;
+    localStorage.setItem('island:day', key);
+  } catch {}
+  setTimeout(() => ctx.toast(line), 2500);
 }
 
 /** While you're in another tab, the island's tab says what you're missing. */

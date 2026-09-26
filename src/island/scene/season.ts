@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Island } from './island';
+import { visitDate } from './calendar';
 import { visitorLocation } from './sun';
 
 /**
@@ -7,7 +8,7 @@ import { visitorLocation } from './sun';
  * worked out from a "leaf year" that starts on 1 March, so spring, summer, autumn and winter blend
  * into each other: late March still has bare twigs, late September is only starting to turn.
  *
- * To preview: ?season=spring|summer|autumn|winter, or ?date=2026-10-20.
+ * To preview: ?season=spring|summer|autumn|winter, or ?date=2026-10-20 (or ?holiday=, calendar.ts).
  */
 
 export type SeasonName = 'spring' | 'summer' | 'autumn' | 'winter';
@@ -86,14 +87,11 @@ export function seasonFor(day: number): Season {
 }
 
 function today(): Season {
-  let day = dayOfYear(new Date());
+  let day = dayOfYear(visitDate());
   let flip = true;
   try {
-    const q = new URLSearchParams(location.search);
-    const s = q.get('season') as SeasonName | null;
-    const d = q.get('date');
+    const s = new URLSearchParams(location.search).get('season') as SeasonName | null;
     if (s && s in PREVIEW) [day, flip] = [PREVIEW[s], false];
-    else if (d && !Number.isNaN(Date.parse(d))) day = dayOfYear(new Date(`${d}T12:00:00`));
   } catch {}
   if (flip && visitorLocation().lat < 0) day = (day + 182) % 365;
   return seasonFor(day);

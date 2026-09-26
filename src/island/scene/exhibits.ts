@@ -14,6 +14,10 @@ export interface ExhibitRoom {
   exhibit(id: string): THREE.Object3D | undefined;
   /** Particle emitter markers in the room. */
   emitters: { kind: string; position: THREE.Vector3 }[];
+  /** A noise from one of them: the press coming down, the lander's thrusters, the quill, a page, sparks. */
+  sound?(name: 'press' | 'quill' | 'page' | 'zap', volume?: number): void;
+  /** Something that runs for as long as it's on (the lander's engine), 0..1, every frame. */
+  hum?(name: 'engine', level: number): void;
 }
 
 /**
@@ -30,6 +34,7 @@ export class Exhibits {
   private gears: THREE.Object3D[] = [];
   private timers = new Map<string, number>();
   private landerDrift = 0;
+  private pressK = 0;
   /** Set by the room: whether a record is on. */
   playing = false;
   private spin = 0;
@@ -123,6 +128,8 @@ export class Exhibits {
     const out = this.part('mana.card_out');
     if (!plate || !wheel || !out) return;
     const k = t % 6;
+    if (k >= 0.9 && this.pressK < 0.9) this.room.sound?.('press'); // clunk
+    this.pressK = k;
     const down = ease(k, 0.3, 1.0) - ease(k, 1.6, 2.3);
     plate.position.y = this.at('mana.press_plate').position.y - down * 0.38;
     wheel.rotation.copy(this.at('mana.press_wheel').rotation);
@@ -153,6 +160,7 @@ export class Exhibits {
     lander.position.y += bump;
     const burning = (k > 4.6 && k < 6.8) || (k > 8.2 && k < 10.2 && Math.sin(t * 11) > -0.3);
     thrust.visible = burning;
+    this.room.hum?.('engine', burning ? 1 : 0); // the engine, for exactly as long as the flame's lit
     if (burning) thrust.scale.set(1, 0.7 + Math.random() * 0.6, 1);
     if (k > 10.2 && k - dt <= 10.2) {
       const at = lander.getWorldPosition(V());
@@ -188,11 +196,14 @@ export class Exhibits {
       return;
     }
 
+    const was = this.along;
     this.along += dt / 3.2; // a line every few seconds
+    if (was < 0 && this.along >= 0) this.room.sound?.('quill', 0.8); // nib down for the next line
     if (this.along >= 1) {
       this.along = -0.25; // a moment to go back to the start of the next line
       if (++this.line >= inks.length) {
         this.turning = 0;
+        this.room.sound?.('page');
         leaf.visible = true;
         leaf.rotation.z = 0;
         for (const ink of inks) ink.visible = false;
@@ -250,6 +261,7 @@ export class Exhibits {
     if (!this.layers.length) return;
     if ((this.nextPass -= dt) < 0) {
       this.nextPass = rand(4, 8);
+      this.room.sound?.('zap', 0.7);
       const first = this.layers[0].map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
       for (const i of first) this.fire(0, i);
     }

@@ -4,13 +4,13 @@
  *            forward strokes     reverse sweep (tap) /        lean (side, and     brace
  *            left / right        blade planted (hold)         fore and aft)
  * keyboard   A / D  (↑: both)    Q / E                        ← → and W S         Space
- * pad        L2 / R2             L1 / R1                      left stick          ✕ / A
+ * pad        L2 / R2 (✕: both)   L1 / R1                      left stick          ✕ / A (tap)
  *
  * On the cards (start, paused, the end of a run) the d-pad or left stick moves between the
  * buttons, ✕ presses the one picked out and ○ backs out a card; left and right on the start card go
  * through the rivers.
  *
- * Holding sprint (Shift, □ / X, or the sprint button on a touch screen) while you paddle digs in:
+ * Holding sprint (Shift, □ / X or a click of the left stick, or the sprint button on a touch screen) while you paddle digs in:
  * quicker, harder strokes, on one side or both, for as long as your breath lasts.
  * touch      hold the left or right half of the screen to paddle on that side (both thumbs:
  *            straight on); low down, a reverse sweep (tap) or a planted blade (hold). On a touch
@@ -38,14 +38,16 @@ export interface Intent {
   lean: number;
   /** -1 (lean back) … 1 (lean forward). */
   pitch: number;
-  /** Brace on whichever side you're falling to (Space, ✕). */
+  /** Brace on whichever side you're falling to (Space). */
   brace: boolean;
-  /** Digging in for speed, held (Shift, □ / X, the sprint button). */
+  /** …the same, but only if you're going over (a tap of ✕, which paddles too): upright, it's nothing. */
+  tipBrace: boolean;
+  /** Digging in for speed, held (Shift, □ / X or L3, the sprint button). */
   sprint: boolean;
 }
 
 export const NEUTRAL: Intent = {
-  left: 0, right: 0, backLeft: false, backRight: false, tapLeft: false, tapRight: false, lean: 0, pitch: 0, brace: false, sprint: false,
+  left: 0, right: 0, backLeft: false, backRight: false, tapLeft: false, tapRight: false, lean: 0, pitch: 0, brace: false, tipBrace: false, sprint: false,
 };
 
 const DEAD = 0.18;
@@ -75,7 +77,7 @@ export class Controls {
   /** A stick only counts once it's been seen at rest: a pad lying on a stick, or one that drifts, can't lean. */
   private centred = [false, false, false, false];
   /** …and the same for the triggers (L2, R2): one held down all along (the pad face down on the desk) can't paddle. */
-  private released = [false, false, false]; // (L2, R2 and the sprint button)
+  private released = [false, false, false, false]; // (L2, R2, the sprint button and ✕)
   private active = false;
 
   constructor(private el: HTMLElement) {
@@ -121,11 +123,16 @@ export class Controls {
     this.taps = { left: false, right: false, brace: false };
     this.padWas = { go: true, pause: true, l1: true, r1: true, sprint: true, back: true, nav: 'held' };
     this.touchSprint = false;
-    this.released[2] = false;
+    this.released[2] = this.released[3] = false;
     if (!on) {
       this.keys.clear();
       this.fingers.clear();
     }
+  }
+
+  /** ✕ only paddles again once it's been let go (it may still be down from pressing a button). */
+  releaseGo() {
+    this.released[3] = false;
   }
 
   /** On a touch screen the paddler balances himself: you do the paddling. */
@@ -150,6 +157,7 @@ export class Controls {
       lean: (k.has('arrowright') ? 1 : 0) - (k.has('arrowleft') ? 1 : 0),
       pitch: (k.has('w') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0),
       brace: taps.brace,
+      tipBrace: false,
       sprint: k.has('shift') || this.touchSprint,
     };
     for (const f of this.fingers.values()) {
@@ -175,7 +183,11 @@ export class Controls {
       const l1 = b(4) > 0.5;
       const r1 = b(5) > 0.5;
       const go = !!pad.buttons[0]?.pressed;
-      const sprint = !!pad.buttons[2]?.pressed;
+      // □, or the left stick clicked in (the thumb on ✕ can't reach □ as well)
+      const sprint = !!(pad.buttons[2]?.pressed || pad.buttons[10]?.pressed);
+      // ✕ / A held: both sides, straight on
+      if (!go) this.released[3] = true;
+      const straight = go && this.released[3] ? 1 : 0;
       const pause = !!(pad.buttons[9]?.pressed || pad.buttons[8]?.pressed);
       const back = !!pad.buttons[1]?.pressed;
       // the d-pad, or the left stick pushed well over, for the menus
@@ -191,9 +203,9 @@ export class Controls {
       };
       const l2 = trigger(0);
       const r2 = trigger(1);
-      if (Math.abs(lean) > 0.3 || Math.abs(pitch) > 0.3 || l2 > 0.3 || r2 > 0.3 || l1 || r1 || go) this.device = 'pad';
-      i.left = Math.max(i.left, l2);
-      i.right = Math.max(i.right, r2);
+      if (Math.abs(lean) > 0.3 || Math.abs(pitch) > 0.3 || l2 > 0.3 || r2 > 0.3 || l1 || r1 || go || back || pause || nav) this.device = 'pad';
+      i.left = Math.max(i.left, l2, straight);
+      i.right = Math.max(i.right, r2, straight);
       i.backLeft ||= l1;
       i.backRight ||= r1;
       const was = this.padWas;
@@ -202,7 +214,7 @@ export class Controls {
       if (Math.abs(lean) > Math.abs(i.lean)) i.lean = lean;
       if (Math.abs(pitch) > Math.abs(i.pitch)) i.pitch = pitch;
       if (go && !was.go) {
-        i.brace = true;
+        i.tipBrace = true;
         this.onGo?.();
       }
       if (pause && !was.pause) this.onPause?.();

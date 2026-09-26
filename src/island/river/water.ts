@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Course } from './course';
+import { CREST_LEAN, type Course } from './course';
 import { BACKFLOW, CORE, EDDY_BEND } from './flow';
 
 const NOISE = /* glsl */ `
@@ -20,6 +20,8 @@ export const MAX_TONGUES = 10;
 export const MAX_RIPPLES = 10;
 /** …and the lips of the ledges coming up, for a horizon line you can read from upstream. */
 export const MAX_LIPS = 3;
+/** …and the wave trains (see course.ts: Train, waveAt, which this draws just as the kayak rides it). */
+export const MAX_TRAINS = 3;
 const ACROSS = 24; // quads across the river: enough to draw the fast core and an eddy by the bank
 const OVERLAP = 1.1; // the water reaches a little under the banks
 // the water starts to feel an island this far above its head and forgets it this far below its
@@ -60,6 +62,10 @@ export function riverWater() {
       uTongues: { value: Array.from({ length: MAX_TONGUES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uRipples: { value: Array.from({ length: MAX_RIPPLES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uLips: { value: Array.from({ length: MAX_LIPS }, () => new THREE.Vector4(0, 0, 0, 0)) },
+      // each train as two: its start (m along), middle (m across), half its width and height; its
+      // wavelength, how many crests, how hard they lean and its random number
+      uTrains: { value: Array.from({ length: MAX_TRAINS }, () => new THREE.Vector4(0, 0, 0, 0)) },
+      uTrainsB: { value: Array.from({ length: MAX_TRAINS }, () => new THREE.Vector4(0, 0, 0, 0)) },
       // the river's own colours (rivers.ts: each river's look)
       uShallow: { value: new THREE.Vector3(0.22, 0.78, 0.66) },
       uMid: { value: new THREE.Vector3(0.05, 0.4, 0.52) },
@@ -86,11 +92,47 @@ export function riverWater() {
       varying vec2 vIsle;
       #include <fog_pars_vertex>
       ${NOISE}
+  uniform vec4 uTrains[${MAX_TRAINS}];
+  uniform vec4 uTrainsB[${MAX_TRAINS}];
+  // a train's water at s (m along the river) and off (m across), as course.ts's waveAt: x the
+  // height, y the slope along, z how far from the nearest crest (in wavelengths), w how that crest
+  // leans. (h and the lean together tell the foam where to go.)
+  vec4 trainAt(vec4 a, vec4 b, float s, float off) {
+    float along = s - a.x;
+    float c = off - a.y;
+    if (a.z <= 0.0 || along < -b.x * 0.5 || along > b.x * (b.y + 0.5)) return vec4(0.0, 0.0, 9.0, 0.0);
+    float side = 1.0 - smoothstep(0.55, 1.0, abs(c) / a.z);
+    if (side <= 0.0) return vec4(0.0, 0.0, 9.0, 0.0);
+    float k0 = floor(along / b.x);
+    float best = 1e9;
+    float lean = 0.0;
+    float amp = 0.0;
+    float kk = -1.0;
+    for (int i = -1; i <= 1; i++) {
+      float k = k0 + float(i);
+      if (k < 0.0 || k > b.y - 1.0) continue;
+      float l = b.z * sin(k * 2.4 + b.w * 6.283);
+      float d = along - ((k + 0.5) * b.x + l * ${CREST_LEAN.toFixed(2)} * c);
+      if (abs(d) < abs(best)) {
+        best = d;
+        lean = l;
+        amp = a.w * (0.55 + 0.45 * sin(3.14159 * (k + 0.5) / b.y)) * side;
+        kk = k;
+      }
+    }
+    if (kk < 0.0 || abs(best) > b.x * 0.75) return vec4(0.0, 0.0, 9.0, 0.0);
+    float x = best / b.x;
+    float fade = abs(x) > 0.5 ? max(0.0, 1.0 - (abs(x) - 0.5) * 4.0) : 1.0;
+    float edge = ((kk < 0.5 && x < -0.5) || (kk > b.y - 1.5 && x > 0.5)) ? fade : 1.0;
+    return vec4(amp * cos(6.283 * x) * edge, -amp * 6.283 * sin(6.283 * x) * edge / b.x, x, lean * edge);
+  }
+
       void main() {
         vec4 w = modelMatrix * vec4(position, 1.0);
         // standing waves in the rapids: humps that hold their place while the water runs through
         float wave = sin(aRiver.y * 1.3 + noise(w.xz * 0.3) * 4.0) * sin(aRiver.x * 5.0 + uTime * 1.5);
         w.y += wave * aRiver.z * 0.14 * (1.0 - aRiver.x * aRiver.x);
+        for (int k = 0; k < ${MAX_TRAINS}; k++) w.y += trainAt(uTrains[k], uTrainsB[k], aRiver.y, aSplit.x).x;
         vWorld = w.xyz;
         vRiver = aRiver;
         vMore = aMore;
@@ -129,6 +171,41 @@ export function riverWater() {
       varying vec2 vIsle;
       #include <fog_pars_fragment>
       ${NOISE}
+  uniform vec4 uTrains[${MAX_TRAINS}];
+  uniform vec4 uTrainsB[${MAX_TRAINS}];
+  // a train's water at s (m along the river) and off (m across), as course.ts's waveAt: x the
+  // height, y the slope along, z how far from the nearest crest (in wavelengths), w how that crest
+  // leans. (h and the lean together tell the foam where to go.)
+  vec4 trainAt(vec4 a, vec4 b, float s, float off) {
+    float along = s - a.x;
+    float c = off - a.y;
+    if (a.z <= 0.0 || along < -b.x * 0.5 || along > b.x * (b.y + 0.5)) return vec4(0.0, 0.0, 9.0, 0.0);
+    float side = 1.0 - smoothstep(0.55, 1.0, abs(c) / a.z);
+    if (side <= 0.0) return vec4(0.0, 0.0, 9.0, 0.0);
+    float k0 = floor(along / b.x);
+    float best = 1e9;
+    float lean = 0.0;
+    float amp = 0.0;
+    float kk = -1.0;
+    for (int i = -1; i <= 1; i++) {
+      float k = k0 + float(i);
+      if (k < 0.0 || k > b.y - 1.0) continue;
+      float l = b.z * sin(k * 2.4 + b.w * 6.283);
+      float d = along - ((k + 0.5) * b.x + l * ${CREST_LEAN.toFixed(2)} * c);
+      if (abs(d) < abs(best)) {
+        best = d;
+        lean = l;
+        amp = a.w * (0.55 + 0.45 * sin(3.14159 * (k + 0.5) / b.y)) * side;
+        kk = k;
+      }
+    }
+    if (kk < 0.0 || abs(best) > b.x * 0.75) return vec4(0.0, 0.0, 9.0, 0.0);
+    float x = best / b.x;
+    float fade = abs(x) > 0.5 ? max(0.0, 1.0 - (abs(x) - 0.5) * 4.0) : 1.0;
+    float edge = ((kk < 0.5 && x < -0.5) || (kk > b.y - 1.5 && x > 0.5)) ? fade : 1.0;
+    return vec4(amp * cos(6.283 * x) * edge, -amp * 6.283 * sin(6.283 * x) * edge / b.x, x, lean * edge);
+  }
+
 
       const float CYCLE = 1.6; // seconds a dash of current lives before the next lot take over
 
@@ -236,6 +313,8 @@ export function riverWater() {
         // tongues: a smooth V of dark, glassy water through a gap, pointing downstream, and faster
         float calm = 0.0;
         float chevron = 0.0;
+        float vee = 0.0; // the faint seams along a V's edges, where you'd read it from
+        float vUp = 0.0;
         for (int k = 0; k < ${MAX_TONGUES}; k++) {
           vec4 g = uTongues[k];
           if (g.z <= 0.0) continue;
@@ -246,6 +325,8 @@ export function riverWater() {
           float ends = smoothstep(-3.0, -1.8, a) * (1.0 - smoothstep(1.2, 2.5, a));
           float inV = step(abs(dot(dd, right)), w) * step(0.5, ends + (noise(p * 3.0) - 0.5) * 0.4);
           calm = max(calm, inV);
+          // (its edges a faint seam of light water, broken up: the V pointing down the line)
+          vee = max(vee, step(abs(abs(dot(dd, right)) - w), 0.07) * ends * step(0.25, w) * step(0.55, noise(p * 2.6 + drift * 4.0)));
           // faint arrows riding down it, pointing the way: this is the line
           float v = fract((a + abs(dot(dd, right)) * 0.9 - uTime * 3.2) / 1.7);
           chevron = max(chevron, inV * step(v, 0.1) * step(abs(dot(dd, right)), g.z * 0.8));
@@ -293,6 +374,25 @@ export function riverWater() {
         float lit = floor(clamp(wave, -1.0, 1.0) * 2.5 + 0.5) / 2.5;
         col *= 1.0 + lit * rough * 0.16;
 
+        // a wave train: the faces climbing towards you lit (the camera's upstream of them), their
+        // backs dark, and a crest of foam along each, heavier at the end that meets you first so
+        // you can see which way it leans
+        float trainCrest = 0.0;
+        float trainH = 0.0;
+        for (int k = 0; k < ${MAX_TRAINS}; k++) {
+          vec4 tw = trainAt(uTrains[k], uTrainsB[k], s, off);
+          if (tw.z > 5.0) continue;
+          trainH += tw.x;
+          float face = clamp(-tw.y * 1.6, -1.0, 1.0);
+          col *= 1.0 + floor(face * 2.0 + 0.5) / 2.0 * 0.2;
+          float amp = uTrains[k].w;
+          float c = (off - uTrains[k].y) / uTrains[k].z;
+          float breaking = 0.45 + 0.55 * smoothstep(-0.8, 0.8, -c * sign(tw.w)) * min(1.0, abs(tw.w) * 2.0);
+          float band = 0.05 + amp * 0.07;
+          float on = step(abs(tw.z + 0.03), band) * step(0.25, tw.x / max(amp, 0.01));
+          trainCrest = max(trainCrest, on * step(1.0 - breaking * 0.95, noise(p * 2.2 + drift * 5.0)));
+        }
+
         // the surface catching the light, one art pixel at a time: ripples that shimmer in
         // place (choppier in white water, glassy in a tongue), lit from the sun, with a little of
         // the sky in them where they tilt away
@@ -336,6 +436,7 @@ export function riverWater() {
         col = mix(col, col * 0.9, step(dash, -0.5));
 
         col = mix(col, mix(col, vec3(0.75, 0.95, 1.0), 0.45), chevron * (1.0 - uNight * 0.5));
+        col = mix(col, mix(col, vec3(0.86, 0.96, 0.96), 0.3), vee);
 
         // eddy lines: a seam of froth where the still water meets the current
         float seam = 1.0 - smoothstep(0.05, 0.12, abs(eddy - 0.4));
@@ -345,6 +446,7 @@ export function riverWater() {
         float white = step(0.95 - rough * 0.12, wave) * step(0.5, noise(p * 2.0 + drift * 5.0));
         white = max(white, step(1.0 - rough * 0.18, noise(p * 1.4 + drift * 3.0)) * step(0.5, rough));
         col = mix(col, vec3(0.9, 0.96, 0.95), white * smoothstep(0.1, 0.4, rough));
+        col = mix(col, vec3(0.93, 0.98, 0.97), trainCrest);
 
         // rocks: wet and dark round the waterline, a pillow piling up on the upstream face, foam
         col = mix(col, col * 0.8, wet * 0.5);
@@ -360,6 +462,14 @@ export function riverWater() {
           float c = dot(dd, right);
           float x = c / (hl.z + 0.3);
           if (abs(x) > 1.4) continue;
+          // above a hole behind a hidden rock (not a ledge's, bank to bank), the water parts round
+          // the rock in a V pointing upstream at it: faint, for the paddler who's looking
+          if (hl.z < 4.0) {
+            float ua = dot(dd, dir);
+            float reach = 2.0 + hl.z * 1.4;
+            float arm = (ua + 0.6 + reach) / reach * hl.z; // 0 at the V's point … the hole's ends
+            vUp = max(vUp, step(abs(abs(c) - arm), 0.07) * step(-0.6 - reach, ua) * step(ua, -0.9) * step(0.5, noise(p * 2.6 - drift * 4.0)));
+          }
           float taper = sqrt(max(0.0, 1.0 - x * x));
           // (bowed: the middle held a little further upstream than the ends)
           float a = dot(dd, dir) - x * x * min(hl.z, 3.0) * 0.18;
@@ -380,6 +490,8 @@ export function riverWater() {
           float fleck = step(0.86 + (t - 1.0) * 0.06, noise(vec2(c * 2.4, (a - uTime * 2.4) * 2.0))) * step(1.0, t) * step(t, 3.0);
           col = mix(col, vec3(0.9, 0.97, 0.96), fleck);
         }
+
+        col = mix(col, mix(col, vec3(0.86, 0.96, 0.96), 0.28), vUp);
 
         // over a fall: a curtain of white water pouring down in streaks, glassy green-blue
         // showing between them
@@ -440,6 +552,7 @@ export function riverWater() {
         }
 
         if (uDebug > 0.0) col = along > 0.0 ? mix(vec3(0.2), vec3(1.0, 0.2, 0.1), along / 10.0) : mix(vec3(0.2), vec3(0.1, 0.4, 1.0), -along / 3.0);
+        if (uDebug > 0.0) col.g += trainH; // (a wave train's crests green, its troughs a shade darker)
         col *= uLight;
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>

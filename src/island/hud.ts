@@ -1,10 +1,12 @@
 /** Buttons around the island (places, journal, sound), Q/E to turn, and small global delights. */
+import { bindSketchbook } from './sketchbook';
 import { type IslandContext, SECRETS } from './content';
 
 const on = (sel: string, fn: (el: HTMLElement) => void) =>
   document.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
 
 export function bindHud(ctx: IslandContext) {
+  bindSketchbook();
   window.addEventListener('keydown', (e) => {
     if ((e.target as HTMLElement).closest('input, textarea')) return;
     if (e.key === 'q') ctx.rig.rotate(-1);

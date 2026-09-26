@@ -103,6 +103,8 @@ export class Workshop implements RoomInput {
     this.loading ??= WorkshopRoom.load()
       .then((room) => {
         this.room = room;
+        room.onSound = (name, volume) => this.inside && this.ctx.sound.here(name, volume);
+        room.onHum = (name, level) => this.ctx.sound.hum(name, this.inside ? level : 0);
         this.ctx.workshop = room;
         this.resize();
         return room;
@@ -237,6 +239,8 @@ export class Workshop implements RoomInput {
   private swap() {
     this.inside = this.want;
     this.ctx.sound.indoors = this.inside;
+    this.ctx.sound.door('workshop');
+    if (!this.inside) this.ctx.sound.hum('engine', 0); // the room stops running once you're out
     if (this.inside) {
       this.ctx.rig.room = this;
       this.room?.view.reset();

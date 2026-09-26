@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Ground } from './beike';
 import { late, vincentAsleep } from './bedtime';
 import type { Room } from './companion';
+import type { Call } from './fauna';
 import type { Island } from './island';
 import { Kneeling, type Pet, petting } from './petting';
 import { heightBetween, indoors, type Waypoint } from './shelter';
@@ -82,6 +83,8 @@ export class Vincent {
   /** On the mat: whether he's asked her along (companion.ts comes when she can), and which pose. */
   company = false;
   pose: Pose = 'lotus';
+  /** His paddle in the water, when he's out in the kayak (the island plays it). */
+  onSound?: (call: Call, at: THREE.Vector3) => void;
   private clock = 0;
   private seated?: THREE.Object3D;
   private moored?: THREE.Object3D;
@@ -390,6 +393,8 @@ export class Vincent {
     // anticlockwise seen from above: in three's x/z (z is south), the angle runs the other way
     boat.position.set(l.center.x + l.rx * cos, l.center.y + Math.sin(t * 1.4) * 0.03, l.center.z - l.rz * sin);
     const p = (t / STROKE) * Math.PI * 2;
+    // a blade in the water each half stroke
+    if (dt > 0 && Math.floor(p / Math.PI) !== Math.floor((((t - dt) / STROKE) * Math.PI * 2) / Math.PI)) this.onSound?.('stroke', boat.position.clone());
     // it faces its local +z (the model's bow is Blender's -y)
     const heading = Math.atan2(-l.rx * sin, -l.rz * cos);
     boat.rotation.set(Math.sin(t * 0.9) * 0.02, heading + Math.sin(p) * 0.06, Math.sin(t * 1.1) * 0.04);

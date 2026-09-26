@@ -42,6 +42,7 @@ export class Hut implements RoomInput {
     this.loading ??= HutRoom.load()
       .then((room) => {
         this.room = room;
+        room.onSound = (name, volume) => this.inside && this.ctx.sound.here(name, volume);
         this.resize();
         return room;
       })
@@ -123,6 +124,7 @@ export class Hut implements RoomInput {
     this.room?.picker.highlight(null);
     this.inside = this.want;
     this.ctx.sound.indoors = this.inside;
+    this.ctx.sound.door('hut');
     if (this.inside) {
       const banner = document.querySelector('[data-panel="hut"] .workshop-banner p');
       if (banner) banner.textContent = this.room?.guests.anyone ? RAINY : BANNER;

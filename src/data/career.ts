@@ -24,6 +24,8 @@ export interface Thing {
   zoom?: number;
   /** A blog post to offer to open afterwards. */
   read?: { slug: string; label: string };
+  /** A sound it makes when clicked (a name from tools/sounds/generate.ts, or 'baa'). */
+  sound?: string;
 }
 
 export interface Chapter {
@@ -113,6 +115,7 @@ export const chapters: Chapter[] = [
       },
       studentaanhuis: {
         label: 'A bike with a computer on the rack · Studentaanhuis',
+        sound: 'bike-bell',
         text: 'Studentaanhuis: cycling all over Arnhem to fix people’s computers, and anything else with a plug that was misbehaving.',
       },
       zorgdigi: {
@@ -156,10 +159,12 @@ export const chapters: Chapter[] = [
     things: {
       ampsen: {
         label: 'Kasteel Ampsen · Lochem',
+        sound: 'castle-clock',
         text: 'Ampsen, near Lochem: “the castle”. Some weeks we worked from here, a short drive from Eijgenhuijsen in Ruurlo. Not a bad place to have your laptop open.',
       },
       eijgenhuijsen: {
         label: 'Eijgenhuijsen · Ruurlo',
+        sound: 'truck-horn',
         text: [
           'Eijgenhuijsen, precisievervoer, in Ruurlo. We sat right there with them, among the trucks.',
           'Tablets for the drivers, software for the warehouse, and a planner that works out the routes.',
@@ -167,6 +172,7 @@ export const chapters: Chapter[] = [
       },
       qbuzz: {
         label: 'A streekBuzz bus · Qbuzz',
+        sound: 'bus-doors',
         text: [
           'For Qbuzz I worked on what’s inside the bus: the displays the passengers read, and the systems on board that drive them.',
           'All of it had to be updated and tracked remotely, across the whole fleet, so I built a system for that. What the buses report then feeds the planning and the real-time verkeersleiding.',
@@ -179,6 +185,7 @@ export const chapters: Chapter[] = [
       },
       goingdutch: {
         label: 'Two shared cars · Going Dutch',
+        sound: 'car-door',
         text: 'Going Dutch: shared cars you open with your OV-chipkaart or your phone, and that we could follow wherever they went. I built the apps and the servers behind them.',
       },
       vincent: {
@@ -216,6 +223,7 @@ export const chapters: Chapter[] = [
     things: {
       grid: {
         label: 'The transformer kiosk · a full grid',
+        sound: 'transformer',
         text: [
           'Everything the street makes and uses runs through this little green box, and on a sunny afternoon it’s full. The gauge on its door shows how hard it’s working. The red mark is as far as it can go.',
           'On its own the street would blow straight past the mark (that’s the dull red). Heavier cables take years to lay. Changing when the power flows only takes a battery and a price, and then the bar stops just short.',
@@ -239,10 +247,12 @@ export const chapters: Chapter[] = [
       },
       turbine: {
         label: 'A wind turbine',
+        sound: 'turbine',
         text: 'It turns when it’s windy, whatever the clock says. Sun and wind come when they come, so everything else has to learn to move around them. That’s the whole puzzle.',
       },
       solarfield: {
         label: 'A meadow of solar panels',
+        sound: 'baa',
         text: 'Solar panels in rows, and sheep keeping the grass down between them. The sheep aren’t in it for the money.',
       },
       directplus: {
@@ -265,6 +275,7 @@ export const chapters: Chapter[] = [
       },
       hut: {
         label: 'A hut in Austria · the huttentocht',
+        sound: 'cheers',
         text: [
           'A few times now a group of us from ENTRNCE has gone to Austria for a huttentocht: days of hiking through the mountains, from one hut to the next.',
           'Up here a hut has to get by on its own: panels on the roof, a battery in the cellar, and a close eye on how much is left. A small off-grid solarpunk world, with Kaiserschmarrn.',
@@ -280,6 +291,7 @@ export const chapters: Chapter[] = [
       },
       summit: {
         label: 'The summit cross',
+        sound: 'cowbells',
         text: 'Every Austrian summit has its cross, and usually a little tin with a book to write your name in.',
       },
     },

@@ -5,3 +5,10 @@ dist/
 .idea/
 *.iml
 __pycache__/
+
+# local secrets (ElevenLabs key for tools/sounds)
+config.yaml
+tools/sounds/raw/
+
+# the autopilot's films (just record)
+recordings/

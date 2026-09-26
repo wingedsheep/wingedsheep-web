@@ -234,6 +234,29 @@ SERPENT_EYE = "#ffd23f"
 SERPENT_MOUTH = "#5a1f2a"
 SERPENT_TOOTH = "#f0ead8"
 SERPENT_HORN = "#d8ccae"
+# the fair folk (tools/models/fae.py): moonlit, a little too pale, with gold where a king keeps it
+FAE_SKIN = "#dcd6ea"          # Oberon: pale, with a lilac cast
+FAE_SKIN_WARM = "#f2e0d6"     # Titania
+FAE_CLOAK = "#1f3b3e"         # his cloak: the woods at midnight
+FAE_CLOAK_LINING = "#5a8a62"
+FAE_DOUBLET = "#2f5040"
+FAE_GOLD = "#d9b44e"
+FAE_ANTLER = "#e4c060"
+FAE_SILVER = "#e2e8f0"        # his hair
+FAE_GOWN = "#ebe4f4"          # her gown: moonlight
+FAE_GOWN_SHADE = "#bfb0dc"
+FAE_COPPER = "#d8864a"        # her hair
+FAE_EYE = "#ffe6a0"           # their eyes catch the light like a cat's
+FAE_WING = "#c6ecf4"
+PUCK = "#5e8c3c"              # Puck: leaf-green jerkin, goat legs, a grin
+PUCK_FUR = "#6b4a2e"
+PUCK_SKIN = "#d8b48a"
+PUCK_HAIR = "#9a3a1e"
+PANSY = "#8a4ac8"             # love-in-idleness
+TOADSTOOL = "#c8342a"
+TOADSTOOL_STALK = "#efe6d2"
+TOADSTOOL_SPOT = "#fff6e6"
+TOADSTOOL_PALE = "#d6eec0"
 # the companion (tools/models/companion.py): fair and a bit sun-flushed, straight blonde hair,
 # a dusty-rose cap, a lavender tee
 FAIR = "#f2c6a6"

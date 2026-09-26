@@ -15,6 +15,8 @@ export interface RobotRoom {
   float(kind: 'zzz', at: THREE.Vector3): void;
   /** An exhibit's root, by project id. */
   exhibit(id: string): THREE.Object3D | undefined;
+  /** One of its noises: servos setting off, the wrench, a snore on the pad, a clank, a beep. */
+  sound?(name: 'robot-servo' | 'robot-tinker' | 'robot-snore' | 'robot-clank' | 'robot-beep', volume?: number): void;
 }
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -104,6 +106,7 @@ export class Robot {
     this.showing = id;
     if (this.node === id && !this.route.length && this.upright) {
       this.mood = { kind: 'present' };
+      this.room.sound?.('robot-beep');
       return;
     }
     this.walkTo(id);
@@ -125,6 +128,7 @@ export class Robot {
     if (!this.upright) return 'trip';
     const fall = Math.random() < 0.3;
     this.mood = { kind: 'wave', t: 0, fall };
+    this.room.sound?.('robot-beep');
     return fall ? 'fall' : 'wave';
   }
 
@@ -167,7 +171,10 @@ export class Robot {
         crouch = 0.06;
         lean = -0.05;
         look = Math.sin(this.clock * 0.3) * 0.1;
-        if (Math.random() < dt * 0.15) this.room.float('zzz', this.position.add(V(0, 1.4, 0)));
+        if (Math.random() < dt * 0.15) {
+          this.room.float('zzz', this.position.add(V(0, 1.4, 0)));
+          this.room.sound?.('robot-snore', 0.8);
+        }
         if (this.clock > m.until && !(this.isNight() && Math.random() < 0.9)) this.wander();
         else if (this.clock > m.until) m.until = this.clock + 20;
         break;
@@ -205,6 +212,7 @@ export class Robot {
         crouch = (down - up) * 0.3;
         arm = [2.8 * (down - up), 2.8 * (down - up)];
         if (m.t > 0.35 && m.t - dt <= 0.35) {
+          this.room.sound?.('robot-clank');
           this.dust();
           this.kick(4);
         }
@@ -258,6 +266,7 @@ export class Robot {
     if (!path) return;
     this.route = this.mood.kind === 'walk' && this.route.length ? [start, ...path.slice(1)] : path.slice(1);
     if (!this.route.length) return this.arrive();
+    if (this.upright && this.mood.kind !== 'walk') this.room.sound?.('robot-servo', 0.8); // off it clanks
     if (this.upright) this.mood = { kind: 'walk' };
     this.from.copy(this.root!.position);
   }
@@ -320,6 +329,7 @@ export class Robot {
         // arriving at an exhibit, it sometimes doesn't stop quite in time
         if (this.room.exhibit(this.node) && Math.random() < 0.3) {
           this.mood = { kind: 'bonk', t: 0 };
+          this.room.sound?.('robot-clank', 0.5);
           this.kick(3);
         } else this.arrive();
       }
@@ -331,8 +341,10 @@ export class Robot {
     if (this.showing === this.node) this.mood = { kind: 'present' };
     else if (this.showing) this.walkTo(this.showing);
     else if (this.node === 'home') this.mood = { kind: 'charge', until: this.clock + rand(8, 20) };
-    else if (this.room.exhibit(this.node)) this.mood = { kind: 'tinker', until: this.clock + rand(3, 7) };
-    else this.mood = { kind: 'idle', until: this.clock + rand(1, 4) };
+    else if (this.room.exhibit(this.node)) {
+      this.mood = { kind: 'tinker', until: this.clock + rand(3, 7) };
+      this.room.sound?.('robot-tinker', 0.8);
+    } else this.mood = { kind: 'idle', until: this.clock + rand(1, 4) };
   }
 
   private faceExhibit(dt: number) {

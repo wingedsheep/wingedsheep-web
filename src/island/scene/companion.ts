@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Call } from './fauna';
 import { herNight } from './bedtime';
 import type { Island } from './island';
 import { Kneeling, type Pet, petting } from './petting';
@@ -26,8 +27,11 @@ export const telly: { show: Show | null } = { show: null };
 const STAY: [number, number] = [100, 220]; // seconds she spends at one spot
 const RAIN_WAIT = 20; // seconds she'll wait out of sight before going in anyway, in the rain
 const BEDTIME_WAIT = 90; // …and before going up to bed anyway, at half past ten
-const ROUTINE = 20; // seconds: jumping jacks, a breather, side stretches, and round again
-const JACK = 0.7; // seconds per jumping jack
+const JACK = 0.7; // seconds per jumping jack, once she's into her stride
+const JACKS: [number, number] = [9, 15]; // in a set
+const BREATHER: [number, number] = [3, 6]; // seconds, head down, getting her breath back
+const STRETCH: [number, number] = [7, 10]; // seconds, over to one side and the other
+const SHAKE: [number, number] = [1.5, 4]; // seconds, shaking it out before the next set
 
 export interface CompanionWorld {
   time: number; // the island's time (sky.ts)
@@ -65,6 +69,8 @@ export class Companion {
   /** In bed: dropped off yet? */
   private asleep = false;
   private clock = 0;
+  /** Her feet landing on the mat, when she's doing jumping jacks (the island plays it). */
+  onSound?: (call: Call, at: THREE.Vector3, loud?: number) => void;
   private groups = new Map<Spot, THREE.Object3D>();
   /** The parts she moves, by name, with the pose they were built in. */
   private parts = new Map<string, { o: THREE.Object3D; rest: THREE.Euler }>();
@@ -79,6 +85,18 @@ export class Companion {
   private noticed = 0;
   /** Her workout: arms up (0..1), legs out (0..1), leaning (radians), eased between moves. */
   private gym = { arms: 0, legs: 0, lean: 0 };
+  /** Where she is in her routine: which move, how far into it, and how this set is going. */
+  private routine = {
+    move: 'jacks' as 'jacks' | 'breather' | 'stretch' | 'shake',
+    t: 0, // seconds into the move
+    length: 0, // seconds the move lasts (not the jacks: they go by count)
+    p: 0, // how far through this jack, 0..1
+    beat: JACK * 1.15, // seconds this jack takes
+    height: 1, // how big this jack is
+    done: 0,
+    count: Math.round(rand(...JACKS)),
+    side: 1, // which way she leans first
+  };
   private jumpY = 0;
   private kneel: Kneeling;
 
@@ -307,25 +325,64 @@ export class Companion {
   }
 
   /**
-   * Her routine, round and round: jumping jacks (arms up over her head and feet out, hopping),
-   * a breather, then both arms up and a slow lean to one side and the other.
+   * Her routine, round and round but never quite the same twice: a set of jumping jacks (arms up
+   * over her head and feet out, hopping) that takes a few to find its rhythm and flags towards
+   * the end, a breather with her head down, both arms up and a slow lean to one side and the
+   * other, then a moment shaking it out before the next set.
    */
   private workout(dt: number, t: number) {
-    const k = t % ROUTINE;
+    const r = this.routine;
     const g = this.gym;
     let arms = 0;
     let legs = 0;
     let lean = 0;
     let hop = 0;
-    if (k < 8) {
-      const p = (t / JACK) % 1;
-      arms = legs = Math.sin(p * Math.PI);
-      hop = Math.abs(Math.sin(p * Math.PI * 2)) * 0.08;
-    } else if (k >= 12) {
-      arms = 1.05;
-      lean = Math.sin(((k - 12) / 8) * Math.PI * 2) * 0.28;
+    let bowed = 0;
+    const next = (move: typeof r.move, length = 0) => Object.assign(r, { move, t: 0, length });
+    r.t += dt;
+    if (r.move === 'jacks') {
+      r.p += dt / r.beat;
+      if (r.p >= 1) {
+        // feet back together on the mat: some landings heavier than others, the tired ones softest
+        r.p -= 1;
+        r.done++;
+        const tired = r.done > r.count - 3;
+        const mat = this.groups.get('workout');
+        if (mat) this.onSound?.('jump', mat.getWorldPosition(new THREE.Vector3()), rand(0.45, 0.85) * (tired ? 0.8 : 1));
+        if (r.done >= r.count) {
+          next('breather', rand(...BREATHER));
+        } else {
+          // finding her stride, then flagging
+          r.beat = JACK * (r.done < 2 ? 1.15 : tired ? 1.12 : 1) * rand(0.95, 1.06);
+          r.height = (tired ? 0.85 : 1) * rand(0.9, 1);
+        }
+      }
+      if (r.move === 'jacks') {
+        // the arms lead the legs a little, and are up a moment before the feet are out
+        arms = Math.sin(Math.min(1, r.p * 1.12) * Math.PI) * r.height;
+        legs = Math.sin(r.p * Math.PI) * r.height;
+        hop = Math.abs(Math.sin(r.p * Math.PI * 2)) * 0.08 * r.height;
+      }
+    } else if (r.move === 'breather') {
+      bowed = 1;
+      if (r.t >= r.length) {
+        next('stretch', rand(...STRETCH));
+        r.side = Math.random() < 0.5 ? 1 : -1;
+      }
+    } else if (r.move === 'stretch') {
+      const q = r.t / r.length;
+      arms = 1.05 * Math.min(1, q * 8, (1 - q) * 8);
+      lean = r.side * Math.sin(q * Math.PI * 2) * 0.28;
+      if (q >= 1) next('shake', rand(...SHAKE));
+    } else if (r.t >= r.length) {
+      Object.assign(r, { p: 0, done: 0, count: Math.round(rand(...JACKS)), beat: JACK * 1.15, height: 1 });
+      next('jacks');
+    } else {
+      // loosening up: arms swinging a little, weight going from foot to foot
+      arms = 0.08 + Math.abs(Math.sin(t * 5)) * 0.1;
+      lean = Math.sin(t * 2.3) * 0.04;
     }
-    const fast = k < 8 ? 30 : 4; // the jacks snap, the stretches ease
+    const fast = r.move === 'jacks' ? 18 : 4; // the jacks are brisk, the stretches ease
     g.arms = damp(g.arms, arms, fast, dt);
     g.legs = damp(g.legs, legs, fast, dt);
     g.lean = damp(g.lean, lean, 3, dt);
@@ -341,7 +398,7 @@ export class Companion {
     const torso = this.part('companion_torso');
     if (torso) torso.rotation.z += g.lean;
     const head = this.part('companion_gym_head');
-    if (head) head.rotation.x += k >= 8 && k < 12 ? 0.12 + Math.sin(t * 3) * 0.03 : 0; // catching her breath
+    if (head) head.rotation.x += bowed * (0.12 + Math.sin(t * 3) * 0.03); // catching her breath
     const tail = this.part('companion_gym_head_ponytail');
     if (tail) tail.rotation.x += hop * 4 + Math.sin(t * 2) * 0.05;
   }
