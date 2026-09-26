@@ -449,9 +449,80 @@ def tent():
         m.cyl(0.1, 0.1, (math.cos(a * 1.25) * 0.4 - 0.2, math.sin(a * 1.25) * 0.4 - 2.2, 0), P.STONE, segs=5)
     m.build(root)
     f = Model("tent_fire")
-    f.cyl(0.18, 0.35, (-0.2, -2.2, 0.05), P.FIRE, segs=5, r_top=0.02, glow=True)
-    f.build(root)
+    f.cyl(0.18, 0.35, (0, 0, 0), P.FIRE, segs=5, r_top=0.02, glow=True)
+    f.build(root, loc=(-0.2, -2.2, 0.05), flame=1)                                     # (lit after dark)
     light(root, (-0.2, -2.2, 0.6), P.FIRE, radius=6, intensity=1.2, flicker=0.6)
+    group("ember", (-0.2, -2.2, 0.4), parent=root, ember=1)
+
+
+def campfire():
+    """A fire on the bank, lit after dark: a ring of stones round the embers, two logs pulled up to
+    sit on, a pot on a stone, a stack of wood for later. About 3 m across; the fire at the origin."""
+    root = _root("campfire")
+    m = Model("campfire", seed=470)
+    rng = random.Random(470)
+    for a in range(8):
+        t = a / 8 * math.tau + rng.uniform(-0.15, 0.15)
+        m.ball(rng.uniform(0.1, 0.14), (math.cos(t) * 0.5, math.sin(t) * 0.5, 0.06), rng.choice((P.STONE, RIVER_ROCK[0], RIVER_ROCK[2])),
+               subdiv=1, scale=(1, 1, 0.7), jitter=0.02)
+    m.cyl(0.4, 0.02, (0, 0, 0), "#3a3238", segs=8)                                      # the ash
+    lean = math.pi / 2 - 0.5
+    for t in (0.3, 1.9, 3.6):
+        # leant in together over the embers, burnt black
+        m.cyl(0.05, 0.5, (-math.cos(t) * 0.44, -math.sin(t) * 0.44, 0.04), "#2a2226", segs=5, rot=(0, lean, t))
+    # somewhere to sit: two logs either side, and a stump
+    for x, y, t in ((0, 1.35, 0.1), (1.3, -0.3, 1.75)):
+        dx, dy = math.cos(t), math.sin(t)
+        m.cyl(0.17, 1.4, (x - dx * 0.7, y - dy * 0.7, 0.16), P.WOOD_DARK, segs=7, rot=(0, math.pi / 2, t))
+        for e in (-0.71, 0.69):                                                            # the sawn ends
+            m.cyl(0.13, 0.02, (x + dx * e, y + dy * e, 0.16), HEARTWOOD, segs=7, rot=(0, math.pi / 2, t))
+    m.cyl(0.22, 0.38, (-1.2, 0.5, 0), P.WOOD_DARK, segs=7)
+    m.cyl(0.19, 0.02, (-1.2, 0.5, 0.38), HEARTWOOD, segs=7)
+    # a pot warming at the edge of the stones
+    m.cyl(0.13, 0.18, (0.58, 0.3, 0.1), P.IRON, segs=7)
+    m.plank_line((0.46, 0.3, 0.3), (0.7, 0.3, 0.3), 0.015, 0.015, P.IRON)
+    # the wood for later
+    for k in range(5):
+        m.cyl(0.07, 0.8, (-0.9 + (k % 3) * 0.15 + (k // 3) * 0.07, -1.1, 0.07 + (k // 3) * 0.13), P.WOOD_LIGHT, segs=5, rot=(math.pi / 2, 0, 0.1))
+    m.build(root)
+    f = Model("campfire_flame")
+    f.cyl(0.26, 0.55, (0, 0, 0), P.FIRE, segs=6, r_top=0.03, glow=True)
+    f.cyl(0.13, 0.36, (0.03, 0.02, 0.02), "#ffd35a", segs=5, r_top=0.02, glow=True)
+    f.build(root, loc=(0, 0, 0.08), flame=1)
+    light(root, (0, 0, 0.7), P.FIRE, radius=8, intensity=1.4, flicker=0.6)
+    group("ember", (0, 0, 0.55), parent=root, ember=1)
+
+
+def angler():
+    """Somebody night fishing, just gone off for a moment: a rod propped on a forked stick out over
+    the water (+x), a folding stool, a bucket, a flask, and a camping lantern on the ground that
+    glows after dark. Stands at the water's edge; about 1.5 m of bank and the rod reaching 2.4 m."""
+    root = _root("angler")
+    m = Model("angler", seed=530)
+    # the stool: a canvas seat on crossed legs
+    for y in (0.05, 0.35):
+        m.plank_line((-0.95, y, 0.0), (-0.65, y, 0.4), 0.03, 0.03, P.IRON)
+        m.plank_line((-0.65, y, 0.0), (-0.95, y, 0.4), 0.03, 0.03, P.IRON)
+    m.box((0.34, 0.36, 0.04), (-0.8, 0.2, 0.42), "#3f6a8c")
+    # the rod on its rest, the line down into the water
+    m.plank_line((-0.1, -0.05, 0.0), (0.05, -0.05, 0.5), 0.03, 0.03, P.WOOD_DARK)
+    m.plank_line((0.05, -0.05, 0.5), (0.12, -0.1, 0.62), 0.02, 0.02, P.WOOD_DARK)
+    m.plank_line((0.05, -0.05, 0.5), (0.1, 0.02, 0.62), 0.02, 0.02, P.WOOD_DARK)
+    m.plank_line((-0.55, -0.05, 0.05), (2.4, -0.05, 1.25), 0.035, 0.035, "#26242b")
+    m.cyl(0.05, 0.1, (-0.3, -0.05, 0.15), "#8a8e98", segs=6, rot=(0, math.pi / 2, 0))         # the reel
+    m.plank_line((2.4, -0.05, 1.25), (2.55, -0.05, -0.3), 0.01, 0.01, P.STRING)
+    # a bucket for the catch (nothing in it yet) and a flask of coffee
+    m.cyl(0.14, 0.26, (-0.45, -0.45, 0), "#6a8aa0", segs=8, r_top=0.16)
+    m.cyl(0.12, 0.02, (-0.45, -0.45, 0.24), "#2e3a48", segs=8)
+    m.cyl(0.05, 0.26, (-1.05, -0.2, 0), "#3f7fae", segs=6)
+    m.cyl(0.055, 0.05, (-1.05, -0.2, 0.26), P.IRON, segs=6)
+    # the lantern: a base, the glass, a cap and its handle
+    m.cyl(0.09, 0.05, (-0.25, 0.45, 0), P.IRON, segs=6)
+    m.cyl(0.07, 0.16, (-0.25, 0.45, 0.05), "#ffd88a", segs=6, glow=True)
+    m.cyl(0.09, 0.05, (-0.25, 0.45, 0.21), P.IRON, segs=6, r_top=0.03)
+    m.plank_line((-0.32, 0.45, 0.26), (-0.18, 0.45, 0.26), 0.015, 0.015, P.IRON)
+    m.build(root)
+    light(root, (-0.25, 0.45, 0.2), "#ffd88a", radius=5, intensity=1.0, flicker=0.12)
 
 
 def cabin():
@@ -803,6 +874,12 @@ def jetty():
         for x in (-0.62, 0.62):
             m.cyl(0.08, 1.4, (x, y, -0.8), P.WOOD_DARK, segs=6)
     m.box((0.08, 0.08, 0.6), (-0.62, -3.6, 0.8), P.WOOD_DARK)                            # a mooring post
+    # and a lantern on a post at the end, for coming home by after dark
+    m.box((0.08, 0.08, 1.5), (0.62, -3.6, 1.25), P.WOOD_DARK)
+    m.box((0.06, 0.34, 0.05), (0.62, -3.75, 1.95), P.WOOD_DARK)
+    m.box((0.16, 0.16, 0.05), (0.62, -3.88, 1.84), P.IRON)
+    m.box((0.12, 0.12, 0.16), (0.62, -3.88, 1.72), P.LANTERN, glow=True)
+    m.box((0.16, 0.16, 0.03), (0.62, -3.88, 1.63), P.IRON)
     # the boat: a clinker-blue hull, pointed at the bow (-y), a white gunwale and the wooden
     # inside, a thwart, the oars shipped. Every part at its own height, so nothing flickers
     b = Model("rowboat", seed=481)
@@ -818,6 +895,7 @@ def jetty():
     b.build(root, loc=(-1.3, -2.8, 0.0), rot_z=0.05)
     m.plank_line((-0.62, -3.6, 1.0), (-1.3, -3.9, 0.35), 0.03, 0.03, SWING_ROPE)         # tied up
     m.build(root)
+    light(root, (0.62, -3.88, 1.72), P.LANTERN, radius=5, intensity=0.9, flicker=0.15)
 
 
 def picnic():
@@ -1424,6 +1502,8 @@ def build():
     bunting()
     sign()
     tent()
+    campfire()
+    angler()
     cabin()
     animals()
     flowers()

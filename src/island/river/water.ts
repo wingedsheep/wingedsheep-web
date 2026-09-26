@@ -22,6 +22,8 @@ export const MAX_RIPPLES = 10;
 export const MAX_LIPS = 3;
 /** …and the wave trains (see course.ts: Train, waveAt, which this draws just as the kayak rides it). */
 export const MAX_TRAINS = 3;
+/** The lights on the banks nearest the boat that the water shows (see RiverGame.shore). */
+export const MAX_SHORE = 6;
 const ACROSS = 24; // quads across the river: enough to draw the fast core and an eddy by the bank
 const OVERLAP = 1.1; // the water reaches a little under the banks
 // the water starts to feel an island this far above its head and forgets it this far below its
@@ -59,6 +61,10 @@ export function riverWater() {
       uBoat: { value: new THREE.Vector4(0, 0, 0, 0) },
       // the headlamp at night: where the boat is (x, z), which way it's pointing, and how bright
       uLamp: { value: new THREE.Vector4(0, 0, 0, 0) },
+      // the lights on the banks after dark: where each is (x, z), how far it reaches and how bright;
+      // and its colour, and how high it hangs over the water
+      uShore: { value: Array.from({ length: MAX_SHORE }, () => new THREE.Vector4(0, 0, 0, 0)) },
+      uShoreColor: { value: Array.from({ length: MAX_SHORE }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uRocks: { value: Array.from({ length: MAX_ROCKS }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uHoles: { value: Array.from({ length: MAX_HOLES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uTongues: { value: Array.from({ length: MAX_TONGUES }, () => new THREE.Vector4(0, 0, 0, 0)) },
@@ -157,6 +163,8 @@ export function riverWater() {
       uniform vec3 uSky;
       uniform vec4 uBoat; // x, z, the heading of its wake, how fast it's moving through the water
       uniform vec4 uLamp; // x, z, heading, 0..1 how bright
+      uniform vec4 uShore[${MAX_SHORE}]; // x, z, reach, how bright (0: none)
+      uniform vec4 uShoreColor[${MAX_SHORE}]; // colour, height over the water
       uniform vec4 uRocks[${MAX_ROCKS}];
       uniform vec4 uHoles[${MAX_HOLES}];
       uniform vec4 uTongues[${MAX_TONGUES}];
@@ -565,6 +573,24 @@ export function riverWater() {
           float lit = smoothstep(0.72, 0.9, ahead) * (1.0 - smoothstep(3.0, 20.0, dist)) + (1.0 - smoothstep(0.8, 2.2, dist)) * 0.5;
           lit = floor(min(lit, 1.0) * 3.0 + 0.5) / 3.0 * uLamp.w;
           col += (col * 1.3 + vec3(0.05, 0.04, 0.02)) * vec3(1.0, 0.94, 0.8) * lit;
+        }
+        // the lights on the banks: a warm pool on the water nearby, in a few hard steps, and each
+        // one's reflection broken up in a shimmering streak coming across the water towards you
+        vec2 toward = -normalize(uView.xz);
+        for (int i = 0; i < ${MAX_SHORE}; i++) {
+          vec4 L = uShore[i];
+          if (L.w <= 0.0) continue;
+          vec3 lc = uShoreColor[i].rgb;
+          vec2 d = wp - L.xy;
+          float pool = 1.0 - smoothstep(L.z * 0.15, L.z, length(d));
+          pool = floor(pool * pool * 3.0 + 0.5) / 3.0;
+          col += (col * 1.1 + lc * 0.07) * lc * pool * L.w;
+          float along = dot(d, toward);
+          float across = abs(d.x * toward.y - d.y * toward.x);
+          float reach = 0.8 + uShoreColor[i].w * 2.6;
+          float shimmer = hash(floor(vec2(along * 2.0, across * 5.0) + vec2(floor(uTime * 5.0 + float(i) * 0.37), float(i) * 7.0)));
+          float streak = step(0.0, along) * (1.0 - smoothstep(reach * 0.4, reach, along)) * step(across, 0.2 + along * 0.08) * step(0.4, shimmer);
+          col = mix(col, lc * 0.95 + 0.05, streak * L.w * 0.75);
         }
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>

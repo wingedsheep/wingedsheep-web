@@ -494,7 +494,8 @@ export class River implements RoomInput {
     // and dark round the edges on the big ones
     const mood = game.river.look.mood;
     (u.uGrade.value as THREE.Vector3).multiply(this.grade.fromArray(mood.grade));
-    u.uVignette.value = Math.min(1, mood.vignette + game.drama * 0.45); // (closing in over a waterfall)
+    // (closing in over a waterfall; and not so heavy round the edges after dark, when it's dark enough already)
+    u.uVignette.value = Math.min(1, mood.vignette * (1 - game.night * 0.35) + game.drama * 0.45);
     const roar = game.roar;
     this.ctx.sound.riverWater(true, game.state === 'ready' ? 0.2 : game.rough, game.tally.speed, roar.level, roar.near);
     this.hud(game.tally);

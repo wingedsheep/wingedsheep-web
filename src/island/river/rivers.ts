@@ -62,6 +62,11 @@ export interface Mood {
   vignette: number;
   /** 0..1: how thick its fog banks get, in the stretches that have them (see land.ts fogAt). */
   mist: number;
+  /**
+   * How much the night's lifted on it (0: as dark as it is out): the deep valleys, the gorges and
+   * the black forest would show you nothing but your lamp.
+   */
+  night: number;
 }
 
 /** The rare ones: not on every run, and never on every river. */
@@ -149,7 +154,7 @@ export const RIVERS: RiverDef[] = [
     speed: 0.85, pieces: ['balls'], ledges: false, snags: 0, key: 'wingedsheep:river:dawdle',
     rare: { chance: 0.3, who: { beaver: 3, otter: 2 } }, signature: [], look: { water: { shallow: [0.48, 0.82, 0.42], mid: [0.14, 0.5, 0.3], deep: [0.06, 0.3, 0.22] }, pines: 0.04, birch: 0.25, meadow: 2.4, snow: 0, springs: 0,
       earth: ['#9ccf52', 0.3], crags: 0, homely: 1, grim: 0, flutter: 1.5, dark: false, alpine: 0,
-      mood: { air: ['#f4dcaa', 0.3], sight: 1, sun: 1.1, tint: ['#ffcf8a', 0.3], grade: [1.12, 0.98, 1.05], vignette: 0.4, mist: 0.35 } },
+      mood: { air: ['#f4dcaa', 0.3], sight: 1, sun: 1.1, tint: ['#ffcf8a', 0.3], grade: [1.12, 0.98, 1.05], vignette: 0.4, mist: 0.35, night: 0 } },
   },
   {
     id: 'meander', name: 'The Meander', grade: 2, lede: 'A bit quicker. The ducks look less sure.',
@@ -158,7 +163,7 @@ export const RIVERS: RiverDef[] = [
     speed: 0.92, pieces: ['balls', 'fork', 'slalom'], ledges: true, snags: 0.4, key: 'wingedsheep:river:meander',
     rare: { chance: 0.35, who: { beaver: 3, otter: 3, moose: 1 } }, signature: [], look: { water: { shallow: [0.25, 0.8, 0.62], mid: [0.06, 0.43, 0.48], deep: [0.03, 0.2, 0.33] }, pines: 0.2, birch: 0.45, meadow: 1.7, snow: 0, springs: 0.4,
       earth: ['#8fcf62', 0.2], crags: 0, homely: 0.55, grim: 0, flutter: 1, dark: false, alpine: 0.1,
-      mood: { air: ['#d8eef2', 0.25], sight: 1, sun: 1.05, tint: ['#fff0d0', 0.15], grade: [1.07, 1, 1.03], vignette: 0.5, mist: 0.35 } },
+      mood: { air: ['#d8eef2', 0.25], sight: 1, sun: 1.05, tint: ['#fff0d0', 0.15], grade: [1.07, 1, 1.03], vignette: 0.5, mist: 0.35, night: 0 } },
   },
   {
     id: 'tumble', name: 'The Tumble', grade: 3, lede: 'Proper white water now. Keep her upright.',
@@ -167,7 +172,7 @@ export const RIVERS: RiverDef[] = [
     speed: 1, pieces: ['balls', 'fork', 'slalom', 'doors', 'strainers', 'waves'], ledges: true, snags: 0.8, key: 'wingedsheep:river:tumble',
     rare: { chance: 0.45, who: { otter: 2, moose: 2, bear: 1.5, wolves: 0.5 } }, signature: [], look: { water: { shallow: [0.22, 0.78, 0.66], mid: [0.05, 0.4, 0.52], deep: [0.03, 0.17, 0.33] }, pines: 0.45, birch: 0.15, meadow: 1, snow: 0, springs: 0.8,
       earth: ['#6fae4a', 0], crags: 0.1, homely: 0.15, grim: 0, flutter: 0.4, dark: false, alpine: 0.45,
-      mood: { air: ['#bfe0f0', 0.15], sight: 1, sun: 1, tint: ['#ffffff', 0], grade: [1.03, 1, 1], vignette: 0.6, mist: 0.3 } },
+      mood: { air: ['#bfe0f0', 0.15], sight: 1, sun: 1, tint: ['#ffffff', 0], grade: [1.03, 1, 1], vignette: 0.6, mist: 0.3, night: 0.35 } },
   },
   {
     id: 'drop', name: 'The Long Drop', grade: 3, lede: 'Ledges all the way down. Boof them.',
@@ -176,7 +181,7 @@ export const RIVERS: RiverDef[] = [
     speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:drop',
     rare: { chance: 0.5, who: { moose: 2, bear: 2.5, wolves: 1.5, lynx: 0.5 } }, signature: ['cascade'], look: { water: { shallow: [0.24, 0.74, 0.56], mid: [0.05, 0.38, 0.42], deep: [0.03, 0.18, 0.27] }, pines: 0.55, birch: 0.1, meadow: 0.7, snow: 0, springs: 1.2,
       earth: ['#5f8a52', 0.15], crags: 0.3, homely: 0, grim: 0.2, flutter: 0.2, dark: false, alpine: 0.6,
-      mood: { air: ['#a8b8c6', 0.35], sight: 0.95, sun: 0.9, tint: ['#d8e2f0', 0.15], grade: [0.93, 1, 0.98], vignette: 0.7, mist: 0.45 } },
+      mood: { air: ['#a8b8c6', 0.35], sight: 0.95, sun: 0.9, tint: ['#d8e2f0', 0.15], grade: [0.93, 1, 0.98], vignette: 0.7, mist: 0.45, night: 0.5 } },
   },
   {
     // (the river as it was before there were six of them: its best carries on here)
@@ -186,7 +191,7 @@ export const RIVERS: RiverDef[] = [
     speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:takeout',
     rare: { chance: 0.55, who: { bear: 2, wolves: 2.5, lynx: 1.5, yeti: 0.08 } }, signature: ['falls'], look: { water: { shallow: [0.34, 0.56, 0.4], mid: [0.07, 0.22, 0.25], deep: [0.02, 0.07, 0.11] }, pines: 0.85, birch: 0.03, meadow: 0.2, snow: 0, springs: 1.3,
       earth: ['#4a6656', 0.25], crags: 0.5, homely: 0, grim: 0.6, flutter: 0, dark: true, alpine: 0.3,
-      mood: { air: ['#74868a', 0.4], sight: 0.82, sun: 0.85, tint: ['#a8c8c0', 0.25], grade: [0.82, 1, 0.97], vignette: 0.8, mist: 0.9 } },
+      mood: { air: ['#74868a', 0.4], sight: 0.82, sun: 0.85, tint: ['#a8c8c0', 0.25], grade: [0.82, 1, 0.97], vignette: 0.8, mist: 0.9, night: 0.75 } },
   },
   {
     id: 'coffee', name: 'Hold My Coffee', grade: 5, lede: 'Grade 5, and a long way down. Beike’s staying on the bank.',
@@ -195,7 +200,7 @@ export const RIVERS: RiverDef[] = [
     speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:coffee',
     rare: { chance: 0.6, who: { wolves: 2.5, lynx: 2, bear: 1.5, yeti: 0.15 } }, signature: ['cascade', 'falls'], look: { water: { shallow: [0.4, 0.58, 0.6], mid: [0.1, 0.24, 0.3], deep: [0.02, 0.07, 0.12] }, pines: 0.9, birch: 0, meadow: 0, snow: 1, springs: 1.7,
       earth: ['#5a6662', 0.35], crags: 1, homely: 0, grim: 1, flutter: 0, dark: true, alpine: 1,
-      mood: { air: ['#687280', 0.45], sight: 0.8, sun: 0.75, tint: ['#b0bcd8', 0.35], grade: [0.7, 1, 0.95], vignette: 0.9, mist: 0.6 } },
+      mood: { air: ['#687280', 0.45], sight: 0.8, sun: 0.75, tint: ['#b0bcd8', 0.35], grade: [0.7, 1, 0.95], vignette: 0.9, mist: 0.6, night: 0.65 } },
   },
 ];
 

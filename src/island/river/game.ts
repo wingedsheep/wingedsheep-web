@@ -4,10 +4,10 @@ import { RiverAssets } from './assets';
 import { Controls } from './controls';
 import { Course, type Split, type Stretch } from './course';
 import { BOOF_WINDOW, Kayak, LIP_AT } from './kayak';
-import { Land, fogAt, highAt } from './land';
+import { Land, type Lamp, flicker, fogAt, highAt } from './land';
 import { type Goal, RARE, RIVERS, type Rare, type RiverDef } from './rivers';
 import { waterAt } from './flow';
-import { MAX_HOLES, MAX_LIPS, MAX_RIPPLES, MAX_ROCKS, MAX_TONGUES, MAX_TRAINS, riverWater } from './water';
+import { MAX_HOLES, MAX_LIPS, MAX_RIPPLES, MAX_ROCKS, MAX_SHORE, MAX_TONGUES, MAX_TRAINS, riverWater } from './water';
 import { type Cry, Wildlife } from './wildlife';
 
 const ELEVATION = THREE.MathUtils.degToRad(48);
@@ -183,6 +183,15 @@ export class RiverGame {
   /** The paddler's headlamp, for a run at night: a beam ahead and a spark on the helmet. */
   private lamp = new THREE.SpotLight('#fff0cc', 0, 36, 0.5, 0.7, 0);
   private lampGlow: THREE.Sprite;
+  /**
+   * The lights on the banks after dark (a campfire, a lantern on a jetty, a cottage's windows):
+   * a few real lights, handed each frame to the ones nearest the boat, so the ground and the
+   * trees round each are lit by it. `lit` is how far they're on (0 by day … 1).
+   */
+  private shoreLights = Array.from({ length: MAX_SHORE }, () => new THREE.PointLight('#ffc46b', 0, 10, 1.4));
+  private lit = 0;
+  /** How dark it is out (0 by day … 1), for the edges of the picture. */
+  night = 0;
   private headAt = new THREE.Vector3();
   private yaw = 0;
   private view = 26;
@@ -257,7 +266,7 @@ export class RiverGame {
     s.shadow.bias = -0.0008;
     s.shadow.normalBias = 0.03;
     this.scene.add(s, s.target, this.hemi);
-    this.scene.add(this.lamp, this.lamp.target);
+    this.scene.add(this.lamp, this.lamp.target, ...this.shoreLights);
     this.lampGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.halo, color: '#fff0cc', blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
     this.lampGlow.scale.setScalar(0.9);
     this.lampGlow.renderOrder = 3;
@@ -428,7 +437,10 @@ export class RiverGame {
     if ((this.streakFor -= realDt) < 0) this.streak = 0;
     this.course.extend(k.s + 300);
     this.land.update(k.pos, this.reach, k.s - 40, k.s + 100);
-    this.land.glow(outside.night, this.clock, outside.fair ? 1 : 0.15);
+    // the lamps come on as the light goes, well before it's properly dark
+    this.lit = THREE.MathUtils.smoothstep(outside.night, 0.12, 0.42);
+    this.land.glow(outside.night, this.lit, this.clock, outside.fair ? 1 : 0.15);
+    this.shore();
     this.wildlife.storm = this.storm = outside.storm ?? 0;
     this.kayak.storm = this.storm;
     const across = k.here?.a ?? 0;
@@ -1092,6 +1104,14 @@ export class RiverGame {
     for (const c of this.land.chimneys()) {
       if (Math.random() < dt * 5 && c.distanceToSquared(k.pos) < 70 * 70) this.wildlife.smoke(c);
     }
+    // and after dark, sparks going up off the fires, and a thread of smoke
+    if (this.lit > 0.1) {
+      for (const e of this.land.embers()) {
+        if (e.distanceToSquared(k.pos) > 60 * 60) continue;
+        if (Math.random() < dt * 7 * this.lit) this.wildlife.ember(e);
+        if (Math.random() < dt * 1.5) this.wildlife.smoke(e);
+      }
+    }
     // spray where a side stream lands
     for (const f of this.land.feet()) {
       if (Math.random() < dt * 8 && f.distanceToSquared(k.pos) < 60 * 60) this.wildlife.spray(f, 1, 0.6);
@@ -1185,7 +1205,8 @@ export class RiverGame {
    */
   private headlamp(night: number) {
     const k = this.kayak;
-    const on = THREE.MathUtils.smoothstep(night, 0.35, 0.8) * (k.balance === 'swimming' ? 0.3 : 1);
+    // (on at dusk, once the banks are going dim, not only once it's black)
+    const on = THREE.MathUtils.smoothstep(night, 0.15, 0.5) * (k.balance === 'swimming' ? 0.3 : 1);
     const u = this.water.uniforms;
     this.lamp.visible = this.lampGlow.visible = on > 0.01;
     if (!this.lamp.visible) {
@@ -1204,6 +1225,42 @@ export class RiverGame {
   }
 
   /**
+   * Hand the shore's real lights to the lamps nearest the boat, fading each out towards the edge
+   * of its reach so none pops as it's handed on, and tell the water where they are.
+   */
+  private shore() {
+    const k = this.kayak.pos;
+    const u = this.water.uniforms;
+    const pool = u.uShore.value as THREE.Vector4[];
+    const colors = u.uShoreColor.value as THREE.Vector4[];
+    const near: { g: THREE.Sprite; d: number }[] = [];
+    if (this.lit > 0.01) {
+      for (const g of this.land.lamps()) {
+        const d = g.position.distanceToSquared(k);
+        if (d < FAR_LAMP * FAR_LAMP) near.push({ g, d: Math.sqrt(d) });
+      }
+      near.sort((a, b) => a.d - b.d);
+    }
+    for (let i = 0; i < MAX_SHORE; i++) {
+      const light = this.shoreLights[i];
+      const n = near[i];
+      if (!n) {
+        light.intensity = 0;
+        pool[i].w = 0;
+        continue;
+      }
+      const l = n.g.userData as Lamp;
+      const on = this.lit * flicker(l, this.clock) * (1 - THREE.MathUtils.smoothstep(n.d, FAR_LAMP * 0.6, FAR_LAMP));
+      light.position.copy(n.g.position);
+      light.color.set(l.color);
+      light.distance = l.radius * 1.8;
+      light.intensity = l.intensity * 7 * on;
+      pool[i].set(n.g.position.x, n.g.position.z, l.radius * 0.9, Math.min(1, l.intensity) * on);
+      colors[i].set(light.color.r, light.color.g, light.color.b, l.over ?? 0);
+    }
+  }
+
+  /**
    * Light the river as the island is lit, right now (its time of day, its weather), in the air
    * this river's run in: a warmer or a greyer light, darker down in a gorge, thinner and bluer
    * high up in the mountains, and muffled in a bank of fog.
@@ -1217,20 +1274,24 @@ export class RiverGame {
     this.high += (highAt(this.river.look, course.seed, s) - this.high) * ease;
     this.fogged += (fogAt(this.river.look, course.seed, s) - this.fogged) * ease;
     const day = 1 - o.night;
+    this.night = o.night;
     const flash = o.flash ?? 0;
+    // the harder rivers are lifted a little after dark (see Mood.night)
+    const lift = o.night * mood.night;
     // (the river's own tint is for the daylight: at night the moon's the moon)
     const tint = this.tint.set(mood.tint[0]).lerp(ICE, this.high * 0.5);
     const lean = (mood.tint[1] + this.high * 0.15) * day;
     this.sun.color.copy(o.sun.color).lerp(tint, lean);
-    // (at night on the river there are no lamps but your own: it's darker than on the island)
-    const dark = 1 - o.night * 0.6;
-    this.sun.intensity = o.sun.intensity * dark * (1 + (mood.sun - 1) * day) * (1 - this.walls * 0.22) * (1 - this.fogged * 0.25) * (1 + this.high * 0.08);
+    // (at night on the river there are few lamps but your own: it's darker than on the island,
+    // but never so dark you can't make out the banks)
+    const dark = 1 - o.night * 0.48;
+    this.sun.intensity = o.sun.intensity * dark * (1 + (mood.sun - 1) * day) * (1 + lift) * (1 - this.walls * 0.22 * (1 - o.night * 0.4)) * (1 - this.fogged * 0.25) * (1 + this.high * 0.08);
     // and in the lightning, everything stands out stark for a moment
     this.sun.color.lerp(WHITE, flash * 0.7);
     this.sun.intensity += flash * 3;
     this.hemi.color.copy(o.hemi.color).lerp(tint, lean * 0.6);
     this.hemi.groundColor.copy(o.hemi.groundColor);
-    this.hemi.intensity = o.hemi.intensity * (1 - o.night * 0.5) * (1 + (mood.sun - 1) * 0.6 * day) * (1 - this.walls * 0.1) * (1 + this.fogged * 0.1); // (the island's lightning's already in its light)
+    this.hemi.intensity = o.hemi.intensity * (1 - o.night * 0.35) * (1 + (mood.sun - 1) * 0.6 * day) * (1 + lift * 1.3) * (1 - this.walls * 0.1) * (1 + this.fogged * 0.1); // (the island's lightning's already in its light)
     // the same sun, but never so low that a pine's shadow reaches across the river
     const dir = o.sun.position.clone().normalize();
     dir.y = Math.max(dir.y, 0.62);
@@ -1317,6 +1378,8 @@ export class RiverGame {
 }
 
 const BALL = new THREE.Color('#d8f03a');
+/** How far off a light on the bank can be and still light what's round it (m). */
+const FAR_LAMP = 55;
 const WHITE = new THREE.Color(1, 1, 1);
 const ICE = new THREE.Color('#dce8ff');
 const MIST = new THREE.Color('#d8e0e2');

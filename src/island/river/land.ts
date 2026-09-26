@@ -85,6 +85,7 @@ function dropChunk(chunk: Chunk) {
   for (const m of chunk.springs) m.geometry.dispose();
   // (the batches share their geometry and materials with the templates: only the instances go)
   for (const b of chunk.batches) b.dispose();
+  for (const g of chunk.glows) g.material.dispose();
   if (!chunk.foliage) return;
   const mat = chunk.foliage.material as THREE.MeshToonMaterial;
   mat.map?.dispose();
@@ -105,6 +106,50 @@ export interface Spot {
   side: number;
 }
 
+/**
+ * A light by the river (see Land.glowAt): its colour, how far it reaches (m), how bright, how
+ * much it flickers (0 steady … 1 a fire), and its halo's size. A far one (a window across the
+ * valley) is only a spark to see, too far off to light anything.
+ */
+export interface Lamp {
+  color: string;
+  radius: number;
+  intensity: number;
+  flicker: number;
+  size: number;
+  seed: number;
+  far?: boolean;
+  /** How faint its halo is (1, or less for a glow on the forest floor). */
+  dim?: number;
+  /** How high it hangs over the river's water (m), for its reflection. */
+  over?: number;
+}
+
+/** How bright a light is right now (1, or less as it flickers): a fire's dance, a lantern's waver. */
+export function flicker(l: Pick<Lamp, 'flicker' | 'seed'>, time: number) {
+  if (!l.flicker) return 1;
+  return 1 - l.flicker * 0.25 * (Math.sin(time * 13 + l.seed) * 0.5 + Math.sin(time * 7.7 + l.seed * 3) * 0.5 + 0.5);
+}
+
+const WINDOW = ['#ffc46b', '#ffd88a', '#ffb35a'];
+/** Foxfire: the cold green-blue glow of the fungus in rotting wood. */
+const FOXFIRE = ['#9cffc8', '#7fe8e0', '#b4ff9a'];
+
+/**
+ * One seed out of several numbers, well mixed (a river's seed times a big prime runs past what a
+ * double holds exactly, and every chunk would draw the same).
+ */
+function mix(...ns: number[]) {
+  let h = 0x811c9dc5;
+  for (const n of ns) {
+    h = Math.imul(h ^ (n >>> 0), 0x01000193);
+    h ^= h >>> 13;
+    h = Math.imul(h, 0x5bd1e995);
+    h ^= h >>> 15;
+  }
+  return h >>> 0;
+}
+
 /** How far a boulder on the bank may reach out into the river (m, from the edge of the water to its collision edge). */
 const REACH = 1;
 
@@ -114,7 +159,11 @@ interface Chunk {
   water: THREE.Mesh;
   /** The things in it you can hit or pick up, and their meshes. */
   things: Map<object, THREE.Object3D>;
+  /** The lights' halos (a lantern, a window, a fire; see Land.glowAt), and the fires' flames. */
   glows: THREE.Sprite[];
+  flames: THREE.Object3D[];
+  /** Where the fires' sparks go up from. */
+  embers: THREE.Vector3[];
   spots: Spot[];
   /** Where its trees' leaves go, and the leaf cards grown there (as on the island). */
   canopies: CanopyMarker[];
@@ -265,17 +314,39 @@ export class Land {
     return undefined;
   }
 
-  /** How bright the lanterns and windows are (0 by day … 1 at night). */
-  glow(night: number, time: number, sunny = 1) {
+  /**
+   * How dark it is (0 by day … 1 at night), and how far the lanterns, windows and fires are lit
+   * (0 … 1): the fires flicker, the lanterns barely, and a fire's only a ring of cold ash by day.
+   */
+  glow(night: number, lit: number, time: number, sunny = 1) {
     this.rainbow.opacity = (1 - night) * sunny * (0.4 + Math.sin(time * 0.7) * 0.08);
     this.mist.opacity = (0.26 + Math.sin(time * 0.4) * 0.05) * (1 - night * 0.6);
     for (const chunk of this.chunks.values()) {
       for (const m of chunk.mists) m.position.x = m.userData.x + Math.sin(time * 0.15 + m.id) * 2;
       for (const g of chunk.glows) {
-        (g.material as THREE.SpriteMaterial).opacity = night * (0.85 + Math.sin(time * 9 + g.id) * 0.08);
-        g.visible = night > 0.05;
+        const l = g.userData as Lamp;
+        const f = flicker(l, time);
+        g.material.opacity = Math.min(1, lit * f * (l.dim ?? 1));
+        g.scale.setScalar(l.size * (0.92 + f * 0.08));
+        g.visible = lit > 0.03;
+      }
+      for (const f of chunk.flames) {
+        f.visible = lit > 0.05;
+        if (!f.visible) continue;
+        const k = flicker(f.userData as Lamp, time * 1.3);
+        f.scale.set(1 - (1 - k) * 0.3, 1 - (1 - k) * 0.3, (0.5 + lit * 0.5) * (0.75 + k * 0.35));
       }
     }
+  }
+
+  /** The lights in view that light up what's round them (not the far-off windows), for the game's lamps. */
+  *lamps() {
+    for (const chunk of this.chunks.values()) for (const g of chunk.glows) if (!g.userData.far) yield g;
+  }
+
+  /** Where the fires in view send their sparks up. */
+  *embers() {
+    for (const chunk of this.chunks.values()) yield* chunk.embers;
   }
 
   clear() {
@@ -359,7 +430,7 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], chimneys: [], mists: [], clearings: [], solids: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], flames: [], embers: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], chimneys: [], mists: [], clearings: [], solids: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
@@ -413,6 +484,9 @@ export class Land {
     if (course.finish >= s0 && course.finish < s1) for (const side of [-1, 1]) this.post(chunk, course.finish - 4, r, 'FINISH', side);
     // (the homes first, so the forest grows round them)
     this.homes(chunk, s0, rng(course.seed * 15485863 + c));
+    this.camps(chunk, s0, rng(mix(course.seed, c, 1)));
+    this.distant(chunk, s0, rng(mix(course.seed, c, 2)));
+    this.foxfire(chunk, s0, rng(mix(course.seed, c, 3)));
     this.banks(chunk, s0, s1, r);
     this.springs(chunk, s0, s1, rng(course.seed * 104729 + c));
     this.islands(chunk, s0, s1, r);
@@ -437,7 +511,7 @@ export class Land {
    */
   private batch(chunk: Chunk) {
     const { group } = chunk;
-    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows, ...chunk.springs, ...chunk.rainbows, ...chunk.mists]);
+    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows, ...chunk.flames, ...chunk.springs, ...chunk.rainbows, ...chunk.mists]);
     for (const [thing, m] of chunk.things) {
       const kind = (thing as Partial<Obstacle>).kind;
       if (kind !== 'rock' && kind !== 'log') keep.add(m);
@@ -600,21 +674,45 @@ export class Land {
     });
   }
 
+  /**
+   * Light up a model's lights after dark: a halo round each (knowing its colour, reach and flicker,
+   * for the game to light what's round it too), its flames taken out to flicker on their own, and
+   * where its sparks go up.
+   */
   private glowAt(chunk: Chunk, m: THREE.Object3D) {
     m.updateMatrixWorld(true);
+    const flames: THREE.Object3D[] = [];
     m.traverse((o) => {
+      if (o.userData.flame) flames.push(o);
+      if (o.userData.ember) chunk.embers.push(o.getWorldPosition(new THREE.Vector3()));
       if (!o.userData.light) return;
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: this.halo, color: new THREE.Color(o.userData.color), blending: THREE.AdditiveBlending,
-        depthWrite: false, transparent: true, fog: false,
-      }));
-      o.getWorldPosition(sprite.position);
-      sprite.scale.setScalar(o.userData.radius * 0.55);
-      sprite.renderOrder = 2;
-      sprite.visible = false;
-      chunk.group.add(sprite);
-      chunk.glows.push(sprite);
+      const d = o.userData;
+      this.lightAt(chunk, o.getWorldPosition(new THREE.Vector3()), {
+        color: d.color, radius: d.radius, intensity: d.intensity ?? 1, flicker: d.flicker ?? 0, size: d.radius * 0.55, seed: Math.random() * 100,
+      });
     });
+    for (const f of flames) {
+      chunk.group.attach(f);
+      f.userData = { flicker: 1, seed: Math.random() * 100 };
+      f.visible = false;
+      chunk.flames.push(f);
+    }
+  }
+
+  private lightAt(chunk: Chunk, at: THREE.Vector3, lamp: Lamp) {
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this.halo, color: new THREE.Color(lamp.color), blending: THREE.AdditiveBlending,
+      depthWrite: false, transparent: true, fog: false,
+    }));
+    sprite.position.copy(at);
+    sprite.scale.setScalar(lamp.size);
+    sprite.renderOrder = 2;
+    sprite.visible = false;
+    sprite.userData = lamp;
+    lamp.over = Math.max(0, at.y - this.course.nearest(at.x, at.z).sample.y);
+    chunk.group.add(sprite);
+    chunk.glows.push(sprite);
+    return sprite;
   }
 
   private feature(chunk: Chunk, kind: 'bridge' | 'tent' | 'cabin' | 'swing', s: number, side: number, r: () => number) {
@@ -791,7 +889,9 @@ export class Land {
     } else if (pick < home * 0.4 && p.speed < 5) {
       // (standing on the bank at the waterline, reaching out over the water)
       const at = this.beside(s, side, 0.8);
-      if (at && this.put(chunk, 'jetty', { ...at, y: p.y }, inland)) {
+      const m = at && this.put(chunk, 'jetty', { ...at, y: p.y }, inland);
+      if (at && m) {
+        this.glowAt(chunk, m);
         // (its end post and the boat stand in the water: things to steer round, not through)
         const out = -side * 3.2;
         this.solid(chunk, { kind: 'rock', x: at.x + Math.cos(p.a) * out, z: at.z + Math.sin(p.a) * out, r: 0.8, s, variant: 0 });
@@ -815,6 +915,88 @@ export class Land {
         const at = this.beside(s, side, 3.5 + r() * 9);
         if (at && !this.cleared(chunk, at)) this.put(chunk, `hay_${Math.floor(r() * 2)}`, { ...at, y: at.y - 0.05 }, r() * 6.3, 0.9 + r() * 0.2);
       }
+    }
+  }
+
+  /**
+   * Now and then somebody's out by the river after dark, on any river but down in a gorge: a fire
+   * on the bank with logs pulled up round it, or somebody's night fishing, their lantern on the
+   * ground by the water. By day the fire's a ring of cold ash and the lantern's out.
+   */
+  private camps(chunk: Chunk, s0: number, r: () => number) {
+    const course = this.course;
+    const fire = 0.04 + this.look.homely * 0.03;
+    const angler = 0.05 + this.look.homely * 0.05;
+    const pick = r();
+    if (pick > fire + angler) return;
+    const s = s0 + 4 + r() * (CHUNK - 8);
+    const p = course.at(s);
+    if (p.gorge > 0.25 || p.isle > 0 || Math.abs(s - course.finish) < 40) return;
+    if (course.features.some((f) => Math.abs(f.s - s) < 20)) return; // (not by a tent's fire, or under a bridge)
+    const side = r() < 0.5 ? -1 : 1;
+    if (pick < fire) {
+      const at = this.beside(s, side, 2.4 + r() * 1.4);
+      if (!at || this.cleared(chunk, at)) return;
+      const m = this.put(chunk, 'campfire', { ...at, y: at.y - 0.03 }, r() * 6.3);
+      if (!m) return;
+      chunk.clearings.push({ x: at.x, z: at.z, r: 5 }); // (room under the sky: no crowns over the fire)
+      this.glowAt(chunk, m);
+      return;
+    }
+    // (in quiet water: nobody fishes the white water)
+    if (p.speed > 6 || p.rough > 0.3) return;
+    const at = this.beside(s, side, 0.7);
+    if (!at || this.cleared(chunk, at)) return;
+    const m = this.put(chunk, 'angler', { ...at, y: at.y - 0.02 }, toRiver(side, p.a));
+    if (!m) return;
+    chunk.clearings.push({ x: at.x, z: at.z, r: 2.5 });
+    this.glowAt(chunk, m);
+  }
+
+  /**
+   * On the forest floor after dark, in autumn and on the dark rivers any time: foxfire, a faint
+   * green glow in the rotting wood, a few specks together and a soft light round them. They light
+   * nothing, but they're there when your eyes get used to the dark.
+   */
+  private foxfire(chunk: Chunk, s0: number, r: () => number) {
+    const look = this.look;
+    const chance = look.dark ? 0.55 : season.weights.autumn * season.turn * 0.35 * (1 - look.homely * 0.4);
+    if (r() > chance) return;
+    const s = s0 + r() * CHUNK;
+    if (this.course.at(s).gorge > 0.4) return;
+    const at = this.beside(s, r() < 0.5 ? -1 : 1, 3 + r() * 8);
+    if (!at || this.cleared(chunk, at)) return;
+    const color = FOXFIRE[Math.floor(r() * FOXFIRE.length)];
+    this.lightAt(chunk, new THREE.Vector3(at.x, at.y + 0.1, at.z), { color, radius: 0, intensity: 0, flicker: 0, size: 2.4, seed: 0, far: true, dim: 0.22 });
+    for (let k = 3 + Math.floor(r() * 5); k > 0; k--) {
+      const a = r() * Math.PI * 2;
+      const d = r() * 0.9;
+      const x = at.x + Math.cos(a) * d;
+      const z = at.z + Math.sin(a) * d;
+      this.lightAt(chunk, new THREE.Vector3(x, this.heightAt(x, z) + 0.06, z), { color, radius: 0, intensity: 0, flicker: 0.15, size: 0.28 + r() * 0.2, seed: r() * 100, far: true, dim: 0.9 });
+    }
+  }
+
+  /**
+   * Far off up the valley side after dark, somebody's windows: a warm spark or two where the
+   * river's lived by, and now and then a hut's light high up in the mountains. Only something to
+   * see; they're too far off to light anything.
+   */
+  private distant(chunk: Chunk, s0: number, r: () => number) {
+    const look = this.look;
+    if (r() > look.homely * 0.45 + look.alpine * 0.12) return;
+    const s = s0 + r() * CHUNK;
+    const p = this.course.at(s);
+    if (p.gorge > 0.3) return;
+    const at = this.beside(s, r() < 0.5 ? -1 : 1, 22 + r() * 24);
+    if (!at) return;
+    const color = WINDOW[Math.floor(r() * WINDOW.length)];
+    const panes = look.homely > 0 && r() < 0.5 ? 2 : 1;
+    // (side by side, along the valley)
+    for (let k = 0; k < panes; k++) {
+      const off = (k - (panes - 1) / 2) * 0.9;
+      const lamp: Lamp = { color, radius: 0, intensity: 0, flicker: 0.05, size: 1.3, seed: r() * 100, far: true };
+      this.lightAt(chunk, new THREE.Vector3(at.x - Math.sin(p.a) * off, at.y + 1.3, at.z + Math.cos(p.a) * off), lamp);
     }
   }
 

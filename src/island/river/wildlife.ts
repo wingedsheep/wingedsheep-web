@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { spotAnimal, type Animal } from '../sketchbook';
 import { season } from '../scene/season';
+import { haloTexture } from '../scene/sky';
 import type { RiverAssets } from './assets';
 import type { Course, Thing } from './course';
 import { waterAt } from './flow';
@@ -130,6 +131,66 @@ class Specks {
   }
 }
 
+/**
+ * Fireflies along the banks on a summer's night: each a soft spark that wanders, flashes for a
+ * moment every few seconds and goes dark again, out of step with the rest.
+ */
+class Fireflies {
+  readonly group = new THREE.Group();
+  private flies: { sprite: THREE.Sprite; v: THREE.Vector3; life: number; age: number; every: number; phase: number }[] = [];
+  private next = 0;
+
+  constructor(max = 40) {
+    const halo = haloTexture();
+    for (let i = 0; i < max; i++) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: halo, color: FIREFLY, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false,
+      }));
+      sprite.visible = false;
+      sprite.renderOrder = 3;
+      this.group.add(sprite);
+      this.flies.push({ sprite, v: V(), life: 0, age: 0, every: 3, phase: 0 });
+    }
+  }
+
+  emit(at: THREE.Vector3) {
+    const f = this.flies[this.next];
+    this.next = (this.next + 1) % this.flies.length;
+    f.sprite.position.copy(at);
+    f.v.set(rand(-0.4, 0.4), rand(-0.1, 0.1), rand(-0.4, 0.4));
+    f.life = rand(8, 14);
+    f.age = 0;
+    f.every = rand(1.8, 4);
+    f.phase = Math.random();
+  }
+
+  update(dt: number) {
+    for (const f of this.flies) {
+      if (f.age >= f.life) {
+        f.sprite.visible = false;
+        continue;
+      }
+      f.age += dt;
+      if (Math.random() < dt * 0.8) f.v.set(rand(-0.5, 0.5), rand(-0.15, 0.15), rand(-0.5, 0.5));
+      f.sprite.position.addScaledVector(f.v, dt);
+      // a flash: up quickly, a slow fade, then dark till the next
+      const t = (f.age / f.every + f.phase) % 1;
+      const flash = t < 0.08 ? t / 0.08 : Math.max(0, 1 - (t - 0.08) / 0.3);
+      const fade = Math.min(1, f.age, f.life - f.age);
+      f.sprite.material.opacity = (0.08 + flash * 0.92) * fade;
+      f.sprite.scale.setScalar(0.25 + flash * 0.3);
+      f.sprite.visible = f.sprite.material.opacity > 0.02;
+    }
+  }
+
+  clear() {
+    for (const f of this.flies) {
+      f.age = f.life = 0;
+      f.sprite.visible = false;
+    }
+  }
+}
+
 const WHITE = new THREE.Color('#f2f7f6');
 const FOAM = new THREE.Color('#d6ecea');
 const DRIP = new THREE.Color('#a8d8e0');
@@ -145,6 +206,7 @@ const BLOSSOM = ['#f2c3d6', '#fbe0ea'].map((c) => new THREE.Color(c));
 /** Butterflies over the meadows (cabbage whites, brimstones, a peacock, a blue), and thistledown. */
 const BUTTERFLIES = ['#f4f0e6', '#f2dc5a', '#d8602a', '#6a9ae8'].map((c) => new THREE.Color(c));
 const DOWN = new THREE.Color('#f6f2e8');
+const EMBERS = ['#ffd35a', '#ff9a3c', '#ffb35a'].map((c) => new THREE.Color(c));
 const SMOKE = ['#c9c4c8', '#b3aeb6', '#dcd8da'].map((c) => new THREE.Color(c));
 
 /**
@@ -156,6 +218,7 @@ export class Wildlife {
   readonly group = new THREE.Group();
   readonly specks = new Specks();
   readonly froths = new Specks(FROTH_MAX, 1);
+  private fireflies = new Fireflies();
   events: WildlifeEvents = {};
   /** The ground's height at (x, z), for animals on the bank. */
   ground: (x: number, z: number) => number = () => 0;
@@ -183,7 +246,7 @@ export class Wildlife {
   private rareIn = 0;
 
   constructor(private assets: RiverAssets, private course: Course) {
-    this.group.add(this.specks.points, this.froths.points);
+    this.group.add(this.specks.points, this.froths.points, this.fireflies.group);
   }
 
   reset(course: Course) {
@@ -192,6 +255,7 @@ export class Wildlife {
     this.actors = [];
     this.specks.clear();
     this.froths.clear();
+    this.fireflies.clear();
     this.kingfisherIn = rand(12, 30);
     this.frogIn = rand(4, 10);
     this.sheepIn = rand(90, 200);
@@ -291,6 +355,7 @@ export class Wildlife {
     this.ambient(dt, kayak, s, night, rain, snow);
     this.things = this.course.near(s - 20, s + 60);
     this.specks.update(dt, this.clock, (x, z, out) => this.flow(x, z, out));
+    this.fireflies.update(dt);
     this.froths.update(dt, this.clock, (x, z, out) => this.flow(x, z, out));
   }
 
@@ -368,6 +433,12 @@ export class Wildlife {
     this.specks.emit(at.clone().add(V(rand(-0.15, 0.15), 0, rand(-0.15, 0.15))), V(rand(0.2, 0.5), rand(0.6, 1), rand(-0.1, 0.2)), SMOKE[Math.floor(Math.random() * SMOKE.length)], rand(2.5, 4), 2);
   }
 
+  /** A spark flying up off a fire, drifting on the air and gone in a moment. */
+  ember(at: THREE.Vector3) {
+    const c = EMBERS[Math.floor(Math.random() * EMBERS.length)];
+    this.specks.emit(at.clone().add(V(rand(-0.12, 0.12), 0, rand(-0.12, 0.12))), V(rand(-0.3, 0.3), rand(1, 2.2), rand(-0.3, 0.3)), c, rand(0.5, 1.3), 2);
+  }
+
   /** Froth left behind on the water, floating off downstream. */
   froth(at: THREE.Vector3, life = rand(0.8, 1.6)) {
     this.froths.emit(at.clone().setY(at.y + 0.05), V(), FOAM, life, 1);
@@ -391,11 +462,13 @@ export class Wildlife {
       const u = rand(-1, 1) * half;
       this.specks.emit(V(p.x + rx * u, p.y + rand(0.5, 1.2), p.z + rz * u), V(), DRAGONFLY, rand(4, 8), 3);
     }
-    if (night > 0.6 && warm > 0.3 && Math.random() < dt * 6) {
+    // (out as it gets dark, not in the rain, and more of them over the quiet water)
+    const glow = THREE.MathUtils.smoothstep(night, 0.25, 0.5) * THREE.MathUtils.smoothstep(warm, 0.3, 0.7) * (1 - rain) * (1 - snow);
+    if (glow > 0 && Math.random() < dt * 5 * glow * (p.speed < 4.5 ? 1.5 : 0.6)) {
       const side = Math.random() < 0.5 ? -1 : 1;
-      const u = side * (half + rand(0.5, 6));
-      const q = this.course.at(s + rand(-10, 30));
-      this.specks.emit(V(q.x + Math.cos(q.a) * u, q.y + rand(0.6, 2), q.z + Math.sin(q.a) * u), V(), FIREFLY, rand(3, 6), 3);
+      const u = side * (half + rand(-0.5, 7));
+      const q = this.course.at(s + rand(-10, 35));
+      this.fireflies.emit(V(q.x + Math.cos(q.a) * u, Math.max(q.y, this.ground(q.x + Math.cos(q.a) * u, q.z + Math.sin(q.a) * u)) + rand(0.4, 2), q.z + Math.sin(q.a) * u));
     }
     // on a gentle river on a fine day, butterflies over the banks and thistledown drifting across
     const flutter = this.course.profile.look.flutter * (1 - night) * (0.3 + warm) * (1 - rain);
@@ -651,8 +724,8 @@ export class Wildlife {
   }
 
   /**
-   * A raven, wheeling high over the river ahead, keeping pace with you for a while; then it's
-   * seen enough, and beats off up and away over the trees.
+   * A raven, flying in from off over one bank to wheel high over the river ahead, keeping pace
+   * with you for a while; then it's seen enough, and beats off up and away over the trees.
    */
   private raven(s: number): Actor {
     const root = this.assets.clone('raven');
@@ -663,6 +736,8 @@ export class Wildlife {
     const spin = (Math.random() < 0.5 ? -1 : 1) * rand(0.35, 0.6);
     const lead = rand(10, 20); // how far ahead of you its circle stays
     const out = Math.random() < 0.5 ? -1 : 1; // which bank it leaves over
+    const from = Math.random() < 0.5 ? -1 : 1; // and which it comes in over
+    let come = rand(5.5, 7); // (how far off it still is: coming in, it's the way out played backwards)
     let a = rand(0, Math.PI * 2);
     let at = s + lead + rand(0, 10);
     let life = rand(18, 30);
@@ -673,23 +748,26 @@ export class Wildlife {
     this.group.add(root);
     const place = () => {
       const p = this.course.along(at);
-      const r = radius + away * away * 1.2;
-      const side = away * away * 1.5 * out;
+      const off = (away + come) ** 2;
+      const r = radius + off * 1.2;
+      const side = off * 1.5 * (away > 0 ? out : from);
       root.position.set(
         p.x + Math.cos(a) * r + Math.cos(p.a) * side,
-        p.y + height + away * away * 0.8,
+        p.y + height + off * 0.8,
         p.z + Math.sin(a) * r + Math.sin(p.a) * side,
       );
     };
     place();
     last.copy(root.position);
-    root.rotation.y = face(-Math.sin(a) * spin, Math.cos(a) * spin);
+    const p = this.course.along(at);
+    root.rotation.y = face(-Math.cos(p.a) * from, -Math.sin(p.a) * from); // (headed in over the river)
     const actor: Actor = {
       s: at,
       root,
       update: (dt, kayak) => {
         life -= dt;
         if (life < 0) away += dt;
+        come = Math.max(0, come - dt);
         // circling, while the circle drifts along to stay ahead of you (and, leaving, winds out wide)
         a += spin * dt * (1 - Math.min(0.8, away * 0.3));
         at = ease(at, this.kayakS(kayak) + lead + away * 6, 0.6, dt) + dt * away * 4;
@@ -700,10 +778,11 @@ export class Wildlife {
         const dz = root.position.z - last.z;
         if (dx * dx + dz * dz > 1e-8) root.rotation.y = turn(root.rotation.y, face(dx, dz), dt * 4);
         last.copy(root.position);
-        root.rotation.z = ease(root.rotation.z, away > 0 ? 0 : -spin * 0.5, 2, dt); // banked into the turn
-        // gliding mostly, with a few lazy beats now and then; beating hard to climb away
+        const straight = away > 0 || come > 1;
+        root.rotation.z = ease(root.rotation.z, straight ? 0 : -spin * 0.5, 2, dt); // banked into the turn
+        // gliding mostly, with a few lazy beats now and then; beating hard to come in and to climb away
         if ((flap -= dt) < -rand(2, 4)) flap = 0.8;
-        const want = away > 0 || flap > 0 ? 0.7 : 0;
+        const want = straight || flap > 0 ? 0.7 : 0;
         beat = ease(beat, want, 5, dt);
         const w = 0.12 + Math.sin(this.clock * (away > 0 ? 14 : 12)) * beat;
         wings.forEach((g, i) => g && (g.rotation.x = (i ? -1 : 1) * w));
