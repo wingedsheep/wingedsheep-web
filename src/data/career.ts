@@ -216,7 +216,7 @@ export const chapters: Chapter[] = [
         years: '2025 – now',
         role: 'Lead developer, Direct+',
         org: 'ENTRNCE · Arnhem',
-        text: 'Technical direction and architecture for Direct+, built with EPEX SPOT so smaller parties can trade directly on the wholesale power market: exchange access, BRP-as-a-service and prepaid clearing in one setup. A modular monolith in Kotlin, Spring Boot, PostgreSQL and React. I also help shape how our teams build with AI.',
+        text: 'Technical direction and architecture for Direct+, built together with EPEX SPOT so smaller parties can trade directly on the wholesale power market: exchange access, BRP-as-a-service and prepaid clearing in one setup. A modular monolith in Kotlin, Spring Boot, PostgreSQL and React. And, together with the teams, figuring out how we best build with AI.',
       },
     ],
     scene: true,
@@ -258,7 +258,7 @@ export const chapters: Chapter[] = [
       directplus: {
         label: 'Direct+ · straight to the power exchange',
         text: [
-          'Direct+, which I’m lead developer for, launched with EPEX SPOT in September 2026: one membership that lets a smaller party (a regional supplier, a solar park, a battery) trade on the Dutch day-ahead and intraday markets itself.',
+          'Direct+, which I work on as lead developer, launched with EPEX SPOT in September 2026: one membership that lets a smaller party (a regional supplier, a solar park, a battery) trade on the Dutch day-ahead and intraday markets itself.',
           'Normally that takes your own balance responsibility and a bank guarantee. With Direct+ the balance responsibility is taken care of and you trade from a prepaid e-wallet, so you can be up and running within two months.',
           'On the screen: the price for every hour. Around noon it drops below zero, the market’s way of asking anyone at all to please use some power. A battery that listens gets paid to charge.',
           'Under the hood: a modular monolith in Kotlin, Spring Boot, PostgreSQL and React, more and more of it built together with AI.',

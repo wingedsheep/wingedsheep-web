@@ -1,7 +1,7 @@
 # Wildlife sketchbook illustrations
 
 Generated with the built-in imagegen tool. Original reference: `public/art/wildlife-sketches.png`. Final game asset: `public/art/wildlife-sketches-pixel.png`.
-The atlas is used by `src/island/sketchbook.ts`: 6 × 6 generated cells (the final feather is reserved), plus a seventh row drawn in code by `tools/drawings/starling.py` (starlings, first cell).
+The atlas is used by `src/island/sketchbook.ts`: 6 × 6 generated cells (the final feather is reserved), plus a seventh row drawn in code by `tools/drawings/row-seven.py` (starlings, seal).
 After any change, run `python3 tools/drawings/untangle-atlas.py public/art/wildlife-sketches-pixel.png` so no animal pokes into a neighbour's page (the serpent's spines once showed up under the robin).
 
 ## Prompt

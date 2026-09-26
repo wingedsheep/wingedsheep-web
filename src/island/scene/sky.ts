@@ -144,10 +144,34 @@ export class Sky {
   haze = 0;
   /** The sun's elevation in degrees. */
   alt = 0;
+  /**
+   * How dark it really is out in the open, 0..1, by the sun alone: still light at sunset, dim by
+   * the end of civil twilight (6° under), properly dark by nautical dusk (12° under). The lamps
+   * come on well before this, as lamps do.
+   */
+  get twilight() {
+    return 1 - THREE.MathUtils.smoothstep(this.alt, -12, 1);
+  }
   /** Whether the sun is climbing: morning rather than evening. */
   rising = true;
   readonly sun = new THREE.DirectionalLight();
   readonly hemi = new THREE.HemisphereLight();
+  /**
+   * A clear day in the season, whatever the hour or the weather: the light the river goes by when
+   * you'd rather not paddle in the dark. High in the south-west, and never moving.
+   */
+  readonly noon = (() => {
+    const sun = new THREE.DirectionalLight(new THREE.Color(DAY.sun).lerp(seasonLight.sun, seasonLight.k), DAY.sunI);
+    sun.position.set(-30, 64, 55);
+    return {
+      sun,
+      hemi: new THREE.HemisphereLight(DAY.sky, DAY.ground, DAY.hemiI),
+      fog: new THREE.Color(DAY.fog),
+      grade: new THREE.Vector3(...DAY.grade).multiply(seasonLight.grade),
+      shade: new THREE.Color(DAY.shade),
+      light: new THREE.Color(DAY.light),
+    };
+  })();
   private where = visitorLocation();
   /** To preview another time of day: ?time=22:30 (the visitor's local time, today). */
   private shift = (() => {

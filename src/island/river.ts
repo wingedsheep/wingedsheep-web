@@ -22,6 +22,8 @@ const FADE = 0.35; // seconds for the iris to close (and again to open)
 const SETTLE = 700;
 /** The river you picked last time. */
 const PICK = 'wingedsheep:river:pick';
+/** Whether you'd rather paddle on a clear day, whatever the hour and the weather outside. */
+const CALM = 'wingedsheep:river:calm';
 /** The rare ones you've seen, on any river. */
 const SPOTTED = 'wingedsheep:river:spotted';
 
@@ -150,6 +152,16 @@ export class River implements RoomInput {
   private cardAt = 0; // when the card on screen came up (ms)
   private $: Record<string, HTMLElement> = {};
   private grade = new THREE.Vector3();
+  /** The island's light as the river gets it (see run). */
+  private lit = { sun: new THREE.DirectionalLight(), hemi: new THREE.HemisphereLight(), fog: new THREE.Color() };
+  /** A clear day on the river, whatever the hour and the weather outside (the start card's switch). */
+  calm = (() => {
+    try {
+      return localStorage.getItem(CALM) === '1';
+    } catch {
+      return false;
+    }
+  })();
 
   constructor(
     private ctx: IslandContext,
@@ -198,9 +210,26 @@ export class River implements RoomInput {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.pause(true);
     });
+    const calm = this.el.querySelector<HTMLElement>('[data-river-calm]');
+    calm?.addEventListener('click', () => {
+      this.calm = !this.calm;
+      try {
+        localStorage.setItem(CALM, this.calm ? '1' : '0');
+      } catch {}
+      this.showCalm();
+    });
     this.showBest();
     this.showPicks();
     this.showLog();
+    this.showCalm();
+  }
+
+  /** The switch on the start card: out there as it is, or a clear day. */
+  private showCalm() {
+    const b = this.el.querySelector<HTMLElement>('[data-river-calm]');
+    if (!b) return;
+    b.setAttribute('aria-checked', String(this.calm));
+    b.querySelector('span')!.textContent = this.calm ? 'Always a clear day' : 'The real sky and weather';
   }
 
   /** On the start card, the rare ones you've seen so far. */
@@ -388,7 +417,7 @@ export class River implements RoomInput {
     this.card(on ? 'paused' : null);
   }
 
-  update(dt: number, night: number) {
+  update(dt: number) {
     const step = this.reducedMotion ? 1 : dt / FADE;
     if (this.want !== this.inside) {
       this.fade = Math.min(1, this.fade + step);
@@ -400,7 +429,7 @@ export class River implements RoomInput {
     const game = this.game;
     if (!this.inside || !game) return;
     try {
-      this.run(game, dt, night);
+      this.run(game, dt);
     } catch (err) {
       // never take the island down with it: out of the river, and say so
       console.error(err);
@@ -413,24 +442,54 @@ export class River implements RoomInput {
     if (this.el.dataset.device !== game.controls.device) this.el.dataset.device = game.controls.device;
   }
 
-  private run(game: RiverGame, dt: number, night: number) {
-    const w = this.ctx.weather.now;
-    game.update(dt, {
-      sun: this.ctx.sky.sun,
-      hemi: this.ctx.sky.hemi,
-      fog: (this.island.fog as THREE.Fog).color,
-      night,
-      rain: Math.min(1, w.rain + w.hail),
-      snow: w.snow,
-      fair: w.storm < 0.3 && w.rain < 0.2,
-      storm: w.storm,
-      flash: w.flash,
-      haze: w.fog,
-    });
+  private run(game: RiverGame, dt: number) {
+    const sky = this.ctx.sky;
+    const u = this.pixels.uniforms;
+    if (this.calm) {
+      // a clear day, whatever it's doing outside: the island's grade swapped for a noon one, and
+      // its rain, wind and fog kept off the water
+      const noon = sky.noon;
+      (u.uGrade.value as THREE.Vector3).copy(noon.grade);
+      u.uShade.value.copy(noon.shade);
+      u.uLight.value.copy(noon.light);
+      const sound = this.ctx.sound;
+      sound.rain = sound.hail = sound.snow = sound.wind = sound.fog = 0;
+      game.update(dt, { sun: noon.sun, hemi: noon.hemi, fog: noon.fog, night: 0, rain: 0, snow: 0, fair: true, storm: 0, flash: 0, haze: 0 });
+    } else {
+      const w = this.ctx.weather.now;
+      // the island's evening comes on early (its lamps are its clock): out on the river, lift its
+      // light back up towards the day by as much as the real sky is still lighter, keeping the
+      // colour of the evening and the weather's cloud
+      const noon = sky.noon;
+      const lift = THREE.MathUtils.clamp(sky.lamps - sky.twilight, 0, 1);
+      const cloud = 1 - w.cloud * 0.65;
+      this.lit.sun.position.copy(sky.sun.position);
+      this.lit.sun.color.copy(sky.sun.color).lerp(noon.sun.color, lift * 0.3);
+      this.lit.sun.intensity = THREE.MathUtils.lerp(sky.sun.intensity, noon.sun.intensity * cloud, lift);
+      this.lit.hemi.color.copy(sky.hemi.color).lerp(noon.hemi.color, lift * 0.4);
+      this.lit.hemi.groundColor.copy(sky.hemi.groundColor).lerp(noon.hemi.groundColor, lift * 0.6);
+      this.lit.hemi.intensity = THREE.MathUtils.lerp(sky.hemi.intensity, noon.hemi.intensity, lift);
+      const fog = (this.island.fog as THREE.Fog).color;
+      this.lit.fog.copy(fog).lerp(noon.fog, lift * 0.35).multiplyScalar(1 + lift * 0.3);
+      u.uShade.value.lerp(noon.shade, lift);
+      u.uLight.value.lerp(noon.light, lift * 0.5);
+      game.update(dt, {
+        sun: this.lit.sun,
+        hemi: this.lit.hemi,
+        fog: this.lit.fog,
+        // the real dark, not the island's lamps: still light at sundown, properly dark an hour or so after
+        night: sky.twilight,
+        rain: Math.min(1, w.rain + w.hail),
+        snow: w.snow,
+        fair: w.storm < 0.3 && w.rain < 0.2,
+        storm: w.storm,
+        flash: w.flash,
+        haze: w.fog,
+      });
+    }
     // the river's own air over the island's grade: golden and soft on the Dawdle, grey and cold
     // and dark round the edges on the big ones
     const mood = game.river.look.mood;
-    const u = this.pixels.uniforms;
     (u.uGrade.value as THREE.Vector3).multiply(this.grade.fromArray(mood.grade));
     u.uVignette.value = Math.min(1, mood.vignette + game.drama * 0.45); // (closing in over a waterfall)
     const roar = game.roar;

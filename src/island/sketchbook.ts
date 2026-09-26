@@ -36,6 +36,7 @@ const SPECIMENS = [
   ['starsheep', 'Star-marked sheep', 'A pale star in the wool. Worth a second look.'],
   ['supersheep', 'Super Sheep', 'A red cape and a rather hurried sketch.'],
   ['starlings', 'Starlings', 'One of thousands. Behind it, the rest, turning over the trees as one.'],
+  ['seal', 'Harbour seal', 'Hauled out on the warm sand, and in no hurry to be anywhere else.'],
 ] as const;
 /** The atlas is six sketches wide and seven deep; its thirty-sixth sketch is the feather, not an animal. */
 const FEATHER = 35;

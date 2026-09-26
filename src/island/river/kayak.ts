@@ -979,7 +979,7 @@ export class Kayak {
       const big = Math.max(0, Math.min(1, (this.dropHeight - 3.5) / 3));
       const tuck = this.assisted ? 1 : Math.max(0, Math.min(1, (this.pitchNow - 0.1) / (0.4 + big * 0.5)));
       const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.05) / (0.5 - big * 0.3))
-        * Math.max(0, 1 - Math.abs(this.tilt) / TIP);
+        * Math.max(0, 1 - Math.max(0, Math.abs(this.tilt) - 0.1) / (TIP - 0.1)); // (a wobble in the white water at the lip is forgiven)
       const miss = 1 - tuck * straight;
       this.pitch = 0.3 - miss * 0.4;
       this.vel.multiplyScalar(0.9 - miss * 0.4);

@@ -110,7 +110,9 @@ export async function bootIsland(host: HTMLElement) {
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
-  weather.onThunder = (distance) => sound.thunder(distance);
+  weather.onThunder = (distance) => {
+    if (!(river.inside && river.calm)) sound.thunder(distance); // (not on a clear day on the river)
+  };
   const ambience = new Ambience(scene, island, water.uniforms, reducedMotion);
   const mist = new Mist(scene, reducedMotion);
   const beacons = new Beacons(scene, island, reducedMotion);

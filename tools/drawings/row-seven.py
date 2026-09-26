@@ -1,9 +1,11 @@
 """
-Draw the starling page of the wildlife sketchbook in the atlas's pixel-pencil style (the rest of
-the atlas was generated, see wildlife-sketches.md) and add it to the sheet as a seventh row: a
-starling in its autumn coat, glossy and spangled with white, and a murmuration turning behind it.
+Draw the wildlife sketchbook's later pages in the atlas's pixel-pencil style (the first six rows
+were generated, see wildlife-sketches.md) into its seventh row, left to right:
 
-    python3 tools/drawings/starling.py
+  starlings  one in its autumn coat, glossy and spangled with white, and a murmuration behind it
+  seal       a harbour seal hauled out on the sand, head up, taking a look round
+
+    python3 tools/drawings/row-seven.py
 """
 import math
 
@@ -28,6 +30,10 @@ BUFF = (204, 180, 140)
 BEAK = (132, 116, 92)
 LEG = (136, 92, 82)
 SMUDGE = (224, 212, 186)
+# the seal's greys
+FUR = (150, 142, 140)
+PALE = (190, 182, 172)
+SPOT = (88, 82, 86)
 BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 
 
@@ -50,7 +56,7 @@ def hashed(x, y, k=0):
     return (math.sin(x * 127.1 + y * 311.7 + k * 74.7) * 43758.5453) % 1
 
 
-def draw():
+def starling():
     img = np.zeros((N, N, 3), np.uint8)
     img[:] = PAPER
     body = np.zeros((N, N), bool)   # the bird's silhouette, less beak and legs
@@ -147,17 +153,79 @@ def draw():
     return img
 
 
+def seal():
+    img = np.zeros((N, N, 3), np.uint8)
+    img[:] = PAPER
+    body = np.zeros((N, N), bool)
+    # the hind flippers, splayed and lifted a little off the sand
+    upper = [(13, 28), (7, 25), (3, 25), (4, 28), (8, 31), (13, 32)]
+    lower = [(13, 32), (4, 32), (1, 35), (3, 37), (13, 37)]
+    for y in range(N):
+        for x in range(N):
+            X, Y = x + 0.5, y + 0.5
+            if (inside_ellipse(X, Y, 24, 33, 16, 8.5, 0.04) or inside_ellipse(X, Y, 35, 27, 7.5, 8, -0.6)
+                    or inside_ellipse(X, Y, 40, 19, 6.5, 6) or inside_ellipse(X, Y, 45.5, 21.5, 3.2, 2.6)
+                    or inside_poly(X, Y, upper) or inside_poly(X, Y, lower)):
+                body[y, x] = True
+    top = np.array([np.argmax(body[:, x]) if body[:, x].any() else N for x in range(N)])
+    bottom = np.array([N - 1 - np.argmax(body[::-1, x]) if body[:, x].any() else 0 for x in range(N)])
+    # a mottled grey coat, darker on the back, paler underneath; the spots are small and many
+    for y in range(N):
+        for x in range(N):
+            if not body[y, x]:
+                continue
+            depth = (y - top[x]) / max(bottom[x] - top[x], 1) + (BAYER[y % 4][x % 4] / 16 - 0.5) * 0.35
+            img[y, x] = MID if depth < 0.22 else FUR if depth < 0.62 else PALE
+            if hashed(x, y) < (0.2 if depth < 0.62 else 0.07) and x < 43:
+                img[y, x] = SPOT
+                if hashed(x, y, 5) < 0.4 and body[y, x + 1]:
+                    img[y, x + 1] = SPOT
+    for x, y in [(37, 14), (38, 14), (39, 13), (40, 13), (32, 21), (29, 24), (26, 25), (23, 25)]:
+        if body[y, x]:
+            img[y, x] = PALE  # the light along its head and back
+    # a front flipper, tucked against its side
+    for x, y in [(31, 35), (32, 36), (33, 36), (34, 37), (35, 37), (32, 35), (33, 35)]:
+        img[y, x] = DARK
+
+    solid = np.any(img != PAPER, axis=2)
+    pad = np.pad(solid, 1)
+    edge = solid & ~(pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:])
+    img[edge & body] = INK
+    # the face: a big dark eye, a nostril, a mouth, whiskers
+    for x, y in [(41, 17), (42, 17), (41, 18), (42, 18)]:
+        img[y, x] = INK
+    img[17, 41] = CREAM
+    img[20, 47] = INK
+    img[23, 45] = img[23, 46] = SPOT
+    for x, y in [(49, 21), (50, 22), (49, 23), (51, 24)]:
+        img[y, x] = LIGHT
+    # sand under it: a scuffed line, and a pebble
+    for x in range(3, 42):
+        if hashed(x, 43, 7) < 0.55:
+            img[43, x] = SMUDGE
+    for x in range(8, 36, 3):
+        if hashed(x, 45, 8) < 0.5:
+            img[45, x] = SMUDGE
+    for x, y in [(44, 42), (45, 42), (44, 41), (45, 41)]:
+        img[y, x] = LIGHT
+    return img
+
+
+CELLS = [starling, seal]  # the seventh row, from the left
+
+
 def main():
-    art = Image.fromarray(draw()).resize((N * PX, N * PX), Image.NEAREST)
     atlas = Image.open(ATLAS).convert("RGB")
     cols, rows = atlas.width // CELL, atlas.height // CELL
     if rows < 7:  # add the seventh row, in paper
         grown = Image.new("RGB", (atlas.width, CELL * 7), PAPER)
         grown.paste(atlas, (0, 0))
         atlas = grown
-    cell = Image.new("RGB", (CELL, CELL), PAPER)
-    cell.paste(art, ((CELL - art.width) // 2, (CELL - art.height) // 2))
-    atlas.paste(cell, (0, CELL * 6))  # tile 36: the first of the seventh row
+    for column, draw in enumerate(CELLS):
+        art = Image.fromarray(draw()).resize((N * PX, N * PX), Image.NEAREST)
+        cell = Image.new("RGB", (CELL, CELL), PAPER)
+        cell.paste(art, ((CELL - art.width) // 2, (CELL - art.height) // 2))
+        atlas.paste(cell, (column * CELL, CELL * 6))
     atlas.save(ATLAS, optimize=True)
     print(f"{ATLAS}: {atlas.width}×{atlas.height}")
 
