@@ -263,6 +263,7 @@ const places = [
       <p class="river-stat river-best">best <span data-river-best>0</span></p>
       <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
     </header>
+    <div class="river-edge" data-river-edge aria-hidden="true"></div>
     <div class="river-flash" data-river-flash aria-hidden="true"></div>
     <div class="river-praise" data-river-praise aria-hidden="true"></div>
     <div class="river-gauge" data-river-gauge hidden aria-hidden="true"><i></i></div>
@@ -299,7 +300,7 @@ const places = [
         <summary>How it works</summary>
         <p class="river-hint-line" data-for="keys"><kbd>W</kbd><kbd>S</kbd> lean forward / back · <kbd>Shift</kbd> (hold) sprint · <kbd>P</kbd> pause</p>
         <p class="river-hint-line" data-for="pad"><kbd>□</kbd> (hold) sprint · Options pauses · on the cards, the d-pad moves, <kbd>✕</kbd> picks, <kbd>○</kbd> goes back</p>
-        <p class="river-hint-line">Read the water: long bright streaks are the fast line; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball.</p>
+        <p class="river-hint-line">Read the water: long bright streaks are the fast line, and arrows ride down the dark V of a tongue; a ledge's lip glows gold at the moment to boof it; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball.</p>
       </details>
       <button class="river-go" data-river-go data-autofocus>Push off</button>
       <p class="river-best-line">Your best: <span data-river-best>0</span> · quickest down: <span data-river-fastest>–</span></p>
@@ -307,7 +308,10 @@ const places = [
     <div class="river-card" data-river-card="paused" hidden>
       <h2>Paused</h2>
       <p class="river-lede">Holding on to a branch.</p>
-      <button class="river-go" data-river-resume>Carry on</button>
+      <div class="river-buttons">
+        <button class="river-go" data-river-resume>Carry on</button>
+        <button class="river-back" data-river-rivers>Rivers</button>
+      </div>
       <button class="river-leave" data-close>Back to the island</button>
     </div>
     <div class="river-card" data-river-card="over" hidden>

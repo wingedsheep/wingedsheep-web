@@ -18,6 +18,8 @@ export const MAX_HOLES = 10;
 export const MAX_TONGUES = 10;
 /** Rings spreading from the paddle's strokes, a landing, a knock, drifting off on the current. */
 export const MAX_RIPPLES = 10;
+/** …and the lips of the ledges coming up, for a horizon line you can read from upstream. */
+export const MAX_LIPS = 3;
 const ACROSS = 24; // quads across the river: enough to draw the fast core and an eddy by the bank
 const OVERLAP = 1.1; // the water reaches a little under the banks
 // the water starts to feel an island this far above its head and forgets it this far below its
@@ -57,6 +59,13 @@ export function riverWater() {
       uHoles: { value: Array.from({ length: MAX_HOLES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uTongues: { value: Array.from({ length: MAX_TONGUES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uRipples: { value: Array.from({ length: MAX_RIPPLES }, () => new THREE.Vector4(0, 0, 0, 0)) },
+      uLips: { value: Array.from({ length: MAX_LIPS }, () => new THREE.Vector4(0, 0, 0, 0)) },
+      // the river's own colours (rivers.ts: each river's look)
+      uShallow: { value: new THREE.Vector3(0.22, 0.78, 0.66) },
+      uMid: { value: new THREE.Vector3(0.05, 0.4, 0.52) },
+      uDeep: { value: new THREE.Vector3(0.03, 0.17, 0.33) },
+      // 0..1: how hot the flow's running, for a wake gone gold
+      uHeat: { value: 0 },
     },
   ]);
   const material = new THREE.ShaderMaterial({
@@ -107,6 +116,11 @@ export function riverWater() {
       uniform vec4 uHoles[${MAX_HOLES}];
       uniform vec4 uTongues[${MAX_TONGUES}];
       uniform vec4 uRipples[${MAX_RIPPLES}];
+      uniform vec4 uLips[${MAX_LIPS}]; // x, z, height, 0..1 the kayak in the window to boof (or tuck) it
+      uniform vec3 uShallow;
+      uniform vec3 uMid;
+      uniform vec3 uDeep;
+      uniform float uHeat;
       varying vec3 vWorld;
       varying vec4 vRiver;
       varying vec4 vMore;
@@ -212,6 +226,7 @@ export function riverWater() {
 
         // tongues: a smooth V of dark, glassy water through a gap, pointing downstream, and faster
         float calm = 0.0;
+        float chevron = 0.0;
         for (int k = 0; k < ${MAX_TONGUES}; k++) {
           vec4 g = uTongues[k];
           if (g.z <= 0.0) continue;
@@ -220,17 +235,41 @@ export function riverWater() {
           // (its edges ragged, and fading out at either end, so it never shows as a hard triangle)
           float w = g.z * clamp((2.5 - a) / 5.5, 0.0, 1.0) * smoothstep(-3.4, -1.4, a) + (noise(p * 2.0) - 0.5) * 0.35;
           float ends = smoothstep(-3.0, -1.8, a) * (1.0 - smoothstep(1.2, 2.5, a));
-          calm = max(calm, step(abs(dot(dd, right)), w) * step(0.5, ends + (noise(p * 3.0) - 0.5) * 0.4));
+          float inV = step(abs(dot(dd, right)), w) * step(0.5, ends + (noise(p * 3.0) - 0.5) * 0.4);
+          calm = max(calm, inV);
+          // faint arrows riding down it, pointing the way: this is the line
+          float v = fract((a + abs(dot(dd, right)) * 0.9 - uTime * 3.2) / 1.7);
+          chevron = max(chevron, inV * step(v, 0.1) * step(abs(dot(dd, right)), g.z * 0.8));
         }
+        // above a ledge, the water smooths out and speeds up into a glassy horizon line, the lip
+        // itself a bright edge: gold when now's the time to boof it (white for a waterfall's tuck)
+        float glass = 0.0;
+        float lipLine = 0.0;
+        float lipCue = 0.0;
+        float lipBig = 0.0;
+        for (int k = 0; k < ${MAX_LIPS}; k++) {
+          vec4 l = uLips[k];
+          if (l.z <= 0.0) continue;
+          float a = dot(wp - l.xy, dir);
+          if (a < -4.5 || a > 0.3) continue;
+          float edge = (noise(p * 1.7) - 0.5) * 0.25;
+          glass = max(glass, smoothstep(-4.5 - l.z * 0.4, -1.2, a) * step(a, edge));
+          float line = step(-0.3 - step(0.9, l.w) * 0.3, a - edge) * step(a - edge, 0.0);
+          lipLine = max(lipLine, line);
+          // (and a glow over the glassy water leading up to it)
+          lipCue = max(lipCue, max(line, smoothstep(-2.4, 0.0, a - edge) * step(a - edge, 0.0) * 0.45) * l.w);
+          lipBig = max(lipBig, step(3.0, l.z) * line);
+        }
+        calm = max(calm, glass * 0.8);
         along += calm * 2.2;
         rough *= (1.0 - calm) * (1.0 - eddy * 0.75);
         float fast = clamp(along / 8.0, 0.0, 1.0);
 
         // --- the colour: the island sea's palette. Turquoise in the shallows by the banks and over
         // the gravel of a slow pool, deepening to blue where it's deep and running hard
-        vec3 shallow = mix(vec3(0.22, 0.78, 0.66), vec3(0.42, 0.72, 0.5), clear * 0.5);
-        vec3 mid = vec3(0.05, 0.40, 0.52);
-        vec3 deep = vec3(0.03, 0.17, 0.33);
+        vec3 shallow = mix(uShallow, uShallow * vec3(1.6, 0.92, 0.76), clear * 0.5);
+        vec3 mid = uMid;
+        vec3 deep = uDeep;
         float t = clamp(depth * (0.7 - clear * 0.35) + fast * 0.35 + (noise(p * 0.12) - 0.5) * 0.1, 0.0, 1.0);
         vec3 col = mix(shallow, mid, smoothstep(0.0, 0.35, t));
         col = mix(col, deep, smoothstep(0.45, 1.0, t));
@@ -278,6 +317,8 @@ export function riverWater() {
         col = mix(col, mix(col, light, 0.5 + fast * 0.2), step(0.5, dash));
         col = mix(col, col * 0.84, step(dash, -0.5));
 
+        col = mix(col, mix(col, vec3(0.75, 0.95, 1.0), 0.45), chevron * (1.0 - uNight * 0.5));
+
         // eddy lines: a seam of froth where the still water meets the current
         float seam = 1.0 - smoothstep(0.05, 0.12, abs(eddy - 0.4));
         col = mix(col, vec3(0.9, 0.96, 0.95), seam * step(0.4, noise(p * 2.2 + drift * 4.0)));
@@ -309,6 +350,12 @@ export function riverWater() {
         float pour = step(0.35, noise(vec2(u * 12.0, s * 2.0 - uTime * 14.0)));
         col = mix(col, mix(vec3(0.82, 0.93, 0.95), vec3(1.0), pour), drop);
 
+        // the lip: a bright edge, pulsing gold in the moment to boof it
+        float pulse = 0.75 + 0.25 * sin(uTime * 18.0);
+        vec3 cue = mix(vec3(1.0, 0.72, 0.16), vec3(0.8, 1.0, 1.0), lipBig);
+        col = mix(col, vec3(0.86, 0.96, 1.0), lipLine * 0.75);
+        col = mix(col, cue * 1.35, lipCue * pulse);
+
         // foam along the banks, as round the island: a line hugging the edge and a second one
         // breathing in and out
         float breathe = sin(uTime * 1.1 + s * 0.2) * 0.012;
@@ -333,7 +380,7 @@ export function riverWater() {
           float fade = 1.0 - clamp(a / len, 0.0, 1.0);
           float speck = hash(p + floor(uTime * 6.0));
           float wake = step(0.0, a) * step(arm, 0.12) * step(speck, fade * fade * 0.9);
-          col = mix(col, vec3(0.88, 0.96, 0.95), wake);
+          col = mix(col, mix(vec3(0.88, 0.96, 0.95), vec3(1.0, 0.8, 0.35), uHeat * step(0.5, hash(p * 1.3 + floor(uTime * 8.0)))), wake);
         }
         for (int k = 0; k < ${MAX_RIPPLES}; k++) {
           vec4 r = uRipples[k];

@@ -37,41 +37,48 @@ function banner(s: Stretch, index: number) {
   }
 }
 
-/** How to deal with each thing, the first time it comes up, for whatever's in your hands. Short: you're busy. */
+/**
+ * How to deal with each thing, the first time it comes up, for whatever's in your hands. Short:
+ * you're busy. [Keys] in brackets show as key caps.
+ */
 const HINTS: Record<Hint, Record<Device, string>> = {
-  paddle: { keys: 'Hold ↑ to paddle', pad: 'Hold L2 and R2 to paddle', touch: 'Hold both sides of the screen to paddle' },
+  paddle: { keys: 'Hold [↑] to paddle', pad: 'Hold [L2] and [R2] to paddle', touch: 'Hold both sides of the screen to paddle' },
   steer: {
-    keys: 'A or D alone turns you. Q / E brakes',
-    pad: 'One trigger alone turns you. L1 / R1 brakes',
+    keys: '[A] or [D] alone turns you. [Q] / [E] brakes',
+    pad: 'One trigger alone turns you. [L1] / [R1] brakes',
     touch: 'Hold one side to turn away from it',
   },
-  lean: { keys: 'She’s tipping: lean against it with ← / →', pad: 'She’s tipping: lean against it with the stick', touch: '' },
-  brace: { keys: 'Going over! Space to brace', pad: 'Going over! ✕ to brace', touch: 'Going over! Tap low down on that side' },
+  lean: { keys: 'She’s tipping: lean against it with [←] / [→]', pad: 'She’s tipping: lean against it with the stick', touch: '' },
+  brace: { keys: 'Going over! [Space] to brace', pad: 'Going over! [✕] to brace', touch: 'Going over! Tap low down on that side' },
   boof: {
-    keys: 'A ledge: a hard stroke right at the lip',
-    pad: 'A ledge: a hard stroke right at the lip',
-    touch: 'A ledge: paddle hard right at the lip',
+    keys: 'A ledge! Stroke hard as the lip lights up gold',
+    pad: 'A ledge! Stroke hard as the lip lights up gold',
+    touch: 'A ledge! Paddle hard as the lip lights up gold',
   },
   falls: {
-    keys: 'A waterfall! Lean forward (W) as you go over',
-    pad: 'A waterfall! Stick forward as you go over',
-    touch: 'A waterfall! Hold on tight',
+    keys: 'A waterfall! Go over straight, leaning forward [W]',
+    pad: 'A waterfall! Go over straight, stick forward',
+    touch: 'A waterfall! Go over it straight',
   },
   hole: {
-    keys: 'In a hole! Lean forward (W) and paddle hard',
+    keys: 'In a hole! Lean forward [W] and paddle hard',
     pad: 'In a hole! Stick forward and paddle hard',
     touch: 'In a hole! Keep paddling',
   },
   roll: {
-    keys: 'Upside down! Space when the needle’s in the gap',
-    pad: 'Upside down! ✕ when the needle’s in the gap',
+    keys: 'Upside down! [Space] when the needle’s in the gap',
+    pad: 'Upside down! [✕] when the needle’s in the gap',
     touch: 'Upside down! Tap when the needle’s in the gap',
   },
-  tongue: { keys: 'The dark V between rocks is the fast line', pad: 'The dark V between rocks is the fast line', touch: 'The dark V between rocks is the fast line' },
+  tongue: {
+    keys: 'Follow the arrows: the dark V between rocks is the fast line',
+    pad: 'Follow the arrows: the dark V between rocks is the fast line',
+    touch: 'Follow the arrows: the dark V between rocks is the fast line',
+  },
   eddy: { keys: 'Tuck in behind a rock and stop: an eddy', pad: 'Tuck in behind a rock and stop: an eddy', touch: 'Tuck in behind a rock and stop: an eddy' },
   sprint: {
-    keys: 'Hold Shift to dig in, while your breath lasts',
-    pad: 'Hold □ to dig in, while your breath lasts',
+    keys: 'Hold [Shift] to dig in, while your breath lasts',
+    pad: 'Hold [□] to dig in, while your breath lasts',
     touch: 'Hold Sprint to dig in, while your breath lasts',
   },
   ball: { keys: 'Beike’s tennis balls! Paddle over them', pad: 'Beike’s tennis balls! Paddle over them', touch: 'Beike’s tennis balls! Paddle over them' },
@@ -140,7 +147,7 @@ export class River implements RoomInput {
     private island: THREE.Scene,
   ) {
     this.el = document.querySelector<HTMLElement>('[data-panel="river"]')!;
-    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'praise', 'flash', 'sprint', 'sprint-go']) {
+    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'praise', 'flash', 'edge', 'sprint', 'sprint-go']) {
       this.$[name] = this.el.querySelector<HTMLElement>(`[data-river-${name}]`)!;
     }
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-go]')) b.addEventListener('click', () => this.go());
@@ -149,7 +156,8 @@ export class River implements RoomInput {
       this.select(this.pick + 1);
       this.go();
     });
-    this.el.querySelector('[data-river-rivers]')?.addEventListener('click', () => {
+    // back to the rivers: after a run, or giving up on this one from the pause card
+    for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-rivers]')) b.addEventListener('click', () => {
       this.again();
       this.card('ready');
     });
@@ -369,7 +377,8 @@ export class River implements RoomInput {
       snow: w.snow,
       fair: w.storm < 0.3 && w.rain < 0.2,
     });
-    this.ctx.sound.riverWater(true, game.state === 'ready' ? 0.2 : game.rough, game.tally.speed);
+    const roar = game.roar;
+    this.ctx.sound.riverWater(true, game.state === 'ready' ? 0.2 : game.rough, game.tally.speed, roar.level, roar.near);
     this.hud(game.tally);
     this.follow(game);
   }
@@ -413,7 +422,7 @@ export class River implements RoomInput {
     game.controls.onBack = () => {
       const card = this.shownCard()?.dataset.riverCard;
       if (card === 'paused') this.pause(false);
-      else if (card === 'over') this.el.querySelector<HTMLElement>('[data-river-rivers]')?.click();
+      else if (card === 'over') this.shownCard()?.querySelector<HTMLElement>('[data-river-rivers]')?.click();
       else if (card === 'ready') this.ui.back();
     };
     game.events = {
@@ -508,8 +517,15 @@ export class River implements RoomInput {
   private hint(text: string) {
     if (!text) return;
     const el = this.$.hint;
-    el.textContent = text;
+    // [W] as a key cap
+    el.replaceChildren(...text.split(/\[(.+?)\]/).map((part, i) => {
+      if (i % 2 === 0) return part;
+      const k = document.createElement('kbd');
+      k.textContent = part;
+      return k;
+    }));
     el.hidden = false;
+    this.bounce(el, 'in');
     this.hintTimer = 4.5;
   }
 
@@ -614,6 +630,12 @@ export class River implements RoomInput {
     }
     this.$['sprint-go'].hidden = !running;
     this.$['sprint-go'].classList.toggle('spent', !k.sprinting && k.wind < 0.2);
+    // the edges of the picture: red, throbbing, as she tips towards going over; warm gold while the
+    // flow's running hot
+    const danger = running && k.balance !== 'rolling' && k.balance !== 'swimming' ? THREE.MathUtils.clamp((Math.abs(k.tilt) - 0.5) / (TIP - 0.5), 0, 1) : 0;
+    const edge = this.$.edge;
+    edge.style.setProperty('--danger', danger.toFixed(2));
+    edge.style.setProperty('--hot', (running ? THREE.MathUtils.clamp((game.tally.flow - 2) / 2.5, 0, 1) : 0).toFixed(2));
     // the flash
     this.$.flash.style.opacity = String(game.flash.amount * 0.6);
     this.$.flash.style.background = `#${game.flash.color.getHexString()}`;

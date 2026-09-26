@@ -20,6 +20,7 @@ const WET = C('#a88457');
 const PEBBLES = ['#8c7f86', '#7d7483', '#a09aa2'].map(C);
 const CLIFF = ['#6a5d6e', '#827485', '#9a8d9c', '#5d5063'].map(C);
 const BED = C('#6a5a44');
+const SNOW = C('#e9f0f7');
 /** Beike's tennis balls: bigger than life and a touch brighter, so you can spot one from upstream. */
 const BALL = C('#e2ee3a');
 const BALL_SIZE = 1.6;
@@ -61,6 +62,7 @@ function dropTile(mesh: THREE.Mesh) {
 /** …and of a chunk's water and leaves (every chunk grows its own). */
 function dropChunk(chunk: Chunk) {
   chunk.water.geometry.dispose();
+  for (const m of chunk.springs) m.geometry.dispose();
   // (the batches share their geometry and materials with the templates: only the instances go)
   for (const b of chunk.batches) b.dispose();
   if (!chunk.foliage) return;
@@ -96,6 +98,11 @@ interface Chunk {
   foliage?: THREE.InstancedMesh;
   /** Its scenery, folded into one instanced mesh per part (see Land.batch). */
   batches: THREE.InstancedMesh[];
+  /** The side streams spilling down its walls: their ribbons, and where each lands in the river. */
+  springs: THREE.Mesh[];
+  feet: THREE.Vector3[];
+  /** A rainbow in the mist under a waterfall. */
+  rainbows: THREE.Sprite[];
 }
 
 /**
@@ -115,6 +122,11 @@ export class Land {
   private ballGlow: THREE.SpriteMaterial;
   private ballRing = new THREE.MeshBasicMaterial({ color: C('#fdfbe0'), transparent: true, depthWrite: false, fog: false });
   private ringShape = new THREE.RingGeometry(0.62, 0.78, 20).rotateX(-Math.PI / 2);
+  /** The side streams' pouring water (in time with the river's), and the rainbows' arcs. */
+  private spring: THREE.ShaderMaterial;
+  private rainbow = new THREE.SpriteMaterial({ map: rainbowTexture(), transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
+  /** What this river looks like (rivers.ts). */
+  private look: Course['profile']['look'];
   /** Every chunk's animal spots, for the wildlife to take up. */
   onSpots?: (spots: Spot[]) => void;
   onDrop?: (chunk: number) => void;
@@ -127,6 +139,8 @@ export class Land {
   ) {
     this.halo = halo;
     this.crowns = crownMaterials();
+    this.look = course.profile.look;
+    this.spring = springMaterial((water as THREE.ShaderMaterial).uniforms);
     this.ballGlow = new THREE.SpriteMaterial({ map: halo, color: C('#f2ff5a'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
   }
 
@@ -198,6 +212,11 @@ export class Land {
     }
   }
 
+  /** Where the side streams in view land in the river, for their spray. */
+  *feet() {
+    for (const chunk of this.chunks.values()) yield* chunk.feet;
+  }
+
   /** The mesh standing for a rock, log or ball, if its chunk is built. */
   meshOf(thing: object) {
     for (const chunk of this.chunks.values()) {
@@ -208,7 +227,8 @@ export class Land {
   }
 
   /** How bright the lanterns and windows are (0 by day … 1 at night). */
-  glow(night: number, time: number) {
+  glow(night: number, time: number, sunny = 1) {
+    this.rainbow.opacity = (1 - night) * sunny * (0.4 + Math.sin(time * 0.7) * 0.08);
     for (const chunk of this.chunks.values()) {
       for (const g of chunk.glows) {
         (g.material as THREE.SpriteMaterial).opacity = night * (0.85 + Math.sin(time * 9 + g.id) * 0.08);
@@ -230,7 +250,7 @@ export class Land {
   /** Height and colour of the ground at (x, z). */
   heightAt(x: number, z: number, color?: THREE.Color) {
     const { sample: p, d, side } = this.course.nearest(x, z);
-    const h = shape(p, d - p.width / 2, x, z, color);
+    const h = shape(p, d - p.width / 2, x, z, color, this.look.snow);
     if (p.isle <= 0 || h > p.y) return h;
     return island(p, this.course.splitAt(p.s)?.kind ?? 'isle', p.isle - Math.abs(side - p.isleU), h, x, z, color);
   }
@@ -298,7 +318,7 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
@@ -351,6 +371,7 @@ export class Land {
     // and the finish, on both banks by the bridge
     if (course.finish >= s0 && course.finish < s1) for (const side of [-1, 1]) this.post(chunk, course.finish - 4, r, 'FINISH', side);
     this.banks(chunk, s0, s1, r);
+    this.springs(chunk, s0, s1, rng(course.seed * 104729 + c));
     this.islands(chunk, s0, s1, r);
     if (chunk.canopies.length) {
       chunk.foliage = createFoliage(chunk.canopies, group);
@@ -372,7 +393,7 @@ export class Land {
    */
   private batch(chunk: Chunk) {
     const { group } = chunk;
-    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows]);
+    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows, ...chunk.springs, ...chunk.rainbows]);
     for (const [thing, m] of chunk.things) {
       const kind = (thing as Partial<Obstacle>).kind;
       if (kind !== 'rock' && kind !== 'log') keep.add(m);
@@ -460,6 +481,16 @@ export class Land {
         chunk.group.add(m);
       }
     }
+    // a waterfall throws up a mist, and on a sunny day a rainbow hangs in it
+    if (height >= 3) {
+      const foot = this.course.at(s + 7);
+      const bow = new THREE.Sprite(this.rainbow);
+      bow.position.set(foot.x, foot.y + 2.5, foot.z);
+      bow.scale.set(foot.width * 1.1, foot.width * 0.55, 1);
+      bow.renderOrder = 2;
+      chunk.group.add(bow);
+      chunk.rainbows.push(bow);
+    }
   }
 
   /** Where a point `e` metres past the edge on one side of sample s is, or null if that's water. */
@@ -539,6 +570,14 @@ export class Land {
       m.scale.x = (p.width + 3) / span;
       chunk.group.add(m);
       this.glowAt(chunk, m);
+      // the take-out's bridge is dressed for it
+      if (Math.abs(s - this.course.finish) < 1 && this.assets.has('bunting')) {
+        const b = this.assets.clone('bunting');
+        b.position.copy(m.position);
+        b.rotation.y = m.rotation.y;
+        b.scale.x = m.scale.x;
+        chunk.group.add(b);
+      }
       // the trestles stand in the water: things to steer between
       for (const u of [-5, 5]) {
         const off = (u / span) * (p.width + 3);
@@ -623,6 +662,40 @@ export class Land {
   }
 
   /**
+   * Now and then in a gorge, a side stream finds the edge and spills down the wall into the river:
+   * a ribbon of white water following the rock down, with a fern or two at the top where it comes
+   * out of the forest, and spray where it lands.
+   */
+  private springs(chunk: Chunk, s0: number, s1: number, r: () => number) {
+    for (let s = s0; s < s1; s += 2) {
+      const p = this.course.at(s);
+      if (p.gorge < 0.55 || p.drop > 0 || r() > 0.012 * this.look.springs) continue;
+      const side = r() < 0.5 ? -1 : 1;
+      const width = 1.3 + r() * 0.9;
+      // down the face, from the top of the wall to just under the water
+      const path: THREE.Vector3[] = [];
+      for (let e = 3.4; e >= -0.5; e -= 0.3) {
+        const at = this.beside(s, side, Math.max(0.05, e));
+        if (!at) break;
+        const out = e < 0.05 ? (0.05 - e) : 0;
+        const x = at.x - Math.cos(p.a) * side * out;
+        const z = at.z - Math.sin(p.a) * side * out;
+        // (lifted clear of the rock, and leaning out over the water a little as it falls)
+        path.push(new THREE.Vector3(x - Math.cos(p.a) * side * 0.3, Math.max(p.y - 0.05, at.y) + 0.2, z - Math.sin(p.a) * side * 0.3));
+      }
+      if (path.length < 10 || path[0].y - p.y < 2.2) continue;
+      const mesh = springRibbon(path, p.a, width, this.spring);
+      chunk.group.add(mesh);
+      chunk.springs.push(mesh);
+      chunk.feet.push(path[path.length - 1].clone().setY(p.y));
+      const top = path[0];
+      this.put(chunk, 'fern', { x: top.x + Math.sin(p.a) * width, y: top.y - 0.1, z: top.z - Math.cos(p.a) * width }, r() * 6.3, 0.8);
+      this.put(chunk, r() < 0.5 ? 'fern' : `bush_${Math.floor(r() * 2)}`, { x: top.x - Math.sin(p.a) * width, y: top.y - 0.1, z: top.z + Math.cos(p.a) * width }, r() * 6.3, 0.7);
+      s += 14; // (not two side by side)
+    }
+  }
+
+  /**
    * Thick mixed forest down to the water on both banks: pines and broadleaves, ferns and bushes
    * underneath, mossy boulders, reeds at the edges of the slow pools and lily pads on them, and
    * crags along the tops of the gorges. And the places animals will be.
@@ -637,8 +710,8 @@ export class Land {
           const e = e0 + p.gorge * 2.5 + r() * (e1 - e0);
           const at = this.beside(s, side, e);
           if (!at) continue;
-          const pine = r() < 0.45 + p.gorge * 0.3 + Math.min(0.3, e / 100);
-          const kind = pine ? `pine_${Math.floor(r() * 3)}` : r() < 0.15 ? `birch_${Math.floor(r() * 2)}` : `tree_${Math.floor(r() * 3)}`;
+          const pine = r() < this.look.pines + p.gorge * 0.3 + Math.min(0.3, e / 100);
+          const kind = pine ? `pine_${Math.floor(r() * 3)}` : r() < this.look.birch ? `birch_${Math.floor(r() * 2)}` : `tree_${Math.floor(r() * 3)}`;
           this.put(chunk, kind, at, r() * Math.PI * 2, (0.85 + r() * 0.5) * (e < 6 ? 0.85 : 1));
         }
         // the undergrowth: ferns and bushes, thickest near the water
@@ -658,7 +731,7 @@ export class Land {
         // wildflowers in the clearings, toadstools and old stumps under the trees, a fallen trunk
         // gone green with moss, and somebody's cairn on a beach
         const open = 1 - p.gorge * 0.7;
-        if (r() < 0.1 * open) {
+        if (r() < 0.1 * open * this.look.meadow) {
           const at = this.beside(s, side, 0.8 + Math.pow(r(), 1.3) * 10);
           if (at) this.put(chunk, `flowers_${Math.floor(r() * 3)}`, at, r() * 6.3, 0.8 + r() * 0.5);
         }
@@ -680,7 +753,7 @@ export class Land {
         }
         // reeds at the edges of the slow water, lily pads on it, a willow trailing its hair in it
         const slow = Math.max(0, 1 - p.speed / 4.5);
-        if (r() < 0.025 * p.clear * (0.3 + slow)) {
+        if (r() < 0.025 * p.clear * (0.3 + slow) * Math.min(2, this.look.meadow)) {
           const at = this.beside(s, side, 0.4 + r() * 1.2);
           if (at) this.put(chunk, 'willow', at, toRiver(side, p.a) + (r() - 0.5) * 0.6, 0.85 + r() * 0.3);
         }
@@ -688,7 +761,7 @@ export class Land {
           const at = this.beside(s, side, -0.2 + r() * 0.8);
           if (at) this.put(chunk, `reeds_${Math.floor(r() * 2)}`, { ...at, y: Math.max(at.y, p.y) }, r() * 6.3);
         }
-        if (r() < slow * p.clear * 0.06) {
+        if (r() < slow * p.clear * 0.06 * Math.min(2, this.look.meadow)) {
           const u = side * (0.62 + r() * 0.3) * (p.width / 2);
           const m = this.assets.clone(`lily_${Math.floor(r() * 2)}`);
           m.position.set(p.x + Math.cos(p.a) * u, p.y + 0.01, p.z + Math.sin(p.a) * u);
@@ -710,6 +783,8 @@ export class Land {
         else if (slow && pick < 0.12) add('ducks', -1.8);
         else if (p.gorge < 0.5 && pick < 0.16) add('deer', 0.8);
         else if (slow && pick < 0.24) add('fish', -p.width * 0.3);
+        // on a meadow river, sheep grazing the open banks
+        else if (this.look.meadow > 1 && p.gorge < 0.3 && pick < 0.2 + this.look.meadow * 0.07) add('sheep', 4 + r() * 6);
       }
     }
   }
@@ -720,12 +795,15 @@ export class Land {
  * character of the river at sample p. Far from the water it all settles into the same rolling
  * country, so neighbouring stretches meet without a seam.
  */
-function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color) {
+function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color, snow = 0) {
   const n = fbm(x, z);
   const { clear, gorge } = p;
+  // the bank shelves steadily through the waterline rather than stepping up out of it, so the
+  // water's edge follows the bank and not the ground's triangles
+  const shelf = p.y + 0.04 + e * 0.6;
   if (e < 0) {
     color?.copy(BED);
-    return p.y - 0.45 - Math.min(1.4, -e * 0.35);
+    return Math.max(p.y - 0.45 - Math.min(1.4, -e * 0.35), shelf);
   }
   // a mossy bank, a pebbly beach by the pools, or a gorge's walls; and beyond, the valley's
   // sides climbing away into the mountains, lumpy with hills
@@ -736,7 +814,8 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color) 
   const beach = p.y + 0.06 + Math.min(0.6, e * 0.1) + hills * 0.85;
   const wall = p.y + 0.2 + smooth(0.2, 2.4, e) * (6 + n * 2.5) + hills;
   const soft = bank + (beach - bank) * smooth(0.4, 0.9, clear);
-  const h = soft + (wall - soft) * gorge;
+  const land = soft + (wall - soft) * gorge;
+  const h = land + (Math.min(shelf, land) - land) * (1 - smooth(0.4, 1.2, e));
 
   if (color) {
     const k = hash2(Math.floor(x), Math.floor(z));
@@ -752,6 +831,8 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color) 
     }
     // bare rock showing through high on the valley's sides
     if (e > 30 && n > 0.62) color.lerp(CLIFF[Math.floor(k * 4)], 0.7);
+    // and up there, on a cold river, snow
+    if (snow > 0) color.lerp(SNOW, snow * smooth(15 - n * 6, 19 - n * 6, h - p.y + (k - 0.5) * 1.5));
   }
   return h;
 }
@@ -762,19 +843,20 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color) 
  * on a wooded island; a gravel bar only just clears the water.
  */
 function island(p: Sample, kind: Split['kind'], e: number, h: number, x: number, z: number, color?: THREE.Color) {
-  if (e < 0) return Math.max(h, p.y - 0.4 - Math.min(1.4, -e * 0.45));
+  const shelf = p.y + 0.04 + e * 0.6;
+  if (e < 0) return Math.max(h, p.y - 0.4 - Math.min(1.4, -e * 0.45), shelf);
   const n = fbm(x, z);
   const k = hash2(Math.floor(x), Math.floor(z));
   if (kind === 'bar') {
     color?.copy(e < 0.4 ? WET : PEBBLES[Math.floor(k * 3)]).lerp(SAND[1], p.clear * 0.3 * k);
-    return p.y + 0.14 + Math.min(0.22, e * 0.1) + (n - 0.5) * 0.08;
+    return Math.min(shelf, p.y + 0.14 + Math.min(0.22, e * 0.1) + (n - 0.5) * 0.08);
   }
   if (color) {
     if (e < 0.25) color.copy(WET);
     else if (e < 1.4 || p.isle < 2) color.copy(PEBBLES[Math.floor(k * 3)]);
     else color.copy(e < 2.6 ? MOSS[Math.max(0, Math.min(4, Math.floor(n * 4.99)))] : FOREST_FLOOR[Math.max(0, Math.min(3, Math.floor(n * 3.99 + (k - 0.5))))]);
   }
-  return p.y + 0.2 + smooth(0.3, 2.2, e) * 0.9 + smooth(1.5, 4, e) * (n - 0.3) * 1.2;
+  return Math.min(shelf, p.y + 0.2 + smooth(0.3, 2.2, e) * 0.9 + smooth(1.5, 4, e) * (n - 0.3) * 1.2);
 }
 
 /** The turn for a model whose +x should point out from the bank on `side` across the river. */
@@ -820,4 +902,107 @@ function signMaterial(text: string) {
   mat = new THREE.MeshToonMaterial({ map: tex });
   signs.set(text, mat);
   return mat;
+}
+
+/**
+ * A side stream's water, pouring down a gorge wall: bright broken stripes running down it, glassy
+ * where it comes over the top, its edges ragged. It keeps time and light with the river's water.
+ */
+function springMaterial(river: Record<string, THREE.IUniform>) {
+  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uLight: { value: new THREE.Color() } }]);
+  uniforms.uTime = river.uTime;
+  uniforms.uLight = river.uLight;
+  return new THREE.ShaderMaterial({
+    uniforms,
+    fog: true,
+    side: THREE.DoubleSide,
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      #include <fog_pars_vertex>
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform vec3 uLight;
+      varying vec2 vUv; // across (0..1), metres down from the top
+      #include <fog_pars_fragment>
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+      }
+      void main() {
+        vec2 p = floor(vec2(vUv.x * 7.0, vUv.y * 6.0));
+        float across = abs(vUv.x - 0.5) * 2.0;
+        float edge = 0.78 + 0.22 * noise(vec2(p.y * 0.6 - uTime * 7.0, p.x * 0.3 + 3.0));
+        if (across > edge) discard;
+        float pour = noise(vec2(p.x * 1.4, p.y * 0.4 - uTime * 10.0));
+        vec3 col = mix(vec3(0.55, 0.8, 0.88), vec3(0.95, 1.0, 1.0), step(0.42, pour));
+        col = mix(vec3(0.2, 0.48, 0.58), col, smoothstep(0.1, 0.9, vUv.y));
+        gl_FragColor = vec4(col * uLight, 1.0);
+        #include <colorspace_fragment>
+        #include <fog_fragment>
+      }
+    `,
+  });
+}
+
+/** The ribbon a side stream pours down: along `path` (top to bottom), `width` across the river's line (heading a). */
+function springRibbon(path: THREE.Vector3[], a: number, width: number, material: THREE.Material) {
+  const tx = Math.sin(a);
+  const tz = -Math.cos(a);
+  const pos = new Float32Array(path.length * 6);
+  const uv = new Float32Array(path.length * 4);
+  let down = 0;
+  path.forEach((q, i) => {
+    if (i) down += q.distanceTo(path[i - 1]);
+    // (spreading out a little as it falls)
+    const w = (width / 2) * (1 + (i / path.length) * 0.5);
+    pos.set([q.x - tx * w, q.y, q.z - tz * w, q.x + tx * w, q.y, q.z + tz * w], i * 6);
+    uv.set([0, down, 1, down], i * 4);
+  });
+  const index: number[] = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    const k = i * 2;
+    index.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setIndex(index);
+  geo.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.raycast = () => {};
+  return mesh;
+}
+
+/** A rainbow's arc, a pixel wide per colour, for the mist under a waterfall. */
+function rainbowTexture() {
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 32;
+  const g = c.getContext('2d')!;
+  const bands = ['#ff5a4a', '#ff9a3c', '#ffe25a', '#6fd06a', '#5ab0ff', '#8a6aff'];
+  const img = g.createImageData(64, 32);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 64; x++) {
+      const band = Math.floor(30.5 - Math.hypot(x + 0.5 - 32, 32 - y));
+      if (band < 0 || band >= bands.length) continue;
+      const col = new THREE.Color(bands[band]);
+      // fading out towards the ends of the arc, where it meets the mist
+      const fade = Math.min(1, (32 - y) / 14);
+      img.data.set([col.r * 255, col.g * 255, col.b * 255, 255 * fade * 0.7], (y * 64 + x) * 4);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }

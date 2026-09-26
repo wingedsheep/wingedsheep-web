@@ -572,6 +572,10 @@ export class Course {
           ['falls', s > pr.falls ? 0.5 + d : 0],
         ]);
       }
+      // what the river's known for, if it's not come up yet: now and then after a breather, and
+      // for certain once the take-out's getting close
+      const owed = pr.signature.find((k) => s > (k === 'falls' ? pr.falls : pr.cascades) && !this.stretches.some((x) => x.kind === k));
+      if (owed && s > pr.length - 900) kind = owed;
       if (easy(kind)) {
         heat = 0.15 + d * 0.4;
         [lo, hi] = kind === 'pool' ? [40, 60] : [70 + (1 - d) * 40, 100 + (1 - d) * 50];

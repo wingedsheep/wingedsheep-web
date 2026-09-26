@@ -51,6 +51,11 @@ preview-career scene="student":
     blender -b --factory-startup -P tools/models/build.py -- --only career --scene {{scene}} --preview /tmp/career-preview.png
     open /tmp/career-preview.png
 
+# can every river be got down without touching anything? (e.g. just validate-rivers --seeds 1000, or --river black --seed 195 for a map)
+validate-rivers *args:
+    @npx esbuild tools/rivers/validate.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/validate-rivers.mjs"
+    @node "${TMPDIR:-/tmp}/validate-rivers.mjs" {{args}}
+
 # typecheck
 check:
     npx astro check

@@ -35,7 +35,7 @@ const OVER = 1.45;
 /** A brace this far over (and still up) is a perfect one. */
 const PERFECT = 1.0;
 /** A boof: the stroke has to catch this close (s) before the lip. */
-const BOOF_WINDOW = 0.45;
+export const BOOF_WINDOW = 0.45;
 /** A reverse sweep tapped this long before the stroke in the water finishes still follows it. */
 const BUFFER = 0.18;
 
@@ -63,9 +63,9 @@ export interface KayakEvents {
   /**
    * Off a drop. A ledge wants a boof (a stroke at the lip, not leaning forward): land flat and
    * fast, or go in nose first ('pencil'). A waterfall wants the opposite: tuck forward and knife
-   * in, or land flat on your back ('flat'), which hurts.
+   * in straight, or land flat on your back ('flat') or skewed across it ('skew'), which hurts.
    */
-  ledge?(how: 'boof' | 'pencil' | 'tuck' | 'flat', height: number): void;
+  ledge?(how: 'boof' | 'pencil' | 'tuck' | 'flat' | 'skew', height: number): void;
   /** A brace that saved it; perfect when it came right at the last moment. */
   brace?(perfect: boolean, side: number): void;
   /** Leaning past the point of no return: brace! */
@@ -158,6 +158,7 @@ export class Kayak {
   private lastCatch = -9;
   private boofing = false;
   private dropHeight = 0; // the drop being flown off, as built
+  private lipSkew = 0; // how far off the river's line the bow pointed going over the lip
   private pitchNow = 0; // leaning forward (+) or back (-)
   private leanNow = 0;
   private punchedHoles = new WeakSet<Hole>();
@@ -168,7 +169,8 @@ export class Kayak {
   private flip = 0; // 0 upright … 1 upside down (the model)
   private inTongue: Tongue | null = null;
   private skipHole: Hole | null = null;
-  private shaved = new WeakSet<Obstacle>();
+  private shaved = new WeakSet<Obstacle>(); // hit, or already credited: no (more) shave for these
+  private skimmed = new WeakSet<Obstacle>(); // inches to spare, but not past it yet
   /** Up against a rock or a log (this step), and how long it's been held there, going nowhere. */
   private touching = false;
   private pinned = 0;
@@ -784,6 +786,7 @@ export class Kayak {
     if (l.passed || this.s < l.s - 0.3) return;
     l.passed = true;
     this.dropHeight = l.height;
+    this.lipSkew = this.here ? angle(this.heading - this.here.a) : 0;
     // a boof: a stroke catching right at the lip, not leaning forward (leaning back lifts the bow more)
     this.boofing = running && this.balance === 'up' && this.clock - this.lastCatch < BOOF_WINDOW && this.pitchNow < 0.3;
   }
@@ -796,17 +799,25 @@ export class Kayak {
     const upright = this.balance === 'up' || this.balance === 'over';
     const kick = (k: number) => (this.tiltV += (Math.random() < 0.5 ? -1 : 1) * k);
     if (height > 0.6 && upright && this.dropHeight >= 3) {
-      // a waterfall: tuck forward and knife in, or land flat and feel it
-      if (this.pitchNow > 0.35) {
-        this.pitch = 0.3;
-        this.vel.multiplyScalar(0.9);
-        this.jumpHole();
+      // a waterfall: tuck forward and knife in straight, or land flat or skewed and feel it. A
+      // little one forgives a half-hearted tuck and a line a bit off; a big one wants you right
+      // forward and pointing straight down it. (On a touch screen he tucks for himself.)
+      const big = Math.max(0, Math.min(1, (this.dropHeight - 3.5) / 3));
+      const tuck = this.assisted ? 1 : Math.max(0, Math.min(1, (this.pitchNow - 0.1) / (0.4 + big * 0.5)));
+      const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.08) / (0.7 - big * 0.45))
+        * Math.max(0, 1 - Math.abs(this.tilt) / TIP);
+      const miss = 1 - tuck * straight;
+      this.pitch = 0.3 - miss * 0.4;
+      this.vel.multiplyScalar(0.9 - miss * 0.4);
+      if (miss < 0.35) this.jumpHole();
+      if (miss < 0.15) {
         this.events.ledge?.('tuck', height);
       } else {
-        this.pitch = -0.1;
-        this.vel.multiplyScalar(0.5);
-        kick(2.4 + height * 0.3);
-        this.events.ledge?.('flat', height);
+        // thrown over the way the bow was skewed, if it was
+        const k = miss * (1.2 + this.dropHeight * 0.55);
+        if (Math.abs(this.lipSkew) > 0.15) this.tiltV += Math.sign(this.lipSkew) * k;
+        else kick(k);
+        this.events.ledge?.(tuck < straight ? 'flat' : 'skew', height);
       }
     } else if (height > 0.6 && upright) {
       if (this.boofing) {
@@ -867,6 +878,7 @@ export class Kayak {
       closest = Math.min(closest, -pen);
       if (pen <= 0) continue;
       this.touching = true;
+      this.shaved.add(o); // no credit for a shave you hit, however softly
       if (o.kind === 'log') {
         const len = Math.hypot(o.x1 - o.x0, o.z1 - o.z0) || 1;
         this.slide.set((o.x1 - o.x0) / len, (o.z1 - o.z0) / len);
@@ -883,7 +895,6 @@ export class Kayak {
       this.yawRate += (hx * nz - hz * nx) * Math.sign(along) * -vn * 0.5;
       const across = nx * Math.cos(this.heading) + nz * Math.sin(this.heading);
       if (this.balance === 'up' || this.balance === 'over') this.tiltV += Math.sign(across || 1) * vn * 0.45;
-      this.shaved.add(o); // no credit for a shave you hit
       const at = new THREE.Vector3(ox + nx * r, this.pos.y, oz + nz * r);
       if (this.balance === 'rolling' && -vn > 1.2 && running) {
         this.events.hit?.(-vn, at);
@@ -893,8 +904,10 @@ export class Kayak {
       if (-vn > 1.4) this.events.hit?.(-vn, at);
       else this.events.bump?.(-vn, at);
     }
-    // inches to spare, going fast: a close shave
-    if (running && closest > 0 && closest < 0.35 && this.speed > 4 && this.balance === 'up' && !this.shaved.has(o)) {
+    // inches to spare, going fast: a close shave, but only once you're clear of it without touching
+    if (this.shaved.has(o)) return;
+    if (running && closest > 0 && closest < 0.35 && this.speed > 4 && this.balance === 'up') this.skimmed.add(o);
+    else if (this.skimmed.has(o) && closest > 0.7) {
       this.shaved.add(o);
       this.events.shave?.();
     }

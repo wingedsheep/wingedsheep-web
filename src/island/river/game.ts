@@ -3,11 +3,11 @@ import { haloTexture } from '../scene/sky';
 import { RiverAssets } from './assets';
 import { Controls } from './controls';
 import { Course, type Split, type Stretch } from './course';
-import { Kayak } from './kayak';
+import { BOOF_WINDOW, Kayak } from './kayak';
 import { Land } from './land';
 import { RIVERS, type RiverDef } from './rivers';
 import { waterAt } from './flow';
-import { MAX_HOLES, MAX_RIPPLES, MAX_ROCKS, MAX_TONGUES, riverWater } from './water';
+import { MAX_HOLES, MAX_LIPS, MAX_RIPPLES, MAX_ROCKS, MAX_TONGUES, riverWater } from './water';
 import { Wildlife } from './wildlife';
 
 const ELEVATION = THREE.MathUtils.degToRad(48);
@@ -154,6 +154,8 @@ export class RiverGame {
   private paddled = false;
   private steered = false;
   private rumbleAt = 0;
+  /** A lip's lit up for the stroke. */
+  private cued = false;
   private lastMetres = 0;
   /** Rings on the water (from a stroke, a landing, a knock), drifting off on the current. */
   private ripples: { x: number; z: number; age: number; size: number }[] = [];
@@ -201,6 +203,11 @@ export class RiverGame {
   /** A fresh river (this one again, or `river`), the kayak at the top of it, waiting for you to push off. */
   reset(river = this.river) {
     this.river = river;
+    // its own water
+    const u = this.water.uniforms;
+    u.uShallow.value.fromArray(river.look.water.shallow);
+    u.uMid.value.fromArray(river.look.water.mid);
+    u.uDeep.value.fromArray(river.look.water.deep);
     this.land?.clear();
     this.land?.group.removeFromParent();
     // the same seed is the same river: ?seed=1234 to paddle one again
@@ -251,6 +258,30 @@ export class RiverGame {
     return this.kayak.rough;
   }
 
+  /**
+   * The falls ahead, heard before they're seen: `level` 0..1, how loud they are, and `near` 0..1,
+   * how close the loudest one is (far off it's a low, muffled rumble). A little ledge only carries
+   * a few boat lengths; a big waterfall a couple of hundred metres, and a cascade's steps add up.
+   */
+  get roar() {
+    const s = this.kayak.s;
+    let level = 0;
+    let near = 0;
+    let loudest = 0;
+    for (const o of this.course.near(s - 40, s + 240)) {
+      if (!('kind' in o) || o.kind !== 'ledge') continue;
+      const size = THREE.MathUtils.clamp((o.height - 0.6) / 5, 0, 1);
+      const reach = 30 + size * 200;
+      const d = o.s - s;
+      // it swells as you come up to it, and dies away behind you
+      const close = d >= 0 ? Math.max(0, 1 - d / reach) : Math.max(0, 1 + d / 35);
+      const loud = (0.15 + size * 0.85) * close * close;
+      level += loud;
+      if (loud > loudest) (loudest = loud), (near = close);
+    }
+    return { level: Math.min(1, level), near };
+  }
+
   resize(width: number, height: number) {
     this.aspect = width / height;
     // enough river either side on a narrow phone, and not a postage stamp on a wide screen
@@ -266,6 +297,8 @@ export class RiverGame {
   update(realDt: number, outside: Outside) {
     this.light(outside);
     if (this.paused) {
+      // still listening, so a pad can get round the pause card (nothing it does moves the kayak)
+      this.controls.read();
       this.frame(0);
       return;
     }
@@ -291,7 +324,7 @@ export class RiverGame {
     if ((this.streakFor -= realDt) < 0) this.streak = 0;
     this.course.extend(k.s + 300);
     this.land.update(k.pos, this.reach, k.s - 40, k.s + 100);
-    this.land.glow(outside.night, this.clock);
+    this.land.glow(outside.night, this.clock, outside.fair ? 1 : 0.15);
     this.wildlife.update(dt, k.pos, k.s, k.speed, outside.night, outside.rain, outside.snow, outside.fair);
     this.shade(dt);
     this.bob(dt);
@@ -366,6 +399,8 @@ export class RiverGame {
     this.events.praise?.('The take-out!', true);
     this.events.sound?.('cleared');
     this.wildlife.sparkle(this.kayak.pos, 40, undefined, 1.4);
+    this.wildlife.confetti(this.kayak.pos, 70);
+    this.ripple(this.kayak.pos.x, this.kayak.pos.z, 3.5);
     this.controls.rumble(0.8, 0.8, 300);
   }
 
@@ -408,6 +443,9 @@ export class RiverGame {
       this.events.tier?.(now);
       this.events.sound?.('tier', 1, now - 2);
       this.wildlife.sparkle(this.kayak.pos, 16 + now * 6, undefined, 0.8 + now * 0.15);
+      // and a ring spreading out across the water from the boat
+      this.ripple(this.kayak.pos.x, this.kayak.pos.z, 2.5 + now * 0.4);
+      this.wildlife.ring(this.kayak.pos, 20 + now * 4, 0.9);
       this.stop = Math.max(this.stop, 0.12);
       this.kick = Math.max(this.kick, 0.7);
       this.controls.rumble(0.6, 0.9, 220);
@@ -502,12 +540,12 @@ export class RiverGame {
       ledge: (how, height) => {
         if (how === 'boof') this.well(height > 2 ? 'BOOF!' : 'Boof!', height > 2 ? 0.7 : 0.5, { stop: 0.09, flash: 0.35, sound: 'boof', rumble: 0.8, kick: 0.6 });
         else if (how === 'tuck') this.well('Tucked it!', 0.8, { stop: 0.12, flash: 0.4, sound: 'boof', rumble: 1, kick: 0.8 });
-        else if (how === 'flat') {
+        else if (how === 'flat' || how === 'skew') {
           this.shake = 1;
           this.controls.rumble(1, 1, 350);
           this.flash.amount = 0.4;
           this.flash.color.set('#ff5a3c');
-          this.broke('Landed flat');
+          this.broke(how === 'flat' ? 'Landed flat' : 'Landed sideways');
         } else this.broke('Nose first');
       },
       brace: (perfect) => {
@@ -630,6 +668,27 @@ export class RiverGame {
         tongues[nt++].set(p.x + Math.cos(p.a) * o.u, p.z + Math.sin(p.a) * o.u, o.half, 0);
       }
     }
+    // the lips coming up, and whether now's the moment: a stroke in the next BOOF_WINDOW seconds
+    // boofs it (lit a beat early, for the time it takes to see it and pull)
+    const lips = u.uLips.value as THREE.Vector4[];
+    let nl = 0;
+    let cue = 0;
+    for (const l of this.course.ledges) {
+      if (l.s < k.s - 4 || l.s > k.s + 70 || nl >= MAX_LIPS) continue;
+      const p = this.course.at(l.s - 1); // (the last of the flat water: it starts to pour at l.s)
+      const t = l.passed ? 9 : (l.s - 0.3 - k.s) / Math.max(1, k.speed);
+      const lead = BOOF_WINDOW + 0.2;
+      const glow = this.state !== 'running' || t < 0 ? 0 : l.height >= 3 ? (t < 1.4 ? 1 : 0) : t < lead ? 1 : t < lead + 0.6 ? 0.3 : 0;
+      cue = Math.max(cue, glow >= 1 ? 1 : 0);
+      lips[nl++].set(p.x, p.z, l.height, glow);
+    }
+    for (; nl < MAX_LIPS; nl++) lips[nl].set(0, 0, 0, 0);
+    // (a tick in the hands as the moment comes)
+    if (cue && !this.cued) this.controls.rumble(0.25, 0.1, 50);
+    this.cued = cue > 0;
+    u.uHeat.value = THREE.MathUtils.clamp((this.tally.flow - 2) / 2, 0, 1);
+    // froth where the side streams land (drawn as a rock's foam, with no eddy behind it)
+    for (const f of this.land.feet()) if (nr < MAX_ROCKS && f.distanceToSquared(k.pos) < 70 * 70) rocks[nr++].set(f.x, f.z, 0.5, -1);
     for (; nr < MAX_ROCKS; nr++) rocks[nr].set(0, 0, 0, 0);
     for (; nh < MAX_HOLES; nh++) holes[nh].set(0, 0, 0, 0);
     for (; nt < MAX_TONGUES; nt++) tongues[nt].set(0, 0, 0, 0);
@@ -704,10 +763,16 @@ export class RiverGame {
         this.wildlife.spray(new THREE.Vector3(p.x + Math.cos(p.a) * u, p.y + 0.2, p.z + Math.sin(p.a) * u), 1, 0.5 + t.height * 0.2);
       }
     }
-    // the pad hums in big water
-    if ((this.rumbleAt -= realDt) < 0 && rough > 0.35 && k.balance === 'up') {
+    // spray where a side stream lands
+    for (const f of this.land.feet()) {
+      if (Math.random() < dt * 8 && f.distanceToSquared(k.pos) < 60 * 60) this.wildlife.spray(f, 1, 0.6);
+    }
+    // the pad hums in big water, and trembles deep down as a big fall comes up
+    const roar = this.roar.level;
+    const dread = roar * roar;
+    if ((this.rumbleAt -= realDt) < 0 && (rough > 0.35 || dread > 0.08) && k.balance === 'up') {
       this.rumbleAt = 0.18;
-      this.controls.rumble(rough * 0.15, rough * 0.35, 120);
+      this.controls.rumble(Math.max(rough * 0.15, dread * 0.55), Math.max(rough * 0.35, dread * 0.2), 200);
     }
   }
 
@@ -782,7 +847,9 @@ export class RiverGame {
     // the kayak sits in the lower part of the screen, so you can see what's coming
     const lead = (view * (0.22 + fast * 0.08)) / Math.sin(ELEVATION);
     const target = new THREE.Vector3(k.pos.x + fx * lead, this.course.heightAt(k.s) - this.kick * 0.6, k.pos.z + fz * lead);
-    const rumble = k.balance === 'up' ? k.rough * 0.1 : 0;
+    // the view trembles in white water, and in the last stretch before a big fall
+    const roar = this.state === 'running' ? this.roar.level : 0;
+    const rumble = k.balance === 'up' ? k.rough * 0.1 + roar ** 3 * 0.12 : 0;
     const shake = this.shake + rumble;
     if (shake > 0) {
       target.x += (Math.random() - 0.5) * shake * 0.6;

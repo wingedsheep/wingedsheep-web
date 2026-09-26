@@ -78,6 +78,7 @@ export class Sound {
   private cicadaGain?: GainNode;
   /** The river's rush, once someone has been out on it. */
   private rush?: { gain: GainNode; filter: BiquadFilterNode };
+  private falls?: { roar: GainNode; air: BiquadFilterNode; deep: GainNode; throb: OscillatorNode; depth: GainNode };
   private atRiver = false;
   /** Set every frame by the weather, 0..1 each. */
   rain = 0;
@@ -380,7 +381,7 @@ export class Sound {
    * Out on the river (src/island/river/): the island's sea and fire fall silent, and the river
    * rushes instead, louder and brighter the whiter the water. Weather still comes along.
    */
-  riverWater(on: boolean, rough = 0, speed = 0) {
+  riverWater(on: boolean, rough = 0, speed = 0, roar = 0, near = 0) {
     this.atRiver = on;
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
     const ctx = this.ctx;
@@ -400,6 +401,61 @@ export class Sound {
     const t = ctx.currentTime;
     this.rush.gain.gain.setTargetAtTime(on ? 0.12 + rough * 0.5 + speed * 0.02 : 0, t, on ? 0.4 : 0.2);
     this.rush.filter.frequency.setTargetAtTime(500 + rough * 1600 + speed * 60, t, 0.5);
+    this.fallsAhead(on ? roar : 0, near);
+  }
+
+  /**
+   * A fall coming up: from far off a low rumble with the highs eaten by the air, opening out into
+   * a thundering roar as you close in, and under a big one a slow, heavy throb you feel more than
+   * hear.
+   */
+  private fallsAhead(roar: number, near: number) {
+    const ctx = this.ctx!;
+    if (!this.falls) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise!;
+      src.loop = true;
+      src.playbackRate.value = 0.7; // slowed down: deeper, heavier water
+      const air = ctx.createBiquadFilter();
+      air.type = 'lowpass';
+      air.Q.value = 0.9;
+      air.frequency.value = 200;
+      const roarGain = ctx.createGain();
+      roarGain.gain.value = 0;
+      const deepFilter = ctx.createBiquadFilter();
+      deepFilter.type = 'lowpass';
+      deepFilter.frequency.value = 110;
+      deepFilter.Q.value = 2;
+      const deep = ctx.createGain();
+      deep.gain.value = 0;
+      // the throb: a slow swell riding on both layers
+      const swell = ctx.createGain();
+      swell.gain.value = 1;
+      const throb = ctx.createOscillator();
+      throb.frequency.value = 0.4;
+      const depth = ctx.createGain();
+      depth.gain.value = 0;
+      throb.connect(depth).connect(swell.gain);
+      throb.start();
+      src.connect(air).connect(roarGain).connect(swell);
+      src.connect(deepFilter).connect(deep).connect(swell);
+      // squeezed, so right at the lip it's a dense wall of sound rather than clipping
+      const squeeze = ctx.createDynamicsCompressor();
+      squeeze.threshold.value = -14;
+      squeeze.ratio.value = 6;
+      swell.connect(squeeze).connect(this.master!);
+      src.start(0, Math.random() * 2);
+      this.falls = { roar: roarGain, air, deep, throb, depth };
+    }
+    const f = this.falls;
+    const t = ctx.currentTime;
+    const big = roar * roar;
+    f.roar.gain.setTargetAtTime(roar * 0.7, t, 0.6);
+    f.air.frequency.setTargetAtTime(160 + near ** 2 * 2200, t, 0.8);
+    f.deep.gain.setTargetAtTime(big * 1.1, t, 0.8);
+    // quicker and deeper the closer you get
+    f.throb.frequency.setTargetAtTime(0.3 + near * 0.5, t, 1);
+    f.depth.gain.setTargetAtTime(big * 0.4, t, 1);
   }
 
   /** The river's own sounds: a paddle stroke, a knock on a rock, landing off a fall, and so on. */

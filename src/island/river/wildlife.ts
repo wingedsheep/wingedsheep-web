@@ -121,6 +121,7 @@ const DRAGONFLY = new THREE.Color('#3fa8d8');
 const RAIN = new THREE.Color('#b8cde0');
 const LEAVES_GREEN = ['#4a8c45', '#72b04c'].map((c) => new THREE.Color(c));
 const LEAVES_AUTUMN = ['#cc622c', '#d4ae40', '#a0392c', '#e08a3a'].map((c) => new THREE.Color(c));
+const CONFETTI = ['#ffd35a', '#e2ee3a', '#ff7a5a', '#f2c3d6', '#7ad0e6', '#f2f7f6'].map((c) => new THREE.Color(c));
 const BLOSSOM = ['#f2c3d6', '#fbe0ea'].map((c) => new THREE.Color(c));
 
 /**
@@ -142,6 +143,7 @@ export class Wildlife {
   private kingfisherIn = rand(12, 30);
   private sheepIn = rand(90, 200);
   private beikeDone = false;
+  private waiting = false; // Beike's waiting at the take-out
 
   constructor(private assets: RiverAssets, private course: Course) {
     this.group.add(this.specks.points, this.froths.points);
@@ -156,6 +158,7 @@ export class Wildlife {
     this.kingfisherIn = rand(12, 30);
     this.sheepIn = rand(90, 200);
     this.beikeDone = false;
+    this.waiting = false;
   }
 
   /** A chunk of river came into view with places for animals. */
@@ -186,12 +189,18 @@ export class Wildlife {
     }
     // Beike, once a trip: somewhere open, a few hundred metres down
     const p = this.course.at(s);
-    if (!this.beikeDone && s > 200 && p.clear > 0.6 && p.gorge < 0.3 && night < 0.5) {
+    if (!this.beikeDone && s > 200 && s < this.course.finish - 250 && p.clear > 0.6 && p.gorge < 0.3 && night < 0.5) {
       const beike = this.beike(s);
       if (beike) {
         this.beikeDone = true;
         this.actors.push(beike);
       }
+    }
+
+    // …and at the take-out, there he is again, having gone round by the path
+    if (!this.waiting && Number.isFinite(this.course.finish) && s > this.course.finish - 80) {
+      this.waiting = true;
+      this.actors.push(this.waiter(this.course.finish + 9));
     }
 
     this.ambient(dt, kayak, s, night, rain, snow);
@@ -230,6 +239,14 @@ export class Wildlife {
     for (let i = 0; i < count; i++) {
       const v = V(rand(-1.5, 1.5), rand(2, 4.5), rand(-1.5, 1.5)).multiplyScalar(power);
       this.specks.emit(at.clone().add(V(rand(-0.6, 0.6), 0.6, rand(-0.6, 0.6))), v, color, rand(0.5, 1));
+    }
+  }
+
+  /** Leaves and petals thrown up in every colour: the take-out. */
+  confetti(at: THREE.Vector3, count: number) {
+    for (let i = 0; i < count; i++) {
+      const v = V(rand(-3, 3), rand(4, 8), rand(-3, 3));
+      this.specks.emit(at.clone().add(V(rand(-1, 1), 0.8, rand(-1, 1))), v, CONFETTI[i % CONFETTI.length], rand(1.2, 2));
     }
   }
 
@@ -568,6 +585,66 @@ export class Wildlife {
         place(at);
         if (running) root.position.y += Math.abs(Math.sin(t * 16)) * 0.08;
         return !running ? t < run + 20 : true;
+      },
+    };
+  }
+
+  /**
+   * Beike at the take-out, sitting on the bank by the bridge. When he sees you coming he's up,
+   * bouncing and barking, and he doesn't stop until you're in.
+   */
+  private waiter(at: number): Actor {
+    const root = this.assets.clone('beike');
+    root.scale.multiplyScalar(1.5);
+    this.group.add(root);
+    const legs = ['fl', 'fr', 'bl', 'br'].map((k) => root.getObjectByName(`beike_leg_${k}`));
+    const tail = root.getObjectByName('beike_tail');
+    const q = this.course.at(at);
+    // whichever bank has room for him
+    let x = q.x;
+    let z = q.z;
+    let side = 1;
+    for (const e of [3, 4.5, 6]) {
+      const found = [1, -1].find((sd) => {
+        const u = sd * (q.width / 2 + e);
+        const near = this.course.nearest(q.x + Math.cos(q.a) * u, q.z + Math.sin(q.a) * u);
+        return near.d - near.sample.width / 2 > 1.2;
+      });
+      if (found) {
+        side = found;
+        const u = side * (q.width / 2 + e);
+        x = q.x + Math.cos(q.a) * u;
+        z = q.z + Math.sin(q.a) * u;
+        break;
+      }
+    }
+    const y = this.ground(x, z);
+    root.position.set(x, y, z);
+    let t = 0;
+    let barkIn = 0;
+    return {
+      s: at,
+      root,
+      update: (dt, kayak) => {
+        t += dt;
+        const d = Math.hypot(kayak.x - x, kayak.z - z);
+        const excited = d < 26;
+        // looking at you
+        root.rotation.y = face(kayak.x - x, kayak.z - z);
+        if (excited) {
+          const hop = Math.abs(Math.sin(t * 9));
+          root.position.y = y + hop * 0.35;
+          legs.forEach((l, i) => l && (l.rotation.z = (i % 2 ? 1 : -1) * hop * 0.6));
+          if (tail) tail.rotation.x = Math.sin(t * 22) * 0.5;
+          if ((barkIn -= dt) < 0) {
+            barkIn = rand(0.8, 1.6);
+            this.events.bark?.();
+          }
+        } else {
+          root.position.y = y;
+          if (tail) tail.rotation.x = Math.sin(t * 5) * 0.2;
+        }
+        return true;
       },
     };
   }

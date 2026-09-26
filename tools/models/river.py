@@ -398,6 +398,32 @@ def bridge():
     lamp.build(root)
 
 
+def bunting():
+    """Bunting strung along both rails of the take-out's bridge: little flags in every colour,
+    sagging between the posts. It spans x = -10 … 10 like the bridge, and the runtime stretches it
+    (x) to match."""
+    root = _root("bunting", span=20.0)
+    m = Model("bunting", seed=7)
+    colors = [P.RED, P.GOLD, P.WHITE, "#4d8ad0", "#5fae4a", "#e27aa0"]
+    n = 0
+    for y in (-1.22, 1.22):
+        for k in range(-10, 10, 2):
+            # one swag between two posts: a cord sagging in a curve, a flag every half metre
+            steps = 8
+            pts = []
+            for i in range(steps + 1):
+                t = i / steps
+                pts.append((k + t * 2.0, 3.78 - math.sin(math.pi * t) * 0.34))
+            for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
+                mx, mz = (x0 + x1) / 2, (z0 + z1) / 2
+                m.box((math.hypot(x1 - x0, z1 - z0) + 0.02, 0.02, 0.02), (mx, y, mz), P.INK, rot=(0, -math.atan2(z1 - z0, x1 - x0), 0))
+            for i in range(1, steps, 2):
+                x, z = pts[i]
+                m.prism([(-0.13, 0), (0.13, 0), (0, -0.32)], 0.03, (x, y, z), colors[n % len(colors)])
+                n += 1
+    m.build(root)
+
+
 def sign():
     """A distance post on the bank. The runtime paints the board (`sign_board`)."""
     root = _root("sign")
@@ -864,6 +890,7 @@ def build():
     ferns()
     boulders()
     bridge()
+    bunting()
     sign()
     tent()
     cabin()
