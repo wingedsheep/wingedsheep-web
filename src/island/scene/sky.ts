@@ -123,6 +123,9 @@ export function haloTexture(): THREE.Texture {
 interface Lamp {
   light: THREE.PointLight;
   halo?: THREE.Sprite;
+  /** Only there in fog, when the wet air catches the light: lamps with no glow of their own. */
+  fogHalo: boolean;
+  size: number;
   base: number;
   flicker: number;
   day: boolean;
@@ -133,7 +136,12 @@ interface Lamp {
  * Sun, moon, sky and every lamp on the island, following the real sun where the visitor is.
  */
 export class Sky {
+  /** 0 by day … 1 at night: what everything that keeps hours goes by. */
   lamps = 0;
+  /** How dark the weather makes the day, 0..1 (set every frame, weather.ts): the lamps go on early under a storm. */
+  gloom = 0;
+  /** Fog, 0..1 (set every frame): halos round the lamps, and the lighthouse beam showing as a cone. */
+  haze = 0;
   /** The sun's elevation in degrees. */
   alt = 0;
   /** Whether the sun is climbing: morning rather than evening. */
@@ -177,14 +185,14 @@ export class Sky {
       const light = new THREE.PointLight(m.color, 0, m.radius * 1.8, 1.4);
       light.position.copy(m.position);
       scene.add(light);
-      const lamp: Lamp = { light, base: m.intensity * 7, flicker: m.flicker, day: m.day, seed: Math.random() * 100 };
+      const lamp: Lamp = { light, base: m.intensity * 7, flicker: m.flicker, day: m.day, seed: Math.random() * 100, fogHalo: !m.halo, size: m.radius * 0.55 };
       this.lampsList.push(lamp);
-      if (!m.halo) continue;
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
         map: halo, color: m.color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false,
       }));
       sprite.position.copy(m.position);
-      sprite.scale.setScalar(m.radius * 0.55);
+      sprite.scale.setScalar(lamp.size);
+      sprite.visible = false;
       sprite.renderOrder = 2;
       scene.add(sprite);
       lamp.halo = sprite;
@@ -238,19 +246,28 @@ export class Sky {
     u.uVignette.value = 0.7;
     this.sun.color.lerp(seasonLight.sun, seasonLight.k * (1 - m.lamps));
 
+    // under a black sky the lamps come on in the middle of the day, and the windows light up
+    const lit = Math.max(m.lamps, this.gloom);
+    // in fog every lamp stands in a soft ball of its own light, bigger and brighter after dark
+    const haze = this.haze;
     for (const l of this.lampsList) {
       const f = l.flicker ? 1 - l.flicker * 0.25 * (Math.sin(this.clock * 13 + l.seed) * 0.5 + Math.sin(this.clock * 7.7 + l.seed * 3) * 0.5 + 0.5) : 1;
-      const on = l.day ? Math.max(m.lamps, 0.35) : m.lamps;
+      const on = l.day ? Math.max(lit, 0.35) : lit;
       l.light.intensity = l.base * on * f;
       if (!l.halo) continue;
-      (l.halo.material as THREE.SpriteMaterial).opacity = on * f;
-      l.halo.visible = on > 0.02;
+      const glow = l.fogHalo ? haze * 0.8 : 1 + haze * 0.4;
+      (l.halo.material as THREE.SpriteMaterial).opacity = Math.min(1, on * f * glow);
+      l.halo.scale.setScalar(l.size * (1 + haze * (l.fogHalo ? 1.4 : 1.1)));
+      l.halo.visible = on * glow > 0.02;
     }
-    for (const mat of glowMaterials()) mat.emissiveIntensity = 0.2 + m.lamps * 1.3;
+    for (const mat of glowMaterials()) mat.emissiveIntensity = 0.2 + lit * 1.3;
 
+    // the beam goes round in fog by day too, and in fog it shows as a solid cone of light
+    const beam = Math.max(m.lamps, haze * 0.6);
     this.beam.rotation.y = this.clock * 0.6;
-    (this.beam.material as THREE.MeshBasicMaterial).opacity = 0.1 * m.lamps;
-    this.beam.visible = m.lamps > 0.05;
+    (this.beam.material as THREE.MeshBasicMaterial).opacity = (0.1 + haze * 0.22) * beam;
+    this.beam.scale.set(1, 1 + haze * 0.5, 1 + haze * 0.5);
+    this.beam.visible = beam > 0.05;
 
     // the sea takes the sky's colour, and darkens with the light
     this.water.uLight.value.copy(m.sky).lerp(m.sun, 0.3).lerp(new THREE.Color(1, 1, 1), 0.35).multiplyScalar(0.3 + Math.min(m.sunI, 2.5) * 0.29);

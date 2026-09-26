@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Call } from './fauna';
-import { herNight } from './bedtime';
+import { fridayEvening, herNight, sundayMorning } from './bedtime';
 import type { Island } from './island';
 import { Kneeling, type Pet, petting } from './petting';
 import { indoors } from './shelter';
@@ -17,7 +17,7 @@ const ROOMS: Partial<Record<Spot, { room: Room; group: string }>> = {
   bed: { room: 'hut', group: 'companion_bed_reading' }, // or companion_bed_asleep, once she's dropped off
 };
 const DAYTIME: Spot[] = ['reading', 'fireside', 'workout', 'podcast', 'petting', 'baking', 'watching'];
-export type Room = 'hut' | 'lighthouse';
+export type Room = 'hut' | 'lighthouse' | 'workshop';
 
 /** What's on the telly while she's watching it (quarters.ts draws it, content.ts says what it is). */
 export type Show = 'murder' | 'location' | 'bnb' | 'rail';
@@ -132,6 +132,11 @@ export class Companion {
     this.noticed = 1;
   }
 
+  /** Whether she's gone up to bed (reading or asleep): the hut's stove is banked for the night. */
+  get inBed() {
+    return this.spot === 'bed';
+  }
+
   /** Whatever the weather is on the next update, she's already somewhere it allows. */
   settle() {
     this.settling = true;
@@ -147,7 +152,9 @@ export class Companion {
     const allowed = this.allowed(w);
     if (this.settling) {
       this.settling = false;
-      if (!allowed.includes(this.spot)) this.move(this.choose(this.spot, w));
+      // arriving on a Friday evening or a Sunday morning, she's already where the day has her
+      const habit = fridayEvening(w.time) || sundayMorning(w.time);
+      if (!allowed.includes(this.spot) || habit) this.move(this.choose(this.spot, w));
       if (this.spot === 'bed') this.drop(herNight(w.time) === 'asleep');
     }
     this.stay -= dt;
@@ -190,6 +197,9 @@ export class Companion {
 
   private choose(from: Spot | null, w: When): Spot {
     const options = this.allowed(w).filter((s) => s !== from);
+    // Friday evening she's by the fire with him; Sunday morning she's up at the hut making pancakes
+    const habit: Spot | null = w.time && fridayEvening(w.time) ? 'fireside' : w.time && sundayMorning(w.time) ? 'baking' : null;
+    if (habit && this.allowed(w).includes(habit) && Math.random() < 0.8) return habit;
     return options[Math.floor(Math.random() * options.length)] ?? from ?? 'fireside';
   }
 

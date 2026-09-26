@@ -13,6 +13,7 @@ import math
 from mathutils import Vector
 
 import fae
+import sightings
 import palette as P
 from kit import Model, group
 
@@ -599,6 +600,7 @@ ALL = {
     "fish": (fish, 1.6), "dolphin": (dolphin, 1.0), "whale": (whale, 1.0),
     "serpent": (serpent, 1.9),
     **fae.ALL,  # the fair folk, and their ring
+    **sightings.ALL,  # the balloon, the seal, the ships and the fisherman
 }
 
 
@@ -613,7 +615,7 @@ def lineup(spacing=2.4):
     x = 0.0
     roots = []
     for species, (build, scale) in ALL.items():
-        big = {"fairyring": 3.2, "serpent": 16, "whale": 6, "dolphin": 2.4, "heron": 1.4, "deer": 1.8, "stag": 1.8}.get(species, 1.0)
+        big = {"fairyring": 3.2, "serpent": 16, "whale": 6, "dolphin": 2.4, "heron": 1.4, "deer": 1.8, "stag": 1.8, "balloon": 3, "ferry": 5, "container": 7, "tallship": 5, "seal": 1.4}.get(species, 1.0)
         x += spacing * big / 2
         root = group(f"fauna_{species}", (x, 0, 0), fauna=species)
         root.scale = (scale,) * 3

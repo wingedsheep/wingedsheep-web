@@ -99,6 +99,10 @@ def bench(root):
     m.box((1.9, 0.06, 0.28), (0, 0.26, 0.85), P.IRON)
     for x in (-0.95, 0.95):
         m.ball(0.08, (x, 0.26, 1.02), P.IRON, subdiv=1)
+    # it stands on a few old flagstones, where the cats lie flat out on a hot day (shelter.ts)
+    for i, (x, y, w, d) in enumerate([(-0.62, -0.28, 0.62, 0.5), (0.02, -0.34, 0.58, 0.46), (0.62, -0.26, 0.56, 0.52),
+                                      (-0.32, 0.12, 0.5, 0.36), (0.36, 0.1, 0.54, 0.34), (-0.05, -0.72, 0.44, 0.3)]):
+        m.box((w, d, 0.05), (x, y, 0.02), P.LIMESTONE[i % 3], rot=(0, 0, (i % 3 - 1) * 0.06))
     m.build(root)
 
 

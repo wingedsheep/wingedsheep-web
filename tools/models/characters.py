@@ -269,6 +269,39 @@ def vincent_podcast(root):
     p.build(h)
 
 
+def vincent_standing(root, prefix: str, apron=False):
+    """Vincent on his feet in his tee and shorts, nothing in his hands: for fetching the post, flying
+    a kite on the beach or working at the bench in the workshop (`apron`: a canvas one over it).
+    Faces -y; the runtime swings `<prefix>_leg_l/_r` from the hips and `<prefix>_arm_l/_r` from
+    the shoulders, and turns `<prefix>_head`."""
+    hip = 0.84
+    m = Model(f"{prefix}_body")
+    m.box((0.5, 0.3, 0.2), (0, 0, hip + 0.02), P.SHORTS)
+    _tee(m, hip - 0.12)
+    if apron:
+        m.box((0.46, 0.04, 0.7), (0, -0.165, hip + 0.1), P.CANVAS)
+        m.box((0.3, 0.05, 0.12), (0, -0.18, hip + 0.1), P.WOOD_LIGHT)                    # its pocket, a pencil in it
+        m.box((0.02, 0.02, 0.18), (0.08, -0.2, hip + 0.2), P.GOLD)
+        for s in (-1, 1):
+            m.box((0.04, 0.03, 0.3), (s * 0.13, -0.16, hip + 0.55), P.CANVAS, rot=(0, s * 0.3, 0))
+    m.build(root)
+    for s, side in ((1, "l"), (-1, "r")):
+        g = Model(f"{prefix}_leg_{side}")
+        g.box((0.2, 0.22, 0.34), (0, 0, -0.17), P.SHORTS)
+        g.box((0.16, 0.16, 0.44), (0, 0, -0.52), P.SKIN)
+        g.box((0.2, 0.34, 0.1), (0, -0.05, -0.79), P.SHOE)
+        g.box((0.21, 0.35, 0.05), (0, -0.05, -0.835), P.SOLE)
+        g.build(root, loc=(s * 0.13, 0, hip))
+        a = Model(f"{prefix}_arm_{side}")
+        a.box((0.15, 0.15, 0.22), (0, 0, -0.11), P.TEE)
+        a.box((0.12, 0.12, 0.36), (0, 0, -0.38), P.SKIN)
+        a.box((0.11, 0.12, 0.1), (0, 0, -0.6), P.SKIN)
+        if s > 0:
+            a.box((0.13, 0.13, 0.05), (0, 0, -0.5), P.WATCH)
+        a.build(root, loc=(s * 0.34, 0, hip + 0.48))
+    return head(root, f"{prefix}_head", (0, 0, hip + 0.61))
+
+
 def vincent_hiking(root):
     """Vincent on his feet with a pack and boots on, for climbing the mountain. Faces -y; the
     runtime walks the whole thing up the trail (layout.CLIMB) and swings `hike_leg_l/_r` from

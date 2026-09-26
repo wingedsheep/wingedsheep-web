@@ -26,6 +26,7 @@ export interface CanopyMarker {
 export interface Emitter {
   kind: 'smoke' | 'embers' | 'petals' | 'sparkle';
   position: THREE.Vector3;
+  owner?: string; // id of the named thing it belongs to (e.g. "hut", for its chimney)
 }
 
 /** A roof's eave, where icicles hang on a freezing day: they run along its local x, centred on it. */
@@ -98,7 +99,7 @@ export class Island {
           tree: o.parent?.id ?? o.id,
         });
       }
-      if (x.emit) this.emitters.push({ kind: x.emit, position: o.getWorldPosition(new THREE.Vector3()) });
+      if (x.emit) this.emitters.push({ kind: x.emit, position: o.getWorldPosition(new THREE.Vector3()), owner: ownerId(o) });
       if (x.route) {
         const route = this.routes.get(x.route) ?? [];
         route[x.step] = { at: o.getWorldPosition(new THREE.Vector3()), fixed: Boolean(x.fixed) };

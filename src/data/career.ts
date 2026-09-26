@@ -204,7 +204,7 @@ export const chapters: Chapter[] = [
     years: '2020 – now',
     title: 'Trading power',
     where: 'Arnhem',
-    text: 'I would like to live in a solarpunk world, and we’re building towards it: solar panels on every roof, wind turbines on the horizon. But the grid is full. At the end of 2025 more than fifteen thousand Dutch companies were waiting in line for a connection, and cables can’t be laid fast enough to catch up. So the grid we have has to be used more cleverly. There’s plenty of flexibility out there, in batteries, heat pumps, electric cars and factories, that could take power when there’s lots of it and hold back when there isn’t, if a market made it worth their while. That’s what ENTRNCE, part of Alliander, is for: making it easier for more parties to trade on the energy and flexibility markets. I was a developer on the ENTRNCE Trader, for peer-to-peer trading between individual grid connections, and now I lead development of Direct+, which gives smaller parties direct access to the wholesale power exchange.',
+    text: 'I would like to live in a solarpunk world, and we’re building towards it: solar panels on every roof, wind turbines on the horizon. But the grid is full. At the end of 2025 more than fifteen thousand Dutch companies were waiting in line for a connection, and cables can’t be laid fast enough to catch up. So the grid we have has to be used more cleverly. There’s plenty of flexibility out there, in batteries, heat pumps, electric cars and factories, that could take power when there’s lots of it and hold back when there isn’t, if a market made it worth their while. That’s what ENTRNCE, part of Alliander, is for: making it easier for more parties to trade on the energy and flexibility markets. I was a developer on the ENTRNCE Trader, for peer-to-peer trading between individual grid connections, and now I’m lead developer for Direct+, which gives smaller parties direct access to the wholesale power exchange.',
     roles: [
       {
         years: '2020 – 2025',
@@ -214,7 +214,7 @@ export const chapters: Chapter[] = [
       },
       {
         years: '2025 – now',
-        role: 'Lead developer',
+        role: 'Lead developer, Direct+',
         org: 'ENTRNCE · Arnhem',
         text: 'Technical direction and architecture for Direct+, built with EPEX SPOT so smaller parties can trade directly on the wholesale power market: exchange access, BRP-as-a-service and prepaid clearing in one setup. A modular monolith in Kotlin, Spring Boot, PostgreSQL and React. I also help shape how our teams build with AI.',
       },
@@ -258,7 +258,7 @@ export const chapters: Chapter[] = [
       directplus: {
         label: 'Direct+ · straight to the power exchange',
         text: [
-          'Direct+, which I lead development of, launched with EPEX SPOT in September 2026: one membership that lets a smaller party (a regional supplier, a solar park, a battery) trade on the Dutch day-ahead and intraday markets itself.',
+          'Direct+, which I’m lead developer for, launched with EPEX SPOT in September 2026: one membership that lets a smaller party (a regional supplier, a solar park, a battery) trade on the Dutch day-ahead and intraday markets itself.',
           'Normally that takes your own balance responsibility and a bank guarantee. With Direct+ the balance responsibility is taken care of and you trade from a prepaid e-wallet, so you can be up and running within two months.',
           'On the screen: the price for every hour. Around noon it drops below zero, the market’s way of asking anyone at all to please use some power. A battery that listens gets paid to charge.',
           'Under the hood: a modular monolith in Kotlin, Spring Boot, PostgreSQL and React, more and more of it built together with AI.',
@@ -267,7 +267,7 @@ export const chapters: Chapter[] = [
         read: { slug: 'building-a-modular-monolith', label: 'Read about the modular monolith' },
       },
       vincent: {
-        label: 'Vincent, lead developer',
+        label: 'Building the next feature',
         text: [
           'Black coffee, a screen full of prices, vines overhead. If you want a solarpunk future, you might as well start with the office.',
           'The idea behind it all: the more parties that can trade, the more flexibility gets used, and the more sun and wind fit through the cables we already have.',

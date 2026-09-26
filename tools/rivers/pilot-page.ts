@@ -23,6 +23,11 @@ interface Game {
   // the whole river, not just the next few hundred metres, so there's a line all the way down
   g.course.extend(g.course.finish + 60);
   const auto = autopilot(g.course, g.kayak, g.start, g.course.finish);
+  // (counting the knocks, for record.ts to tell)
+  const w = window as unknown as { knocks: number };
+  w.knocks = 0;
+  const hit = g.kayak.events.hit;
+  g.kayak.events.hit = (strength, at) => (w.knocks++, hit?.(strength, at));
   const read = g.controls.read.bind(g.controls);
   g.controls.read = () => {
     read(); // (still reading the keys and the pads, for everything but the paddle)

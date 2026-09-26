@@ -47,6 +47,8 @@ export interface Sample {
   gorge: number;
   /** 0..1: the water pouring over a ledge here. */
   drop: number;
+  /** 0..1: the boil below a big waterfall, heaving the boat about (the bigger the fall, the wilder and longer). */
+  boil: number;
   /** The stretch this sample belongs to. */
   stretch: number;
   /** 0..1: how hard the river is here, drifting between stretches like everything else. */
@@ -345,6 +347,7 @@ export class Course {
   private y = SOURCE;
   private falling: { from: number; height: number } | null = null;
   private churn = 0; // white water at the foot of a ledge, settling downstream
+  private boil = { k: 0, len: 1 }; // the boil below a big waterfall, and how far it runs on
   private bend = 0;
   private placedTo = 0; // rocks and the rest are placed up to here
   private names: string[];
@@ -550,12 +553,14 @@ export class Course {
       drop = 1;
       this.y -= this.falling.height / LIP;
       if (s - this.falling.from >= LIP - 1) {
+        if (this.falling.height >= 3) this.boil = { k: Math.min(1, (this.falling.height - 2) / 4), len: 20 + this.falling.height * 6 };
         this.falling = null;
         this.churn = 1;
       }
     } else {
       this.y -= c.slope * STEP;
       this.churn = Math.max(0, this.churn - STEP / 12);
+      this.boil.k = Math.max(0, this.boil.k - STEP / this.boil.len);
     }
 
     const i = this.samples.length;
@@ -567,10 +572,11 @@ export class Course {
       a: this.a,
       width: c.width,
       speed: c.speed + this.churn * 1.5,
-      rough: Math.max(c.rough, drop, this.churn * 0.9),
+      rough: Math.max(c.rough, drop, this.churn * 0.9, Math.min(1, this.boil.k * 1.5)),
       clear: c.clear,
       gorge: c.gorge,
       drop,
+      boil: this.boil.k,
       stretch: this.stretches.length - 1,
       heat: c.heat,
       isle: 0,

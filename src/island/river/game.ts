@@ -3,7 +3,7 @@ import { haloTexture } from '../scene/sky';
 import { RiverAssets } from './assets';
 import { Controls } from './controls';
 import { Course, type Split, type Stretch } from './course';
-import { BOOF_WINDOW, Kayak } from './kayak';
+import { BOOF_WINDOW, Kayak, LIP_AT } from './kayak';
 import { Land, fogAt, highAt } from './land';
 import { type Goal, RARE, RIVERS, type Rare, type RiverDef } from './rivers';
 import { waterAt } from './flow';
@@ -29,6 +29,8 @@ const QUIET_START = 4;
 export const GATE = 150;
 export const BALL_POINTS = 100;
 export const FLIP = 300;
+/** Down to the take-out with a storm still blowing: this much on top of everything else. */
+export const STORM_BONUS = 0.15;
 /**
  * Off a drop at SEND_FROM m/s or more and landed clean (a boof, a tuck): a send, paid on the spot.
  * SEND a metre of drop, twice that going SEND_TOP and over, times the flow.
@@ -55,7 +57,7 @@ export interface Tally {
   flips: number;
   /** Made it to the take-out (rather than swimming), and what that was worth: the clock, the gates, the balls. */
   finished: boolean;
-  bonus: { time: number; gates: number; balls: number };
+  bonus: { time: number; gates: number; balls: number; storm: number };
   balls: number;
   /** Drops gone off flat out, and what they paid. */
   sends: number;
@@ -103,7 +105,7 @@ export interface Outside {
   haze?: number;
 }
 
-export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'huff' | 'spotted' | Cry;
+export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'plunge' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'huff' | 'spotted' | Cry;
 export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball' | 'waves';
 
 export interface GameEvents {
@@ -157,6 +159,11 @@ export class RiverGame {
   river: RiverDef = RIVERS[0];
   /** 0..1: a flash over the picture, for a knock (red) or a boof (warm white). */
   flash = { amount: 0, color: new THREE.Color() };
+  /**
+   * 0..1: going over a big waterfall. The view leans in as the lip comes up and all the way on
+   * the way down, time stretches out, and the edges of the picture close in.
+   */
+  drama = 0;
 
   private course!: Course;
   private land!: Land;
@@ -168,12 +175,27 @@ export class RiverGame {
   private sun = new THREE.DirectionalLight();
   private hemi = new THREE.HemisphereLight();
   private halo = haloTexture();
+  /** How stormy it is right now (for the bonus at the take-out). */
+  private storm = 0;
+  /** Lightning: the island's last flash (to catch a new strike), and the bolt it brings down. */
+  private lastFlash = 0;
+  private bolt: THREE.Mesh;
+  /** The paddler's headlamp, for a run at night: a beam ahead and a spark on the helmet. */
+  private lamp = new THREE.SpotLight('#fff0cc', 0, 36, 0.5, 0.7, 0);
+  private lampGlow: THREE.Sprite;
+  private headAt = new THREE.Vector3();
   private yaw = 0;
   private view = 26;
   private zoom = 1;
   private aspect = 1;
   private shake = 0;
   private kick = 0;
+  /** How fast time's going (1 is real time): slowed right down off a big drop. */
+  private slow = 1;
+  /** Time all but stopped for a beat as you hit the water at the foot of a waterfall (s, real time). */
+  private hitstop = 0;
+  /** The waterfall being flown off (m), for the plunge at its foot. */
+  private plunging = 0;
   private stretch = -1;
   /** Nothing's gone wrong since this stretch began. */
   private clean = true;
@@ -235,6 +257,16 @@ export class RiverGame {
     s.shadow.bias = -0.0008;
     s.shadow.normalBias = 0.03;
     this.scene.add(s, s.target, this.hemi);
+    this.scene.add(this.lamp, this.lamp.target);
+    this.lampGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.halo, color: '#fff0cc', blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
+    this.lampGlow.scale.setScalar(0.9);
+    this.lampGlow.renderOrder = 3;
+    this.scene.add(this.lampGlow);
+    this.bolt = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: '#f4f6ff', transparent: true, fog: false, depthWrite: false, side: THREE.DoubleSide }));
+    this.bolt.visible = false;
+    this.bolt.frustumCulled = false;
+    this.bolt.renderOrder = 4;
+    this.scene.add(this.bolt);
     this.kayak = new Kayak(assets);
     this.scene.add(this.kayak.model);
     this.size = this.kayak.model.scale.clone();
@@ -380,11 +412,7 @@ export class RiverGame {
       this.frame(0);
       return;
     }
-    // a slow-motion moment off a big drop
-    let dt = realDt;
-    if (this.kayak.airborne && this.state === 'running' && this.kayak.pos.y - this.course.heightAt(this.kayak.s) > 1.4) {
-      dt *= 0.45;
-    }
+    const dt = this.pace(realDt);
     this.clock += dt;
     const intent = this.controls.read();
     this.kayak.assisted = this.controls.assisted;
@@ -392,6 +420,7 @@ export class RiverGame {
     if (this.state === 'ready' && (intent.left > 0.3 || intent.right > 0.3 || intent.tapLeft || intent.tapRight)) this.events.start?.();
     const running = this.state === 'running';
     if (this.state !== 'ready') this.kayak.update(dt, intent, this.course, running);
+    this.overTheLip(running);
     if (running && (intent.left > 0.3 || intent.right > 0.3)) this.paddled = true;
     if (running && (intent.left > 0.3) !== (intent.right > 0.3)) this.steered = true;
     const k = this.kayak;
@@ -400,7 +429,12 @@ export class RiverGame {
     this.course.extend(k.s + 300);
     this.land.update(k.pos, this.reach, k.s - 40, k.s + 100);
     this.land.glow(outside.night, this.clock, outside.fair ? 1 : 0.15);
-    this.wildlife.storm = outside.storm ?? 0;
+    this.wildlife.storm = this.storm = outside.storm ?? 0;
+    this.kayak.storm = this.storm;
+    const across = k.here?.a ?? 0;
+    this.wildlife.blow.set(Math.cos(across), Math.sin(across)).multiplyScalar(k.gust);
+    this.lightning(outside.flash ?? 0);
+    this.headlamp(outside.night);
     this.wildlife.update(dt, k.pos, k.s, k.speed, outside.night, outside.rain, outside.snow, outside.fair);
     this.shade(dt);
     this.bob(dt);
@@ -412,6 +446,69 @@ export class RiverGame {
     this.effects(dt, realDt);
     this.frame(realDt);
     this.flash.amount = Math.max(0, this.flash.amount - realDt * 3);
+  }
+
+  /**
+   * How much time passes this frame. Off a big drop it slows right down, and off a waterfall
+   * slower still; then, hitting the water at its foot, it all but stops for a beat before picking
+   * up again. And as a waterfall's lip comes up, the view starts to lean in.
+   */
+  private pace(realDt: number) {
+    const k = this.kayak;
+    const running = this.state === 'running';
+    const high = k.airborne ? k.pos.y - this.course.heightAt(k.s) : 0;
+    const falls = running && k.flying >= 3;
+    let want = falls && high > 0.4 ? 0.33 : running && high > 1.4 ? 0.45 : 1;
+    if (this.hitstop > 0) {
+      this.hitstop -= realDt;
+      this.slow = want = 0.06;
+    }
+    // (quickly into it, easing back out)
+    this.slow += (want - this.slow) * (1 - Math.exp(-realDt * (want < this.slow ? 14 : 4)));
+    let lean = falls ? 1 : 0;
+    if (running && !k.airborne) {
+      for (const l of this.course.near(k.s, k.s + 20)) {
+        if (!('kind' in l) || l.kind !== 'ledge' || l.height < 3 || l.passed) continue;
+        const t = (l.s - k.s) / Math.max(1, k.speed);
+        lean = Math.max(lean, 0.35 * Math.max(0, 1 - t / 1.5));
+      }
+    }
+    this.drama += (lean - this.drama) * (1 - Math.exp(-realDt * (lean > this.drama ? 6 : 1.8)));
+    return realDt * this.slow;
+  }
+
+  /** Over the lip of a waterfall: a rush of air, the boat stretched long, the lip pouring away all the way across. */
+  private overTheLip(running: boolean) {
+    const k = this.kayak;
+    const big = running ? k.flying : 0;
+    if (big >= 3 && !this.plunging) {
+      this.plunging = big;
+      this.events.sound?.('whoosh', 1);
+      this.squash(-0.18);
+      this.controls.rumble(0.3, 0.9, 300);
+      const p = this.course.at(k.s - 0.5);
+      for (let u = -p.width / 2; u < p.width / 2; u += 0.7) {
+        this.wildlife.spray(new THREE.Vector3(p.x + Math.cos(p.a) * u, p.y + 0.1, p.z + Math.sin(p.a) * u), 1, 0.8);
+      }
+    }
+    if (!k.airborne) this.plunging = 0;
+  }
+
+  /**
+   * Into the foot of a waterfall: a column of white water thrown up, a ring of it out across the
+   * pool, mist hanging in the air after, and time stopping dead for a beat.
+   */
+  private plunge(height: number, at: THREE.Vector3) {
+    this.plunging = 0;
+    const big = Math.min(1.4, height / 4.5);
+    this.wildlife.plume(at, Math.round(60 * big), 0.8 + big * 0.4);
+    this.wildlife.ring(at, 50, 1.6 + big * 0.8);
+    this.wildlife.mist(at, Math.round(45 * big), 4 + height * 0.6);
+    this.ripple(at.x, at.z, 2);
+    this.hitstop = 0.09 + big * 0.05;
+    this.shake = 1;
+    this.events.sound?.('plunge', Math.min(1, 0.6 + big * 0.3));
+    this.controls.rumble(1, 1, 500);
   }
 
   /** How far the ground has to reach round the kayak to fill the view. */
@@ -540,8 +637,10 @@ export class RiverGame {
   private finish() {
     const t = this.tally;
     t.finished = true;
-    t.bonus = { time: Math.round(Math.max(0, this.par - t.time) * TICK * t.flow), gates: t.gates * GATE, balls: t.balls * BALL_POINTS };
+    t.bonus = { time: Math.round(Math.max(0, this.par - t.time) * TICK * t.flow), gates: t.gates * GATE, balls: t.balls * BALL_POINTS, storm: 0 };
     t.score += t.bonus.time + t.bonus.gates + t.bonus.balls;
+    // and all of it out in a storm
+    if (this.storm >= 0.5) t.score += t.bonus.storm = Math.round(t.score * STORM_BONUS);
     this.goals(true);
     this.state = 'over';
     this.overIn = 1.4;
@@ -689,6 +788,7 @@ export class RiverGame {
         this.squash(Math.min(0.4, size * 0.05));
         this.events.sound?.('splash', Math.min(1, size / 8));
         this.controls.rumble(Math.min(1, size / 9), 0.4, 200);
+        if (this.plunging) this.plunge(this.plunging, at);
       },
       ledge: (how, height) => {
         const sent = how === 'boof' || how === 'tuck' ? this.send(height) : 0;
@@ -879,8 +979,8 @@ export class RiverGame {
     let cue = 0;
     for (const l of this.course.ledges) {
       if (l.s < k.s - 4 || l.s > k.s + 70 || nl >= MAX_LIPS) continue;
-      const p = this.course.at(l.s - 1); // (the last of the flat water: it starts to pour at l.s)
-      const t = l.passed ? 9 : (l.s - 0.3 - k.s) / Math.max(1, k.speed);
+      const p = this.course.at(l.s - LIP_AT); // (the last of the flat water)
+      const t = l.passed ? 9 : (l.s - LIP_AT - k.s) / Math.max(1, k.speed);
       const lead = BOOF_WINDOW + 0.2;
       const glow = this.state !== 'running' || t < 0 ? 0 : l.height >= 3 ? (t < 1.4 ? 1 : 0) : t < lead ? 1 : t < lead + 0.6 ? 0.3 : 0;
       cue = Math.max(cue, glow >= 1 ? 1 : 0);
@@ -969,6 +1069,16 @@ export class RiverGame {
       const off = (Math.random() * 2 - 1) * at.width * 0.48;
       this.wildlife.froth(new THREE.Vector3(at.x + Math.cos(at.a) * off, at.y + 0.02, at.z + Math.sin(at.a) * off), 3 + Math.random() * 2);
     }
+    // over a waterfall: spray off the curtain streaming up past you on the way down
+    if (this.plunging && k.airborne) {
+      const rx = Math.cos(k.heading);
+      const rz = Math.sin(k.heading);
+      for (let n = Math.floor(realDt * 70 + Math.random()); n > 0; n--) {
+        const u = (Math.random() - 0.5) * 4;
+        const f = (Math.random() - 0.3) * 2;
+        this.wildlife.spray(k.pos.clone().add(new THREE.Vector3(rx * u + hx * f, (Math.random() - 0.5) * 1.5, rz * u + hz * f)), 1, 1.6);
+      }
+    }
     // mist at the foot of a drop
     for (const t of this.course.near(k.s, k.s + 30)) {
       if (!('kind' in t) || t.kind !== 'ledge' || t.s < k.s) continue;
@@ -1017,6 +1127,83 @@ export class RiverGame {
   }
 
   /**
+   * The island's lightning, out here too: the picture goes white for a blink, and a bolt comes
+   * down behind the trees off one bank ahead, flickering out with the flash.
+   */
+  private lightning(flash: number) {
+    if (flash > this.lastFlash + 0.5 && flash > 0.9) {
+      this.flash.amount = Math.max(this.flash.amount, 0.55);
+      this.flash.color.set('#e8eeff');
+      this.strike();
+    }
+    this.lastFlash = flash;
+    const m = this.bolt.material as THREE.MeshBasicMaterial;
+    m.opacity = Math.min(1, flash * 1.6);
+    this.bolt.visible = flash > 0.15 && this.bolt.visible;
+  }
+
+  /** A fresh bolt: jagged, forking once or twice, from high up down to the ground by the river. */
+  private strike() {
+    const k = this.kayak;
+    const p = this.course.at(k.s + 4 + Math.random() * 12); // (in view: the camera doesn't see far ahead)
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const off = side * (p.width / 2 + Math.random() * 3);
+    const gx = p.x + Math.cos(p.a) * off;
+    const gz = p.z + Math.sin(p.a) * off;
+    const ground = this.land.heightAt(gx, gz);
+    const pts: number[] = [];
+    // each step a flat ribbon square on to the camera, thick enough to read as a pixel line or two
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+    const bar = (x: number, y: number, z: number, nx: number, ny: number, nz: number, w: number) => {
+      const ox = right.x * w;
+      const oz = right.z * w;
+      pts.push(x - ox, y, z - oz, x + ox, y, z + oz, nx + ox, ny, nz + oz, x - ox, y, z - oz, nx + ox, ny, nz + oz, nx - ox, ny, nz - oz);
+    };
+    const zag = (x: number, y: number, z: number, to: number, spread: number, forks: number, w = 0.22) => {
+      const steps = Math.max(3, Math.round((y - to) / 4));
+      const dy = (y - to) / steps;
+      for (let i = 0; i < steps; i++) {
+        const nx = x + (Math.random() - 0.5) * spread;
+        const nz = z + (Math.random() - 0.5) * spread;
+        const ny = y - dy;
+        bar(x, y, z, nx, ny, nz, w);
+        if (forks > 0 && i > 1 && Math.random() < 0.25) zag(nx, ny, nz, ny - dy * (2 + Math.random() * 3), spread * 0.8, forks - 1, w * 0.6);
+        x = nx;
+        y = ny;
+        z = nz;
+      }
+    };
+    zag(gx + (Math.random() - 0.5) * 6, ground + 30, gz + (Math.random() - 0.5) * 6, ground, 3, 2);
+    this.bolt.geometry.dispose();
+    this.bolt.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    this.bolt.visible = true;
+  }
+
+  /**
+   * At night, the paddler's headlamp: a warm beam down the water ahead, lighting the rocks and the
+   * banks as you come to them (and a little spark on the helmet, so you can see where you are).
+   */
+  private headlamp(night: number) {
+    const k = this.kayak;
+    const on = THREE.MathUtils.smoothstep(night, 0.35, 0.8) * (k.balance === 'swimming' ? 0.3 : 1);
+    const u = this.water.uniforms;
+    this.lamp.visible = this.lampGlow.visible = on > 0.01;
+    if (!this.lamp.visible) {
+      (u.uLamp.value as THREE.Vector4).w = 0;
+      return;
+    }
+    const hx = Math.sin(k.heading);
+    const hz = -Math.cos(k.heading);
+    const head = k.head ? k.head.getWorldPosition(this.headAt) : this.headAt.copy(k.pos).setY(k.pos.y + 1.1);
+    this.lamp.intensity = on * 4;
+    this.lamp.position.copy(head);
+    this.lamp.target.position.set(k.pos.x + hx * 14, k.pos.y, k.pos.z + hz * 14);
+    this.lampGlow.position.copy(head).add(new THREE.Vector3(hx * 0.2, 0.1, hz * 0.2));
+    (this.lampGlow.material as THREE.SpriteMaterial).opacity = on * (0.8 + Math.random() * 0.1);
+    (u.uLamp.value as THREE.Vector4).set(k.pos.x, k.pos.z, k.heading, on);
+  }
+
+  /**
    * Light the river as the island is lit, right now (its time of day, its weather), in the air
    * this river's run in: a warmer or a greyer light, darker down in a gorge, thinner and bluer
    * high up in the mountains, and muffled in a bank of fog.
@@ -1035,10 +1222,15 @@ export class RiverGame {
     const tint = this.tint.set(mood.tint[0]).lerp(ICE, this.high * 0.5);
     const lean = (mood.tint[1] + this.high * 0.15) * day;
     this.sun.color.copy(o.sun.color).lerp(tint, lean);
-    this.sun.intensity = o.sun.intensity * (1 + (mood.sun - 1) * day) * (1 - this.walls * 0.22) * (1 - this.fogged * 0.25) * (1 + this.high * 0.08);
+    // (at night on the river there are no lamps but your own: it's darker than on the island)
+    const dark = 1 - o.night * 0.6;
+    this.sun.intensity = o.sun.intensity * dark * (1 + (mood.sun - 1) * day) * (1 - this.walls * 0.22) * (1 - this.fogged * 0.25) * (1 + this.high * 0.08);
+    // and in the lightning, everything stands out stark for a moment
+    this.sun.color.lerp(WHITE, flash * 0.7);
+    this.sun.intensity += flash * 3;
     this.hemi.color.copy(o.hemi.color).lerp(tint, lean * 0.6);
     this.hemi.groundColor.copy(o.hemi.groundColor);
-    this.hemi.intensity = o.hemi.intensity * (1 + (mood.sun - 1) * 0.6 * day) * (1 - this.walls * 0.1) * (1 + this.fogged * 0.1); // (the island's lightning's already in its light)
+    this.hemi.intensity = o.hemi.intensity * (1 - o.night * 0.5) * (1 + (mood.sun - 1) * 0.6 * day) * (1 - this.walls * 0.1) * (1 + this.fogged * 0.1); // (the island's lightning's already in its light)
     // the same sun, but never so low that a pine's shadow reaches across the river
     const dir = o.sun.position.clone().normalize();
     dir.y = Math.max(dir.y, 0.62);
@@ -1050,7 +1242,7 @@ export class RiverGame {
     const fog = this.scene.fog as THREE.Fog;
     this.air.set(mood.air[0]).multiplyScalar(1 - o.night * 0.85);
     this.mist.copy(MIST).multiplyScalar(0.25 + day * 0.75);
-    fog.color.copy(o.fog).lerp(this.air, mood.air[1]).lerp(this.mist, this.fogged * 0.6).lerp(WHITE, flash * 0.3);
+    fog.color.copy(o.fog).multiplyScalar(1 - o.night * 0.5).lerp(this.air, mood.air[1]).lerp(this.mist, this.fogged * 0.6).lerp(WHITE, flash * 0.45);
     const sight = mood.sight * (1 - this.fogged * 0.35) * (1 + this.high * 0.1) * (1 - (o.haze ?? 0) * 0.4);
     fog.near = DISTANCE + 30 * sight * sight;
     fog.far = DISTANCE + 160 * sight;
@@ -1078,8 +1270,9 @@ export class RiverGame {
     // the faster it goes, the more river you see ahead: about three seconds of it
     const fast = THREE.MathUtils.clamp((k.speed - 3) / 7, 0, 1);
     this.zoom += (1 + fast * 0.32 - this.zoom) * (dt ? 1 - Math.exp(-dt * 1.2) : 1);
-    // a kick (a boof, a tier) punches the view in a touch as well as down
-    const view = this.view * this.zoom * (1 - this.kick * 0.06);
+    // a kick (a boof, a tier) punches the view in a touch as well as down, and going over a
+    // waterfall it leans right in
+    const view = this.view * this.zoom * (1 - this.kick * 0.06) * (1 - this.drama * 0.22);
     const h = view / 2;
     const w = h * this.aspect;
     const cam = this.camera;
@@ -1088,7 +1281,8 @@ export class RiverGame {
     const fx = Math.sin(this.yaw);
     const fz = -Math.cos(this.yaw);
     // the kayak sits in the lower part of the screen, so you can see what's coming
-    const lead = (view * (0.22 + fast * 0.08)) / Math.sin(ELEVATION);
+    // (and over a waterfall it looks down at the foot, to watch you drop all the way into it)
+    const lead = (view * (0.22 + fast * 0.08) * (1 - this.drama * 0.55)) / Math.sin(ELEVATION);
     const target = new THREE.Vector3(k.pos.x + fx * lead, this.course.heightAt(k.s) - this.kick * 0.6, k.pos.z + fz * lead);
     // the view trembles in white water, and in the last stretch before a big fall
     const roar = this.state === 'running' ? this.roar.level : 0;
@@ -1122,13 +1316,13 @@ export class RiverGame {
   }
 }
 
-const BALL = new THREE.Color('#d4dc3c');
+const BALL = new THREE.Color('#d8f03a');
 const WHITE = new THREE.Color(1, 1, 1);
 const ICE = new THREE.Color('#dce8ff');
 const MIST = new THREE.Color('#d8e0e2');
 
 function fresh(): Tally {
-  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0 }, balls: 0, sends: 0, sent: 0, longest: 0, flatOut: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1, spotted: [], trains: 0, rode: 0,
+  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0, storm: 0 }, balls: 0, sends: 0, sent: 0, longest: 0, flatOut: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1, spotted: [], trains: 0, rode: 0,
     knocks: 0, missed: 0, boofs: 0, spins: 0, fallsSent: 0, pumpedTrains: 0, goals: [], goalPoints: 0 };
 }
 

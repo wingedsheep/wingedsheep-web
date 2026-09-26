@@ -100,7 +100,13 @@ export async function bootIsland(host: HTMLElement) {
     if (call === 'roar') weather.bolt(); // in a storm, lightning shows it for what it is
   };
   life.fauna.onCall = heard;
-  life.beike.onSound = (kind, at, loud) => heard(kind, at, true, loud);
+  // Beike's howl along with the siren carries: he means it to
+  life.beike.onSound = (kind, at, loud) => heard(kind, at, kind !== 'aroo', loud);
+  // the week (scene/week.ts): the church bell comes from the mainland, wherever you're looking
+  life.week.onSound = (kind, at) => {
+    if (kind === 'toll' || kind === 'toll-low') sound.call(kind, 0.9, -0.55);
+    else if (at) heard(kind, at, true);
+  };
   const journal = new Journal(Object.keys(SECRETS).length);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
@@ -111,7 +117,7 @@ export async function bootIsland(host: HTMLElement) {
   const icicles = new Icicles(scene, island);
   // the special days (scene/calendar.ts): New Year's fireworks, and the sounds the day needs
   const fireworks = occasions.has('newyear') ? new Fireworks(scene, island, reducedMotion) : null;
-  if (fireworks || occasions.has('sinterklaas')) sound.festive();
+  if (fireworks || occasions.has('steamboat')) sound.festive();
   if (fireworks) {
     fireworks.onSound = (kind, at, big) => {
       if (!sound.outdoors && kind !== 'burst') return;
@@ -160,7 +166,12 @@ export async function bootIsland(host: HTMLElement) {
   picker.add(...life.fauna.pickables);
   if (life.mischief.thief) picker.add(life.mischief.thief);
   picker.add(...life.revel.pickables);
+  picker.add(...life.days.pickables);
+  picker.add(...life.sightings.pickables);
   // the fair folk gone again: a word, if you were watching (or if you stared them away)
+  life.week.onSiren = () => {
+    if (!river.inside && !trail.inside) ui.toast('Twelve o’clock on the first Monday of the month: the siren test, drifting over from the mainland. Beike always joins in.');
+  };
   life.revel.onEnd = (stared, watched) => {
     if (stared) ui.toast('You stared. The music stops, every head in the ring turns your way, and they’re gone. The fair folk don’t like to be stared at.');
     else if (watched) ui.toast('The music stops. They bow to one another, and they’re gone. It felt like a minute. It might have been a hundred years.');
@@ -319,6 +330,9 @@ export async function bootIsland(host: HTMLElement) {
   if (params.has('mischief')) life.mischief.soon();
   if (params.has('bottle')) life.bottle.ashore();
   if (params.has('revel')) life.revel.soon();
+  // and the week's: ?siren (the siren test, now), ?post (the post boat, on a post day: ?holiday=postday)
+  if (params.has('siren')) life.week.soon('siren');
+  if (params.has('post')) life.week.soon('post');
   void live();
   setInterval(live, 30 * 60 * 1000);
   ui.route(true);
@@ -342,12 +356,15 @@ export async function bootIsland(host: HTMLElement) {
   let thaw = 0;
   const clock = new THREE.Clock();
   let notes = 0;
+  let hushed = false; // said so, at the start of the fourth of May's silence
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
     wind.value += dt * (1 + Math.min(weather.wind, 15) / 20); // the grass sways faster on a windy day
     water.uniforms.uTime.value += dt;
     rig.update(dt);
     weather.update(dt, rig.camera, rig.target, rig.view, sky.lamps);
+    sky.gloom = weather.gloom;
+    sky.haze = weather.now.fog * (1 - weather.windiness * 0.7);
     sky.update(dt);
     weather.shade(sky, scene, pixels, water.uniforms);
     mist.update(dt, sky, weather);
@@ -371,9 +388,10 @@ export async function bootIsland(host: HTMLElement) {
     thaw = chill < lastChill - 1e-6 && chill > 0.3 ? 1 : Math.max(0, thaw - dt / 30);
     lastChill = chill;
     sound.thaw = thaw;
+    sound.siren = life.week.siren;
     sound.wind = weather.gust;
     sound.sea = weather.swell;
-    sound.cicadas = weather.heat.scorch * (1 - sky.lamps);
+    sound.cicadas = weather.heat.scorch * (1 - sky.lamps) * (1 - THREE.MathUtils.smoothstep(weather.gust, 0.3, 0.8)); // they stop in a gale
     const wet = Math.min(1, weather.now.rain + weather.now.snow + weather.now.hail);
     sound.crickets = CRICKETS[season.name] * THREE.MathUtils.smoothstep(sky.lamps, 0.35, 0.8) * (1 - wet) * (1 - weather.heat.chill);
     const hour = new Date(sky.time).getHours() + new Date(sky.time).getMinutes() / 60;
@@ -388,23 +406,34 @@ export async function bootIsland(host: HTMLElement) {
     life.wet = wet;
     life.chill = weather.heat.chill;
     life.drift.copy(windDir.value).multiplyScalar(Math.min(weather.wind, 12) / 6);
+    life.wind = weather.wind;
+    life.gust = weather.gust;
+    life.heat = (weather.heat.warm + weather.heat.scorch) * 0.5 * (1 - sky.lamps * 0.5);
     life.playing = sound.playing !== null;
     life.rhythm = sound.playing ? ((beats as Record<string, Rhythm>)[sound.playing.id] ?? null) : null;
     life.songTime = sound.songTime;
-    life.rain = weather.now.rain + weather.now.hail;
+    life.rain = weather.now.rain + weather.now.hail + weather.now.snow * 0.8; // nobody sits out in the snow either
     life.storm = weather.now.storm;
     if (!reducedMotion) life.update(dt);
-    else life.shelter.update(dt, life.rain, true);
-    const indoorsNow = hut.inside ? 'hut' : lighthouse.inside ? 'lighthouse' : null;
+    else life.shelter.update(dt, life.rain, true, life.heat);
+    const indoorsNow = hut.inside ? 'hut' : lighthouse.inside ? 'lighthouse' : workshop.inside ? 'workshop' : null;
     life.companion.update(dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, chill: life.chill, playing: life.playing, camera: rig.camera, room: indoorsNow,
       yoga: life.vincent.spot === 'yoga' && life.vincent.company ? life.vincent.pose : null,
     }, reducedMotion);
     life.vincent.update(dt, {
-      time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, camera: rig.camera,
+      time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, rough: weather.blizzard, camera: rig.camera,
       view: rig.view, room: indoorsNow, playing: life.playing,
     }, reducedMotion);
-    sound.guitarist = life.vincent.atTheFire;
+    // the special days' goings-on (days.ts), and the two minutes' silence on the fourth of May
+    life.days.update(dt, sky.time, { night: sky.lamps, wet, rain: life.rain, wind: weather.wind }, reducedMotion);
+    const silence = life.days.remembrance.silence;
+    sound.silence = silence;
+    sound.guitarist = life.vincent.atTheFire && silence === 0;
+    if (silence > 0 && !hushed) {
+      hushed = true;
+      ctx.toast('Eight o’clock. Two minutes’ silence.');
+    }
     const near = 1 - rig.target.distanceTo(campfire.clone().setY(1)) / 14;
     sound.update(near, rig.view, dt);
     if (sound.playing && (notes -= dt) < 0) {

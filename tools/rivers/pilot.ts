@@ -24,6 +24,8 @@ export const S = {
   margin: 0.25,
   /** How hard it paddles, 0..1 (sprinting through holes whatever this is). */
   power: 1,
+  /** How well it balances, 0..1: how hard it leans against the roll (it still braces past the tipping point). */
+  balance: 1,
   // the paddler's feel for it (found by a search over runs of the Tumble and the Black)
   ahead: 0.57, // how far ahead (s of travel) it reads the line
   lead: 1.1, // how far ahead (s) it reckons its own drift across
@@ -317,14 +319,21 @@ function distance(free: Uint8Array) {
  * sides; off a bit it sweeps on the other side; well off it throws in a reverse sweep. All the while
  * it leans against the roll and braces when it goes past the tipping point.
  */
+/** The ways it tries to peel out, in turn: how long it turns up into the eddy first (s), then how far off downstream it drives out (rad). */
+const PEELS: [number, number][] = [[1, 1], [0, 0.6], [1, 1.5], [0, 1.2], [2, 0.8]];
+
 export class Pilot {
   /** What foresight has it doing just now: how far off the line to steer, how hard to paddle. */
   move: Move = MOVES[0];
   private cooldown = 0;
   private braced = 0;
   private rollTapped = false;
-  /** How long it's been sat going nowhere (s). */
-  private still = 0;
+  /** Going nowhere: the furthest it's got, how long since it got further, and how far into a peel-out (-1: not). */
+  private stallS = -Infinity;
+  private stallT = 0;
+  private peel = -1;
+  private peelFrom = 0;
+  private peels = 0;
 
   constructor(private course: Course, private k: Kayak, private line: Float32Array, private start: number) {}
 
@@ -334,7 +343,11 @@ export class Pilot {
     p.cooldown = this.cooldown;
     p.braced = this.braced;
     p.rollTapped = this.rollTapped;
-    p.still = this.still;
+    p.stallS = this.stallS;
+    p.stallT = this.stallT;
+    p.peel = this.peel;
+    p.peelFrom = this.peelFrom;
+    p.peels = this.peels;
     return p;
   }
 
@@ -397,10 +410,26 @@ export class Pilot {
     let off = Math.asin(Math.max(-0.8, Math.min(0.8, (wantAcross - drift) / through))) + (wantAcross - across) * S.catch;
     off = Math.max(-S.maxoff, Math.min(S.maxoff, off));
     let want = here.a + (this.move.hold ?? off);
-    // sat still (in an eddy by the bank, say): out into the current, bow towards the middle, flat out
-    this.still = k.speed < 1 ? this.still + dt : 0;
-    const escape = this.still > 3;
-    if (escape) want = here.a - Math.sign(k.side || 1) * 0.8;
+    // going nowhere (held in an eddy, or pinned on a rock): peel out. Turn up into the eddy first,
+    // which gets the bow off a rock and some speed on, then drive out across the eddy line, angled
+    // downstream, towards the middle. (Straight out at it, the eddy line spins you back in.) If that
+    // doesn't do it, the next go is a different one: no turn first, and steeper or flatter out.
+    if (this.peel < 0) {
+      if (s > this.stallS + 2) (this.stallS = s), (this.stallT = 0);
+      else if ((this.stallT += dt) > 2.5) (this.peel = 0), (this.peelFrom = k.side), this.peels++;
+    }
+    if (this.peel >= 0) {
+      this.peel += dt;
+      const out = -Math.sign(this.peelFrom || 1);
+      const [up, across] = PEELS[(this.peels - 1) % PEELS.length];
+      want = this.peel < up ? here.a + Math.PI : here.a + out * across;
+      if ((this.peel > up && Math.abs(k.side) < Math.abs(this.peelFrom) - 2.5) || this.peel > 6) {
+        this.peel = -1;
+        this.stallS = s;
+        this.stallT = 0;
+      }
+    }
+    const escape = this.peel >= 0;
     // over a waterfall: straight down it
     if (falls && toLip < 1.6) want = k.here.a;
     const err = angle(want - k.heading) - k.yawRate * S.damp; // + wants to turn right
@@ -433,10 +462,11 @@ export class Pilot {
       if (toLip < 1.2) i.tapLeft = i.tapRight = false;
     }
     i.pitch = ledge && !falls && toLip < 1.2 ? -0.3 : falls && toLip < 2 ? 1 : 0.4;
-    if (k.airborne) i.pitch = falls || (ledge?.height ?? 0) >= 3 ? 1 : -0.3;
+    // (over the lip the ledge is passed and gone from what's coming: ask the boat what it's off)
+    if (k.airborne) i.pitch = k.flying >= 3 ? 1 : -0.3;
 
     // balance: lean against the roll, and brace past the tipping point
-    i.lean = Math.max(-1, Math.min(1, -k.tilt * 1.6 - tiltV * 0.4));
+    i.lean = Math.max(-1, Math.min(1, (-k.tilt * 1.6 - tiltV * 0.4) * S.balance));
     if ((Math.abs(k.tilt) > TIP * 0.9 || k.balance === 'over') && this.braced <= 0) {
       i.brace = true;
       this.braced = 0.5;

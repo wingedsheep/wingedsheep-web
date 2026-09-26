@@ -156,8 +156,8 @@ export class Library implements RoomInput {
     }
     this.pixels.uniforms.uFade.value = this.fade;
     this.plates.hidden = !this.inside || this.fade > 0.3;
-    // the sheet was dragged or snapped: the room fills whatever it leaves free
-    if (this.inside && narrow() && this.panel.offsetHeight !== this.sheetHeight) this.resize();
+    // the sheet was dragged, snapped or put away: the room fills whatever it leaves free
+    if (this.inside && this.panel.offsetHeight !== this.sheetHeight) this.resize();
     if (this.inside && this.interior) {
       if (this.interior.view.step(dt)) this.pinPlates(); // gliding in to something (the globe)
       this.interior.playing = this.ctx.sound.pianoPiece !== null;
@@ -192,7 +192,7 @@ export class Library implements RoomInput {
   /** The part of the canvas the panel leaves free for the room (CSS pixels). */
   private freeArea(w: number, h: number) {
     if (w > 760) {
-      const panel = Math.min(540, w * 0.44) + 16;
+      const panel = this.panel.hidden ? 0 : Math.min(540, w * 0.44) + 16;
       return { x: 12, y: 56, w: w - panel - 36, h: h - 70 };
     }
     // small screens: the catalogue is a sheet over the bottom of the screen

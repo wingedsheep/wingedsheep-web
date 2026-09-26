@@ -57,6 +57,8 @@ export function riverWater() {
       // ?flow in the address: the water coloured by its speed (red fast, blue back upstream)
       uDebug: { value: new URLSearchParams(location.search).has('flow') ? 1 : 0 },
       uBoat: { value: new THREE.Vector4(0, 0, 0, 0) },
+      // the headlamp at night: where the boat is (x, z), which way it's pointing, and how bright
+      uLamp: { value: new THREE.Vector4(0, 0, 0, 0) },
       uRocks: { value: Array.from({ length: MAX_ROCKS }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uHoles: { value: Array.from({ length: MAX_HOLES }, () => new THREE.Vector4(0, 0, 0, 0)) },
       uTongues: { value: Array.from({ length: MAX_TONGUES }, () => new THREE.Vector4(0, 0, 0, 0)) },
@@ -154,6 +156,7 @@ export function riverWater() {
       uniform vec3 uView;
       uniform vec3 uSky;
       uniform vec4 uBoat; // x, z, the heading of its wake, how fast it's moving through the water
+      uniform vec4 uLamp; // x, z, heading, 0..1 how bright
       uniform vec4 uRocks[${MAX_ROCKS}];
       uniform vec4 uHoles[${MAX_HOLES}];
       uniform vec4 uTongues[${MAX_TONGUES}];
@@ -554,6 +557,15 @@ export function riverWater() {
         if (uDebug > 0.0) col = along > 0.0 ? mix(vec3(0.2), vec3(1.0, 0.2, 0.1), along / 10.0) : mix(vec3(0.2), vec3(0.1, 0.4, 1.0), -along / 3.0);
         if (uDebug > 0.0) col.g += trainH; // (a wave train's crests green, its troughs a shade darker)
         col *= uLight;
+        // the headlamp: a pool of warm light down the water ahead, in a few hard steps
+        if (uLamp.w > 0.0) {
+          vec2 ld = wp - uLamp.xy;
+          float dist = length(ld);
+          float ahead = dot(ld, vec2(sin(uLamp.z), -cos(uLamp.z))) / max(dist, 0.001);
+          float lit = smoothstep(0.72, 0.9, ahead) * (1.0 - smoothstep(3.0, 20.0, dist)) + (1.0 - smoothstep(0.8, 2.2, dist)) * 0.5;
+          lit = floor(min(lit, 1.0) * 3.0 + 0.5) / 3.0 * uLamp.w;
+          col += (col * 1.3 + vec3(0.05, 0.04, 0.02)) * vec3(1.0, 0.94, 0.8) * lit;
+        }
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
         #include <fog_fragment>

@@ -20,11 +20,16 @@ Parts the runtime animates (src/island/scene/workshop-room.ts):
   hammock, cursor              the hammock sways; the terminal cursor blinks
   window_glass                 takes the colour of the sky outside
   robot_* parts                walking, tripping, presenting (src/island/scene/robot.ts)
+  robot_update, robot_bar      its update's progress bar, on Patch Tuesday
+  vincent_workshop             Vincent at the boat he's building, on a Saturday (bench_* parts)
+  boat_stage_<n>               the boat, one Saturday's work at a time (week.ts shows one)
+  sawdust_fresh                a Saturday's shavings
 """
 from __future__ import annotations
 
 import math
 
+import characters
 import palette as P
 from kit import Model, emitter, group, light
 
@@ -584,6 +589,19 @@ def robot(root):
     t.cyl(0.03, 0.1, (0.05, 0.3, 0.42), "#e46f5a", segs=5)
     t.cyl(0.12, 0.08, (0, 0, 0.52), P.IRON, segs=6)                      # neck
     t.build(hips)
+    # on Patch Tuesday its chest panel shows how the update's going (the runtime fills the bar)
+    upd = group("robot_update", (0, -0.24, 0.3), parent=hips)
+    u = Model("robot_update_frame")
+    u.box((0.3, 0.012, 0.2), (0, 0, 0), ROBOT_FACE)
+    u.box((0.26, 0.014, 0.07), (0, -0.002, -0.02), P.WHITE)
+    u.box((0.24, 0.016, 0.05), (0, -0.004, -0.02), ROBOT_FACE)
+    for i in range(3):                                                    # "please wait", in dots
+        u.box((0.025, 0.016, 0.025), (-0.04 + i * 0.04, -0.004, 0.055), EYE, glow=True)
+    u.build(upd)
+    bar = group("robot_bar", (-0.12, -0.012, -0.02), parent=upd)
+    b = Model("robot_bar_fill")
+    b.box((0.24, 0.01, 0.04), (0.12, 0, 0), SCREEN_GREEN, glow=True)
+    b.build(bar)
 
     head = group("robot_head", (0, 0, 0.58), parent=hips)
     h = Model("robot_headshell", seed=41)
@@ -687,6 +705,89 @@ def clutter(root):
     m.build(root)
 
 
+# --- Saturdays: the boat ---------------------------------------------------------------------------
+
+BOAT = (5.1, 2.75)                  # where it stands on its trestles, bow to the east
+VINCENT_BENCH = (5.0, 3.6)          # and where he works at it, his back to the bench
+BOAT_STAGES = 6                     # one a Saturday: keel, ribs, planks, more planks, paint, done
+
+_XS = [-1.0, -0.65, -0.25, 0.15, 0.55, 0.85, 1.08]
+_HW = [0.3, 0.38, 0.41, 0.39, 0.31, 0.18, 0.03]
+
+
+def _outline(scale: float, x0: float, y0: float):
+    """The hull's plan at one height: starboard from the transom to the bow, then back along port."""
+    side = [(x0 + x, y0 - hw * scale) for x, hw in zip(_XS, _HW)]
+    return side + [(x0 + x, y0 + hw * scale) for x, hw in reversed(list(zip(_XS, _HW)))]
+
+
+def _hull(m: Model, stage: int, x0: float, y0: float):
+    """The boat as it stands after `stage` Saturdays' work (0: just the keel on its trestles)."""
+    keel, mid, top = 0.62, 0.84, 1.04
+    for dx in (-0.6, 0.6):                                               # the trestles
+        m.box((0.08, 0.9, 0.08), (x0 + dx, y0, keel - 0.04), P.WOOD)
+        for s in (-1, 1):
+            m.plank_line((x0 + dx, y0 + s * 0.4, 0), (x0 + dx, y0 + s * 0.3, keel - 0.08), 0.07, 0.07, P.WOOD_DARK)
+    m.plank_line((x0 - 1.0, y0, keel), (x0 + 0.85, y0, keel), 0.08, 0.08, P.WOOD_LIGHT)            # keel…
+    m.plank_line((x0 + 0.85, y0, keel), (x0 + 1.12, y0, top + 0.08), 0.07, 0.07, P.WOOD_LIGHT)     # …and stem
+    m.box((0.05, 0.62, top - keel), (x0 - 1.0, y0, (top + keel) / 2), P.PLANK)                     # the transom
+    if stage >= 1 and stage < 4:                                          # ribs: the frames she's planked on
+        for x, hw in zip(_XS[1:5], _HW[1:5]):
+            for s in (-1, 1):
+                m.plank_line((x0 + x, y0 + s * hw * 0.45, keel), (x0 + x, y0 + s * hw, top), 0.04, 0.04, P.WOOD_LIGHT)
+            m.plank_line((x0 + x, y0 - hw * 0.45, keel), (x0 + x, y0 + hw * 0.45, keel), 0.04, 0.04, P.WOOD_LIGHT)
+    if stage >= 2:
+        paint = stage >= 4
+        low = "#2f6a6a" if paint else P.PLANK
+        up = "#2f6a6a" if paint else P.WOOD_LIGHT
+        m.slab(_outline(0.45, x0, y0), keel, mid, low, top=_outline(0.82, x0, y0))
+        if stage >= 3:
+            m.slab(_outline(0.82, x0, y0), mid, top, up, top=_outline(1.0, x0, y0))
+            m.slab(_outline(0.93, x0, y0), top - 0.03, top + 0.002, P.WOOD_DARK)                    # inside her, shaded
+            m.slab(_outline(1.03, x0, y0), top, top + 0.03, P.WHITE if paint else P.WOOD)          # the gunwale
+        if paint:
+            m.slab(_outline(0.9, x0, y0), mid + 0.07, mid + 0.1, P.WHITE, top=_outline(0.93, x0, y0))  # a white stripe
+    if stage >= 5:                                                        # done: seats, oars, a name
+        for x in (-0.55, 0.25):
+            m.box((0.18, 0.72, 0.04), (x0 + x, y0, top - 0.06), P.WOOD_LIGHT)
+        for s in (-1, 1):
+            m.plank_line((x0 - 0.8, y0 + s * 0.12, top + 0.04), (x0 + 0.7, y0 + s * 0.2, top + 0.05), 0.04, 0.04, P.WOOD)
+            m.box((0.3, 0.1, 0.02), (x0 + 0.8, y0 + s * 0.2, top + 0.05), P.WOOD)
+        m.box((0.02, 0.4, 0.08), (x0 - 1.03, y0, top - 0.12), P.WHITE)                               # her name
+        m.box((0.022, 0.3, 0.03), (x0 - 1.035, y0, top - 0.12), P.INK)
+        m.cyl(0.05, 0.06, (x0 + 1.12, y0, top + 0.1), "#c8303a", segs=6)                              # a ribbon on the bow
+
+
+def boat(root):
+    """The boat Vincent is building in the workshop, one stage of it for each Saturday he's put in."""
+    x0, y0 = BOAT
+    g = group("boat_build", parent=root, id="boat_build")
+    for stage in range(BOAT_STAGES):
+        st = group(f"boat_stage_{stage}", parent=g, stage=stage)
+        m = Model(f"boat_stage_{stage}", seed=60 + stage)
+        _hull(m, stage, x0, y0)
+        m.build(st)
+    # a Saturday's shavings, fresh round the trestles and under the bench
+    f = group("sawdust_fresh", parent=root)
+    sd = Model("sawdust_fresh", seed=61)
+    for _ in range(40):
+        x = x0 + sd.rng.uniform(-1.4, 1.5)
+        y = y0 + sd.rng.uniform(-0.7, 1.4)
+        sd.box((0.1, 0.04, 0.015), (x, y, 0.008), "#e8c890" if sd.rng.random() < 0.6 else "#d4a868", rot=(0, 0, sd.rng.uniform(0, 3)))
+    sd.cyl(0.55, 0.02, (x0 + 0.3, y0 + 0.9, 0), "#d4a868", segs=8)
+    sd.build(f)
+    # and him, in his apron with a plane in his right hand, facing her across the trestles
+    vx, vy = VINCENT_BENCH
+    v = group("vincent_workshop", (vx, vy, 0), parent=root, id="vincent_workshop")
+    characters.vincent_standing(v, "bench", apron=True)
+    arm = next(o for o in v.children_recursive if o.name.startswith("bench_arm_r"))
+    pl = Model("bench_plane")
+    pl.box((0.12, 0.3, 0.1), (0, -0.1, -0.66), P.WOOD_LIGHT)
+    pl.box((0.05, 0.08, 0.09), (0, -0.2, -0.58), P.WOOD_DARK)
+    pl.box((0.04, 0.04, 0.12), (0, 0.0, -0.6), "#c8303a")
+    pl.build(arm)
+
+
 def build():
     root = group("workshop_interior")
     shell(root)
@@ -703,4 +804,5 @@ def build():
     hx, hy = WAYPOINTS["home"][0]
     charging_dock(group("robot_dock", (hx, hy, 0), parent=root))
     robot(group("robot", (hx, hy, 0), parent=root, id="robot"))
+    boat(root)
     return root

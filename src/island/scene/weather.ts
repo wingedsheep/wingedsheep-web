@@ -4,6 +4,7 @@ import { Particles } from './particles';
 import type { PixelRenderer } from './pixel-renderer';
 import type { Sky } from './sky';
 import { drought, windDir, windGust } from './grass';
+import { season } from './season';
 import { frostCover, snowCover } from './toon';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -16,9 +17,11 @@ const GREY = new THREE.Color();
 const MIST = new THREE.Color('#c3ccd4');
 const FLASH = new THREE.Color(0.9, 0.92, 1);
 const LEAVES = ['#7fae4a', '#a7c35a', '#d9a441', '#c9713d', '#8c5a3c'];
+const DEAD_LEAVES = ['#8c5a3c', '#6e4a32', '#a07a52'];
 const GOLD = new THREE.Color('#ffd9a0');
 const HAZE = new THREE.Color('#efdcbc');
 const ICE = new THREE.Color('#d6e6ff');
+const WHITEOUT = new THREE.Color('#dde2e8');
 const BUTTERFLIES = ['#f7f3ea', '#f2d25c', '#f29a4a', '#9fc4f0'];
 const RAINBOW = ['#9b6bd6', '#5b7fe0', '#5fb8e0', '#7cc96a', '#f2d25c', '#f29a4a', '#e4604e'];
 
@@ -184,6 +187,17 @@ export class Weather {
     return THREE.MathUtils.clamp((this.wind - 6) / 9, 0, 1);
   }
 
+  /** Snow in a gale, 0..1: snow driven sideways, spindrift, the distance gone white. */
+  get blizzard() {
+    return Math.min(1, this.now.snow * 1.25) * THREE.MathUtils.smoothstep(this.gust, 0.15, 0.7);
+  }
+
+  /** How dark the day is under the weather, 0..1: enough, under a thunderhead, to put the lamps on. */
+  get gloom() {
+    const n = this.now;
+    return THREE.MathUtils.clamp(n.cloud * 0.3 + n.storm * 0.45 + n.rain * 0.15 + n.fog * 0.2 + n.snow * 0.15 + this.blizzard * 0.2, 0, 0.75);
+  }
+
   /** Windiness, eased, with the gusts coming through now and then: for the trees, grass and sound. */
   gust = 0;
 
@@ -318,6 +332,11 @@ export class Weather {
     // the low mist (see Mist) does most of the work; this just softens the distance
     f.near = 150 - fog * 70;
     f.far = 260 - fog * 45;
+    // a blizzard: the far side of the island goes grey-white
+    const white = this.blizzard;
+    f.color.lerp(GREY.copy(WHITEOUT).multiplyScalar(0.35 + day * 0.65), white * 0.45);
+    f.near -= white * 35;
+    f.far -= white * 80;
     scene.background = f.color;
 
     // heat: golden light when warm; when scorching, a pale haze and a shimmer
@@ -399,14 +418,22 @@ export class Weather {
     };
     const white = new THREE.Color(0xf4f6fb).multiplyScalar(dim);
 
-    spawn(n.snow * 260, () => this.flakes.emit({
-      position: around.clone().add(V(rand(-size, size), rand(2, size * 0.6), rand(-size, size))),
-      velocity: V(drift * 0.12 * dx + rand(-0.2, 0.2), -rand(1.6, 2.6), drift * 0.12 * dz + rand(-0.2, 0.2)),
-      color: white,
-      life: rand(5, 8),
-      size: Math.random() < 0.2 ? 2 : 1,
-      wobble: 1.2,
-    }));
+    // snow: drifting down on a still day; in a blizzard, thicker and driven almost sideways, so
+    // it's let go upwind of the view to blow right across it
+    const blizzard = this.blizzard;
+    const sideways = drift * (0.12 + blizzard * 0.55);
+    spawn(n.snow * 260 * (1 + blizzard * 1.2), () => {
+      const life = blizzard > 0.3 ? rand(2.5, 4) : rand(5, 8);
+      const upwind = sideways * life * 0.5 * Math.min(1, blizzard * 2);
+      this.flakes.emit({
+        position: around.clone().add(V(rand(-size, size) - upwind * dx, rand(2, size * 0.6), rand(-size, size) - upwind * dz)),
+        velocity: V(sideways * dx + rand(-0.2, 0.2), -rand(1.6, 2.6) * (1 - blizzard * 0.3), sideways * dz + rand(-0.2, 0.2)),
+        color: white,
+        life,
+        size: Math.random() < 0.2 ? 2 : 1,
+        wobble: 1.2 * (1 - blizzard * 0.6),
+      });
+    });
     spawn(n.hail * 160, () => {
       const top = rand(3, size * 0.6);
       this.flakes.emit({
@@ -426,20 +453,31 @@ export class Weather {
       size: 2,
       wobble: 3,
     }));
-    // leaves tumbling across the island on a windy day, in from the upwind side
-    spawn(this.windiness * 22 * (1 + this.gust), () => {
+    // on a windy day, in from the upwind side: leaves tumbling across the island, or with snow
+    // falling or lying, the snow itself, skimming low off the ground (spindrift)
+    const snowy = Math.max(Math.min(1, n.snow * 1.5), snowCover.value);
+    const winter = season.weights.winter;
+    const across = (make: (from: THREE.Vector3, speed: number) => void) => {
       const upwind = size * rand(0.6, 1);
-      const across = rand(-size, size) * 0.7;
-      const speed = drift * rand(0.8, 1.3);
-      this.flakes.emit({
-        position: around.clone().add(V(-upwind * dx - across * dz, rand(1, 7), -upwind * dz + across * dx)),
-        velocity: V(speed * dx + rand(-0.6, 0.6), rand(-0.3, 0.6), speed * dz + rand(-0.6, 0.6)),
-        color: new THREE.Color(pick(LEAVES)).multiplyScalar(dim),
-        life: rand(3, 5),
-        size: Math.random() < 0.5 ? 2 : 1,
-        wobble: 2.5,
-      });
-    });
+      const side = rand(-size, size) * 0.7;
+      make(around.clone().add(V(-upwind * dx - side * dz, 0, -upwind * dz + side * dx)), drift * rand(0.8, 1.3));
+    };
+    spawn(this.windiness * 22 * (1 + this.gust) * (1 - snowy) * (1 - winter * 0.6), () => across((from, speed) => this.flakes.emit({
+      position: from.setY(from.y + rand(1, 7)),
+      velocity: V(speed * dx + rand(-0.6, 0.6), rand(-0.3, 0.6), speed * dz + rand(-0.6, 0.6)),
+      color: new THREE.Color(pick(winter > 0.5 ? DEAD_LEAVES : LEAVES)).multiplyScalar(dim), // in winter, only the last brown ones
+      life: rand(3, 5),
+      size: Math.random() < 0.5 ? 2 : 1,
+      wobble: 2.5,
+    })));
+    spawn(this.windiness * 90 * (1 + this.gust) * snowy, () => across((from, speed) => this.flakes.emit({
+      position: from.setY(from.y + rand(-0.5, 1.8) * (1 + blizzard)),
+      velocity: V(speed * 1.2 * dx + rand(-0.4, 0.4), rand(-0.1, 0.35), speed * 1.2 * dz + rand(-0.4, 0.4)),
+      color: white,
+      life: rand(1.5, 3),
+      size: 1,
+      wobble: 0.6,
+    })));
   }
 
   /** Snow (and some hail) builds up while it falls, then melts back to what the forecast says is lying. */
@@ -454,7 +492,9 @@ export class Weather {
   private frostGoal(night: number) {
     const c = this.chill;
     const lasting = THREE.MathUtils.smoothstep(c, 0.6, 1);
-    return THREE.MathUtils.smoothstep(c, 0.2, 0.6) * Math.max(Math.min(1, night * 1.3), lasting * 0.6) * (1 - this.now.rain);
+    // rain washes frost off, but not below freezing: sleet at -3 °C only glazes it
+    const thawing = THREE.MathUtils.clamp(this.temperature / 2, 0, 1);
+    return THREE.MathUtils.smoothstep(c, 0.2, 0.6) * Math.max(Math.min(1, night * 1.3), lasting * 0.6) * (1 - this.now.rain * thawing);
   }
 
   /** How far ice has crept out from the shore, 0..1: it takes a proper freeze, and calm water. */

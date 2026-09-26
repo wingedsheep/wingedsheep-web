@@ -3,6 +3,7 @@ import { Ground } from './beike';
 import type { Beike } from './beike';
 import type { Island } from './island';
 import type { Particles } from './particles';
+import { visitDate } from './calendar';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -33,7 +34,16 @@ const daylit = (e: Env) => e.night < 0.35;
 export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap'
   | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
-  | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush';
+  | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'
+  | 'burner' | 'horn' | 'murmur' | 'seal'
+  // the week (week.ts): the post boat's horn, the church bell over the water, Beike joining in with the siren
+  | 'toot' | 'toll' | 'toll-low' | 'aroo';
+
+/** Friday the 13th (by the visit's calendar): the black sheep can hardly stay away. */
+export const FRIDAY_13 = (() => {
+  const d = visitDate();
+  return d.getDay() === 5 && d.getDate() === 13;
+})();
 
 /** Who's out on this visit: some animals only turn up now and then. */
 const LUCK = (() => {
@@ -41,7 +51,7 @@ const LUCK = (() => {
   const want = (k: string) => q.get('animal') === k;
   return {
     stag: want('stag') || chance(0.25),
-    blacksheep: want('blacksheep') || chance(0.2),
+    blacksheep: want('blacksheep') || chance(FRIDAY_13 ? 0.8 : 0.2),
     fox: want('fox') || chance(0.55),
     deerByDay: want('deer') || chance(0.3),
     wanderer: want('wanderer') || chance(1 / 14),
@@ -132,10 +142,10 @@ function wings(l: THREE.Object3D | undefined, r: THREE.Object3D | undefined, fla
 }
 
 /** Face along a direction: yaw from the ground heading, then pitch and roll (models face +x). */
-function orient(o: THREE.Object3D, heading: number, pitch = 0, roll = 0) {
+export function orient(o: THREE.Object3D, heading: number, pitch = 0, roll = 0) {
   o.rotation.set(roll, heading, pitch, 'YZX');
 }
-const headingOf = (dx: number, dz: number) => Math.atan2(-dz, dx);
+export const headingOf = (dx: number, dz: number) => Math.atan2(-dz, dx);
 const turnTo = (from: number, to: number, k: number, dt: number) => {
   const d = Math.atan2(Math.sin(to - from), Math.cos(to - from));
   return from + d * (1 - Math.exp(-k * dt));
@@ -843,7 +853,7 @@ class Skein {
 // --- in and on the water -----------------------------------------------------------------
 
 /** A splash: a ring of white and pale-blue pixels thrown up and falling back. */
-function splash(p: Particles, at: THREE.Vector3, size = 1) {
+export function splash(p: Particles, at: THREE.Vector3, size = 1) {
   for (let i = 0; i < 10 * size; i++) {
     const a = rand(0, Math.PI * 2);
     const s = rand(0.6, 1.6) * Math.sqrt(size);

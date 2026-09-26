@@ -9,6 +9,10 @@ Vincent's bed, a double he shares with her, is in the north-west corner under th
 window, with a candle on the nightstand. The stove is lit along the north wall, the long table is laid for soup, and the
 boots wait in a row by the door. The runtime (src/island/scene/hut-room.ts) drives:
   window_glass  the sky outside          steam  rises from the kettle and the soup pot
+  forecast_slate  the next three days, chalked up from the visitor's own forecast
+  post_<k>      the shelf over the coats: what's come on the post boat (week.ts shows the latest
+                in each of its six places), `hut_parcel` the one that came today, still unopened
+  pancakes      a Sunday morning's stack on the table
   the rest      things you can click (ids)
 """
 from __future__ import annotations
@@ -348,6 +352,127 @@ def counter(root):
     k.build(t)
 
 
+def board(root):
+    """The warden's blackboard on the north wall, between the stove and the counter window: the
+    next three days' weather, chalked up (the runtime draws it), with the chalk on the ledge."""
+    g = group("forecast", parent=root, id="forecast")
+    bx, bz, w, h = 0.9, 1.7, 1.06, 0.77
+    m = Model("forecast_board")
+    m.box((w + 0.12, 0.05, h + 0.12), (bx, Y1 - 0.025, bz), P.WOOD_DARK)
+    m.box((w + 0.16, 0.12, 0.04), (bx, Y1 - 0.08, bz - h / 2 - 0.08), P.WOOD)                  # the ledge
+    m.box((0.08, 0.025, 0.025), (bx + 0.3, Y1 - 0.1, bz - h / 2 - 0.047), P.WHITE)             # a stub of chalk
+    m.box((0.12, 0.06, 0.05), (bx - 0.35, Y1 - 0.1, bz - h / 2 - 0.035), P.WOOD_LIGHT)         # the rubber
+    m.box((0.12, 0.061, 0.02), (bx - 0.35, Y1 - 0.1, bz - h / 2 - 0.05), P.RUG_DARK)
+    m.build(g)
+    s = Model("forecast_slate")
+    s.box((w, 0.02, h), (bx, Y1 - 0.06, bz), "#27302c")
+    s.build(g)
+
+
+# what's come on the post boat over the weeks, in the order it came (src/island/scene/week.ts):
+# the shelf over the coats has six places, and each new thing takes the place of whatever came
+# six post days before it
+POST_SHELF = (X0 + 0.16, -1.95, 0.33, 2.32)   # x, the first place's y, the step between places, the top of the shelf
+
+
+def _post_item(m: Model, k: int, x: float, y: float, z: float):
+    """The kth thing that came in the post, stood on the shelf at (x, y, z), facing the room (+x)."""
+    rng = m.rng
+    if k == 0:                                                                          # a stack of paperbacks
+        for i, c in enumerate(P.BOOKS[:4]):
+            m.box((0.2, 0.26, 0.05), (x + 0.02, y, z + 0.025 + i * 0.05), c, rot=(0, 0, rng.uniform(-0.2, 0.2)))
+    elif k == 1:                                                                        # a cactus in a pot
+        m.cyl(0.07, 0.1, (x, y, z), P.RUST_ROOF, segs=6, r_top=0.09)
+        m.cyl(0.045, 0.18, (x, y, z + 0.1), "#4f8a4a", segs=6, r_top=0.035)
+        m.cyl(0.02, 0.07, (x, y + 0.05, z + 0.17), "#4f8a4a", segs=5, rot=(-0.9, 0, 0))
+        m.ball(0.02, (x, y, z + 0.29), "#e98aa8", subdiv=1)
+    elif k == 2:                                                                        # a record, leaning on the wall
+        m.box((0.02, 0.3, 0.3), (x - 0.04, y, z + 0.15), "#2f5d8c", rot=(0, -0.15, 0))
+        m.cyl(0.08, 0.021, (x - 0.025, y, z + 0.15), P.GOLD, segs=8, rot=(0, math.pi / 2 - 0.15, 0))
+    elif k == 3:                                                                        # a snow globe
+        m.cyl(0.07, 0.05, (x, y, z), P.WOOD_DARK, segs=8)
+        m.ball(0.08, (x, y, z + 0.12), "#cfe8f4", subdiv=2)
+        m.cyl(0.03, 0.08, (x, y, z + 0.06), P.WHITE, segs=5, r_top=0.005)
+    elif k == 4:                                                                        # a tin of tea
+        m.cyl(0.065, 0.16, (x, y, z), "#2f6a3c", segs=8)
+        m.cyl(0.066, 0.03, (x, y, z + 0.06), P.GOLD, segs=8)
+    elif k == 5:                                                                        # a toy sheep with wings
+        m.ball(0.07, (x, y, z + 0.08), P.WOOL, subdiv=1, scale=(1, 1.3, 0.9))
+        m.box((0.06, 0.06, 0.06), (x + 0.02, y - 0.09, z + 0.1), P.SHEEP_FACE)
+        for s in (-1, 1):
+            m.box((0.1, 0.02, 0.05), (x + s * 0.07, y, z + 0.13), P.FEATHER, rot=(0, s * 0.5, 0))
+            m.box((0.02, 0.02, 0.05), (x + s * 0.03, y - 0.04, z + 0.02), P.INK)
+    elif k == 6:                                                                        # hot sauce
+        m.cyl(0.035, 0.14, (x, y, z), "#c8303a", segs=6)
+        m.cyl(0.015, 0.05, (x, y, z + 0.14), "#c8303a", segs=5)
+        m.box((0.072, 0.05, 0.05), (x, y, z + 0.06), P.WHITE)
+    elif k == 7:                                                                        # a little brass telescope
+        m.plank_line((x, y - 0.12, z + 0.04), (x, y + 0.12, z + 0.1), 0.06, 0.06, P.COPPER)
+        m.plank_line((x, y + 0.12, z + 0.1), (x, y + 0.2, z + 0.12), 0.045, 0.045, P.GOLD)
+        m.box((0.03, 0.03, 0.06), (x, y, z + 0.03), P.WOOD_DARK)
+    elif k == 8:                                                                        # a board game
+        m.box((0.22, 0.3, 0.07), (x + 0.01, y, z + 0.035), "#6a3a8a")
+        m.box((0.18, 0.2, 0.005), (x + 0.01, y, z + 0.072), "#e8d8a8")
+    elif k == 9:                                                                        # a mug with a sheep on it
+        m.cyl(0.06, 0.12, (x, y, z), P.WHITE, segs=8)
+        m.ball(0.025, (x + 0.055, y, z + 0.06), P.WOOL, subdiv=1)
+        m.cyl(0.03, 0.02, (x, y + 0.07, z + 0.06), P.WHITE, segs=6)
+    elif k == 10:                                                                       # a rubber duck
+        m.ball(0.06, (x, y, z + 0.05), "#f2c230", subdiv=1, scale=(1, 1.2, 0.8))
+        m.ball(0.04, (x, y - 0.05, z + 0.12), "#f2c230", subdiv=1)
+        m.box((0.03, 0.04, 0.015), (x + 0.02, y - 0.09, z + 0.12), "#f07a1a")
+    else:                                                                               # a ship in a bottle
+        m.cyl(0.05, 0.24, (x, y - 0.12, z + 0.05), "#bfe0d0", segs=8, rot=(-math.pi / 2, 0, 0))
+        m.cyl(0.02, 0.06, (x, y + 0.14, z + 0.05), P.WOOD, segs=5, rot=(-math.pi / 2, 0, 0))
+        m.box((0.02, 0.12, 0.03), (x, y, z + 0.03), P.WOOD_DARK)
+        m.prism([(0, 0), (0.06, 0), (0, 0.07)], 0.01, (x, y, z + 0.045), P.WHITE, rot=(0, 0, math.pi / 2))
+
+
+def post_shelf(root):
+    """A shelf high on the west wall over the coats, for what comes on the post boat."""
+    x, y0, step, top = POST_SHELF
+    m = Model("post_shelf")
+    m.box((0.28, 6 * step + 0.1, 0.05), (x + 0.1, y0 + 2.5 * step, top - 0.025), P.WOOD)
+    for dy in (0.1, 5 * step - 0.1):
+        m.box((0.05, 0.05, 0.22), (x + 0.03, y0 + dy, top - 0.16), P.WOOD_DARK, rot=(0, 0.6, 0))   # brackets
+    m.build(root)
+    for k in range(12):
+        g = group(f"post_{k}", parent=root, id=f"post_{k}", post=k)
+        item = Model(f"post_item_{k}", seed=90 + k)
+        _post_item(item, k, x + 0.1, y0 + (k % 6) * step, top)
+        item.build(g)
+
+    # today's, still in its paper, on the mat by the door
+    p = group("hut_parcel", parent=root, id="hut_parcel")
+    pm = Model("hut_parcel_box")
+    w, d, h = 0.5, 0.38, 0.3
+    px, py = X0 + 0.75, DOOR_Y + 0.55
+    pm.box((w, d, h), (px, py, h / 2 + 0.03), "#b98a56")
+    pm.box((w + 0.01, 0.03, h + 0.01), (px, py, h / 2 + 0.03), "#e8e0cc")
+    pm.box((0.03, d + 0.01, h + 0.01), (px, py, h / 2 + 0.03), "#e8e0cc")
+    pm.box((0.16, 0.12, 0.01), (px + 0.1, py - 0.06, h + 0.04), P.WHITE)
+    pm.build(p)
+
+
+def pancakes(root):
+    """Sunday morning: a stack of pancakes on the table, a jar of syrup and a sugar shaker by it."""
+    tx, ty = TABLE
+    top = 0.78
+    g = group("pancakes", parent=root, id="pancakes")
+    m = Model("pancake_stack", seed=7)
+    x, y = tx + 0.15, ty + 0.3
+    m.cyl(0.2, 0.02, (x, y, top), P.WHITE, segs=10)
+    for i in range(7):
+        m.cyl(0.155 + m.rng.uniform(-0.01, 0.01), 0.022, (x + m.rng.uniform(-0.01, 0.01), y + m.rng.uniform(-0.01, 0.01), top + 0.02 + i * 0.022),
+              "#e0b060" if i % 2 else "#d49a48", segs=10)
+    m.cyl(0.05, 0.012, (x, y, top + 0.174), "#fbf4ec", segs=6)                          # a knob of butter
+    m.cyl(0.05, 0.12, (x + 0.3, y - 0.05, top), "#8a4a1a", segs=8)                     # stroop, in its jar
+    m.cyl(0.052, 0.03, (x + 0.3, y - 0.05, top + 0.12), P.GOLD, segs=8)
+    m.cyl(0.035, 0.1, (x - 0.28, y + 0.02, top), "#e8e8f0", segs=6)                     # the sugar
+    m.cyl(0.036, 0.03, (x - 0.28, y + 0.02, top + 0.1), P.TUNER, segs=6, r_top=0.02)
+    m.build(g)
+
+
 def table(root):
     """The long table: soup for three, the bread, a candle in a jar, the guestbook and the map."""
     tx, ty = TABLE
@@ -530,8 +655,11 @@ def build():
     bed(root)
     stove(root)
     counter(root)
+    board(root)
     table(root)
     door(root)
     corner(root)
+    post_shelf(root)
+    pancakes(root)
     guest(root)
     return root

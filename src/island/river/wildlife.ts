@@ -172,6 +172,8 @@ export class Wildlife {
   private ravensIn = rand(6, 14);
   /** 0..1: how stormy it is on the island (the rain comes in sideways on the wind). */
   storm = 0;
+  /** The storm's wind across the river right now (x, z; the kayak's gust), for the rain to ride. */
+  readonly blow = new THREE.Vector2();
   private beikeDone = false;
   private waiting = false; // Beike's waiting at the take-out
   /** The rare ones already in your log (the ones you haven't seen come up more often). */
@@ -317,6 +319,24 @@ export class Wildlife {
     }
   }
 
+  /** A column of white water thrown straight up: the kayak plunging into the foot of a waterfall. */
+  plume(at: THREE.Vector3, count: number, power = 1) {
+    for (let i = 0; i < count; i++) {
+      const a = rand(0, Math.PI * 2);
+      const out = rand(0, 1.4) * power;
+      const v = V(Math.cos(a) * out, rand(5, 10) * power, Math.sin(a) * out);
+      this.specks.emit(at.clone().add(V(Math.cos(a) * rand(0, 0.6), 0.1, Math.sin(a) * rand(0, 0.6))), v, i % 3 ? WHITE : FOAM, rand(0.9, 1.6));
+    }
+  }
+
+  /** Mist hanging in the air and drifting off slowly, `wide` metres across. */
+  mist(at: THREE.Vector3, count: number, wide = 3) {
+    for (let i = 0; i < count; i++) {
+      const v = V(rand(-0.6, 0.6), rand(0.2, 0.9), rand(-0.6, 0.6));
+      this.specks.emit(at.clone().add(V(rand(-wide, wide) / 2, rand(0.2, 1.8), rand(-wide, wide) / 2)), v, i % 2 ? WHITE : FOAM, rand(1.5, 3.2), 2);
+    }
+  }
+
   /** Glints thrown up round the kayak: a ball fished out, the flow going up a notch. */
   sparkle(at: THREE.Vector3, count: number, color: THREE.Color = GOLD, power = 1) {
     for (let i = 0; i < count; i++) {
@@ -392,11 +412,13 @@ export class Wildlife {
     }
     // rain, and snow, falling round you: in a storm, driven in sideways on the wind
     const fall = (rain + snow) * 60 * (1 + this.storm);
-    const slant = 0.4 + this.storm * 7;
+    // (the way the gusts are blowing, or on a still day just a touch)
+    const sx = 0.4 + this.storm * 2 + this.blow.x * 3.5;
+    const sz = this.blow.y * 3.5;
     for (let n = Math.floor(fall * dt + Math.random()); n > 0; n--) {
-      const at = kayak.clone().add(V(rand(-22, 22) - slant * 0.6, rand(8, 14), rand(-30, 12)));
-      if (Math.random() < snow / Math.max(rain + snow, 0.01)) this.specks.emit(at, V(rand(-0.5, 0.5) + slant * 0.3, -1.2, rand(-0.5, 0.5)), WHITE, 10, 2);
-      else this.specks.emit(at, V(slant, -16 - this.storm * 6, 0), RAIN, 1, 2);
+      const at = kayak.clone().add(V(rand(-22, 22) - sx * 0.6, rand(8, 14), rand(-30, 12) - sz * 0.6));
+      if (Math.random() < snow / Math.max(rain + snow, 0.01)) this.specks.emit(at, V(rand(-0.5, 0.5) + sx * 0.3, -1.2, rand(-0.5, 0.5) + sz * 0.3), WHITE, 10, 2);
+      else this.specks.emit(at, V(sx, -16 - this.storm * 6, sz), RAIN, 1, 2);
     }
   }
 

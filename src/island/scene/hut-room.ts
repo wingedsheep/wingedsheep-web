@@ -1,12 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { toonIndoors } from './interior';
+import type { Forecast } from '../forecast';
+import { BOARD, drawForecast } from './chalkboard';
+import { faceRoom, toonIndoors } from './interior';
 import { Particles } from './particles';
 import { Picker } from './picking';
 import { RoomCamera } from './room-camera';
 import { Guests } from './guests';
 import { haloTexture } from './sky';
 import { type Outside, Windows } from './windows';
+import { sundayMorning } from './bedtime';
+import { occasions } from './calendar';
+import { post, shelf } from './almanac';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -56,6 +61,13 @@ export class HutRoom {
   private timers = new Map<string, number>();
   /** Her page in bed: how far over (0..1), and how long until she turns the next. */
   private page = { t: 0, next: rand(4, 9) };
+  /** The island's time (sky.ts), set before each update: Sunday morning's pancakes go by it. */
+  time = Date.now();
+  /** What came on the post boat (hut.py `post_<k>`), the parcel on the mat, and the pancakes. */
+  private parcel?: THREE.Object3D;
+  private pancakes?: THREE.Object3D;
+  /** The blackboard by the stove, and the forecast last chalked on it. */
+  private board?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; material: THREE.MeshBasicMaterial; shows?: Forecast | null };
 
   static async load(base = '/models/'): Promise<HutRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}hut.glb?v=${__MODELS__}`);
@@ -70,6 +82,7 @@ export class HutRoom {
     const halo = haloTexture();
     const guests: THREE.Object3D[] = [];
     const panes: THREE.Mesh[] = [];
+    let slate: THREE.Mesh | undefined;
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
@@ -82,11 +95,22 @@ export class HutRoom {
         const glass = o.name.startsWith('window_glass') || o.parent?.name.startsWith('window_glass');
         const glow = src.name.startsWith('glow_');
         if (glass) panes.push(mesh);
+        if (o.name.startsWith('forecast_slate') || o.parent?.name.startsWith('forecast_slate')) slate = mesh;
         mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
         mesh.castShadow = !glass && !glow;
         mesh.receiveShadow = true;
       }
     });
+    if (slate) this.hangBoard(slate);
+    // the shelf over the coats: the newest thing in each of its places (week.ts `shelf`)
+    for (let k = 0; k < 12; k++) {
+      const thing = this.named.get(`post_${k}`);
+      if (!thing) continue;
+      thing.visible = shelf.has(k);
+      if (!thing.visible) this.named.delete(`post_${k}`);
+    }
+    this.parcel = this.named.get('hut_parcel');
+    this.pancakes = this.named.get('pancakes');
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
     this.guests = new Guests(this.scene, guests);
@@ -103,6 +127,7 @@ export class HutRoom {
 
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values());
+    this.week();
   }
 
   get camera() {
@@ -113,9 +138,40 @@ export class HutRoom {
     this.view.frame(width, height, free);
   }
 
+  /** Chalk up the forecast, if it isn't already. */
+  chalk(forecast: Forecast | null | undefined) {
+    const b = this.board;
+    if (!b || b.shows === forecast) return;
+    b.shows = forecast;
+    drawForecast(b.canvas.getContext('2d')!, forecast);
+    b.texture.needsUpdate = true;
+  }
+
+  /** The board shows its own chalk rather than being lit by the room, so it stays readable; it dims a little at night. */
+  private hangBoard(mesh: THREE.Mesh) {
+    const canvas = document.createElement('canvas');
+    canvas.width = BOARD.w;
+    canvas.height = BOARD.h;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.magFilter = texture.minFilter = THREE.NearestFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    faceRoom(mesh, 'north');
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+    mesh.material = material;
+    this.board = { canvas, texture, material };
+    this.chalk(null);
+  }
+
+  /** Today's parcel on the mat, once it's up from the pier; pancakes on the table on a Sunday morning. */
+  private week() {
+    if (this.parcel) this.parcel.visible = occasions.has('postday') && post.delivered;
+    if (this.pancakes) this.pancakes.visible = sundayMorning(this.time);
+  }
+
   /** `out` is the weather outside (weather.ts `now`): rain on the windows, lightning, a greyer day. */
   update(dt: number, night: number, out?: Outside) {
     this.clock += dt;
+    this.week();
     this.guests.update(dt);
     const t = this.clock;
     for (const l of this.lamps) {
@@ -134,6 +190,7 @@ export class HutRoom {
       this.hemi.intensity += out.flash * 1.2;
     }
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
+    this.board?.material.color.setScalar(0.8 + day * 0.2);
 
     // the kettle and the soup never come off the stove up here
     for (const [i, { at, from }] of this.steam.entries()) {

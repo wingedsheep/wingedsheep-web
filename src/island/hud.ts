@@ -21,6 +21,8 @@ export function bindHud(ctx: IslandContext) {
   });
 
   renderJournal(ctx);
+  // at Easter, a counter for the egg hunt, which asks Beike for a hint (scene/easter.ts)
+  ctx.life.days.easter.mount((text) => ctx.toast(text), () => ctx.rig.target);
   konami(() => {
     ctx.life.releaseFlock();
     ctx.discover('flock');

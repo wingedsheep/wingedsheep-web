@@ -36,7 +36,12 @@ type Mood =
   | { kind: 'wave'; t: number; fall: boolean }
   | { kind: 'stumble'; t: number }
   | { kind: 'fall'; t: number }
-  | { kind: 'bonk'; t: number };
+  | { kind: 'bonk'; t: number }
+  | { kind: 'install'; t: number }
+  | { kind: 'reboot'; t: number };
+
+const INSTALL = 55; // seconds, Patch Tuesday's updates (most of it spent on the last one per cent)
+const GROGGY = 90; // seconds after, of not being quite itself
 
 /**
  * The workshop robot. It potters between the exhibits along the waypoints baked into the room, tinkers with them, naps on its charging pad at night and, when a visitor
@@ -65,6 +70,10 @@ export class Robot {
   // the antenna is a damped spring that every stumble sets wobbling
   private wobble = new THREE.Vector2();
   private wobbleV = new THREE.Vector2();
+  /** The update's progress bar on its chest (workshop.py `robot_update`), and until when it's groggy after. */
+  private screen?: THREE.Object3D;
+  private bar?: THREE.Object3D;
+  private groggy = 0;
 
   constructor(
     root: THREE.Object3D | undefined,
@@ -82,6 +91,9 @@ export class Robot {
     this.legs = ['leg_l', 'leg_r'].map(part).filter(Boolean) as THREE.Object3D[];
     for (const o of [this.hips, this.head, this.antenna, ...this.arms, ...this.legs]) if (o) this.rest.set(o, o.rotation.clone());
     this.hipsY = this.hips?.position.y ?? 0;
+    this.screen = part('robot_update');
+    this.bar = part('robot_bar');
+    if (this.screen) this.screen.visible = false;
 
     for (const w of waypoints) this.nodes.set(w.name, { ...w, links: [...w.links] });
     for (const w of this.nodes.values()) {
@@ -100,9 +112,27 @@ export class Robot {
     return this.root?.getWorldPosition(V()) ?? V();
   }
 
+  /** Patch Tuesday: stand still and install its updates, then start up again, not quite itself. */
+  install() {
+    this.route = [];
+    this.mood = { kind: 'install', t: 0 };
+    if (this.screen) this.screen.visible = true;
+  }
+
+  /** How far through its updates it is (0..1), or null if it isn't updating. */
+  get updating() {
+    return this.mood.kind === 'install' ? this.progress(this.mood.t) : null;
+  }
+
+  /** Quick to begin with, then slower, and stuck on 99 per cent for a good while. */
+  private progress(t: number) {
+    const k = t / INSTALL;
+    return k < 0.3 ? (k / 0.3) * 0.6 : k < 0.7 ? 0.6 + ((k - 0.3) / 0.4) * 0.39 : k < 0.97 ? 0.99 : 1;
+  }
+
   /** Walk over to an exhibit and show it off until dismissed. */
   present(id: string) {
-    if (!this.nodes.has(id)) return;
+    if (!this.nodes.has(id) || this.mood.kind === 'install' || this.mood.kind === 'reboot') return;
     this.showing = id;
     if (this.node === id && !this.route.length && this.upright) {
       this.mood = { kind: 'present' };
@@ -119,7 +149,8 @@ export class Robot {
   }
 
   /** Someone clicked it. Returns what happened, so the island can say something about it. */
-  poke(): 'trip' | 'wave' | 'fall' {
+  poke(): 'trip' | 'wave' | 'fall' | 'busy' {
+    if (this.mood.kind === 'install' || this.mood.kind === 'reboot') return 'busy';
     if (this.mood.kind === 'walk') {
       this.mood = { kind: 'stumble', t: 0 };
       this.kick(2.5);
@@ -241,7 +272,39 @@ export class Robot {
       case 'walk':
         walking = this.walk(dt);
         look = Math.sin(this.clock * 0.9) * 0.2;
+        if (this.clock < this.groggy) look += Math.sin(this.clock * 7) * 0.25; // shaking its head clear
         break;
+      case 'install': {
+        // stock still, head bowed over its own chest, the bar creeping along
+        m.t += dt;
+        crouch = 0.03;
+        lean = 0.12;
+        look = 0;
+        if (this.bar) this.bar.scale.x = Math.max(0.02, this.progress(m.t));
+        if (m.t > INSTALL) {
+          this.mood = { kind: 'reboot', t: 0 };
+          if (this.screen) this.screen.visible = false;
+          this.room.sound?.('robot-beep');
+        }
+        break;
+      }
+      case 'reboot': {
+        // everything off for a moment, slumped; then a jolt, and up
+        m.t += dt;
+        const off = 1 - ease(m.t, 1.6, 2.1);
+        crouch = 0.12 * off;
+        lean = 0.35 * off;
+        arm = [-0.2 * off, -0.2 * off];
+        if (m.t > 1.6 && m.t - dt <= 1.6) {
+          this.room.sound?.('robot-servo');
+          this.kick(4);
+        }
+        if (m.t > 2.6) {
+          this.groggy = this.clock + GROGGY;
+          this.mood = { kind: 'idle', until: this.clock + 1 };
+        }
+        break;
+      }
     }
 
     this.pose(dt, walking, lean, arm, armOut, look, crouch);
@@ -317,7 +380,7 @@ export class Robot {
     root.rotation.y = this.heading;
 
     // clumsy: every so often a toe catches on nothing at all
-    if (Math.random() < dt / (this.showing ? 40 : 22)) {
+    if (Math.random() < dt / (this.showing ? 40 : this.clock < this.groggy ? 6 : 22)) {
       this.mood = Math.random() < 0.3 ? { kind: 'fall', t: 0 } : { kind: 'stumble', t: 0 };
       this.kick(2.5);
       return 0;

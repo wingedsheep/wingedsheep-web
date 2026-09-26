@@ -6,9 +6,14 @@ in June. They're built where they stand, in island coordinates.
 
   kingsday     orange bunting over the plaza and along the pier, a pennant over the summit
                flag, and a vrijmarkt blanket of odds and ends for sale
+  easter       eggs for the Easter egg hunt: one in plain sight in Beike's meadow, the rest
+               hidden all over the island (easter.ts)
+  liberation   5 May: red, white and blue bunting down the summit flag's pole (the 4th's
+               half-mast is the runtime lowering the flag: remembrance.ts)
   shoe         a clog by the campfire with a carrot in it for the horse (the weeks before 5 Dec),
                and on the day a chocolate letter in its place
-  sinterklaas  his steamboat moored at the head of the pier, presents on the boards
+  steamboat    his steamboat moored at the head of the pier, from the day he arrives to 5 Dec
+  sinterklaas  presents on the boards
   halloween    jack-o'-lanterns at the mountain hut's door and on the library's doorstep
   christmas    a tree on the plaza, put up the day after Sinterklaas, lit at night
   christmasday presents under it
@@ -19,6 +24,7 @@ in June. They're built where they stand, in island coordinates.
 from __future__ import annotations
 
 import math
+import random
 
 import bpy
 
@@ -168,11 +174,12 @@ def shoe(t: Terrain):
 
 
 def steamboat(t: Terrain):
-    """Sinterklaas's steamboat, in from Spain, tied up across the head of the pier."""
+    """Sinterklaas's steamboat, in from Spain, tied up across the head of the pier from the day
+    he arrives (mid-November) till pakjesavond, when the presents come ashore."""
     dx, dy = L.DOCK
     head = dy + 1.0 - L.DOCK_LEN                                   # the pier's far end
     root = holiday("sinterklaas", "sinterklaas")
-    boat = group("steamboat", (-0.8, head - 1.95, 0.0), parent=root, id="steamboat")
+    boat = holiday("steamboat", "steamboat", (-0.8, head - 1.95, 0.0), id="steamboat")
     m = Model("steamboat", seed=5)
     plan = [(-2.5, -0.8), (1.5, -0.8), (2.9, 0.0), (1.5, 0.8), (-2.5, 0.8)]
     flare = [(x * 1.06, y * 1.12) for x, y in plan]
@@ -395,7 +402,186 @@ def birthdays(t: Terrain):
     party_hat("hat_charlie", "charlie_head", (0.02, -0.06, 0.09), (0.25, -0.3, 0), ["#e98aa8", NL_WHITE])
 
 
+# --- Liberation Day -----------------------------------------------------------------------------
+
+def liberation(t: Terrain):
+    """5 May: the flag's right back up after the fourth, dressed with a string of red, white and
+    blue each way down from the top of the pole to a peg in the grass."""
+    sx, sy = L.SUMMIT
+    z = t.sample(sx, sy)
+    root = holiday("liberation", "liberation", id="liberation")
+    m = Model("liberation_bunting", seed=45)
+    top = (sx, sy, z + 2.95)
+    for dx, dy in ((-2.1, -1.1), (1.9, -1.6)):
+        px, py = sx + dx, sy + dy
+        peg = (px, py, t.sample(px, py) + 0.15)
+        bunting(m, top, peg, [NL_RED, NL_WHITE, NL_BLUE], sag=0.25, every=0.4, size=0.6)
+        m.cyl(0.03, 0.25, (px, py, peg[2] - 0.2), P.WOOD_DARK, segs=4)
+    m.build(root, unshaded=1)
+
+
+# --- Easter ----------------------------------------------------------------------------------------
+
+EGG_COLOURS = [("#f2b8c6", "#fff4d8"), ("#a8d8f0", "#f2c440"), ("#f7e08a", "#e86a6a"), ("#b8e0a0", "#f2ece2"),
+               ("#d0b8f0", "#fff4d8"), ("#f5a860", "#2f6fb0")]
+# One out in the open in Beike's meadow, so you know what you're looking for; the rest hidden all
+# over the island, in the same order as easter.ts's hints: (x, y, scale, height if not the ground)
+EGGS = [
+    (-11.2, -11.6, 4.5, None),     # in plain sight, in Beike's meadow
+    (-16.85, -11.45, 1.7, None),   # peeking out from under the bench, beneath the cats
+    (-0.2, -26.5, 1.6, 0.78),      # at the end of the pier, beside the dock cat
+    (20.3, -13.2, 1.7, None),      # round the back of the well
+    (16.1, 15.3, 1.6, None),       # at the end of the mountain hut's woodpile
+    (5.0, 18.5, 1.5, "summit"),    # tied to the summit flagpole, under the flag
+    (28.1, -5.7, 1.6, None),       # at the mouth of the badgers' sett
+    (-30.0, -5.3, 1.7, None),      # in the rocks at the lighthouse's foot
+    (18.3, 4.2, 1.7, None),        # at the foot of the bouldering rock
+    (24.6, -1.6, 1.6, None),       # by the campfire, against a log
+    (23.4, -11.4, 1.6, None),      # among the blossom tree's roots
+    (-2.3, -15.7, 1.6, None),      # at the foot of the signpost
+]
+
+
+def easter(t: Terrain):
+    """Painted eggs for the Easter egg hunt (easter.ts), each its own part (egg_<i>) so it can be
+    found and taken away. The first sits out in the open; the others are tucked away round the
+    island, small, behind and under things."""
+    root = holiday("easter", "easter")
+    rng = random.Random(4)
+    for i, (x, y, size, z) in enumerate(EGGS):
+        shell, band = EGG_COLOURS[i % len(EGG_COLOURS)]
+        if z == "summit":                                            # tied to the flagpole under the flag (the peak's rocks hide its foot)
+            z = t.sample(*L.SUMMIT) + 1.95
+        g = group(f"egg_{i}", (x, y, t.sample(x, y) if z is None else z), rot_z=rng.uniform(0, math.tau), parent=root, id=f"egg_{i}")
+        g.scale = (size, size, size)
+        m = Model(f"egg_{i}")
+        tip = rng.uniform(-0.5, 0.5)                                 # lying a little on its side
+        m.ball(0.085, (0, 0, 0.1), shell, subdiv=2, scale=(1, 1, 1.3), rot=(tip, 0, 0))
+        m.cyl(0.088, 0.035, (0, 0, 0.1), band, segs=10, rot=(tip, 0, 0))
+        for k in range(3):                                           # dots
+            a = k * math.tau / 3
+            m.ball(0.018, (math.cos(a) * 0.08, math.sin(a) * 0.08, 0.15), band, subdiv=1)
+        m.build(g)
+
+
+# --- the New Year's dive ------------------------------------------------------------------------------
+
+HAT = "#f47a1c"                                                      # nieuwjaarsduik orange
+TOWEL = "#3f8fc0"
+TOWEL_STRIPE = "#f2ece2"
+# on the beach west of the pier: his towel on the sand, the water's edge, and in up to his chest
+DIVE = [(-5.4, -14.7), (-5.5, -16.6), (-5.9, -18.1)]
+
+
+def dive(t: Terrain):
+    """1 January: Vincent in his swimming shorts and an orange hat, for the nieuwjaarsduik (dive.ts
+    runs him in and, very soon after, out). Parked under the island; the route runs from his towel
+    down the beach into the sea. Faces -y like the others: `dive_leg_l/_r` and `dive_arm_l/_r`
+    swing from hips and shoulders, and `dive_head` turns."""
+    import characters                                                # (it needs bpy's mathutils, like this file)
+
+    root = holiday("dive", "dive")
+    me = group("vincent_dive", (0, 0, -20), parent=root, id="vincent_dive")
+    hip = 0.84
+    m = Model("vincent_dive_body")
+    m.box((0.5, 0.3, 0.22), (0, 0, hip + 0.02), HAT)                # orange shorts too, to go with the hat
+    m.box((0.54, 0.32, 0.64), (0, 0.02, hip + 0.44), P.SKIN)        # bare chest, in January
+    m.box((0.2, 0.2, 0.12), (0, 0.0, hip + 0.83), P.SKIN)           # neck
+    m.build(me)
+    for s, side in ((1, "l"), (-1, "r")):
+        g = Model(f"dive_leg_{side}")
+        g.box((0.2, 0.22, 0.3), (0, 0, -0.15), HAT)
+        g.box((0.16, 0.16, 0.48), (0, 0, -0.52), P.SKIN)
+        g.box((0.17, 0.3, 0.07), (0, -0.05, -0.8), P.SKIN)           # bare feet
+        g.build(me, loc=(s * 0.13, 0, hip))
+        a = Model(f"dive_arm_{side}")
+        a.box((0.14, 0.14, 0.58), (0, 0, -0.29), P.SKIN)
+        a.box((0.11, 0.12, 0.1), (0, 0, -0.62), P.SKIN)
+        a.build(me, loc=(s * 0.34, 0, hip + 0.7))
+    h = characters.head(me, "dive_head", (0, 0, hip + 0.89), cap=False)
+    hat = Model("dive_hat")                                          # a knitted orange hat with a bobble
+    hat.cyl(0.25, 0.14, (0, 0, 0.41), HAT, segs=10, r_top=0.24)
+    hat.cyl(0.23, 0.1, (0, 0, 0.54), HAT, segs=10, r_top=0.14)
+    hat.ball(0.08, (0, 0, 0.66), TOWEL_STRIPE, subdiv=1)
+    hat.cyl(0.255, 0.05, (0, 0, 0.42), TOWEL_STRIPE, segs=10)        # a white band round it
+    hat.build(h)
+    for i, (x, y) in enumerate(DIVE):
+        group(f"route_dive_{i}", (x, y, t.sample(x, y)), parent=root, route="dive", step=i, fixed=0)
+
+    # his towel spread on the sand, his clothes in a heap on it, and a flask of something hot
+    x, y = DIVE[0]
+    towel = group("dive_towel", (x + 0.9, y + 0.2, t.sample(x + 0.9, y + 0.2)), rot_z=0.3, parent=root, id="dive_towel")
+    k = Model("dive_towel")
+    k.box((0.8, 1.5, 0.03), (0, 0, 0.015), TOWEL)
+    for yy in (-0.55, 0.55):
+        k.box((0.8, 0.1, 0.031), (0, yy, 0.016), TOWEL_STRIPE)
+    k.box((0.4, 0.3, 0.1), (0.1, 0.35, 0.08), P.TEE)                # his tee, folded
+    k.box((0.36, 0.26, 0.08), (0.1, 0.35, 0.17), P.SHORTS)
+    k.box((0.2, 0.34, 0.1), (-0.2, -0.4, 0.08), P.SHOE)
+    k.box((0.2, 0.34, 0.1), (0.05, -0.45, 0.08), P.SHOE)
+    k.cyl(0.07, 0.3, (0.5, 0.0, 0.0), "#9aa6ae", segs=8)             # the flask
+    k.cyl(0.075, 0.06, (0.5, 0.0, 0.3), P.INK, segs=8)
+    k.build(towel)
+
+
+# --- Sint Maarten and the Airborne commemoration: things the runtime copies ---------------------------
+
+LANTERNS = [("#f5a040", "#c8303a"), ("#f7d850", "#2a4f9a"), ("#f28ab0", "#3d7a4a"), ("#8fd0f0", "#f07a1a")]
+
+
+def lanterns(t: Terrain):
+    """Paper lanterns on sticks for the fair folk's Sint Maarten walk (lanterns.ts clones them):
+    a stick with a hook at the top, and from it a round paper lantern lit from inside. Each is
+    `lantern_<i>`, parked under the island, the bottom of the stick at its origin."""
+    root = holiday("sintmaarten", "sintmaarten")
+    for i, (paper, trim) in enumerate(LANTERNS):
+        g = group(f"lantern_{i}", (i * 2.0, 0, -20), parent=root, id=f"lantern_{i}")
+        m = Model(f"lantern_{i}")
+        m.cyl(0.012, 0.75, (0, 0, 0), P.WOOD, segs=4)                 # the stick
+        m.plank_line((0, 0, 0.75), (0.16, 0, 0.8), 0.015, 0.015, P.WOOD)
+        m.plank_line((0.16, 0, 0.8), (0.16, 0, 0.7), 0.008, 0.008, P.INK)   # the wire
+        m.ball(0.11, (0.16, 0, 0.58), paper, subdiv=2, scale=(1, 1, 0.9), glow=True)
+        m.cyl(0.07, 0.03, (0.16, 0, 0.67), trim, segs=8)             # the rims, top and bottom
+        m.cyl(0.07, 0.03, (0.16, 0, 0.47), trim, segs=8)
+        m.build(g)
+
+
+def airborne(t: Terrain):
+    """Things the runtime (airborne.ts) sends over the sea on the day: an old Dakota, and the
+    round parachutes that come out of it. Far off, so built small like the ships on the horizon.
+    Parked under the island; each faces +x."""
+    root = holiday("airborne", "airborne")
+    plane = group("dakota", (0, 0, -30), parent=root, id="dakota")
+    d = Model("dakota")
+    olive, dark = "#5a6040", "#3f4430"
+    d.cyl(0.35, 4.2, (-2.0, 0, 0), olive, segs=8, r_top=0.12, rot=(0, math.pi / 2, 0))   # fuselage, tapering aft
+    d.ball(0.35, (-2.0, 0, 0), olive, subdiv=1, scale=(0.9, 1, 1))                    # the nose
+    d.box((1.1, 6.0, 0.08), (-1.2, 0, -0.1), olive)                                   # wings
+    for s in (-1, 1):
+        d.cyl(0.16, 0.7, (-1.95, s * 1.1, -0.1), dark, segs=6, rot=(0, math.pi / 2, 0))   # engines
+    d.box((0.6, 2.0, 0.06), (1.9, 0, 0.1), olive)                                     # tailplane
+    d.prism([(0, 0), (0.7, 0), (0.6, 0.8), (0.3, 0.8)], 0.06, (1.6, 0, 0.1), olive, rot=(math.pi / 2, 0, 0))  # the fin
+    d.box((0.3, 0.02, 0.6), (-0.2, 0.36, 0.18), "#e8e0cc")                            # invasion stripes
+    d.box((0.3, 0.02, 0.6), (-0.2, -0.36, 0.18), "#e8e0cc")
+    d.build(plane)
+    chute = group("parachute", (0, 0, -40), parent=root, id="parachute")
+    c = Model("parachute")
+    rings = [(0.05, 1.0), (0.55, 0.9), (0.8, 0.65), (0.9, 0.4)]                        # the canopy, a dome
+    for (r0, z0), (r1, z1) in zip(rings, rings[1:]):
+        c.cyl(r1, z0 - z1, (0, 0, z1), "#d8d4c0", segs=10, r_top=r0)
+    for k in range(6):                                                                 # the lines
+        a = k * math.tau / 6
+        c.plank_line((math.cos(a) * 0.85, math.sin(a) * 0.85, 0.4), (0, 0, -0.55), 0.01, 0.01, "#8a8670")
+    c.box((0.14, 0.12, 0.34), (0, 0, -0.72), "#4f5a3a")                               # the jumper
+    c.build(chute)
+
+
 def populate(t: Terrain):
+    dive(t)
+    lanterns(t)
+    airborne(t)
+    liberation(t)
+    easter(t)
     kings_day(t)
     shoe(t)
     steamboat(t)

@@ -25,6 +25,7 @@ export class UI {
   private articleBody = $('#article-body')!;
   private articleBack = $('.book-back')!;
   private sketch = $('#sketch')!;
+  private stowed = $('#stowed')!;
   private reader = new Reader(this.article);
   private current: Open = null;
   /** The panel a post was opened from; closing the post goes back there. */
@@ -38,6 +39,7 @@ export class UI {
         this.back();
       });
     }
+    $('[data-unstow]', this.stowed)!.addEventListener('click', () => this.openPanel('library'));
     this.backdrop.addEventListener('click', () => this.back());
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
@@ -81,7 +83,9 @@ export class UI {
   openPanel(name: PanelName, push = true, sub?: string) {
     const el = $(`[data-panel="${name}"]`);
     if (!el) return;
-    if (this.current?.kind === 'panel' && this.current.name === name) return;
+    const same = this.current?.kind === 'panel' && this.current.name === name;
+    if (same && this.stowed.hidden) return;
+    if (same) push = false; // only fetching the catalogue back out: still the same page
     this.hideAll();
     el.hidden = false;
     el.scrollTop = 0;
@@ -117,10 +121,21 @@ export class UI {
     this.showArticle(slug);
   }
 
-  /** Step back one level: from a post to the shelf it came from, from a panel out to the island. */
+  /**
+   * Step back one level: from a post to the shelf it came from, from a panel out to the island.
+   * The library's catalogue is put away first, so you can stay in the room without it.
+   */
   back() {
     if (this.current?.kind === 'article') this.openPanel(this.returnTo);
+    else if (this.current?.kind === 'panel' && this.current.name === 'library' && this.stowed.hidden) this.stow();
     else this.close();
+  }
+
+  /** Put the library's catalogue away, staying in the room; the door (or Escape) still leads out. */
+  private stow() {
+    $('[data-panel="library"]')!.hidden = true;
+    this.stowed.hidden = false;
+    $<HTMLElement>('[data-unstow]', this.stowed)!.focus({ preventScroll: true });
   }
 
   close(push = true) {
@@ -211,6 +226,7 @@ export class UI {
 
   private hideAll() {
     for (const p of $$('[data-panel]')) p.hidden = true;
+    this.stowed.hidden = true;
     this.article.hidden = true;
     this.backdrop.hidden = true;
   }

@@ -13,6 +13,9 @@ const TURN = 8;
 /** Who's indoors right now, by id ("charlie", "george", "cat", "beike"): the rooms show them there. */
 export const indoors = new Set<string>();
 
+/** Which cats are flat out in the heat, by id (content.ts says so when you click them). */
+export const flatOut = new Set<string>();
+
 /**
  * Charlie's ambush in the lighthouse (quarters.ts), while Vincent's at his desk: one tiny mew,
  * and then he's on Vincent's back, claws and all. `on` while he's up there.
@@ -36,7 +39,11 @@ export function heightBetween(a: Waypoint, b: Waypoint, p: THREE.Vector3, ground
   return ya + (yb - ya) * k;
 }
 
-type Phase = 'asleep' | 'down' | 'in' | 'inside' | 'out' | 'up';
+// 'cool' and 'warm': down off the bench onto the stones under it in the heat, and back up
+type Phase = 'asleep' | 'down' | 'in' | 'inside' | 'out' | 'up' | 'cool' | 'warm';
+
+const HOT = 0.55; // heat (0..1) that has them down on the cool stones…
+const COOLER = 0.4; // …and back up on the fleece once it's this much cooler
 
 interface CatSpec {
   id: string;
@@ -70,6 +77,12 @@ class Cat {
   private parts: { body?: THREE.Object3D; head?: THREE.Object3D; tail?: THREE.Object3D; legs: THREE.Object3D[] };
   private rest = new Map<THREE.Object3D, THREE.Euler>();
   private bodyY = 0;
+  /** On the flagstones under the bench, flat out (in the heat); the dock cat just flattens where it is. */
+  private sprawled = false;
+  private heatWait = 0;
+  private cool: THREE.Vector3 | null = null;
+  private restPos: THREE.Vector3;
+  private restScale: THREE.Vector3;
 
   constructor(
     private spec: CatSpec,
@@ -85,7 +98,12 @@ class Cat {
       const ahead = new THREE.Vector3(0, 0, 1).applyQuaternion(sleeper.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
       const at = this.seat.clone().addScaledVector(ahead, spec.front);
       this.points.unshift({ at: at.setY(ground.at(at.x, at.z)), fixed: false });
+      // half under the seat, on the stones the bench stands on (its foot is 0.56 below the fleece)
+      this.cool = this.seat.clone().addScaledVector(ahead, 0.3);
+      this.cool.y -= 0.56 - 0.045;
     }
+    this.restPos = sleeper.position.clone();
+    this.restScale = sleeper.scale.clone();
     for (let i = 1; i < this.points.length; i++) {
       const a = this.points[i - 1].at;
       const b = this.points[i].at;
@@ -114,22 +132,65 @@ class Cat {
     return this.phase === 'inside';
   }
 
+  /** Asleep in its usual spot (not down on the stones in the heat). */
   get asleep() {
-    return this.phase === 'asleep';
+    return this.phase === 'asleep' && !this.sprawled;
   }
 
   /** Straight to where the weather says it should be, no walking (on arrival, or with reduced motion). */
-  snap(wantIn: boolean) {
+  snap(wantIn: boolean, hot = 0) {
     this.phase = wantIn ? 'inside' : 'asleep';
+    this.sprawl(!wantIn && hot > HOT);
     this.sleeper.visible = !wantIn;
     this.walker.visible = false;
     this.wait = 0;
   }
 
-  update(dt: number, wantIn: boolean) {
+  /** Flat out on the cool stones (or back on the fleece): the sleeping model, moved and squashed. */
+  private sprawl(on: boolean) {
+    this.sprawled = on;
+    if (on) flatOut.add(this.spec.id);
+    else flatOut.delete(this.spec.id);
+    const s = this.sleeper;
+    if (on && this.cool) s.position.copy(s.parent ? s.parent.worldToLocal(this.cool.clone()) : this.cool);
+    else s.position.copy(this.restPos);
+    s.scale.copy(this.restScale);
+    if (on) s.scale.multiply(new THREE.Vector3(1.15, 0.72, 1.1)); // stretched long and flat, belly to the stone
+  }
+
+  update(dt: number, wantIn: boolean, hot = 0) {
     const end = this.lengths[this.lengths.length - 1];
     let moving = false;
+    if (this.phase === 'asleep' && !wantIn) {
+      const want = this.sprawled ? hot > COOLER : hot > HOT;
+      if (want !== this.sprawled) {
+        if (!this.cool) this.sprawl(want); // nowhere to go: it just flattens out where it is
+        else if ((this.heatWait += dt) > this.spec.delay * 4) {
+          this.heatWait = 0;
+          this.sleeper.visible = false;
+          this.walker.visible = true;
+          this.phase = want ? 'cool' : 'warm';
+          this.t = 0;
+          this.sprawl(false);
+        }
+      } else this.heatWait = 0;
+    }
     switch (this.phase) {
+      case 'cool':
+      case 'warm': {
+        this.t += dt / HOP;
+        const [from, to] = this.phase === 'cool' ? [this.seat, this.cool!] : [this.cool!, this.seat];
+        const k = Math.min(1, this.t);
+        const p = this.walker.position.lerpVectors(from, to, ease(k, 0, 1));
+        p.y += Math.sin(k * Math.PI) * 0.25;
+        this.turn(this.headingTo(this.seat, this.cool!), dt);
+        if (k < 1) break;
+        this.walker.visible = false;
+        this.sleeper.visible = true;
+        this.sprawl(this.phase === 'cool');
+        this.phase = 'asleep';
+        break;
+      }
       case 'asleep':
       case 'inside': {
         const settled = (this.phase === 'inside') === wantIn;
@@ -138,7 +199,15 @@ class Cat {
         this.wait = 0;
         this.sleeper.visible = false;
         this.walker.visible = true;
-        if (this.phase === 'asleep') {
+        if (this.phase === 'asleep' && this.sprawled && this.cool) {
+          // off the stones, no jump: already on the ground
+          this.sprawl(false);
+          this.phase = 'in';
+          this.s = 0;
+          this.walker.position.copy(this.cool);
+          this.heading = this.headingTo(this.cool, this.points[0].at);
+        } else if (this.phase === 'asleep') {
+          this.sprawl(false);
           this.phase = 'down';
           this.t = 0;
           this.heading = this.headingTo(this.seat, this.points[0].at);
@@ -233,7 +302,7 @@ class Cat {
     for (const [o, r] of this.rest) o.rotation.copy(r);
     if (!body) return;
     const s = this.stride;
-    const jumping = this.phase === 'down' || this.phase === 'up';
+    const jumping = this.phase === 'down' || this.phase === 'up' || this.phase === 'cool' || this.phase === 'warm';
     const air = jumping ? Math.sin(Math.min(1, this.t) * Math.PI) : 0;
     // a trot: diagonal pairs swing together; in the air, front paws reach and back legs push off
     legs.forEach((leg, i) => {
@@ -243,7 +312,7 @@ class Cat {
       leg.rotation.z += air * (front ? 0.7 : -0.6);
     });
     body.position.y = this.bodyY + (moving ? Math.abs(Math.sin(s)) * 0.025 : 0);
-    body.rotation.z = air * (this.phase === 'down' ? -0.25 : 0.25); // nose down off the bench, up onto it
+    body.rotation.z = air * (this.phase === 'down' || this.phase === 'cool' ? -0.25 : 0.25); // nose down off the bench, up onto it
     if (head) head.rotation.z += moving ? Math.sin(s * 2) * 0.05 : 0;
     if (tail) tail.rotation.x += Math.sin(s * 0.5) * 0.15; // tail up, the tip bobbing side to side
   }
@@ -284,16 +353,16 @@ export class Shelter {
     this.settling = true;
   }
 
-  /** `rain` is 0..1; `instant` skips the walking (reduced motion). */
-  update(dt: number, rain: number, instant = false) {
+  /** `rain` and `hot` are 0..1; `instant` skips the walking (reduced motion). */
+  update(dt: number, rain: number, instant = false, hot = 0) {
     const was = this.wantIn;
     this.wantIn = rain > GO_IN || (this.wantIn && rain > COME_OUT);
     if (this.settling || (instant && was !== this.wantIn)) {
-      this.cats.forEach((c) => c.snap(this.wantIn));
+      this.cats.forEach((c) => c.snap(this.wantIn, hot));
       this.beike.snap(this.wantIn);
       this.settling = false;
     } else if (!instant) {
-      this.cats.forEach((c) => c.update(dt, this.wantIn));
+      this.cats.forEach((c) => c.update(dt, this.wantIn, hot));
       this.beike.sheltering = this.wantIn;
     }
     for (const [id, inside] of [...this.cats.map((c) => [c.id, c.inside] as const), ['beike', this.beike.inside] as const]) {

@@ -22,8 +22,8 @@ const PEBBLES = ['#8c7f86', '#7d7483', '#a09aa2'].map(C);
 const CLIFF = ['#6a5d6e', '#827485', '#9a8d9c', '#5d5063'].map(C);
 const BED = C('#6a5a44');
 const SNOW = C('#e9f0f7');
-/** Beike's tennis balls: bigger than life and a touch brighter, so you can spot one from upstream. */
-const BALL = C('#e2ee3a');
+/** Beike's tennis balls: bigger than life and fluorescent yellow, so you can spot one from upstream. */
+const BALL = C('#d8f03a');
 const BALL_SIZE = 1.6;
 
 const smooth = (a: number, b: number, x: number) => {
@@ -150,7 +150,7 @@ export class Land {
   private halo: THREE.Texture;
   /** What every ball shares: a soft glow round it, and a ring spreading out on the water under it. */
   private ballGlow: THREE.SpriteMaterial;
-  private ballRing = new THREE.MeshBasicMaterial({ color: C('#fdfbe0'), transparent: true, depthWrite: false, fog: false });
+  private ballRing = new THREE.MeshBasicMaterial({ color: C('#f4ffd0'), transparent: true, depthWrite: false, fog: false });
   private ringShape = new THREE.RingGeometry(0.62, 0.78, 20).rotateX(-Math.PI / 2);
   /** The side streams' pouring water (in time with the river's), and the rainbows' arcs. */
   private spring: THREE.ShaderMaterial;
@@ -173,7 +173,7 @@ export class Land {
     this.crowns = crownMaterials();
     this.look = course.profile.look;
     this.spring = springMaterial((water as THREE.ShaderMaterial).uniforms);
-    this.ballGlow = new THREE.SpriteMaterial({ map: halo, color: C('#f2ff5a'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
+    this.ballGlow = new THREE.SpriteMaterial({ map: halo, color: C('#eaff7a'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
     this.mist = new THREE.SpriteMaterial({ map: halo, color: C('#dfe8ea'), depthWrite: false, transparent: true, opacity: 0.3 });
   }
 

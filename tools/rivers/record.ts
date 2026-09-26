@@ -127,7 +127,7 @@ async function film(base: string, id: string, pilot: string) {
 
   const file = join(OUT, `${id}-seed${SEED}.mp4`);
   const ffmpeg = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', '-movflags', '+faststart', file], { stdio: ['pipe', 'inherit', 'inherit'] });
+    '-c:v', 'libx264', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-crf', '26', '-movflags', '+faststart', file], { stdio: ['pipe', 'inherit', 'inherit'] });
   const per = Math.max(1, Math.round(60 / FPS));
   let frames = 0;
   let tail = -1;
@@ -146,8 +146,12 @@ async function film(base: string, id: string, pilot: string) {
   }
   ffmpeg.stdin!.end();
   await new Promise((r) => ffmpeg.on('close', r));
-  const t = await js<{ time: number; flips: number; finished: boolean }>('window.river.tally').catch(() => ({ time: 0, flips: 0, finished: false }));
-  console.log(`\r${id}: ${t.finished ? `down in ${t.time.toFixed(0)} s` : 'didn’t make it down'}${t.flips ? `, ${t.flips} capsize${t.flips > 1 ? 's' : ''}` : ''}: ${file}          `);
+  const t = await js<{ time: number; flips: number; finished: boolean; knocks: number }>('({ ...window.river.tally, knocks: window.knocks })')
+    .catch(() => ({ time: 0, flips: 0, finished: false, knocks: 0 }));
+  const bits = [t.finished ? `down in ${t.time.toFixed(0)} s` : 'didn’t make it down'];
+  bits.push(t.knocks ? `${t.knocks} knock${t.knocks > 1 ? 's' : ''}` : 'no knocks');
+  if (t.flips) bits.push(`${t.flips} capsize${t.flips > 1 ? 's' : ''}`);
+  console.log(`\r${id}: ${bits.join(', ')}: ${file}          `);
   page.close();
   await fetch(`http://127.0.0.1:9339/json/close/${target.id}`).catch(() => {});
 }

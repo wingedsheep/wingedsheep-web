@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { BOOKS } from '../../data/books';
 import { hash } from '../../data/subjects';
-import { toonIndoors } from './interior';
+import { faceRoom, toonIndoors } from './interior';
 import { Particles } from './particles';
 import { Picker } from './picking';
 import { drawProgramme } from './programmes';
@@ -512,23 +512,4 @@ export class QuartersRoom {
     this.timers.set(key, left <= 0 ? left + seconds : left);
     return left <= 0;
   }
-}
-
-/**
- * Map a texture across the face of a box that hangs on the west or the north wall, facing into
- * the room, rather than round it. (In three's axes the north wall is -z and up is +y.)
- */
-function faceRoom(mesh: THREE.Mesh, wall: 'west' | 'north') {
-  const geo = mesh.geometry.clone();
-  const pos = geo.getAttribute('position');
-  const box = new THREE.Box3().setFromBufferAttribute(pos as THREE.BufferAttribute);
-  const uv = new Float32Array(pos.count * 2);
-  for (let i = 0; i < pos.count; i++) {
-    uv[i * 2] = wall === 'west'
-      ? 1 - (pos.getZ(i) - box.min.z) / (box.max.z - box.min.z || 1)
-      : (pos.getX(i) - box.min.x) / (box.max.x - box.min.x || 1);
-    uv[i * 2 + 1] = (pos.getY(i) - box.min.y) / (box.max.y - box.min.y || 1);
-  }
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  mesh.geometry = geo;
 }

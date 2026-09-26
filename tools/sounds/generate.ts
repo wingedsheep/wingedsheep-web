@@ -134,6 +134,11 @@ export const SOUNDS: Sfx[] = [
   { name: 'whine', seconds: 1.5, prompt: 'A dog giving one short, eager, hopeful whine, asking to play' },
   { name: 'mrrp', seconds: 1, prompt: 'A sleepy cat giving one soft chirruping mrrp, a trilling little greeting, close' },
   { name: 'dolphin', seconds: 2.5, prompt: 'Dolphins surfacing at sea, a quick puff of breath and high chirping whistles and clicks' },
+  // the rare sightings (src/island/scene/sightings.ts)
+  { name: 'burner', seconds: 2.5, prompt: 'A hot air balloon burner firing overhead on a calm evening, a roaring whoosh of propane flame for two seconds, then cutting off, a little distant, no voices' },
+  { name: 'horn', seconds: 4, prompt: 'A passenger ferry sounding its horn once far out at sea, one long deep blast carrying over calm water, distant, fading away' },
+  { name: 'murmur', seconds: 3, prompt: 'A huge flock of starlings wheeling overhead at dusk, a soft rushing whoosh of thousands of wings turning together, swelling and fading, faint chattering, no other birds' },
+  { name: 'seal', seconds: 2, prompt: 'A harbour seal lying on a beach giving a low grumbling grunt and a snort, close, gentle surf behind' },
   { name: 'raven', seconds: 2, prompt: 'A common raven calling high over a mountain valley, deep croaking cronk cronk, echoing, no other birds' },
   // the rooms' doors (door-*, bell, hatch) are made, not generated: tools/sounds/doors.py
   { name: 'bottle', seconds: 2.5, prompt: 'A cork pulled out of a glass bottle with a pop, then a rolled paper note shaken out and unrolled' },

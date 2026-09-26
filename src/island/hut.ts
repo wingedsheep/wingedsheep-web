@@ -109,7 +109,11 @@ export class Hut implements RoomInput {
       this.fade = Math.max(0, this.fade - step);
     }
     this.pixels.uniforms.uFade.value = this.fade;
-    if (this.inside && this.room) this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
+    if (this.inside && this.room) {
+      this.room.chalk(this.ctx.forecast);
+      this.room.time = this.ctx.sky.time;
+      this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
+    }
   }
 
   render() {

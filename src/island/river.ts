@@ -432,7 +432,7 @@ export class River implements RoomInput {
     const mood = game.river.look.mood;
     const u = this.pixels.uniforms;
     (u.uGrade.value as THREE.Vector3).multiply(this.grade.fromArray(mood.grade));
-    u.uVignette.value = mood.vignette;
+    u.uVignette.value = Math.min(1, mood.vignette + game.drama * 0.45); // (closing in over a waterfall)
     const roar = game.roar;
     this.ctx.sound.riverWater(true, game.state === 'ready' ? 0.2 : game.rough, game.tally.speed, roar.level, roar.near);
     this.hud(game.tally);
@@ -767,6 +767,8 @@ export class River implements RoomInput {
     this.showChosen(this.pick);
     set('[data-over-score]', round(t.score));
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-over-spotted], [data-over-spotted-label]')) el.hidden = !t.spotted.length;
+    for (const el of this.el.querySelectorAll<HTMLElement>('[data-over-storm], [data-over-storm-label]')) el.hidden = !t.bonus.storm;
+    set('[data-over-storm]', `+${round(t.bonus.storm)}`);
     set('[data-over-spotted]', t.spotted.map((k) => RARE.find((r) => r.id === k)!.name).join(', '));
     const title = this.el.querySelector('[data-over-title]');
     if (title) title.textContent = this.fresh ? 'A new best' : quickest ? 'Your quickest yet' : t.finished ? 'Down' : 'Swimming';

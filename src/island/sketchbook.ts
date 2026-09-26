@@ -35,7 +35,11 @@ const SPECIMENS = [
   ['blacksheep', 'Black sheep', 'A dark patch in the flock, looking pleased with itself.'],
   ['starsheep', 'Star-marked sheep', 'A pale star in the wool. Worth a second look.'],
   ['supersheep', 'Super Sheep', 'A red cape and a rather hurried sketch.'],
+  ['starlings', 'Starlings', 'One of thousands. Behind it, the rest, turning over the trees as one.'],
 ] as const;
+/** The atlas is six sketches wide and seven deep; its thirty-sixth sketch is the feather, not an animal. */
+const FEATHER = 35;
+const tileOf = (specimen: number) => (specimen >= FEATHER ? specimen + 1 : specimen);
 export type Animal = typeof SPECIMENS[number][0];
 type Entry = { id: Animal; where: string; date?: string };
 const KEY = 'wingedsheep:sketchbook';
@@ -88,7 +92,7 @@ export function bindSketchbook() {
   const drawing = (tile: number, label: string) => {
     const art = document.createElement('div'); art.className = 'wildlife-drawing';
     art.setAttribute('role', 'img'); art.setAttribute('aria-label', label);
-    art.style.backgroundPosition = `${tile % 6 * 20}% ${Math.floor(tile / 6) * 20}%`;
+    art.style.backgroundPosition = `${tile % 6 * 20}% ${Math.floor(tile / 6) * 100 / 6}%`;
     return art;
   };
   const render = () => {
@@ -101,17 +105,17 @@ export function bindSketchbook() {
       const entry = all[number];
       leaf.replaceChildren();
       if (entry) {
-        const tile = SPECIMENS.findIndex((s) => s[0] === entry.id);
-        const [, name, note] = SPECIMENS[tile];
+        const specimen = SPECIMENS.findIndex((s) => s[0] === entry.id);
+        const [, name, note] = SPECIMENS[specimen];
         leaf.append(text('span', 'FIELD NOTES  /  ' + (entry.where === 'Along the river' ? 'RIVER' : 'ISLAND'), 'wildlife-running-title'));
-        leaf.append(text('h3', name), drawing(tile, `Pencil sketch of ${name.toLowerCase()}`));
+        leaf.append(text('h3', name), drawing(tileOf(specimen), `Pencil sketch of ${name.toLowerCase()}`));
         leaf.append(text('p', note, 'wildlife-note'));
         leaf.append(text('p', entry.date ? new Date(entry.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long' }) : 'From an earlier adventure', 'wildlife-date'));
         leaf.append(text('span', String(number + 1).padStart(2, '0'), 'wildlife-folio'));
       } else {
         leaf.append(text('span', 'A NOTEBOOK FROM THE ISLAND', 'wildlife-running-title'));
         leaf.append(text('h3', all.length ? 'Still out there…' : side === 0 ? 'Notes from the wild' : 'Room for another'));
-        const feather = drawing(35, 'A pencilled feather'); feather.classList.add('wildlife-feather'); leaf.append(feather);
+        const feather = drawing(FEATHER, 'A pencilled feather'); feather.classList.add('wildlife-feather'); leaf.append(feather);
         leaf.append(text('p', all.length ? 'The next page belongs to something I haven’t met yet.' : side === 0 ? 'For the quiet things in the grass, the wings above the trees, and whatever the river brings.' : 'Click an animal on the island, or spot one from the kayak. I’ll keep a sketch here.', 'wildlife-note'));
         leaf.append(text('span', 'to be continued', 'wildlife-date'));
       }

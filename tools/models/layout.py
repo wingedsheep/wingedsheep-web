@@ -76,6 +76,7 @@ PATHS = [
     ([(3.6, -9.5), (9, -11), (15, -10.5), (21, -6), (25, -2.5)], 1.2),  # -> campfire
     ([(-14, -7.5), (-20, -5.5), (-26, -4)], 1.2),                     # library -> lighthouse
     ([(4, -10), (12, -13), (18.5, -14)], 1.0),                        # -> well
+    ([(-18.2, -11.5), (-16.0, -10.8)], 1.8),                          # bare under the bench, round its flagstones
 ]
 # The trail up the mountain: stepped ramps (x, y_bottom, y_top) cut through each rise
 STAIRS = [(-6.5, 4.6, 8.0), (10.5, 10.4, 14.0)]

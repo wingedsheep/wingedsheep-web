@@ -2,17 +2,21 @@ import * as THREE from 'three';
 import { Beike } from './beike';
 import { Bottle } from './bottle';
 import { Companion } from './companion';
+import { Days } from './days';
 import { Fauna } from './fauna';
 import { Floaters } from './floaters';
 import type { Island } from './island';
 import { Mischief } from './mischief';
 import { Particles } from './particles';
 import { Revel } from './revel';
+import { Sightings } from './sightings';
 import { petting } from './petting';
 import { season } from './season';
 import { Shelter, type Waypoint } from './shelter';
 import type { Sky } from './sky';
 import { Vincent } from './vincent';
+import { windDir } from './grass';
+import { Week } from './week';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -35,6 +39,21 @@ const MOUTH = new THREE.Vector3();
 /** Beike's way over to the campfire from his meadow (Blender x, y: tools/models/layout.py), round the west log. */
 const TO_THE_FIRE: [number, number][] = [[-8.5, -10.5], [-3, -9.8], [3.6, -9.5], [9, -11], [15, -10.5], [21, -6], [23.6, -2.4], [24.7, 1.5]];
 const FACING = new THREE.Vector3();
+const LOCAL = new THREE.Vector3();
+const PARENT = new THREE.Quaternion();
+
+/** The yaw (rotation.y) that turns `o`'s local +x along the world direction (x, z), whatever its parent's turned to. */
+function yawAlong(o: THREE.Object3D, x: number, z: number) {
+  o.parent?.getWorldQuaternion(PARENT) ?? PARENT.identity();
+  LOCAL.set(x, 0, z).applyQuaternion(PARENT.invert());
+  return Math.atan2(-LOCAL.z, LOCAL.x);
+}
+
+/** `a` eased towards the angle `b` the short way round. */
+function dampAngle(a: number, b: number, k: number, dt: number) {
+  const d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  return a + d * (1 - Math.exp(-k * dt));
+}
 
 export type Burst = 'hearts' | 'notes' | 'chalk' | 'petals' | 'zzz' | 'silk';
 
@@ -74,6 +93,12 @@ export class Life {
   readonly bottle: Bottle;
   /** The fair folk's revel, on some nights: see revel.ts. */
   readonly revel: Revel;
+  /** Easter eggs, the fourth of May, Sint Maarten's lanterns, the Airborne jump: see days.ts (main.ts drives it). */
+  readonly days: Days;
+  /** The balloon, the starlings, the seal, the ships and the fisherman: see sightings.ts. */
+  readonly sightings: Sightings;
+  /** The days of the week: the washing, the post boat, the trawler, the kite, the siren test. See week.ts. */
+  readonly week: Week;
   /** Beike's way over to the fire, and where he drops his ball (at Vincent's feet). */
   private fireRoute: Waypoint[] = [];
   private fireSpot = V();
@@ -94,6 +119,13 @@ export class Life {
   chill = 0;
   /** Which way the wind blows (world x, z), for breath drifting off. */
   readonly drift = new THREE.Vector2();
+  /** The wind, m/s, and how hard it's gusting right now, 0..1 (set every frame): the flags and the vane go by them. */
+  wind = 3;
+  gust = 0;
+  /** How hot it is, 0..1 (set every frame): Beike off into the shade, the cats flat out on the cool stones. */
+  heat = 0;
+  /** The weathervane's heading, eased: it swings round into the wind. */
+  private vaneYaw: number | null = null;
   /** Whether Vincent's song is audible; he eases into and out of playing. */
   playing = false;
   /** The beats and chord changes of the song he's playing... */
@@ -131,6 +163,12 @@ export class Life {
     };
     this.revel = new Revel(scene, (s) => this.fauna.template(s), this.beike.ground, this.particles);
     this.revel.onCall = (call, at, ambient, loud) => this.fauna.onCall?.(call, at, ambient, loud);
+    this.sightings = new Sightings(scene, island, (s) => this.fauna.template(s), this.beike.ground, this.particles);
+    this.sightings.onCall = (call, at, ambient) => this.fauna.onCall?.(call, at, ambient);
+    this.days = new Days(scene, island, this);
+    this.week = new Week(scene, island, this.beike.ground, this.fauna.template('gull'), this.particles);
+    this.vincent.errands.onTake = () => this.week.boat?.take();
+    this.vincent.errands.onDeliver = () => this.week.boat?.deliver();
     this.bottle = new Bottle(island, this.beike.ground);
     this.bottle.onLand = (at) => this.fauna.onCall?.('clink', at, true);
     this.vincent.onSound = (call, at) => this.fauna.onCall?.(call, at, true);
@@ -235,39 +273,93 @@ export class Life {
       const f = this.island.part('campfire', `flame${i}`);
       if (f) f.scale.set(1, 0.8 + Math.sin(t * (9 + i * 3) + i) * 0.15 + Math.sin(t * 23 + i) * 0.08, 1);
     }
-    const flag = this.island.part('summit', 'flag');
-    if (flag) flag.rotation.y = Math.sin(t * 2.2) * 0.35;
-    // on the special days: King's Day's pennant over it, and birthday balloons tugging at their strings
-    const wimpel = this.island.get('wimpel');
-    if (wimpel) wimpel.rotation.y = Math.sin(t * 2.2 - 0.5) * 0.45 + Math.sin(t * 5.1) * 0.08;
-    for (const id of ['balloons', 'bench_balloons']) {
-      this.island.get(id)?.children.forEach((b, i) => {
-        b.rotation.x = Math.sin(t * 0.9 + i * 1.7) * 0.06;
-        b.rotation.y = Math.sin(t * 0.7 + i * 2.3) * 0.08;
-      });
-    }
-    const vane = this.island.get('library')?.getObjectByName('weathervane');
-    if (vane) vane.rotation.y = Math.sin(t * 0.13) * 1.2 + Math.sin(t * 0.7) * 0.1;
+    this.flags(dt);
     const cat = this.island.part('cat', 'cat_body');
     if (cat) cat.scale.set(1, 1 + Math.sin(t * 1.8) * 0.04, 1);
 
     this.mixer.update(dt);
+    this.flinch();
+    this.hutFlag();
     this.strum(dt);
     this.flySheep(dt);
     this.flyFlock();
-    this.shelter.update(dt, this.rain);
+    this.shelter.update(dt, this.rain, false, this.heat);
+    this.beike.hot = this.heat;
+    this.beike.sun.copy(this.sky.sun.position);
     this.fuss(dt);
     this.beike.update(dt);
     this.fetchAtTheFire(dt);
-    this.mischief.update(dt, night < 0.8, this.vincent.atTheFire);
+    this.week.update(dt, {
+      time: this.sky.time, night, rain: this.rain, wind: this.wind, windDir: windDir.value,
+      flyer: this.vincent.spot === 'kite' ? (this.vincent.errands.body ?? null) : null,
+    });
+    this.beike.siren = this.week.siren;
+    // on a Wednesday every gull on the island is out after the trawler, and the wrap is safe
+    this.mischief.update(dt, night < 0.8 && !this.week.gullsAway, this.vincent.atTheFire);
     this.bottle.update(dt);
     this.revel.update(dt, night, this.wet, new Date(this.sky.time).getHours() + new Date(this.sky.time).getMinutes() / 60);
     this.fauna.update(dt, { night, season: season.name, wet: this.wet, storm: this.storm });
+    const now = new Date(this.sky.time);
+    this.sightings.update(dt, {
+      night, season: season.name, wet: this.wet, storm: this.storm, hour: now.getHours() + now.getMinutes() / 60,
+      time: this.sky.time, wind: this.wind, drift: this.drift,
+    });
     this.visitors(dt, night);
     this.emitters(dt, night);
     this.breath(dt, night);
     this.floaters.update(dt);
     this.particles.update(dt);
+  }
+
+  /**
+   * The flags fly downwind: limp and lazily turning on a still day, straight out and snapping in
+   * a gale. King's Day's pennant flies with the summit flag, the birthday balloons lean away
+   * from the wind on their strings, and the weathervane's sheep swings round to face into it.
+   */
+  private flags(dt: number) {
+    const t = this.clock;
+    const { x: dx, y: dz } = this.drift.lengthSq() > 1e-6 ? this.drift.clone().normalize() : new THREE.Vector2(1, 0);
+    const out = THREE.MathUtils.clamp(this.wind / 9, 0, 1); // how far out the flag stands
+    const snap = 2.2 + this.wind * 0.7 + this.gust * 4; // how fast it flaps
+    const fly = (o: THREE.Object3D | undefined, phase: number, long = 1) => {
+      if (!o) return;
+      const loose = 0.4 * (1 - out) + 0.06; // a slack flag wanders; a taut one only flutters
+      o.rotation.y = yawAlong(o, dx, dz) + Math.sin(t * snap * 0.45 + phase) * loose + Math.sin(t * snap + phase * 2) * 0.07 * long * (0.4 + out);
+      o.rotation.z = -(1 - out) * 0.9 * (1 - this.gust * 0.5) + Math.sin(t * snap * 0.8 + phase) * 0.04 * out; // hanging down the pole when it's calm
+    };
+    fly(this.island.part('summit', 'flag'), 0);
+    // on the special days: King's Day's pennant over it, and birthday balloons tugging at their strings
+    fly(this.island.get('wimpel'), -0.5, 1.6);
+    const lean = Math.min(0.7, this.wind * 0.045) * (1 + this.gust * 0.3);
+    for (const id of ['balloons', 'bench_balloons']) {
+      const bunch = this.island.get(id);
+      if (!bunch) continue;
+      bunch.getWorldQuaternion(PARENT);
+      LOCAL.set(dx, 0, dz).applyQuaternion(PARENT.invert());
+      bunch.children.forEach((b, i) => {
+        const bob = 1 + this.gust * 2;
+        b.rotation.x = LOCAL.z * lean + Math.sin(t * (0.9 + this.gust) + i * 1.7) * 0.06 * bob;
+        b.rotation.z = -LOCAL.x * lean + Math.sin(t * (1.1 + this.gust) + i * 2.9) * 0.04 * bob;
+        b.rotation.y = Math.sin(t * 0.7 + i * 2.3) * 0.08;
+      });
+    }
+    const vane = this.island.get('library')?.getObjectByName('weathervane');
+    if (vane) {
+      // into the wind (its head is +x), hunting a little either side of it, more in the gusts
+      const want = yawAlong(vane, -dx, -dz) + Math.sin(t * 0.9) * 0.08 * (1 + this.gust * 2) + Math.sin(t * 2.3) * 0.04 * this.gust;
+      this.vaneYaw = this.vaneYaw === null ? want : dampAngle(this.vaneYaw, want, 0.8 + this.gust * 2, dt);
+      vane.rotation.y = this.vaneYaw;
+    }
+  }
+
+  /** The hut's pennant is keyframed in Blender (hut_idle); it flies downwind like the others. */
+  private hutFlag() {
+    const flag = this.island.get('hut')?.getObjectByName('hut_flag');
+    if (!flag) return;
+    const { x: dx, y: dz } = this.drift.lengthSq() > 1e-6 ? this.drift.clone().normalize() : new THREE.Vector2(1, 0);
+    const out = THREE.MathUtils.clamp(this.wind / 9, 0, 1);
+    const snap = 2.2 + this.wind * 0.7 + this.gust * 4;
+    flag.rotation.set(0, yawAlong(flag, dx, dz) + Math.sin(this.clock * snap * 0.5 + 1) * (0.4 * (1 - out) + 0.08), -(1 - out) * 0.8);
   }
 
   /**
@@ -496,20 +588,43 @@ export class Life {
     this.ufo.rotation.y += dt * 2;
   }
 
+  /** The siren test (week.ts): the cats on the bench flatten their ears till it's over. */
+  private flinch() {
+    const k = this.week.siren;
+    for (const cat of ['george', 'charlie']) {
+      for (const [side, s] of [['l', 1], ['r', -1]] as const) {
+        const ear = this.island.part(cat, `${cat}_ear_${side}`);
+        if (!ear) continue;
+        // an ear the idle clip moves is put back every frame; one it doesn't, we put back ourselves
+        const x = ear.userData;
+        x.clipped ??= this.island.clips.some((c) => c.tracks.some((t) => t.name.startsWith(`${ear.name}.`)));
+        if (!x.clipped) ear.quaternion.copy((x.rest ??= ear.quaternion.clone()) as THREE.Quaternion);
+        if (k > 0) ear.quaternion.premultiply(q.setFromAxisAngle(axis.set(0, 0, 1), -s * 1.1 * Math.min(1, k * 2)));
+      }
+    }
+  }
+
   private emitters(dt: number, night: number) {
     const p = this.particles;
+    // the hut's stove is banked for the night once they're both in bed, and lit again when one's up
+    const banked = this.vincent.spot === 'asleep' && this.companion.inBed;
     for (const e of this.island.emitters) {
+      if (banked && e.owner === 'hut') continue;
       const key = `${e.kind}:${e.position.x.toFixed(1)}`;
       if (e.kind === 'smoke' && this.every(key, 0.35 / (1 + this.chill * 1.5), dt)) {
-        // on a cold day the fires are well stoked: thicker, whiter smoke, rising straighter and higher
+        // on a cold day the fires are well stoked: thicker, whiter smoke, rising higher; it drifts
+        // off downwind, and in a gale it's blown flat and torn away
         const c = this.chill;
+        const blown = THREE.MathUtils.clamp(this.wind / 14, 0, 1);
+        const push = 0.25 + this.wind * 0.18 * (1 + this.gust * 0.4);
+        const along = this.drift.lengthSq() > 1e-6 ? this.drift.clone().normalize() : new THREE.Vector2(1, 0);
         p.emit({
           position: e.position.clone(),
-          velocity: V(rand(0.3, 0.6) * (1 - c * 0.5), rand(0.7, 1.0) * (1 + c * 0.4), rand(-0.1, 0.1)),
+          velocity: V(along.x * push + rand(-0.1, 0.1), rand(0.7, 1.0) * (1 + c * 0.4) * (1 - blown * 0.75), along.y * push + rand(-0.1, 0.1)),
           color: c > 0.3 ? '#eceaf0' : '#d8d4dc',
-          life: 4.5 * (1 + c * 0.6),
+          life: 4.5 * (1 + c * 0.6) * (1 - blown * 0.5),
           size: 2,
-          wobble: 0.3,
+          wobble: 0.3 + blown * 0.4,
         });
       } else if (e.kind === 'embers' && this.every(key, 0.12, dt)) {
         p.emit({ position: e.position.clone().add(V(rand(-0.3, 0.3), 0, rand(-0.3, 0.3))), velocity: V(rand(-0.2, 0.2), rand(1.2, 2.2), rand(-0.2, 0.2)), color: rand(0, 1) < 0.5 ? '#ffd070' : '#ff9a3c', life: rand(0.8, 1.6), wobble: 0.4 });

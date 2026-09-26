@@ -8,6 +8,11 @@ import { Picker } from './picking';
 import { RoomCamera } from './room-camera';
 import { Robot, type Waypoint } from './robot';
 import { haloTexture } from './sky';
+import { hourOf } from './bedtime';
+import { BOAT_STAGES as STAGES, boatStage } from './almanac';
+import { occasions } from './calendar';
+import { indoors } from './shelter';
+
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -63,6 +68,9 @@ export class WorkshopRoom {
   private floaters: Floater[] = [];
   private clock = 0;
   private night = 0;
+  /** Vincent at his boat (workshop.py `vincent_workshop`), when he's in (vincent.ts), and his plane's stroke. */
+  private bench?: THREE.Object3D;
+  private strokes = 0;
 
   static async load(base = '/models/'): Promise<WorkshopRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}workshop.glb?v=${__MODELS__}`);
@@ -117,6 +125,18 @@ export class WorkshopRoom {
     this.robot = new Robot(this.named.get('robot'), waypoints, { particles: this.particles, float: (_, at) => this.float(ICONS.zzz, at, V(0, 0.4, 0)), exhibit, sound }, () => this.night > 0.6);
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values());
+
+    // the boat as far as the Saturdays have got it, and a Saturday's fresh shavings
+    for (let n = 0; n < STAGES; n++) {
+      const st = root.getObjectByName(`boat_stage_${n}`);
+      if (st) st.visible = n === boatStage;
+    }
+    const fresh = root.getObjectByName('sawdust_fresh');
+    if (fresh) fresh.visible = occasions.has('saturday');
+    this.bench = this.named.get('vincent_workshop');
+    // Patch Tuesday: it's installing its updates when you come in (in the daytime, at least)
+    const hour = hourOf(Date.now());
+    if (occasions.has('patchday') && hour >= 8 && hour < 22) this.robot.install();
   }
 
   get camera() {
@@ -152,6 +172,7 @@ export class WorkshopRoom {
     this.exhibits.playing = this.playing;
     this.exhibits.update(dt);
     this.robot.update(dt);
+    this.planing(dt);
     this.particles.update(dt);
     this.updateFloaters(dt);
   }
@@ -192,6 +213,37 @@ export class WorkshopRoom {
     sprite.visible = age >= 0;
     this.scene.add(sprite);
     this.floaters.push({ sprite, velocity, age });
+  }
+
+  /**
+   * Vincent, if he's in (vincent.ts `workshop`): planing the boat's planks, long strokes along the
+   * gunwale, a curl of shaving off each one, and a look along the line of it now and then.
+   */
+  private planing(dt: number) {
+    const me = this.bench;
+    if (!me) return;
+    me.visible = indoors.has('vincent_workshop');
+    if (!me.visible) return;
+    const t = this.clock;
+    const k = (t % 2.2) / 2.2;
+    const push = k < 0.6 ? Math.sin((k / 0.6) * Math.PI * 0.5) : 1 - THREE.MathUtils.smootherstep((k - 0.6) / 0.4, 0, 1);
+    const sight = Math.max(0, Math.sin(t * 0.21)) ** 6; // stopping to sight along the plank
+    const part = (name: string) => me.getObjectByName(`bench_${name}`);
+    const reach = -0.75 - push * 0.55;
+    part('arm_r')?.rotation.set(reach * (1 - sight), 0, 0.1);
+    part('arm_l')?.rotation.set((reach + 0.15) * (1 - sight) - sight * 0.3, 0, -0.1);
+    part('head')?.rotation.set(0.35 * (1 - sight), sight * 0.6, 0);
+    const turn = Math.floor(t / 2.2);
+    if (turn !== this.strokes) {
+      this.strokes = turn;
+      if (sight < 0.2) {
+        this.onSound?.('plane', 0.6);
+        const at = me.localToWorld(V(0, 1.05, 0.85));
+        for (let i = 0; i < 3; i++) {
+          this.particles.emit({ position: at.clone().add(V(rand(-0.1, 0.1), 0, rand(-0.1, 0.1))), velocity: V(rand(-0.3, 0.3), rand(0.2, 0.5), rand(-0.3, 0.3)), color: '#e8c890', life: 0.9, gravity: -3, size: 1 });
+        }
+      }
+    }
   }
 
   private updateFloaters(dt: number) {

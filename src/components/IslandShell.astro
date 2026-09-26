@@ -79,7 +79,7 @@ const places = [
   <!-- panels ------------------------------------------------------------------------ -->
   <section class="panel panel-library" data-panel="library" hidden aria-labelledby="library-title">
     <button class="sheet-grip" data-grip aria-label="Fold the catalogue down or up"></button>
-    <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
+    <button class="panel-close" data-close aria-label="Put the catalogue away"><PixelIcon name="close" /></button>
     <h2 id="library-title" tabindex="-1">The library</h2>
     <p class="panel-lede">Everything I've written, one shelf for every year. Every book has a card in
       this drawer. And the piano in the corner plays.</p>
@@ -334,6 +334,7 @@ const places = [
         <dt>Flat out</dt><dd data-over-hot>–</dd>
         <dt>Capsizes</dt><dd data-over-flips>0</dd>
         <dt data-over-spotted-label hidden>Spotted</dt><dd data-over-spotted hidden></dd>
+        <dt data-over-storm-label hidden>Out in the storm</dt><dd data-over-storm hidden></dd>
         <dt>Goals</dt><dd data-over-goals>0 of 3</dd>
         <dt>Score</dt><dd data-over-score>0</dd>
         <dt>Best</dt><dd data-river-best>0</dd>
@@ -396,6 +397,11 @@ const places = [
   </article>
 
   <div id="plates" class="plates" hidden aria-hidden="true"></div>
+  <!-- the catalogue put away: stay in the library, and fetch it back when you want it -->
+  <div id="stowed" class="stowed" hidden>
+    <button class="hud-btn" data-unstow><PixelIcon name="book" />The card catalogue</button>
+    <button class="hud-btn stowed-leave" data-close>Back to the island</button>
+  </div>
   <!-- a page from a sketchbook, held up to the light -->
   <div id="sketch" class="sketch" hidden role="dialog" aria-modal="true">
     <img class="sketch-page" alt="" />

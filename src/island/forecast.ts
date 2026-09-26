@@ -16,9 +16,19 @@ export interface Forecast {
   lying: number; // 0..1: how much snow is already on the ground
   temperature: number; // °C
   place: string;
+  /** Today and the next two days, for the board in the mountain hut. */
+  days: Day[];
 }
 
-const CACHE_KEY = 'island-weather-5';
+export interface Day {
+  date: string; // YYYY-MM-DD, the visitor's own calendar day
+  kind: WeatherKind;
+  high: number; // °C
+  low: number; // °C
+  wind: number; // m/s, the day's strongest sustained wind
+}
+
+const CACHE_KEY = 'island-weather-6';
 const CACHE_FOR = 20 * 60 * 1000;
 
 /** WMO weather interpretation codes, as Open-Meteo reports them. */
@@ -62,11 +72,14 @@ export async function fetchForecast(): Promise<Forecast | null> {
       latitude: where.lat.toFixed(2),
       longitude: where.lon.toFixed(2),
       current: 'weather_code,cloud_cover,temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,snow_depth',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max',
+      forecast_days: '3',
+      timezone: 'auto',
       wind_speed_unit: 'ms',
     });
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${q}`);
     if (!res.ok) return null;
-    const { current } = await res.json();
+    const { current, daily } = await res.json();
     const forecast: Forecast = {
       ...interpret(current.weather_code, current.cloud_cover),
       wind: current.wind_speed_10m,
@@ -75,6 +88,13 @@ export async function fetchForecast(): Promise<Forecast | null> {
       lying: Math.min(1, (current.snow_depth ?? 0) / 0.08), // 8 cm covers everything
       temperature: current.temperature_2m,
       place: where.name,
+      days: (daily?.time ?? []).map((date: string, i: number) => ({
+        date,
+        kind: interpret(daily.weather_code[i]).kind,
+        high: daily.temperature_2m_max[i],
+        low: daily.temperature_2m_min[i],
+        wind: daily.wind_speed_10m_max[i],
+      })),
     };
     writeCache(forecast);
     return forecast;

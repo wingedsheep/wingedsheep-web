@@ -31,7 +31,11 @@ type Mood =
   | { kind: 'zoomies'; path: THREE.Vector3[]; leg: number }
   | { kind: 'settle'; t: number; up?: number }
   // over to whoever's kneeling in his meadow (petting.ts), and down in front of them for a fuss
-  | { kind: 'fussed'; t: number; down: boolean };
+  | { kind: 'fussed'; t: number; down: boolean }
+  // too hot: off to lie in the shade of the nearest tree, panting
+  | { kind: 'shade'; t: number; down: boolean }
+  // Easter: nose down, off after an egg he's smelt (easter.ts), and a good sniff at it when he's there
+  | { kind: 'hunt'; to: THREE.Vector3; t: number; found?: () => void };
 
 export type Poke = 'greet' | 'offer' | 'throw' | 'fussed' | 'busy';
 
@@ -118,11 +122,25 @@ export class Beike {
   /** Called when he barks (the island plays the sound). */
   onBark?: () => void;
   /** His ball bouncing (how hard, 0..1), him panting when he's brought it back, a whine when nobody throws. */
-  onSound?: (kind: 'bounce' | 'pant' | 'whine', at: THREE.Vector3, volume: number) => void;
+  onSound?: (kind: 'bounce' | 'pant' | 'whine' | 'aroo', at: THREE.Vector3, volume: number) => void;
+  /** The siren test (week.ts), 0..1 (set every frame): he sits back, nose to the sky, and joins in. */
+  siren = 0;
+  /** Where he is in a howl (0..1 of it, -1 between howls), and how far his nose is up. */
+  private howl = -1;
+  private howlGap = 0;
+  private nose = 0;
   /** His way in to the lighthouse when it rains, from his meadow to just inside the door (shelter.ts). */
   shelterRoute?: Waypoint[];
   /** Whether it's raining hard enough to go in (set every frame). */
   sheltering = false;
+  /** How hot it is, 0..1 (set every frame): he pants, and on a proper scorcher lies in the shade. */
+  hot = 0;
+  /** Where the sun is (set every frame, world space): the shade's on the other side of the tree. */
+  readonly sun = V(0, 1, 1);
+  /** The trunk of the tree nearest his meadow, and where he's lying in its shade. */
+  private shadeTree: THREE.Vector3 | null = null;
+  private shadeSpot: THREE.Vector3 | null = null;
+  private nextPant = 0;
 
   constructor(island: Island) {
     this.ground = new Ground(island.terrain, island.info.cell);
@@ -164,6 +182,16 @@ export class Beike {
       if (/^(tree|lamp|log)/.test(o.name)) this.obstacles.push({ at: o.getWorldPosition(V()), r: 1.2 });
       if (/^log/.test(o.name)) this.keepClear.push({ at: o.getWorldPosition(V()), r: 0.9 });
     }
+    // the nearest tree to his spot, for a hot day
+    let nearest = 12;
+    for (const o of island.root.children) {
+      if (!/^tree/.test(o.name)) continue;
+      const at = o.getWorldPosition(V());
+      const d = Math.hypot(at.x - this.home.x, at.z - this.home.z);
+      if (d >= nearest || !(this.ground.at(at.x, at.z + 1) > 0.35)) continue;
+      nearest = d;
+      this.shadeTree = at;
+    }
     this.fire = island.positionOf('campfire');
     if (this.fire) this.keepClear.push({ at: this.fire.clone(), r: 1.25 }); // the ring of stones is ~1 m across
     const vincent = island.positionOf('vincent');
@@ -188,6 +216,22 @@ export class Beike {
   /** Whether he's lying down by the fire, done with the ball for now. */
   get settled() {
     return this.mood.kind === 'settle' && this.mood.up === undefined;
+  }
+
+  /**
+   * Off after something he's smelt at `to` (an Easter egg), nose down; `found` once he's had a
+   * good sniff at it. Only if he's pottering about with his ball and nobody wants him for anything.
+   */
+  hunt(to: THREE.Vector3, found: () => void) {
+    const kind = this.mood.kind;
+    if (!this.root || this.sheltering || this.away || !this.inMouth || (kind !== 'idle' && kind !== 'wander')) return false;
+    this.mood = { kind: 'hunt', to: to.clone(), t: -1, found };
+    return true;
+  }
+
+  /** Whether he's after an egg just now. */
+  get hunting() {
+    return this.mood.kind === 'hunt';
   }
 
   /** Up from his spot by the fire (the song's over, or Vincent's gone) and off home. */
@@ -290,7 +334,7 @@ export class Beike {
 
   /** How hard he's panting, 0..1. */
   get panting() {
-    return this.joy;
+    return Math.max(this.joy, this.hot * 0.9);
   }
 
   /**
@@ -305,7 +349,7 @@ export class Beike {
       return 'throw';
     }
     if (kind === 'fussed') return 'fussed';
-    if (kind !== 'idle' && kind !== 'wander') return 'busy';
+    if (kind !== 'idle' && kind !== 'wander' && kind !== 'shade') return 'busy'; // not too hot to say hello
     // stand in front of him, a step towards whoever's watching
     const toward = V(visitor.x - this.root.position.x, 0, visitor.z - this.root.position.z).normalize();
     this.face.copy(this.root.position).addScaledVector(toward, 4);
@@ -324,6 +368,7 @@ export class Beike {
     if (!this.root) return;
     this.clock += dt;
     this.weather();
+    this.join(dt);
     const kind = this.mood.kind;
     if (this.lap && (kind === 'idle' || kind === 'wander') && this.inMouth && !this.away) this.mood = { kind: 'fussed', t: 0, down: false };
     if (!this.lap && kind === 'fussed') this.mood = { kind: 'idle', until: this.clock + rand(2, 5) };
@@ -333,7 +378,15 @@ export class Beike {
 
     switch (m.kind) {
       case 'idle':
-        if (this.clock > m.until) {
+        if (this.hot > 0.5 && this.shadeTree && this.inMouth && !this.away) {
+          // under the canopy on the side the sun's shadow falls, but in front of the trunk, where you can see him
+          const s = this.sun;
+          const len = Math.hypot(s.x, s.z) || 1;
+          this.shadeSpot = this.shadeTree.clone().add(V((-s.x / len) * 0.9, 0, 0.9));
+          this.shadeSpot.y = this.ground.at(this.shadeSpot.x, this.shadeSpot.z);
+          this.mood = { kind: 'shade', t: 0, down: false };
+        }
+        else if (this.clock > m.until) {
           const a = rand(0, Math.PI * 2);
           const to = this.home.clone().add(V(Math.cos(a), 0, Math.sin(a)).multiplyScalar(rand(0.5, ROAM)));
           this.mood = this.walkable(to) ? { kind: 'wander', to } : { kind: 'idle', until: this.clock + 2 };
@@ -424,6 +477,34 @@ export class Beike {
           this.turnTo(this.lap.face, dt);
         }
         break;
+      case 'shade':
+        if (this.hot < 0.35 || !this.shadeSpot) {
+          this.mood = { kind: 'idle', until: this.clock + rand(2, 5) };
+          break;
+        }
+        if (!m.down) {
+          target = this.shadeSpot;
+          pace = TROT;
+          if (this.flatDistance(this.shadeSpot) < 0.2) Object.assign(m, { down: true, t: CIRCLE });
+        } else {
+          m.t += dt;
+          this.turnTo(this.face.copy(this.shadeSpot).add(V(0, 0, 5)), dt); // lying looking out, south, over the meadow
+          if ((this.nextPant -= dt) < 0) {
+            this.nextPant = rand(4, 8);
+            this.onSound?.('pant', this.position, 0.35 + this.hot * 0.3);
+          }
+        }
+        break;
+      case 'hunt':
+        if (m.t < 0) {
+          target = m.to;
+          pace = TROT * 1.8;
+          if (this.flatDistance(m.to) < 0.4) m.t = 0;
+        } else if ((m.t += dt) > 1.6) {
+          m.found?.();
+          this.mood = { kind: 'idle', until: this.clock + rand(1, 3) };
+        } else this.turnTo(m.to, dt);
+        break;
       case 'settle':
         m.t += dt;
         if (m.t < CIRCLE) {
@@ -443,7 +524,7 @@ export class Beike {
     p.y = (on ? heightBetween(on.path[on.leg - 1], on.path[on.leg], p, this.ground) : this.ground.at(p.x, p.z)) || p.y;
     this.root.rotation.y = this.heading;
 
-    const excited = m.kind !== 'idle' && m.kind !== 'wander' && m.kind !== 'settle' && m.kind !== 'fussed';
+    const excited = m.kind !== 'idle' && m.kind !== 'wander' && m.kind !== 'settle' && m.kind !== 'fussed' && m.kind !== 'shade';
     this.joy = damp(this.joy, excited ? 1 : m.kind === 'fussed' ? 0.5 : 0.25, 0.8, dt); // a fuss: a slow, happy wag
     this.updateBall(dt);
     this.pose();
@@ -696,8 +777,14 @@ export class Beike {
       head.rotation.z += 0.25 * k;
     }
     if (this.mood.kind === 'pickup') head.rotation.z -= 0.9 * Math.sin(Math.min(1, this.mood.t / 0.45) * Math.PI);
+    if (this.mood.kind === 'hunt') {
+      // nose to the ground all the way there, and snuffling at it once he's found it
+      head.rotation.z -= 0.45 + (this.mood.t > 0 ? 0.3 + Math.sin(t * 14) * 0.08 : 0);
+      head.rotation.y += this.mood.t > 0 ? Math.sin(t * 5) * 0.2 : 0;
+    }
     if (this.mood.kind === 'settle') this.liePose(this.mood.t, this.mood.up);
     if (this.mood.kind === 'fussed' && this.mood.down) this.liePose(this.mood.t);
+    if (this.mood.kind === 'shade' && this.mood.down) this.liePose(this.mood.t);
 
     // tail: a lazy sway when calm, a blur when he's excited
     if (tail) {
@@ -711,12 +798,39 @@ export class Beike {
       e.rotation.z -= running ? 0.7 : 0;
       e.rotation.x += side * (Math.sin(s * 2) * 0.15 * gait + (running ? 0.25 : 0));
     });
+    // howling along with the siren: nose right up, ears back
+    if (this.nose > 0) {
+      head.rotation.z += this.nose * 0.95;
+      body.rotation.z += this.nose * 0.2;
+      ears.forEach((e) => (e.rotation.z -= this.nose * 0.4));
+    }
     // panting after a run, or when he's pleased to see you
     if (tongue) {
       tongue.visible = !this.inMouth;
-      tongue.scale.set(1, 1, 1);
-      tongue.position.y -= Math.abs(Math.sin(t * 9)) * 0.012 * this.joy;
+      const pant = this.panting;
+      tongue.scale.set(1, 1 + this.hot * 0.5, 1); // lolling right out in the heat
+      tongue.position.y -= Math.abs(Math.sin(t * (9 + this.hot * 4))) * 0.012 * pant + this.hot * 0.008;
     }
+  }
+
+  /** A howl a few seconds long, a breath, and another, for as long as the siren goes on. */
+  private join(dt: number) {
+    if (this.siren <= 0.2 && this.howl < 0) {
+      this.nose = Math.max(0, this.nose - dt * 2);
+      return;
+    }
+    if (this.howl >= 0) {
+      this.howl += dt / 3.2;
+      if (this.howl >= 1) {
+        this.howl = -1;
+        this.howlGap = rand(1.5, 3);
+      }
+    } else if ((this.howlGap -= dt) < 0 && this.siren > 0.2 && this.root) {
+      this.howl = 0;
+      this.onSound?.('aroo', this.root.getWorldPosition(V()), 1);
+    }
+    const up = this.howl >= 0 ? Math.min(1, this.howl * 6, (1 - this.howl) * 4) : 0;
+    this.nose = THREE.MathUtils.damp(this.nose, up, 6, dt);
   }
 
   /**

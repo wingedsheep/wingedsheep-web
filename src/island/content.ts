@@ -15,8 +15,10 @@ import { travels, yearsOf } from '../data/travels';
 import { hourOf } from './scene/bedtime';
 import { occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
-import { ambush, indoors } from './scene/shelter';
-import type { Forecast } from './forecast';
+import { FRIDAY_13 } from './scene/fauna';
+import { ambush, flatOut, indoors } from './scene/shelter';
+import { boatStage, shelf } from './scene/almanac';
+import type { Forecast, WeatherKind } from './forecast';
 import type { Journal } from './journal';
 import type { CameraRig } from './scene/camera-rig';
 import type { Interior } from './scene/interior';
@@ -111,6 +113,13 @@ export const SECRETS = {
   bottle: { title: 'Message in a bottle', hint: 'Keep an eye on the beach. Now and then the sea brings something in.' },
   thief: { title: 'Daylight robbery', hint: 'Someone by the fire should keep a closer eye on his dinner.' },
   fairfolk: { title: 'Ill met by moonlight', hint: 'On some dry evenings there’s music down on the beach. Midsummer’s Eve is the surest.' },
+  // the rare sightings (src/island/scene/sightings.ts)
+  balloon: { title: 'Up, up and away', hint: 'On a calm summer evening, look up. Gelderland’s skies are full of them.' },
+  starlings: { title: 'Murmuration', hint: 'At dusk in autumn, thousands of wings over the west of the island, turning as one.' },
+  seal: { title: 'Hauled out', hint: 'On some days, someone comes up out of the sea to lie on the beach.' },
+  ferry: { title: 'Right on time', hint: 'Out on the hour, back on the half hour. Keep an eye on the sea to the south.' },
+  tallship: { title: 'Under full sail', hint: 'Very rarely, something from another century passes on the horizon.' },
+  fisherman: { title: 'Early bird', hint: 'On some early mornings, someone has the end of the pier to himself.' },
 } as const;
 
 let logPage = -1;
@@ -161,15 +170,43 @@ function animal(species: string, label: Place['label'], lines: string[], secret?
   };
 }
 
+/** One of the rare sightings (scene/sightings.ts): it reacts, and says its line. */
+function sighting(id: string, label: Place['label'], lines: string[] | ((ctx: IslandContext) => string), secret?: keyof typeof SECRETS): Place {
+  let n = 0;
+  return {
+    label,
+    activate(ctx) {
+      ctx.life.sightings.poke(id);
+      spotAnimal(id);
+      ctx.toast(typeof lines === 'function' ? lines(ctx) : lines[n++ % lines.length]);
+      if (secret) ctx.discover(secret);
+    },
+  };
+}
+
 /**
  * One of the fair folk at their revel (scene/revel.ts): whoever you look at glances back. Look a
  * third time and that's a stare, and they're gone (main.ts has the line for that).
  */
+const LANTERN_LINES = [
+  'It’s Sint Maarten, so they’re doing the rounds with paper lanterns, like every child in the country tonight.',
+  'Oberon sings the Sint Maarten song with great dignity. He knows about half the words.',
+  'Puck is at the front, and has decided on the route himself.',
+  'Nobody on the island has sweets small enough for a pixie. They’ve been given one pepernoot to share.',
+];
+let lanternLine = 0;
+
 function fae(who: Fae, label: Place['label'], lines: string[]): Place {
   let n = 0;
   return {
     label,
     activate(ctx) {
+      if (ctx.life.days.lanterns.on && !ctx.life.revel.on) {
+        // Sint Maarten: not a revel, a walk with lanterns (scene/lanterns.ts)
+        ctx.toast(LANTERN_LINES[lanternLine++ % LANTERN_LINES.length]);
+        ctx.discover('fairfolk');
+        return;
+      }
       const stared = ctx.life.revel.poke(who, ctx.rig.camera.position);
       if (!stared) ctx.toast(lines[n++ % lines.length]);
       ctx.discover('fairfolk');
@@ -216,6 +253,27 @@ const SPECIAL_DAYS: Record<string, Place> = {
     label: 'The summit flag · with an orange pennant for the King',
     activate: say('On King’s Day the flag gets an orange pennant over it. Even the sheep on it looks a little more orange.'),
   },
+  liberation: {
+    label: 'The summit flag · right back up, with bunting',
+    activate: say('Yesterday it was at half-mast. Today, the fifth of May, it’s back at the top, with red, white and blue down both sides of the pole.'),
+  },
+  ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`egg_${i}`, {
+    label: 'An Easter egg',
+    activate: (ctx: IslandContext) => ctx.toast(ctx.life.days.easter.find(`egg_${i}`)),
+  } satisfies Place])),
+  vincent_dive: {
+    label: 'Vincent · in an orange hat, and not much else',
+    activate(ctx) {
+      const diver = ctx.life.vincent.diver;
+      if (diver.busy) ctx.toast('He can’t talk now. He’s very busy being cold.');
+      else if (diver.goAgain()) ctx.toast('You tell him the camera missed it. He looks at you, looks at the sea, and goes again.');
+      else ctx.toast('The nieuwjaarsduik: at noon on New Year’s Day, thousands of people run into the North Sea in orange hats. He’s building up to it.');
+    },
+  },
+  dive_towel: {
+    label: 'A towel on the sand · and a flask',
+    activate: say('His clothes, his towel, and a flask of hot chocolate. The flask is the part he’s actually looking forward to.'),
+  },
   shoe: {
     label: 'A clog by the fire',
     activate: say(occasions.has('sinterklaas')
@@ -226,7 +284,11 @@ const SPECIAL_DAYS: Record<string, Place> = {
     label: 'The steamboat · in from Spain',
     activate(ctx) {
       ctx.sound.steamWhistle();
-      ctx.toast('Sinterklaas’s steamboat, in from Spain as it is every year. Tonight is pakjesavond: presents, poems and far too many pepernoten.');
+      ctx.toast(occasions.has('sinterklaas')
+        ? 'Sinterklaas’s steamboat, in from Spain as it is every year. Tonight is pakjesavond: presents, poems and far too many pepernoten.'
+        : occasions.has('arrival')
+          ? 'In from Spain this morning, whistle going the whole way in. He’s here till the fifth of December now.'
+          : 'Sinterklaas’s steamboat, in from Spain. It stays tied up here till pakjesavond, and the clog by the fire goes out every night till then.');
     },
   },
   presents: {
@@ -256,6 +318,55 @@ const SPECIAL_DAYS: Record<string, Place> = {
   },
 };
 
+/** The days of the week (scene/week.ts; tools/models/week.py): what comes out, and when. */
+const THE_WEEK: Record<string, Place> = {
+  laundry: {
+    label: (ctx) => (ctx.life.week.laundry?.straggler ? 'One sock · still on the line' : 'The washing · it’s Monday'),
+    activate: (ctx) => ctx.toast(ctx.life.week.laundry?.straggler
+      ? 'Everything came in the moment the rain started. Nearly everything: one red sock is still out there, getting a second rinse.'
+      : 'Monday is washing day. Up here the wind off the sea does in an hour what a dryer takes all afternoon to do.'),
+  },
+  postboat: {
+    label: 'The post boat',
+    activate(ctx, at) {
+      ctx.sound.call('toot', 1);
+      ctx.life.burst('notes', at);
+      ctx.toast('Tuesdays and Fridays, round the point mid-morning. The skipper has done this round for thirty years, and still waves at every seal.');
+    },
+  },
+  parcel: {
+    label: 'A parcel · for the hut',
+    activate: say('Left on the boards at the end of the pier. The label says: “Vincent, the hut, top of the mountain. Mind the steps.”'),
+  },
+  trawler: {
+    label: 'A trawler · and every gull for miles',
+    activate: say('Out working the banks off the island, as she does every Wednesday. Every gull for miles goes out after her, so it’s the one day Vincent gets to finish his dinner.'),
+  },
+  borrel: {
+    label: 'A crate of beer · it’s Friday',
+    activate: say('Friday evening by the fire: a crate, two open bottles, and nobody in any hurry to go to bed.'),
+  },
+  borrel_mug: {
+    label: 'A second mug',
+    activate: say('Coffee, for later. On a Friday the fire tends to keep going until well after later.'),
+  },
+  kite: {
+    label: 'A kite',
+    activate: say('Up on the wind off the sea. He built it from a kit years ago, and has mended it so often that there isn’t much of the kit left.'),
+  },
+  vincent_about: {
+    label: (ctx) => (ctx.life.vincent.spot === 'kite' ? 'Vincent · flying a kite' : ctx.life.vincent.errands.carrying ? 'Vincent · with the post' : 'Vincent · off to fetch the post'),
+    activate(ctx, at) {
+      ctx.life.burst('hearts', at);
+      ctx.toast(ctx.life.vincent.spot === 'kite'
+        ? 'He hands you the line for a moment. The kite ducks, dives, and climbs again, no thanks to you.'
+        : ctx.life.vincent.errands.carrying
+          ? 'Something off the post boat, on its way up to the hut. He gives it a shake next to his ear. It rattles.'
+          : 'The post boat’s been. He’s off down the pier for the parcel before the gulls decide it’s theirs.');
+    },
+  },
+};
+
 const WILDLIFE: Record<string, Place> = {
   ewe: animal('sheep', 'A sheep', [
     'Baa. It looks at you, chews for a while, and goes back to the grass.',
@@ -263,6 +374,7 @@ const WILDLIFE: Record<string, Place> = {
     'It has eaten the same patch of grass all day and sees no reason to stop.',
   ]),
   blacksheep: animal('blacksheep', (ctx) => (ctx.journal.has('blacksheep') ? 'The black sheep' : 'A black sheep'), [
+    ...(FRIDAY_13 ? ['Friday the 13th. It was never going to miss this.'] : []),
     'Every flock has one. This one seems very pleased about it.',
   ], 'blacksheep'),
   rabbit: animal('rabbit', 'A rabbit', ['A flash of white tail, and it’s gone down a hole.', 'Thump, thump: a warning to every rabbit in the meadow. Then it bolts.']),
@@ -324,6 +436,35 @@ const WILDLIFE: Record<string, Place> = {
   wanderer: animal('wanderer', '???', [
     'A small masked wanderer in a red cloak. It bows, needle raised, and is gone in a dash. It seems to know exactly where it’s going.',
   ], 'wanderer'),
+  // the rare sightings (scene/sightings.ts)
+  balloon: sighting('balloon', 'A hot-air balloon', [
+    'Two people in the basket wave down at you. The burner roars, and up they go.',
+    'A hot-air balloon, drifting over on the evening air. On a calm summer night, the sky over Gelderland is full of them.',
+  ], 'balloon'),
+  starlings: sighting('starlings', 'Starlings', [
+    'Thousands of starlings, turning together as if they were one thing. Nobody’s in charge, and it works anyway.',
+    'The whole flock folds over on itself, like a dark scarf in the wind, and unfolds again.',
+  ], 'starlings'),
+  seal: sighting('seal', (ctx) => (ctx.journal.has('seal') ? 'The seal' : 'A seal'), [
+    'A harbour seal, hauled out on the sand. It looks at you, sighs through its whiskers, and closes its eyes again.',
+    'It lifts its head and gives you a long, patient look, as if you were the odd one on the beach.',
+    'That was one look too many. It humps down the sand and into the sea, and it’s gone.',
+  ], 'seal'),
+  ferry: sighting('ferry', 'The ferry', (ctx) => {
+    const { now, next } = ctx.life.sightings.ferryTimes;
+    return `The ${now} ferry, right on time. ${next ? `The next one’s at ${next}.` : 'That’s the last one tonight.'}`;
+  }, 'ferry'),
+  container: sighting('container', 'A container ship', [
+    'A container ship, stacked high, in no hurry at all. Somewhere on board is a parcel someone’s been waiting for since March.',
+  ]),
+  tallship: sighting('tallship', 'A tall ship!', [
+    'A tall ship under full sail, on her way to Sail Amsterdam or on her way back. Every sail is set, and she’s in no hurry to be anywhere.',
+  ], 'tallship'),
+  fisherman: sighting('fisherman', 'A fisherman', (ctx) => {
+    const n = ctx.life.sightings.catches;
+    if (!n) return 'He nods at you and doesn’t say a word. Nothing yet. It isn’t really about the fish.';
+    return `He nods at you, without a word. ${n === 1 ? 'One' : n === 2 ? 'Two' : n === 3 ? 'Three' : 'A few'} in the bucket so far, and the dock cat is watching the bucket.`;
+  }, 'fisherman'),
 };
 
 // Harry Potter, taking turns with the twentieth century
@@ -505,22 +646,26 @@ export const PLACES: Record<string, Place> = {
     },
   },
   george: {
-    label: (ctx) => (ctx.journal.has('cats') ? 'George · taking up most of the bench' : 'A big cat, sprawled out'),
+    label: (ctx) => (flatOut.has('george') ? 'George · flat out on the cool stones' : ctx.journal.has('cats') ? 'George · taking up most of the bench' : 'A big cat, sprawled out'),
     activate(ctx, at) {
       ctx.life.pet('george');
       ctx.sound.purr();
       ctx.life.burst('hearts', at);
-      ctx.toast('George stretches one paw even further across the bench, clearly not moving for anyone.');
+      ctx.toast(flatOut.has('george')
+        ? 'George has poured himself onto the cool flagstones under the bench. One ear moves. That’s all you’re getting in this heat.'
+        : 'George stretches one paw even further across the bench, clearly not moving for anyone.');
       ctx.discover('cats');
     },
   },
   charlie: {
-    label: (ctx) => (ctx.journal.has('cats') ? 'Charlie · curled up tight' : 'A cat, curled into a ball'),
+    label: (ctx) => (flatOut.has('charlie') ? 'Charlie · stretched out in the shade' : ctx.journal.has('cats') ? 'Charlie · curled up tight' : 'A cat, curled into a ball'),
     activate(ctx, at) {
       ctx.life.pet('charlie');
       ctx.sound.purr();
       ctx.life.burst('hearts', at);
-      ctx.toast('Charlie opens one eye, checks that George is still there, and goes back to sleep.');
+      ctx.toast(flatOut.has('charlie')
+        ? 'Charlie is stretched out as long as a cat can go, belly to the stone. Too hot to purr. He purrs anyway.'
+        : 'Charlie opens one eye, checks that George is still there, and goes back to sleep.');
       ctx.discover('cats');
       setTimeout(() => ctx.life.burst('zzz', at), 4000);
     },
@@ -619,9 +764,12 @@ export const PLACES: Record<string, Place> = {
     label: 'A kayak',
     activate(ctx) {
       ctx.discover('kayak');
-      // in a storm nobody's going out; otherwise it's a long way downriver from here
+      // in a storm it takes some nerve; otherwise it's a long way downriver from here
       if (ctx.weather.now.storm > 0.5) {
-        ctx.toast('The kayak bucks and tugs at its rope in the waves. You hope someone tied it up well.');
+        ctx.ask('The kayak bucks and tugs at its rope in the waves. Anyone sensible would wait this one out. Go anyway?', [
+          { label: 'Paddle', pick: () => ctx.openPanel('river') },
+          { label: 'Wait it out' },
+        ]);
         return;
       }
       const note = ctx.journal.has('cartridge')
@@ -711,6 +859,7 @@ export const PLACES: Record<string, Place> = {
     'Step inside the ring and you dance till morning, and the morning is a hundred years off. Best watch from here.',
   ]),
   ...SPECIAL_DAYS,
+  ...THE_WEEK,
   ...WILDLIFE,
 };
 
@@ -817,7 +966,25 @@ const ROBOT_HELLOS = [
 ];
 
 /** Things inside the workshop: every project, the robot, and the way out. */
+/** The boat Vincent's building on Saturdays (workshop.py BOAT_STAGES), as far as it's got. */
+const BOAT_WEEKS = [
+  'Just the keel so far, up on its trestles. He says it’s the most important part. He says that about every part.',
+  'The ribs are in, and you can see the shape of her now.',
+  'The first planks are on, steamed and bent to fit, with a fair amount of muttering.',
+  'Planked right up to the gunwale. Next Saturday: paint.',
+  'Painted green with a white stripe. Nobody is allowed to touch it.',
+  'Finished: seats, oars and a name on the transom. Next Saturday she goes in the water, and he starts another.',
+];
+
 export const WORKSHOP_PLACES: Record<string, Place> = {
+  boat_build: {
+    label: `The boat · Saturday ${boatStage + 1} of ${BOAT_WEEKS.length}`,
+    activate: say(BOAT_WEEKS[boatStage]),
+  },
+  vincent_workshop: {
+    label: 'Vincent · building a boat',
+    activate: say('Planing a plank in long strokes, shavings curling off everywhere. He looks up long enough to tell you it’s nearly done. It isn’t.'),
+  },
   workshop_door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
   robot: {
     label: (ctx) => (ctx.journal.has('robot') ? 'The workshop robot' : 'A robot, mid-errand'),
@@ -825,7 +992,10 @@ export const WORKSHOP_PLACES: Record<string, Place> = {
       const what = ctx.workshop?.robot.poke();
       robotLine = (robotLine + 1) % ROBOT_HELLOS.length;
       ctx.toast(
-        what === 'trip' ? 'You startled it. It windmills its arms and, somehow, stays upright.'
+        what === 'busy' ? (ctx.workshop?.robot.updating != null
+          ? `It’s installing updates (${Math.floor((ctx.workshop.robot.updating ?? 0) * 100)}%). Please don’t switch off your robot.`
+          : 'It’s restarting. Give it a minute: it isn’t quite itself yet.')
+        : what === 'trip' ? 'You startled it. It windmills its arms and, somehow, stays upright.'
         : what === 'fall' ? 'It waves so hard it falls flat on its face. It gets up as if nothing happened.'
         : ROBOT_HELLOS[robotLine],
       );
@@ -1029,6 +1199,70 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
 let guestPage = -1;
 let dreamPage = -1;
 
+const WEATHER_WORDS: Record<WeatherKind, string> = {
+  clear: 'sunny', partly: 'sun and cloud', cloudy: 'grey', windy: 'windy', warm: 'warm', hot: 'hot', fog: 'fog',
+  drizzle: 'drizzle', rain: 'rain', showers: 'showers', sleet: 'sleet', snow: 'snow', hail: 'hail', storm: 'thunder',
+};
+
+/** What the weather board in the hut says, and the warden's advice underneath it. */
+function weatherBoard(forecast: Forecast | null | undefined) {
+  const days = forecast?.days.slice(0, 3) ?? [];
+  if (!forecast || !days.length) return 'Nothing chalked up yet. The warden says the forecast is whatever you can see out of the window, and it has never once been wrong.';
+  const said = days.map((d, i) => {
+    const [y, m, day] = d.date.split('-').map(Number);
+    const name = i === 0 ? 'today' : new Date(y, m - 1, day).toLocaleDateString('en-GB', { weekday: 'long' });
+    return `${name} ${WEATHER_WORDS[d.kind]}${d.wind >= 9 ? ' and windy' : ''}, ${Math.round(d.high)}°`;
+  });
+  const any = (...kinds: WeatherKind[]) => days.some((d) => kinds.includes(d.kind));
+  const advice = any('storm', 'hail')
+    ? 'Nobody goes over the pass in that. Have more soup.'
+    : any('snow', 'sleet')
+      ? 'Crampons. Yes, you.'
+      : days.some((d) => d.low <= 0)
+        ? 'Two pairs of socks. The ones over the stove are taken.'
+        : any('rain', 'showers', 'drizzle')
+          ? 'Rain jacket on, not in the pack.'
+          : days.some((d) => d.wind >= 9)
+            ? 'Tie everything to the pack. Everything.'
+            : days.some((d) => d.high >= 28)
+              ? 'Start at five, be down by noon.'
+              : 'Start early anyway.';
+  return `Chalked up for ${forecast.place}: ${said.join(' · ')}. Underneath, in the warden’s hand: “${advice}”`;
+}
+
+const FORCE = [0.5, 1.6, 3.4, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7]; // m/s where each Beaufort force starts
+const beaufort = (ms: number) => FORCE.filter((f) => ms >= f).length;
+const NUMBERS = ['nought', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+const forceWords = (f: number) =>
+  f >= 12 ? 'hurricane force twelve' : f >= 11 ? 'violent storm eleven' : f >= 10 ? 'storm ten' : f >= 9 ? 'severe gale nine' : f >= 8 ? 'gale eight' : NUMBERS[f];
+const SEA_STATE = ['smooth', 'smooth', 'slight', 'slight', 'slight or moderate', 'moderate', 'rough', 'rough or very rough', 'very rough', 'high', 'very high', 'very high', 'phenomenal'];
+const SEA_WEATHER: Record<WeatherKind, [string, string]> = {
+  clear: ['fair', 'good'], partly: ['fair', 'good'], cloudy: ['fair', 'good'], windy: ['fair', 'good'], warm: ['fair', 'good'],
+  hot: ['fair', 'good, occasionally moderate in haze'], fog: ['fog', 'very poor'], drizzle: ['drizzle', 'moderate or poor'],
+  rain: ['rain', 'moderate or poor'], showers: ['showers', 'good, occasionally poor'], sleet: ['sleet', 'poor'],
+  snow: ['snow', 'poor, occasionally very poor'], hail: ['squally showers with hail', 'moderate or poor'], storm: ['thundery rain', 'moderate or poor'],
+};
+
+/** The shipping forecast on the lamp-room radio, for the island, read off the real weather. */
+function shippingForecast(ctx: IslandContext) {
+  const w = ctx.weather;
+  const now = beaufort(w.wind);
+  const gusting = beaufort(w.gusts);
+  const later = ctx.forecast?.days[0] ? beaufort(ctx.forecast.days[0].wind) : now;
+  const points = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+  const from = points[Math.round((((w.direction % 360) + 360) % 360) / 45) % 8];
+  const wind = now <= 2 && gusting <= 3
+    ? `variable ${NUMBERS[Math.max(1, now)]}`
+    : `${from} ${forceWords(now)}${gusting > now ? ` or ${forceWords(Math.min(now + 1, gusting))}` : ''}${gusting > now + 1 ? `, occasionally ${forceWords(gusting)}` : ''}${later > Math.max(now, gusting) ? `, increasing ${forceWords(later)} later` : ''}`;
+  const top = Math.max(now, gusting, later);
+  const [weather, visibility] = SEA_WEATHER[w.kind];
+  const turning = ctx.forecast?.days[0] && ctx.forecast.days[0].kind !== w.kind ? SEA_WEATHER[ctx.forecast.days[0].kind][0] : null;
+  const warning = top >= 8 ? 'There are warnings of gales. ' : '';
+  const said = `${warning}Wingedsheep: ${wind}. ${SEA_STATE[Math.min(12, Math.max(now, gusting))]}. ${weather}${turning && turning !== weather ? `, ${turning} later` : ''}. ${visibility}.`;
+  const verdict = top >= 8 ? 'The gull on the rail tucks its head in.' : w.kind === 'fog' ? 'Down below, the foghorn agrees.' : top <= 3 && visibility === 'good' ? 'Good.' : 'Fair enough.';
+  return `It murmurs the shipping forecast: “${said.replace(/(^|[.:] )([a-z])/g, (_, a, b) => a + b.toUpperCase())}” ${verdict}`;
+}
+
 /** Things in the mountain hut. */
 const waiting = inTurn([
   'The timer says twenty minutes. She checks the oven anyway, every two.',
@@ -1036,7 +1270,43 @@ const waiting = inTurn([
   'She cuts the first slice at nineteen minutes. Close enough, she says. It is not close enough.',
 ]);
 
+/** What's come on the post boat, in the order it came (hut.py POST_SHELF). */
+const POST_THINGS: [string, string][] = [
+  ['A stack of paperbacks', 'Four second-hand paperbacks, ordered at midnight on a whim. He already had one of them.'],
+  ['A cactus', 'The only plant that has ever survived the hut. It flowered once, while nobody was looking.'],
+  ['A record', 'A record, still in its sleeve. Nothing up here plays it yet.'],
+  ['A snow globe', 'Shake it, and it snows on a mountain hut very like this one.'],
+  ['A tin of tea', 'Smoked tea. Opened once, and the hut smelled of campfire for a week.'],
+  ['A toy sheep, with wings', 'A small woolly sheep with felt wings. Somebody out there knows what this island is called.'],
+  ['Hot sauce', 'The label has a skull on it and the word “mild”, crossed out.'],
+  ['A brass telescope', 'For watching the boats come in. Mostly used for watching the gulls watching his dinner.'],
+  ['A board game', 'Still in its shrink-wrap. The rules run to forty pages.'],
+  ['A mug with a sheep on it', 'The sheep has wings. There seems to be a theme.'],
+  ['A rubber duck', 'For debugging: you explain the problem to the duck, and halfway through you see what’s wrong. It has fixed more bugs than anyone.'],
+  ['A ship in a bottle', 'Sails up. How it got in there is between it and the bottle.'],
+];
+
+/** When something came: "on Tuesday" this week, or the date. */
+function cameOn(d: Date) {
+  const days = (Date.now() - d.getTime()) / 864e5;
+  return days < 7
+    ? `on ${d.toLocaleDateString('en-GB', { weekday: 'long' })}`
+    : `on ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+}
+
 export const HUT_PLACES: Record<string, Place> = {
+  ...Object.fromEntries(POST_THINGS.map(([name, line], k): [string, Place] => [`post_${k}`, {
+    label: () => `${name} · came on the post boat ${shelf.has(k) ? cameOn(shelf.get(k)!) : ''}`.trim(),
+    activate: say(line),
+  }])),
+  hut_parcel: {
+    label: 'Today’s post · still in its paper',
+    activate: say('Up from the pier this morning, and still unopened. He likes to leave it a day. She thinks this is madness.'),
+  },
+  pancakes: {
+    label: 'Pancakes · it’s Sunday',
+    activate: say('Sunday morning: a stack of pancakes, stroop and sugar. The first one always goes wrong, and Beike always gets it.'),
+  },
   companion_baking: { label: 'Tea, while the pie bakes', activate: (ctx) => ctx.toast(waiting()) },
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
   pie: { label: 'A pie in the oven', activate: (ctx) => ctx.toast('A cherry pie, baking. Twenty minutes to go, and the whole hut already smells of it.') },
@@ -1120,6 +1390,7 @@ export const HUT_PLACES: Record<string, Place> = {
     },
   },
   map: { label: 'The trail map · career & skills', activate: (ctx) => ctx.openPanel('trail') },
+  forecast: { label: 'The weather board', activate: (ctx) => ctx.toast(weatherBoard(ctx.forecast)) },
   stamps: {
     label: 'Hut stamps',
     activate: say('A stamp from every hut he’s slept in: the Tour du Mont Blanc, La Fouly, Gavarnie, the Dolomites, Ramsau am Dachstein, and fresh ink from the Peaks of the Balkans.'),
@@ -1157,7 +1428,7 @@ export const LAMP_PLACES: Record<string, Place> = {
       ? 'Nothing out there but the dark and, far off, another light answering this one.'
       : 'Trained on the horizon. A sail, a gull, and a long way off, the next island.'),
   },
-  radio: { label: 'The radio', activate: say('It murmurs the shipping forecast: wind south-west, four or five, occasionally six. Good.') },
+  radio: { label: 'The radio', activate: (ctx) => ctx.toast(shippingForecast(ctx)) },
   clock: {
     label: 'The clock',
     activate: (ctx) => ctx.toast(`It says ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. Later than it feels. It always is.`),

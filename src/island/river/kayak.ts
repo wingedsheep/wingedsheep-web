@@ -36,6 +36,8 @@ const OVER = 1.45;
 const PERFECT = 1.0;
 /** A boof: the stroke has to catch this close (s) before the lip. */
 export const BOOF_WINDOW = 0.45;
+/** The lip: this far (m) above a ledge's arc length the river starts to pour over it. */
+export const LIP_AT = 1;
 /** A reverse sweep tapped this long before the stroke in the water finishes still follows it. */
 const BUFFER = 0.18;
 
@@ -46,6 +48,8 @@ const WAVE_PULL = 5;
 const PUMP = 0.55;
 /** Over a crest faster than this (m/s), a big wave throws you off it. */
 const HOP_FROM = 6.8;
+/** A storm's wind across the river at its strongest (m/s²): enough to drift you, not to pin you. */
+const GUST = 1.6;
 
 export type Balance = 'up' | 'over' | 'rolling' | 'swimming';
 
@@ -140,6 +144,10 @@ export class Kayak {
   /** The roll-up: where the needle is (0..1) and how wide the window (centred on 0.5). */
   roll = { needle: 0, window: 0.3, time: 0 };
   airborne = false;
+  /** How high (m, as built) the drop it's flying off right now is: 0 on the water, or off a wave. */
+  get flying() {
+    return this.airborne && !this.hopping ? this.dropHeight : 0;
+  }
   /** Stuck in a hole, and for how long. */
   holed = 0;
   events: KayakEvents = {};
@@ -157,6 +165,13 @@ export class Kayak {
   private puffed = false;
   /** How many times you've rolled up this run: each roll gets harder. */
   rolls = 0;
+  /** 0..1: how stormy it is (set by the game): a chop on even the flattest water, and a wind across it. */
+  storm = 0;
+  /** The wind across the river right now (m/s², + towards its right bank), gusting. */
+  gust = 0;
+  private gustTo = 0;
+  private gustIn = 0;
+  private gustSide: -1 | 1 = 1;
   /** The wave train you're in (or coming up to), and the water of it right under you. */
   train: Train | null = null;
   wave = { h: 0, slope: 0, k: -1, d: 0, lean: 0, amp: 0 };
@@ -183,6 +198,7 @@ export class Kayak {
   private lastCatch = -9;
   private boofing = false;
   private dropHeight = 0; // the drop being flown off, as built
+  private bed = 0; // the river's height under it, a step ago
   /** How fast you were going over the last lip (m/s). */
   lipSpeed = 0;
   private lipSkew = 0; // how far off the river's line the bow pointed going over the lip
@@ -205,7 +221,8 @@ export class Kayak {
   /** Along a log the boat's up against, towards its free end (x, z). */
   private slide = new THREE.Vector2();
   private paddle?: THREE.Object3D;
-  private head?: THREE.Object3D;
+  /** The paddler's head (for the headlamp). */
+  readonly head?: THREE.Object3D;
   /** 0..1: how hard you've been paddling lately (a paddled boat is a steady boat). */
   private effort = 0;
   /** The sideways water on the hull (m/s, + from the right), for tripping over the leading edge. */
@@ -234,6 +251,7 @@ export class Kayak {
     const p = course.at(s);
     this.course = course;
     this.pos.set(p.x, p.y, p.z);
+    this.bed = p.y;
     this.vel.set(Math.sin(p.a), -Math.cos(p.a)).multiplyScalar(p.speed * 0.6);
     this.heading = p.a;
     this.yawRate = 0;
@@ -244,6 +262,7 @@ export class Kayak {
     this.balance = 'up';
     this.effort = 0;
     this.rolls = 0;
+    this.gust = this.gustTo = this.gustIn = 0;
     this.sprinting = this.puffed = false;
     this.wind = 1;
     this.flip = 0;
@@ -270,6 +289,7 @@ export class Kayak {
     const p = course.at(Number.isFinite(this.s) ? this.s : 0);
     this.s = p.s;
     this.pos.set(p.x, p.y, p.z);
+    this.bed = p.y;
     this.vel.set(0, 0);
     this.heading = p.a;
     this.yawRate = this.tilt = this.tiltV = this.slam = this.vy = 0;
@@ -278,7 +298,8 @@ export class Kayak {
 
   /** How white the water is right where the kayak is (round an island, the channel it's in). */
   get rough() {
-    return this.here ? Math.min(1, this.here.rough * channel(this.here, this.side).rough) : 0;
+    const r = this.here ? Math.min(1, this.here.rough * channel(this.here, this.side).rough) : 0;
+    return r + this.storm * 0.3 * (1 - r); // (a storm chops up even the flat water)
   }
 
   /** Speed over the ground (m/s). */
@@ -297,6 +318,7 @@ export class Kayak {
     this.sprint(dt, i);
     this.trains(course, running);
     this.paddling(dt, i);
+    this.blow(dt);
     // small steps, so fast water never carries it through a rock
     const n = Math.ceil(dt / (1 / 120));
     for (let k = 0; k < n; k++) this.step(dt / n, i, course, running);
@@ -548,6 +570,11 @@ export class Kayak {
       fz0 -= fz * wave.slope * WAVE_PULL;
     }
     if (hole) tau += Math.sin(this.clock * 2.7) * 2.4 * hole.strength;
+    // in a storm, the wind shoves you across the river (paddle into it, or ride it)
+    if (up && running && !this.airborne) {
+      fx0 += rx * this.gust;
+      fz0 += rz * this.gust;
+    }
     this.vel.x += fx0 * dt;
     this.vel.y += fz0 * dt;
     this.yawRate += (tau / INERTIA - this.yawRate * SPIN_DAMP) * dt;
@@ -648,8 +675,13 @@ export class Kayak {
 
     // up and down: riding the water, or flying off a ledge
     const bob = Math.sin(this.clock * 2.1) * 0.03 + Math.sin(this.clock * 5.3 + p.s) * this.rough * 0.08;
-    const water = course.heightAt(this.s) + bob + this.flip * 0.12 + wave.h; // upside down, the hull rides high
-    if (!this.airborne && water < this.pos.y - 0.3) {
+    const bed = course.heightAt(this.s);
+    const water = bed + bob + this.flip * 0.12 + wave.h; // upside down, the hull rides high
+    // off a lip: the river falling away under it faster than it can follow (a small step at a
+    // time it only drops a few centimetres, so it's how fast that tells)
+    const away = (this.bed - bed) / dt;
+    this.bed = bed;
+    if (!this.airborne && (water < this.pos.y - 0.3 || away > 2)) {
       this.airborne = true;
       this.vy = this.boofing ? 2.8 : 0;
       if (this.boofing) this.vel.multiplyScalar(1.12);
@@ -679,7 +711,9 @@ export class Kayak {
     // white water jostles you sideways: quick little shoves, never so long or so hard that you
     // can't paddle out of them (an eddy's water is calmer)
     const churn = Math.min(1, q.rough * channel(q, w.side).rough) * 0.6 * (1 - w.eddy * 0.7)
-      * (Math.sin(this.clock * 2.3 + q.s * 0.45) + Math.sin(this.clock * 4.1 + q.s * 0.17 + w.side) * 0.5);
+      * (Math.sin(this.clock * 2.3 + q.s * 0.45) + Math.sin(this.clock * 4.1 + q.s * 0.17 + w.side) * 0.5)
+      + q.boil * 0.9 * (1 - w.eddy * 0.7) * Math.sin(this.clock * 0.8 + q.s * 0.09) // (the boil below a fall, shoving you about)
+      + this.storm * 0.4 * (1 - w.eddy * 0.7) * Math.sin(this.clock * 1.7 + q.s * 0.3); // (and a storm's chop)
     this.eddyAt += w.eddy * 0.5;
     return { x: w.fx * flow - w.fz * churn + w.px, z: w.fz * flow + w.fx * churn + w.pz };
   }
@@ -769,6 +803,21 @@ export class Kayak {
 
   // --- the roll ---------------------------------------------------------------------------------
 
+  /**
+   * The wind in a storm: a gust from one bank that builds, holds a few seconds and eases, and now
+   * and then swings round to come from the other side. Nothing at all on a calm day.
+   */
+  private blow(dt: number) {
+    if ((this.gustIn -= dt) < 0) {
+      this.gustIn = 3 + Math.random() * 5;
+      if (Math.random() < 0.35) this.gustSide = this.gustSide > 0 ? -1 : 1;
+      // a lull between gusts, now and then
+      this.gustTo = this.storm < 0.3 || Math.random() < 0.25 ? 0 : this.gustSide * (0.5 + Math.random() * 0.5) * GUST * this.storm;
+    }
+    const flutter = 1 + Math.sin(this.clock * 3.1) * 0.15 + Math.sin(this.clock * 7.3) * 0.08;
+    this.gust += (this.gustTo * flutter - this.gust) * (1 - Math.exp(-dt * 1.2));
+  }
+
   private rollPhysics(dt: number, p: Sample, hole: Hole | null, running: boolean) {
     const t = this.clock;
     // the water: waves and boils in white water, a hole trying to flip you, a hard turn at speed,
@@ -779,7 +828,15 @@ export class Kayak {
     let torque = this.rough * (3.2 + this.difficulty * 2) * stance * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
     if (Math.random() < dt * this.rough * 2.2) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * this.rough * stance;
     if (hole) torque += Math.sin(t * 5) * 5.5 * hole.strength * stance * (1 + Math.min(2, this.holed));
+    // below a big waterfall the water boils: long slow heaves one way and then the other, and
+    // every so often a boil bursting up under one edge. Lean against it and keep paddling.
+    const boil = p.boil * (1 - this.eddy * 0.6);
+    if (boil > 0 && !this.airborne) {
+      torque += boil * (3.6 + this.difficulty * 1.5) * stance * (Math.sin(t * 1.6 + p.s * 0.13) * 0.75 + Math.sin(t * 0.9 + p.s * 0.05) * 0.25);
+      if (Math.random() < dt * boil * 1.4) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.3) * boil * stance;
+    }
     torque += Math.max(-5, Math.min(5, this.crossflow * Math.abs(this.crossflow) * 0.75));
+    torque += this.gust * 0.6; // a gust heels you over: lean into the wind
     // climbing a wave's face: a crest that meets the hull at an angle (it leans across the river,
     // or the boat's not square to it) lifts the side it meets first and rolls you away from it.
     // Square up to it, or lean into it.
@@ -885,7 +942,7 @@ export class Kayak {
   // --- things in the water --------------------------------------------------------------------
 
   private lipCheck(l: Ledge, running: boolean) {
-    if (l.passed || this.s < l.s - 0.3) return;
+    if (l.passed || this.s < l.s - LIP_AT) return;
     l.passed = true;
     this.dropHeight = l.height;
     this.lipSpeed = this.speed;

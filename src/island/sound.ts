@@ -72,7 +72,7 @@ const SFX = {
   island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 1,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
-    flurry: 1, stroke: 3 },
+    flurry: 1, stroke: 3, burner: 1, horn: 1, murmur: 1, seal: 1 },
   rooms: {
     simmer: 1, typing: 1, clockwork: 1, workshop: 1, press: 1, engine: 1, quill: 1, page: 1, zap: 1, 'robot-servo': 1,
     'robot-tinker': 1, 'robot-snore': 1, 'robot-clank': 1, 'robot-beep': 1, ding: 1, snore: 1,
@@ -96,7 +96,7 @@ const LEVEL: Record<string, number> = {
   purr: 0.55, mew: 0.4, tap: 0.3, thunder: 0.9, boom: 0.7, firework: 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
-  dolphin: 0.4, raven: 0.45,
+  dolphin: 0.4, raven: 0.45, burner: 0.4, horn: 0.55, murmur: 0.5, seal: 0.45,
   'door-library': 0.25, 'door-hut': 0.25, 'door-lighthouse': 0.22, bell: 0.25, hatch: 0.25, bottle: 0.5, clink: 0.35, jump: 0.25,
   flurry: 0.45, press: 0.35, engine: 2.5, quill: 0.3, page: 0.35, zap: 0.25, 'robot-servo': 0.35, 'robot-tinker': 0.3,
   'robot-snore': 0.3, 'robot-clank': 0.45, 'robot-beep': 0.35, ding: 0.35, snore: 0.3,
@@ -112,7 +112,7 @@ const LEVEL: Record<string, number> = {
  * held back to this much of their daytime level.
  */
 const STARTLING: Record<string, number> = {
-  fox: 0.5, foghorn: 0.6, yeti: 0.55, roar: 0.6, howl: 0.65, bellow: 0.65, boom: 0.6, firework: 0.65, thunder: 0.65,
+  fox: 0.5, foghorn: 0.6, horn: 0.6, yeti: 0.55, roar: 0.6, howl: 0.65, bellow: 0.65, boom: 0.6, firework: 0.65, thunder: 0.65,
 };
 /** The beds are levelled lower (-24 LUFS) and each gets its own trim into its old volume curve. */
 const BED = { sea: 1.8, fire: 3.5, rain: 3, wind: 2.5, cicadas: 8, falls: 1.6, crickets: 1.5, birdsong: 1.5, hail: 2.5, leaves: 2, drips: 2, flag: 2, fireworks: 1.6 };
@@ -184,6 +184,9 @@ export class Sound {
   summit = 0;
   /** New Year's Eve: the whole country letting off fireworks, far off all round, 0..1. */
   fireworks = 0;
+  /** The siren test on the first Monday of the month (week.ts), 0..1. */
+  siren = 0;
+  private wail?: { gain: GainNode; air: BiquadFilterNode; oscs: OscillatorNode[]; others: OscillatorNode[]; base: number[] };
   /** Whether the icicles are melting (their drips join the rain's). */
   thaw = 0;
   /** The programme on the telly, if you're in the room while she watches it (lighthouse.ts). */
@@ -200,6 +203,9 @@ export class Sound {
   indoors = false;
   /** Whether Vincent is at the campfire to play at all (he isn't when he's out in the kayak, or in bed). */
   guitarist = true;
+  /** The two minutes' silence on the fourth of May, 0..1 (remembrance.ts): everything fades right away. */
+  silence = 0;
+  private hush?: GainNode;
   /** Told whenever the piano starts or stops (null). */
   onPiano?: (piece: Piece | null) => void;
   private pianoBus?: GainNode;
@@ -396,7 +402,13 @@ export class Sound {
 
   /** Something in the room you're in: the workshop's machines and robot, the oven timer, a snore. */
   here(name: string, volume = 1) {
-    if (this.enabled) this.play(name, volume);
+    if (!this.enabled || this.play(name, volume) || !this.ctx || !this.master) return;
+    if (name === 'plane') {
+      // Vincent at his boat (workshop-room.ts): one long stroke of the plane, a curl of shaving off it
+      const t = this.ctx.currentTime;
+      this.hiss(t, 0.55, 3400, 0.05 * volume);
+      this.hiss(t + 0.03, 0.5, 1300, 0.03 * volume);
+    }
   }
 
   /**
@@ -528,6 +540,22 @@ export class Sound {
       case 'giggle': // Puck: a quick, high titter
         for (let i = 0; i < 5; i++) tone('triangle', i * 0.08, [[0, 1500 + i * 60], [0.05, 1250 + i * 40]], 0.04, 0.07, 1600);
         break;
+      case 'toot': // the post boat, coming in to the pier: two short toots
+        for (const at of [0, 0.45]) {
+          tone('triangle', at, [[0, 262], [0.3, 258]], 0.07, 0.32, 600);
+          tone('sawtooth', at, [[0, 131], [0.3, 129]], 0.03, 0.32, 400);
+        }
+        break;
+      case 'toll': // the church over the water on a Sunday morning, calling them in for ten
+      case 'toll-low':
+        this.toll(t, kind === 'toll' ? 392 : 294, volume, pan);
+        break;
+      case 'aroo': { // Beike, joining in with the siren: up into a long wavering aroooo, and down again
+        const f = r(0.95, 1.08);
+        tone('triangle', 0, [[0, 480 * f], [0.5, 720 * f], [1.4, 700 * f], [2.2, 690 * f], [3.0, 430 * f]], 0.09, 3.1, 900);
+        tone('sine', 0.02, [[0, 960 * f], [0.5, 1440 * f], [2.2, 1380 * f], [3.0, 860 * f]], 0.025, 3.0);
+        break;
+      }
       case 'hush': // gone: a falling shimmer, and a breath of air through the grass
         [3136, 2637, 2093, 1568, 1319, 1047].forEach((f, i) => tone('sine', i * 0.07, [[0, f]], 0.03, 0.9));
         hiss(0, 1.4, 3000, 0.06);
@@ -539,6 +567,95 @@ export class Sound {
         for (let i = 0; i < 10; i++) hiss(0.9 + r(0, 0.9), 0.06, 3500, 0.12);
         break;
     }
+  }
+
+  /** One stroke of a church bell a long way off: a bell's partials, each dying away at its own rate. */
+  private toll(t: number, f0: number, volume: number, pan: number) {
+    const ctx = this.ctx!;
+    const side = ctx.createStereoPanner();
+    side.pan.value = pan;
+    const air = ctx.createBiquadFilter();
+    air.type = 'lowpass';
+    air.frequency.value = this.indoors ? 700 : 2400;
+    air.connect(side).connect(this.master!);
+    // hum, prime, tierce, quint, nominal and the ones above: the tierce is what makes it a bell
+    for (const [ratio, amp, decay] of [[0.5, 0.5, 6], [1, 0.7, 4], [1.19, 0.35, 3], [1.5, 0.3, 2.5], [2, 0.35, 2], [2.51, 0.15, 1.4], [3, 0.12, 1.1]]) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = f0 * ratio;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(amp * 0.05 * volume, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+      osc.connect(g).connect(air);
+      osc.start(t);
+      osc.stop(t + decay + 0.1);
+    }
+  }
+
+  /**
+   * The sirens on the mainland (week.ts), tested at noon on the first Monday: two of them, from
+   * towns either side, wailing up and down out of step, swelling and fading as their horns turn,
+   * with the far shore throwing them back. `siren` is how hard they're going; they wind up and
+   * down with it.
+   */
+  private buildSiren() {
+    const ctx = this.ctx!;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    const air = ctx.createBiquadFilter();
+    air.type = 'lowpass';
+    air.frequency.value = 1300;
+    const echo = ctx.createDelay(2);
+    echo.delayTime.value = 0.9;
+    const back = ctx.createGain();
+    back.gain.value = 0.35;
+    air.connect(gain).connect(this.master!);
+    gain.connect(echo).connect(back).connect(echo);
+    back.connect(this.master!);
+    const oscs: OscillatorNode[] = [];
+    const others: OscillatorNode[] = [];
+    const base: number[] = [];
+    for (const [f, rate, pan, level] of [[420, 1 / 5.5, -0.5, 1], [395, 1 / 6.3, 0.45, 0.6]]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f * 0.25;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = rate;
+      const depth = ctx.createGain();
+      depth.gain.value = f * 0.18;
+      lfo.connect(depth).connect(o.frequency);
+      const turn = ctx.createOscillator();
+      turn.frequency.value = 0.28 + Math.random() * 0.05;
+      const swell = ctx.createGain();
+      swell.gain.value = 0.3;
+      const amp = ctx.createGain();
+      amp.gain.value = 0.7;
+      turn.connect(swell).connect(amp.gain);
+      const side = ctx.createStereoPanner();
+      side.pan.value = pan;
+      const lv = ctx.createGain();
+      lv.gain.value = level;
+      o.connect(amp).connect(lv).connect(side).connect(air);
+      for (const x of [o, lfo, turn]) x.start();
+      oscs.push(o);
+      others.push(lfo, turn);
+      base.push(f);
+    }
+    return { gain, air, oscs, others, base };
+  }
+
+  /** The siren, each frame: open it up, follow `siren` up and down, and let it go when it's done. */
+  private sounding(t: number, walls: number) {
+    const k = this.enabled && !this.atRiver ? this.siren : 0;
+    if (k > 0 && !this.wail) this.wail = this.buildSiren();
+    const w = this.wail;
+    if (!w) return;
+    w.gain.gain.setTargetAtTime(k * 0.07 * (this.indoors ? 0.4 : walls), t, 0.5);
+    w.air.frequency.setTargetAtTime(this.indoors ? 600 : 1300, t, 0.3);
+    w.oscs.forEach((o, i) => o.frequency.setTargetAtTime(w.base[i] * (0.25 + 0.75 * k), t, 0.8));
+    if (k > 0) return;
+    for (const o of [...w.oscs, ...w.others]) o.stop(t + 3);
+    this.wail = undefined;
   }
 
   /** A special day needs its sounds (the fireworks, the steamboat's whistle): fetch them once sound is on. */
@@ -745,6 +862,12 @@ export class Sound {
         this.hiss(t, 1.2, 600, 0.45 * volume);
         this.hiss(t, 0.4, 180, 0.4 * volume);
         break;
+      case 'plunge': // into the foot of a waterfall: the splash slowed right down, over a deep whump
+        if (!this.play('splash', volume, { rate: 0.6 })) this.hiss(t, 2.2, 450, 0.5 * volume);
+        this.play('dropin', volume, { rate: 0.75 });
+        this.tone(t, 'sine', [[0, 85], [0.6, 30]], 0.7 * volume, 0.9);
+        this.hiss(t + 0.1, 1.8, 1500, 0.15 * volume);
+        break;
       case 'ball': // a tennis ball fished out: two bright little notes
         this.tone(t, 'square', [[0, 988]], 0.05 * volume, 0.1, 2000);
         this.tone(t + 0.08, 'square', [[0, 1319]], 0.05 * volume, 0.16, 2600);
@@ -921,6 +1044,7 @@ export class Sound {
   update(campfireNearness: number, view: number, dt: number) {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
+    this.hush?.gain.setTargetAtTime(1 - this.silence, t, 0.1);
     const near = this.indoors || this.atRiver || this.diorama ? 0 : Math.max(0, Math.min(1, campfireNearness));
     // indoors the sea and the wind come through the walls; up in a diorama the island's far below
     const walls = this.atRiver ? 0 : this.indoors ? 0.3 : this.diorama ? 0.3 : 1;
@@ -948,6 +1072,7 @@ export class Sound {
     this.dripGain?.gain.setTargetAtTime(drip * 0.22 * (this.atRiver ? 0 : walls), t, 1.5);
     this.flagGain?.gain.setTargetAtTime(this.summit * (0.35 + this.wind) * 0.2 * (this.atRiver ? 0 : walls), t, 1);
     this.fireworksGain?.gain.setTargetAtTime(this.fireworks * 0.3 * (this.atRiver ? 0 : walls), t, 2);
+    this.sounding(t, walls);
     // the rooms: the stove and the soup in the hut, the clockwork up in the lamp room, the
     // workshop's machines, and the keyboard when Vincent's at his desk
     if (this.room) this.load('rooms');
@@ -1059,7 +1184,8 @@ export class Sound {
     safety.ratio.value = 12;
     safety.attack.value = 0.003;
     safety.release.value = 0.25;
-    this.master.connect(safety).connect(ctx.destination);
+    this.hush = ctx.createGain();
+    this.master.connect(this.hush).connect(safety).connect(ctx.destination);
 
     // two seconds of brown-ish noise, reused by the sea and the fire
     const len = ctx.sampleRate * 2;
