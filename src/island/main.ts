@@ -43,12 +43,23 @@ const PANEL_HOME: Partial<Record<PanelName | 'article', string>> = {
   hut: 'hut',
 };
 
-/** CSS pixels per art pixel: bigger screens get chunkier pixels so detail stays readable. */
-const pixelSizeFor = (w: number) => (w < 700 ? 2 : 3);
+/**
+ * CSS pixels per art pixel: bigger screens get chunkier pixels so detail stays readable (and a
+ * TV isn't asked to draw four times the art pixels of a laptop).
+ */
+const pixelSizeFor = (w: number, h: number) => (w < 700 ? 2 : Math.max(3, Math.floor(h / 400)));
+/**
+ * Device pixels per CSS pixel. The art is blown up nearest-neighbour, so past a laptop's worth of
+ * device pixels (a 4K TV) a finer canvas shows nothing more; it only costs the GPU.
+ */
+const pixelRatioFor = (w: number, h: number) => {
+  const dpr = Math.min(devicePixelRatio, 2);
+  return w * h * dpr * dpr > 6.5e6 ? 1 : dpr;
+};
 
 export async function bootIsland(host: HTMLElement) {
   const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(pixelRatioFor(host.clientWidth, host.clientHeight));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   host.append(renderer.domElement);
@@ -63,7 +74,7 @@ export async function bootIsland(host: HTMLElement) {
   dressIsland(island); // after the grass, which reads the ground's own colours
   scene.add(createFoliage(island.canopies, island.root));
 
-  const pixels = new PixelRenderer(renderer, pixelSizeFor(host.clientWidth));
+  const pixels = new PixelRenderer(renderer, pixelSizeFor(host.clientWidth, host.clientHeight));
   const sky = new Sky(scene, island, pixels, water.uniforms);
   const life = new Life(scene, island, sky);
   const sound = new Sound(songs, piano, records);
@@ -212,8 +223,9 @@ export async function bootIsland(host: HTMLElement) {
   function resize() {
     const w = host.clientWidth;
     const h = host.clientHeight;
+    renderer.setPixelRatio(pixelRatioFor(w, h));
     renderer.setSize(w, h);
-    pixels.pixelSize = pixelSizeFor(w);
+    pixels.pixelSize = pixelSizeFor(w, h);
     pixels.setSize(w, h);
     rig.resize(w, h);
     library.resize();

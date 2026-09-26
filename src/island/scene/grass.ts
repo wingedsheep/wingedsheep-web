@@ -24,17 +24,24 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
   const c = new THREE.Vector3();
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
   const n = new THREE.Vector3();
   const color = new THREE.Color();
-  const spots: { p: THREE.Vector3; c: THREE.Color }[] = [];
+  // where each blade stands and its colour, six numbers a blade (the river grows grass on every
+  // tile it lays, so this stays allocation-free)
+  const spots: number[] = [];
   const tris = index ? index.count / 3 : pos.count / 3;
+  const at = (k: number) => (index ? index.getX(k) : k);
 
   for (let t = 0; t < tris; t++) {
-    const [i0, i1, i2] = [0, 1, 2].map((k) => (index ? index.getX(t * 3 + k) : t * 3 + k));
+    const i0 = at(t * 3);
     a.fromBufferAttribute(pos, i0).applyMatrix4(m);
-    b.fromBufferAttribute(pos, i1).applyMatrix4(m);
-    c.fromBufferAttribute(pos, i2).applyMatrix4(m);
-    n.subVectors(b, a).cross(c.clone().sub(a));
+    b.fromBufferAttribute(pos, at(t * 3 + 1)).applyMatrix4(m);
+    c.fromBufferAttribute(pos, at(t * 3 + 2)).applyMatrix4(m);
+    ab.subVectors(b, a);
+    ac.subVectors(c, a);
+    n.crossVectors(ab, ac);
     const area = n.length() / 2;
     if (n.normalize().y < 0.82) continue; // too steep
     color.fromBufferAttribute(col, i0);
@@ -46,8 +53,7 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
       let u = Math.random();
       let v = Math.random();
       if (u + v > 1) [u, v] = [1 - u, 1 - v];
-      const p = a.clone().addScaledVector(b.clone().sub(a), u).addScaledVector(c.clone().sub(a), v);
-      spots.push({ p, c: color.clone() });
+      spots.push(a.x + ab.x * u + ac.x * v, a.y + ab.y * u + ac.y * v, a.z + ab.z * u + ac.z * v, color.r, color.g, color.b);
     }
   }
 
@@ -94,17 +100,20 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
       );
   };
 
-  const mesh = new THREE.InstancedMesh(blade, mat, spots.length);
-  const dummy = new THREE.Object3D();
-  spots.forEach(({ p, c }, i) => {
-    dummy.position.copy(p);
-    dummy.rotation.set(0, Math.random() * Math.PI, 0);
+  const blades = spots.length / 6;
+  const mesh = new THREE.InstancedMesh(blade, mat, blades);
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < blades; i++) {
+    const o = i * 6;
+    // turned a random way about y, and a random height
+    const turn = Math.random() * Math.PI;
+    const cos = Math.cos(turn);
+    const sin = Math.sin(turn);
     const s = 0.7 + Math.random() * 0.7;
-    dummy.scale.set(1, s, 1);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
-    mesh.setColorAt(i, c.offsetHSL(0, 0, (Math.random() - 0.5) * 0.05));
-  });
+    matrix.set(cos, 0, sin, spots[o], 0, s, 0, spots[o + 1], -sin, 0, cos, spots[o + 2], 0, 0, 0, 1);
+    mesh.setMatrixAt(i, matrix);
+    mesh.setColorAt(i, color.setRGB(spots[o + 3], spots[o + 4], spots[o + 5]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.05));
+  }
   mesh.receiveShadow = true;
   mesh.castShadow = false;
   mesh.frustumCulled = false;

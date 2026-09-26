@@ -36,8 +36,13 @@ function withSnow(mat: THREE.MeshToonMaterial) {
       .replace(
         '#include <fog_vertex>',
         `#include <fog_vertex>
-        vSnowN = mat3(modelMatrix) * objectNormal;
-        vSnowP = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
+        #ifdef USE_INSTANCING
+          vSnowN = mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal;
+          vSnowP = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+        #else
+          vSnowN = mat3(modelMatrix) * objectNormal;
+          vSnowP = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform float uSnow;\nuniform float uFrost;\nvarying vec3 vSnowN;\nvarying vec3 vSnowP;')
