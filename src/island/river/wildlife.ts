@@ -1025,6 +1025,22 @@ export class Wildlife {
     return null;
   }
 
+  /** Somewhere in the water near `at`, `e` metres in from the edge, that the camera can see. */
+  private shallows(at: number, e: number, height: number) {
+    const first = Math.random() < 0.5 ? -1 : 1;
+    const up = V();
+    for (const ds of [0, 3, -3, 6])
+      for (const side of [first, -first]) {
+        const q = this.course.at(at + ds);
+        const u = side * (q.width / 2 - e);
+        const x = q.x + Math.cos(q.a) * u;
+        const z = q.z + Math.sin(q.a) * u;
+        if (this.hidden(up.set(x, q.y + 0.3, z)) || this.hidden(up.set(x, q.y + height, z))) continue;
+        return { q, x, z, side, s: at + ds };
+      }
+    return null;
+  }
+
   /** How far down the river the kayak is. */
   private kayakS(kayak: THREE.Vector3) {
     return this.course.nearest(kayak.x, kayak.z).sample.s;
@@ -1262,18 +1278,19 @@ export class Wildlife {
   }
 
   /**
-   * A brown bear on a rock at the edge of the rapids, fishing: the salmon leap and now and then
-   * one doesn't get past. It rears up to look at you, huffs, and goes back to its fishing.
+   * A brown bear knee-deep at the edge of the rapids, fishing: the salmon leap and now and then
+   * one doesn't get past. It rears up to look at you, huffs, and goes back to its fishing. (Out in
+   * the water, not up on the bank: brown on brown, under the trees, it was easy to go right past.)
    */
   private bear(at: number): Actor | null {
-    const spot0 = this.open(at, 0.2, 0.8, 1.6);
+    const spot0 = this.shallows(at, 1.3, 2);
     if (!spot0) return null;
     const { q, side } = spot0;
     at = spot0.s;
     const root = new THREE.Group();
     const b = this.assets.clone('bear');
-    b.scale.setScalar(1.2);
-    b.position.set(spot0.x, Math.max(spot0.y, q.y - 0.3), spot0.z);
+    b.scale.setScalar(1.6);
+    b.position.set(spot0.x, q.y - 0.35, spot0.z);
     const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
     const up = V(-Math.sin(q.a), 0, Math.cos(q.a));
     b.rotation.y = face(toWater.x + up.x * 0.5, toWater.z + up.z * 0.5);
