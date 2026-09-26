@@ -7,7 +7,8 @@
  * In the water: rocks in rows (always with a line through), logs reaching out from the banks,
  * ledges to boof, holes to punch, tongues of smooth fast water between the rocks, and tennis
  * balls. The chutes, and now and then a run or a rapid, are laid out instead as set pieces (see
- * piece()): a slalom, a row of doors, an old weir, a boulder to pick a side of. Everything comes
+ * piece()): a slalom, a row of doors, an old weir, a boulder to pick a side of. And now and then a
+rapid is big water: wave train after wave train and hardly a rock, to ride out. Everything comes
  * from one seed, so the same seed is the same river. How hard it gets, and what's allowed in it, is
  * the river's Profile (rivers.ts): the Dawdle never gets past grade 2; Hold My Coffee starts hot.
  *
@@ -268,16 +269,21 @@ export interface Stretch {
   runout?: number;
   /** …and whether its wave train's been laid yet. */
   trained?: boolean;
+  /**
+   * Big water: a rapid squeezed straight and running hard, one wave train after another and hardly
+   * a rock in it. Not much to dodge; everything to balance.
+   */
+  big?: boolean;
 }
 
 const BASE: Record<Kind, Character> = {
   pool: { width: 19, speed: 2.4, rough: 0, rocks: 0.006, bend: 0.35, slope: 0, clear: 1, gorge: 0, heat: 0 },
-  run: { width: 13, speed: 5.4, rough: 0.3, rocks: 0.045, bend: 0.8, slope: 0.015, clear: 0.3, gorge: 0, heat: 0 },
+  run: { width: 13, speed: 5.4, rough: 0.3, rocks: 0.045, bend: 0.8, slope: 0.025, clear: 0.3, gorge: 0, heat: 0 },
   // fast, smooth water with its rocks laid out in set pieces: going like the clappers, with time to dodge
-  chute: { width: 13.5, speed: 7.6, rough: 0.35, rocks: 0, bend: 0.5, slope: 0.035, clear: 0, gorge: 0.2, heat: 0 },
-  rapids: { width: 13.5, speed: 7.4, rough: 0.9, rocks: 0.13, bend: 1, slope: 0.05, clear: 0, gorge: 0.15, heat: 0 },
+  chute: { width: 13.5, speed: 7.6, rough: 0.35, rocks: 0, bend: 0.5, slope: 0.065, clear: 0, gorge: 0.2, heat: 0 },
+  rapids: { width: 13.5, speed: 7.4, rough: 0.9, rocks: 0.13, bend: 1, slope: 0.08, clear: 0, gorge: 0.15, heat: 0 },
   cascade: { width: 11, speed: 5.0, rough: 0.55, rocks: 0.03, bend: 0.3, slope: 0.01, clear: 0, gorge: 0.35, heat: 0 },
-  gorge: { width: 11, speed: 6.9, rough: 0.65, rocks: 0.07, bend: 0.9, slope: 0.035, clear: 0, gorge: 1, heat: 0 },
+  gorge: { width: 11, speed: 6.9, rough: 0.65, rocks: 0.07, bend: 0.9, slope: 0.07, clear: 0, gorge: 1, heat: 0 },
   falls: { width: 12, speed: 4.6, rough: 0.3, rocks: 0.01, bend: 0.2, slope: 0.005, clear: 0.2, gorge: 0.5, heat: 0 },
 };
 
@@ -286,6 +292,8 @@ const RAPIDS = [
   'The Washing Machine', 'The Cheese Grater', 'Rock Garden', 'The Staircase', 'Pinball', 'Last Orders',
   'The Mangle', 'Sock Drawer', 'Big Wet', 'The Tumble Dryer', 'Second Thoughts', 'Pardon My French',
 ];
+/** Big water has its own names: it's the waves you remember. */
+const BIG = ['The Rollercoaster', 'Haystacks', 'The Big Bouncy', 'Moguls', 'The Humpback', 'Wave Goodbye'];
 /** And so do the chutes: the first is always the Flume. */
 const CHUTES = ['The Luge', 'Greased Lightning', 'The Waterslide', 'Express Lane', 'The Bobsleigh', 'Slip Road', 'Hold Onto Your Hat'];
 
@@ -418,6 +426,22 @@ export class Course {
     const i = Math.max(0, Math.min(this.samples.length - 2, Math.floor(s / STEP)));
     const f = Math.max(0, Math.min(1, s / STEP - i));
     return this.samples[i].y * (1 - f) + this.samples[i + 1].y * f;
+  }
+
+  /**
+   * How steeply the river runs downhill at arc length s (metres down per metre along), over the
+   * few metres round it: the steady fall of the stretch, not the step over a ledge.
+   */
+  gradeAt(s: number) {
+    const c = Math.round(s / STEP);
+    let fall = 0;
+    let n = 0;
+    for (let i = Math.max(1, c - 3); i <= Math.min(this.samples.length - 1, c + 3); i++) {
+      if (this.samples[i].drop > 0 || this.samples[i - 1].drop > 0) continue;
+      fall += this.samples[i - 1].y - this.samples[i].y;
+      n++;
+    }
+    return n ? fall / (n * STEP) : 0;
   }
 
   /** The island the river is parting round at arc length s, if any. */
@@ -605,11 +629,14 @@ export class Course {
   private target(stretch: Stretch, s: number): Character {
     const h = stretch.heat;
     const t = { ...BASE[stretch.kind], heat: h };
-    if (stretch.kind === 'rapids' || stretch.kind === 'gorge') {
+    if (stretch.big) {
+      // big water: squeezed, fast and as white as it gets, and straight enough for the waves to stand
+      Object.assign(t, { width: 11.5 - h * 1.2, speed: 7.4 + h * 2.4, rough: 1, slope: 0.085 + h * 0.035, bend: 0.05, clear: 0, gorge: 0.45 });
+    } else if (stretch.kind === 'rapids' || stretch.kind === 'gorge') {
       // the first rapid is a friendly one: a bit slower, wider and less white than the rest
       t.speed += -0.9 + h * 3;
       t.width += 1 - h * 1.5;
-      t.slope += h * 0.02;
+      t.slope += h * 0.035;
       t.rough *= 0.65 + h * 0.35;
     } else if (stretch.kind === 'chute') {
       // hotter: faster and a bit narrower; a slot is narrower still, between walls
@@ -618,7 +645,7 @@ export class Course {
       if (stretch.slot) t.gorge = 0.95;
     } else if (stretch.runout !== undefined && s > stretch.runout) {
       // below a waterfall: squeezed, fast and white, and straight enough for the waves to stand
-      Object.assign(t, { width: 10.5, speed: 6.8 + h * 1.6, rough: 0.95, slope: 0.045, bend: 0.05, clear: 0, gorge: 0.8 });
+      Object.assign(t, { width: 10.5, speed: 6.8 + h * 1.6, rough: 0.95, slope: 0.075, bend: 0.05, clear: 0, gorge: 0.8 });
     } else {
       t.speed += h * 0.8;
     }
@@ -709,8 +736,18 @@ export class Course {
     }
     // nothing runs on into the take-out: it's always the pool
     const next: Stretch = { kind, start: s, end: Math.min(this.finish - 60, s + Math.round(lo + r() * (hi - lo))), heat };
+    // now and then a rapid's big water, on the rivers that have wave trains at all, and at least
+    // once a run from halfway down (its own dice, so the rest of the river comes out as it always has)
+    const dice = rng(this.seed * 7919 + n);
+    const owedBig = s > pr.length * 0.5 && !this.stretches.some((x) => x.big);
+    if (kind === 'rapids' && n > 3 && pr.pieces.includes('waves') && (dice() < 0.5 + d * 0.2 || owedBig)) {
+      next.big = true;
+      next.end = Math.min(this.finish - 60, s + Math.round(220 + heat * 140 + dice() * 80));
+    }
     if (kind === 'rapids' || kind === 'gorge' || kind === 'cascade') {
-      next.name = this.names[this.stretches.filter((x) => x.name && x.kind !== 'chute').length % this.names.length];
+      next.name = next.big
+        ? BIG[(this.stretches.filter((x) => x.big).length + this.seed) % BIG.length]
+        : this.names[this.stretches.filter((x) => x.name && x.kind !== 'chute' && !x.big).length % this.names.length];
       next.grade = Math.max(2, Math.min(5, 2 + Math.round((heat - 0.2) * 3.4 + (kind === 'cascade' ? 0.4 : 0))));
     }
     if (kind === 'chute') {
@@ -720,7 +757,7 @@ export class Course {
       next.slot = i > 0 && r() < 0.4;
     }
     // now and then a run or a rapid has a set piece in it too
-    if ((kind === 'run' && n > 1 && r() < 0.4) || (kind === 'rapids' && n > 3 && r() < 0.3)) {
+    if ((kind === 'run' && n > 1 && r() < 0.4) || (kind === 'rapids' && n > 3 && r() < 0.3 && !next.big)) {
       next.pieceAt = next.start + 40 + r() * Math.max(0, next.end - next.start - 130);
     }
     if (kind === 'falls') next.grade = 4 + Math.round(d);
@@ -750,7 +787,7 @@ export class Course {
       next.runout = Math.round(lip) + 10;
     } else if (n === 3) {
       ledge(next.start + 70, 0.9); // the first one: small, to learn to boof
-    } else if (((kind === 'rapids' || kind === 'gorge') && r() < 0.5 + heat * 0.3 || kind === 'run' && r() < 0.2) && n > 3) {
+    } else if (((kind === 'rapids' || kind === 'gorge') && r() < 0.5 + heat * 0.3 || kind === 'run' && r() < 0.2) && n > 3 && !next.big) {
       ledge(next.start + 30 + r() * (next.end - next.start - 60), 1 + r() * 0.8);
     } else if (kind === 'chute' && heat > 0.3 && r() < 0.45) {
       // a ledge in a hot chute: a boof at full tilt
@@ -761,7 +798,7 @@ export class Course {
     // gravel bar in a pool
     const splitChance = n < 4 ? 0 : kind === 'run' ? 0.75 : kind === 'rapids' ? 0.6 : kind === 'pool' ? 0.6 : 0;
     let split: Split | null = null;
-    if (r() < splitChance) {
+    if (r() < splitChance && !next.big) {
       const bar = kind === 'pool';
       const len = bar ? 45 + r() * 20 : 90 + r() * 70;
       const s0 = next.start + (bar ? 12 : 30);
@@ -889,6 +926,26 @@ export class Course {
       const rz = Math.sin(p.a);
       const across = (u: number) => ({ x: p.x + rx * u * half, z: p.z + rz * u * half });
 
+      // big water: one wave train straight after another, as wide as the water lets them stand,
+      // and where it bends too much for one, only a rock tucked in by a bank and a ball on the line
+      if (stretch.big) {
+        if (s > this.lastTrain + 5) {
+          const len = this.trainAt(s + 2, stretch, gap * half * 0.5, 10, 0.1, true);
+          if (len) {
+            gap = this.lastTrainAt!.u / half;
+            this.placedTo = s + 2 + len + 3 + r() * 6;
+            continue;
+          }
+        }
+        gap *= 0.7;
+        if (r() < 0.35) {
+          const side = r() < 0.5 ? -1 : 1;
+          this.addObstacle({ kind: 'rock', ...across(side * (0.88 + r() * 0.14)), r: 0.5 + r() * 0.3, s, variant: Math.floor(r() * 5) });
+        }
+        if (r() < 0.5) this.file({ kind: 'ball', ...across(gap), s, taken: false } satisfies Pickup);
+        continue;
+      }
+
       // now and then down a straight, a wave train where the rocks' gap would be: a V of smooth
       // water between two rocks, and the waves standing below it
       // (and below a waterfall, for certain: the waves standing up in the water it's poured into)
@@ -997,12 +1054,12 @@ export class Course {
    * (no lip, no island, no bend worth the name, and room before the stretch ends). Returns how
    * much river it takes (0: none). Bigger and leaning harder the hotter the water.
    */
-  private trainAt(s0: number, stretch: Stretch, u: number, most = 8, bigger = 0): number {
+  private trainAt(s0: number, stretch: Stretch, u: number, most = 8, bigger = 0, wide = false): number {
     const r = this.scatter;
     const h = stretch.heat;
     const p = this.at(s0);
     const length = 4.5 + p.speed * 0.3;
-    const count = Math.min(most, 4 + Math.floor(r() * 3 + h * 2));
+    const count = Math.min(most, (wide ? 5 : 4) + Math.floor(r() * 3 + h * 2));
     const len = length * count;
     if (s0 + len > stretch.end - 10) return 0;
     while (this.length < s0 + len + 2) this.grow();
@@ -1016,7 +1073,8 @@ export class Course {
       if (Math.abs(q.bend) > 0.013) return 0; // (a straight: nothing that bends enough for an eddy on its inside)
       narrow = Math.min(narrow, q.width);
     }
-    const half = Math.min(narrow / 2 - 1.6, 2.2 + h * 1.2 + r() * 0.6);
+    // (a wide one, in big water, all but bank to bank: no getting round it)
+    const half = wide ? Math.min(narrow / 2 - 1.3, 3.4 + h + r() * 0.6) : Math.min(narrow / 2 - 1.6, 2.2 + h * 1.2 + r() * 0.6);
     if (half < 1.6) return 0;
     const room = narrow / 2 - half - 1;
     const t: Train = {

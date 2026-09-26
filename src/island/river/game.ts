@@ -113,9 +113,11 @@ export interface Outside {
   storm?: number;
   flash?: number;
   haze?: number;
+  /** 0..1: how hard it's freezing (Weather's chill), for the ice on the gorges' walls. */
+  chill?: number;
 }
 
-export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'plunge' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'huff' | 'spotted' | Cry;
+export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'plunge' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'growl' | 'spotted' | Cry;
 export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball' | 'waves';
 
 export interface GameEvents {
@@ -214,6 +216,11 @@ export class RiverGame {
   private kick = 0;
   /** How fast time's going (1 is real time): slowed right down off a big drop. */
   private slow = 1;
+  /**
+   * A rare one just spotted: where, and how long ago (s, real time). For a moment time eases off
+   * and the view leans its way, so you get a proper look before the river takes you past.
+   */
+  private glance: { at: THREE.Vector3; t: number } | null = null;
   /** Time all but stopped for a beat as you hit the water at the foot of a waterfall (s, real time). */
   private hitstop = 0;
   /** The waterfall being flown off (m), for the plunge at its foot. */
@@ -320,6 +327,7 @@ export class RiverGame {
 
   reset(river = this.river) {
     this.river = river;
+    this.glance = null;
     // its own water
     const u = this.water.uniforms;
     u.uShallow.value.fromArray(river.look.water.shallow);
@@ -341,14 +349,14 @@ export class RiverGame {
     if (rare && RARE.some((r) => r.id === rare)) this.wildlife.force(rare);
     this.wildlife.ground = (x, z) => this.land.heightAt(x, z);
     const projected = new THREE.Vector3();
-    this.wildlife.inView = (at) => {
+    this.wildlife.inView = (at, margin = 0.95) => {
       projected.copy(at).project(this.camera);
-      return Math.abs(projected.x) < 0.95 && Math.abs(projected.y) < 0.95 && projected.z > -1 && projected.z < 1;
+      return Math.abs(projected.x) < margin && Math.abs(projected.y) < margin && projected.z > -1 && projected.z < 1;
     };
     this.wildlife.hidden = (at) => {
       this.sight.camera = this.camera; // (the glows are sprites, which need it)
       this.sight.set(at, this.camera.getWorldDirection(this.sightDir).negate());
-      return this.sight.intersectObject(this.land.group, true).length > 0;
+      return this.land.underLeaves(at, this.sightDir) || this.sight.intersectObject(this.land.group, true).length > 0;
     };
     this.kayak.launch(this.course, this.start);
     this.kayak.assisted = this.controls.assisted;
@@ -454,6 +462,7 @@ export class RiverGame {
     // the lamps come on as the light goes, well before it's properly dark
     this.lit = THREE.MathUtils.smoothstep(outside.night, 0.12, 0.42);
     this.land.glow(outside.night, this.lit, this.clock, outside.fair ? 1 : 0.15);
+    this.land.freeze(outside.chill ?? 0);
     this.shore();
     this.wildlife.storm = this.storm = outside.storm ?? 0;
     this.dark = outside.night;
@@ -486,6 +495,9 @@ export class RiverGame {
     const high = k.airborne ? k.pos.y - this.course.heightAt(k.s) : 0;
     const falls = running && k.flying >= 3;
     let want = falls && high > 0.4 ? 0.33 : running && high > 1.4 ? 0.45 : 1;
+    // a rare one spotted: a breath of slower time (unless the river's busy with something bigger)
+    const g = this.glance;
+    if (g && running && !k.airborne) want = Math.min(want, 1 - 0.4 * Math.max(0, 1 - Math.abs(g.t - 0.6) / 0.6));
     if (this.hitstop > 0) {
       this.hitstop -= realDt;
       this.slow = want = 0.06;
@@ -984,15 +996,16 @@ export class RiverGame {
       bark: () => this.events.bark?.(),
       baa: () => this.events.baa?.(),
       quack: () => this.events.quack?.(),
-      spotted: (kind) => {
+      spotted: (kind, at) => {
         if (this.tally.spotted.includes(kind)) return;
         this.tally.spotted.push(kind);
+        this.glance = { at, t: 0 };
         this.events.sound?.('spotted');
         this.events.spotted?.(kind);
       },
       slap: () => this.events.sound?.('slap'),
       howl: () => this.events.sound?.('howl'),
-      huff: () => this.events.sound?.('huff'),
+      growl: () => this.events.sound?.('growl'),
       cry: (kind) => this.events.sound?.(kind),
     };
   }
@@ -1383,6 +1396,15 @@ export class RiverGame {
     // (and over a waterfall it looks down at the foot, to watch you drop all the way into it)
     const lead = (view * (0.22 + fast * 0.08) * (1 - this.drama * 0.55)) / Math.sin(ELEVATION);
     const target = new THREE.Vector3(k.pos.x + fx * lead, this.course.heightAt(k.s) - this.kick * 0.6, k.pos.z + fz * lead);
+    // a rare one just spotted: the view leans a little its way, and back after a couple of seconds
+    const g = this.glance;
+    if (g) {
+      g.t += dt;
+      const lean = 0.3 * Math.min(1, g.t / 0.5) * Math.min(1, Math.max(0, (2.8 - g.t) / 0.8));
+      target.x += (g.at.x - target.x) * lean;
+      target.z += (g.at.z - target.z) * lean;
+      if (g.t > 2.8 || this.state !== 'running') this.glance = null;
+    }
     // the view trembles in white water, and in the last stretch before a big fall
     const roar = this.state === 'running' ? this.roar.level : 0;
     const rumble = k.balance === 'up' ? k.rough * 0.1 + roar ** 3 * 0.12 : 0;

@@ -295,6 +295,7 @@ function bits(course: Course, start: number, finish: number): Bit[] {
     if (st.end < start || st.start > finish) continue;
     const s0 = Math.max(st.start, start) - start;
     const s1 = Math.min(st.end, finish) - start;
+    const kind = st.big ? 'big water' : st.kind;
     // its set pieces, one bit for each run of beats of the same piece
     const beats = course.line.filter((b) => b.s >= st.start && b.s < st.end && b.s >= start && b.s < finish);
     let from = s0;
@@ -303,10 +304,10 @@ function bits(course: Course, start: number, finish: number): Bit[] {
       const name = b.piece === 'rest' ? null : b.piece;
       if (name === piece) continue;
       const at = b.s - start;
-      if (at > from) out.push({ kind: piece ? `${st.kind}: ${piece}` : st.kind, s0: from, s1: at });
+      if (at > from) out.push({ kind: piece ? `${kind}: ${piece}` : kind, s0: from, s1: at });
       (from = at), (piece = name);
     }
-    out.push({ kind: piece ? `${st.kind}: ${piece}` : st.kind, s0: from, s1 });
+    out.push({ kind: piece ? `${kind}: ${piece}` : kind, s0: from, s1 });
     // below a waterfall, its run-out (the waves and the white water) apart from the flat above it
     if (st.runout !== undefined && st.runout < finish) out.unshift({ kind: 'falls: run-out', s0: st.runout - start, s1 });
   }

@@ -22,7 +22,7 @@ const SPIN_DAMP = 0.6;
 const BLADE = 1.05; // how hard a blade bites
 const BLADE_SPEED = 6.5; // how fast a blade moves through a stroke (m/s): you can't paddle faster than it
 const RUDDER = 0.2; // a planted blade's drag
-const BACKING = 0.55; // backing up, the blade moves this much slower than it does going forward
+const BACKING = 0.8; // backing up, the blade moves this much slower than it does going forward (quick enough to go up the slowest water)
 
 /** Sprinting: you've breath for this long (s) of quicker, harder strokes, and it takes this long (s) to come back. */
 const SPRINT = 3;
@@ -44,6 +44,8 @@ const BUFFER = 0.18;
 // a wave train: how hard a crest meeting the hull at an angle rolls it, how hard a wave's slope
 // pulls you down its back (and holds you on its face), and how hard a stroke down its back pumps
 const WAVE_ROLL = 8.5;
+/** Broadside down a train, the whole of every wave works on the upstream edge, and only a good lean holds you up. */
+const BROADSIDE = 5;
 const WAVE_PULL = 5;
 const PUMP = 0.55;
 /** Over a crest faster than this (m/s), a big wave throws you off it. */
@@ -193,6 +195,7 @@ export class Kayak {
   private tiltV = 0;
   private vy = 0;
   private pitch = 0;
+  private downhill = 0; // how steeply the river runs downhill under it, smoothed (rad)
   private idle = 0;
   private clock = 0;
   private lastCatch = -9;
@@ -276,7 +279,7 @@ export class Kayak {
     this.blade = { kind: 'none', side: 1, t: 1, dur: 0.5, power: 0, sweep: false };
     this.pitchNow = this.leanNow = 0;
     this.spun = this.spins = this.spinFwd = this.spinRev = 0;
-    this.vy = this.pitch = 0;
+    this.vy = this.pitch = this.downhill = 0;
     this.train = null;
     this.wave = { h: 0, slope: 0, k: -1, d: 0, lean: 0, amp: 0 };
     this.hopping = false;
@@ -340,6 +343,9 @@ export class Kayak {
   private paddling(dt: number, i: Intent) {
     const b = this.blade;
     const backing = i.backLeft && i.backRight;
+    // the line he holds is only for straight on (or straight back): anything else, a sweep, a
+    // planted blade, one side, turns you off it, and the next time he picks up the one you're on
+    if (!backing && !(i.left > 0.05 && i.right > 0.05)) this.line = null;
     if (i.tapLeft) this.queued = { side: -1, at: this.clock };
     if (i.tapRight) this.queued = { side: 1, at: this.clock };
     if (this.queued && this.clock - this.queued.at > BUFFER + 0.1) this.queued = null;
@@ -385,8 +391,7 @@ export class Kayak {
       const both = l > 0.05 && r > 0.05;
       // both sides: he takes turns, but (as any paddler does) holds the line he started on,
       // stroking on the side the bow is wandering towards
-      if (!both) this.line = null;
-      else this.line ??= this.heading;
+      if (both) this.line ??= this.heading;
       const off = this.line === null ? 0 : angle(this.heading - this.line) + this.yawRate * 0.3;
       const drift = off > 0.06 ? 1 : off < -0.06 ? -1 : 0;
       const side: -1 | 1 = both ? (drift ? (drift as -1 | 1) : this.lastSide > 0 ? -1 : 1) : l > r ? -1 : 1;
@@ -397,7 +402,6 @@ export class Kayak {
       this.blade = { kind: 'plant', side: i.backLeft ? -1 : 1, t: 1, dur: 1, power: 1, sweep: false };
       return;
     }
-    this.line = null;
     this.blade = { ...b, kind: 'none' };
   }
 
@@ -840,11 +844,16 @@ export class Kayak {
     // climbing a wave's face: a crest that meets the hull at an angle (it leans across the river,
     // or the boat's not square to it) lifts the side it meets first and rolls you away from it.
     // Square up to it, or lean into it.
+    // Sideways on, it isn't one lift a wave but every wave all the way through, and paddling won't
+    // hold you up: lean hard into them or go over.
     const w = this.wave;
+    let broadside = 0;
     if (w.k >= 0 && !this.airborne) {
       const face = Math.max(0, 1 - Math.abs(w.d + 0.15) / 0.22);
-      const square = angle(this.heading - p.a + Math.atan(CREST_LEAN * w.lean));
-      torque += WAVE_ROLL * Math.sin(square) * w.amp * face * stance * THREE.MathUtils.clamp(p.speed / 6, 0.5, 1.2);
+      const square = Math.sin(angle(this.heading - p.a + Math.atan(CREST_LEAN * w.lean)));
+      torque += WAVE_ROLL * square * w.amp * face * stance * THREE.MathUtils.clamp(p.speed / 6, 0.5, 1.2);
+      broadside = THREE.MathUtils.smoothstep(Math.abs(square), 0.55, 0.9) * THREE.MathUtils.smoothstep(w.amp, 0.15, 0.55);
+      torque += BROADSIDE * Math.sign(square) * broadside * (0.5 + 0.5 * face);
     }
     // a hard turn at speed throws you to the outside of it: lean into the turn
     torque -= this.yawRate * Math.max(0, this.speed - 3) * 0.25;
@@ -855,7 +864,7 @@ export class Kayak {
     torque += this.slam;
     this.slam *= Math.exp(-dt * 2.2);
     const planted = this.blade.kind === 'plant' ? 0.4 : 0; // a blade in the water is something to lean on
-    const steady = 2.2 + this.effort * 3.5 + planted * 3;
+    const steady = (2.2 + this.effort * 3.5 + planted * 3) * (1 - broadside * 0.5);
     const over = Math.abs(this.tilt) - TIP;
     // upright, it wants to stay that way; past the tipping point it wants to go on over
     torque += over < 0 ? -steady * this.tilt : Math.sign(this.tilt) * (2 + over * 10);
@@ -1118,6 +1127,7 @@ export class Kayak {
     const paddling = this.balance === 'up' || this.balance === 'over';
     this.idle += dt;
     this.pitch += (0 - this.pitch) * (1 - Math.exp(-dt * 3));
+    this.downhill += (Math.atan(this.course?.gradeAt(this.s) ?? 0) - this.downhill) * (1 - Math.exp(-dt * 4));
     this.braceAnim -= dt;
     const flipTo = paddling ? 0 : 1;
     this.flip += (flipTo - this.flip) * (1 - Math.exp(-dt * (flipTo ? 7 : 5)));
@@ -1154,7 +1164,9 @@ export class Kayak {
     m.rotation.y = Math.PI - this.heading;
     // (and up the face of a wave the bow lifts, down its back it dips)
     const ride = this.airborne ? 0 : -Math.atan(this.wave.slope) * 0.9;
-    m.rotation.x = dive + this.pitch + this.pitchNow * 0.18 + ride; // leaning forward dips the bow
+    // (and down a steep stretch it lies along the water, bow pointing down the hill)
+    const hill = this.airborne ? 0 : this.downhill * Math.cos(this.heading - (this.course?.at(this.s).a ?? this.heading));
+    m.rotation.x = dive + this.pitch + this.pitchNow * 0.18 + ride + hill; // leaning forward dips the bow
     const side = Math.sign(this.tilt) || 1;
     m.rotation.z = this.tilt * (1 - this.flip) + side * Math.PI * this.flip; // + rolls the right side down
   }

@@ -5,8 +5,8 @@ import type { CanopyMarker } from '../scene/island';
 import { leavesAt, season } from '../scene/season';
 import { toon } from '../scene/toon';
 import type { RiverAssets } from './assets';
-import { type Course, type Obstacle, type Sample, type Split, rng } from './course';
-import type { Look } from './rivers';
+import { type Course, type Gate, type Obstacle, type Sample, type Split, rng } from './course';
+import type { Detail, Look } from './rivers';
 import { waterRibbon } from './water';
 
 export const CHUNK = 32; // metres of river per chunk of water and furniture
@@ -133,6 +133,9 @@ export function flicker(l: Pick<Lamp, 'flicker' | 'seed'>, time: number) {
   return 1 - l.flicker * 0.25 * (Math.sin(time * 13 + l.seed) * 0.5 + Math.sin(time * 7.7 + l.seed * 3) * 0.5 + 0.5);
 }
 
+/** A slalom gate's lights after dark: red on the buoys, green on a downstream gate's poles. */
+const BUOY_GLOW = '#ff8048';
+const GATE_GLOW = '#6dffa0';
 const WINDOW = ['#ffc46b', '#ffd88a', '#ffb35a'];
 /** Foxfire: the cold green-blue glow of the fungus in rotting wood. */
 const FOXFIRE = ['#9cffc8', '#7fe8e0', '#b4ff9a'];
@@ -154,6 +157,55 @@ function mix(...ns: number[]) {
 
 /** How far a boulder on the bank may reach out into the river (m, from the edge of the water to its collision edge). */
 const REACH = 1;
+const AXLE = new THREE.Vector3(0, 0, 1);
+const TURN = new THREE.Quaternion();
+/** How likely each of a river's details is in a chunk, at its weight of 1 (see Land.details). */
+const DETAIL: Record<Detail, number> = {
+  mill: 0.06, beehives: 0.12, bench: 0.12, duckhouse: 0.08, scarecrow: 0.1, upturned: 0.08, canoes: 0.07, fingerpost: 0.07, birdbox: 0.13,
+  woodpile: 0.14, highseat: 0.1, gauge: 0.06, leanto: 0.07, throwbag: 0.08, trough: 0.07,
+  ruin: 0.06, cableway: 0.05, rockfall: 0.07, ferrata: 0.1,
+  mine: 0.045, bridgeOut: 0.12, skull: 0.05, stones: 0.06, sunk: 0.08, shack: 0.07, avalanche: 0.07, icefall: 0.15,
+};
+/**
+ * Where the plain ones go: how far past the water's edge (m; under 0, out in the water, where
+ * `solid` is how big a thing it is to hit), how much room they keep round them, which way they
+ * face (their front to the river, running along the valley, or any old way), whether they want
+ * open banks or will do in the trees, whether only by slow water, and how many models there are.
+ */
+interface Placing {
+  e: [number, number];
+  room: number;
+  turn: 'river' | 'along' | 'any';
+  open?: boolean;
+  solid?: number;
+  calm?: boolean;
+  variants?: number;
+}
+const PLACE: Partial<Record<Detail, Placing>> = {
+  beehives: { e: [4, 9], room: 2.5, turn: 'river', open: true },
+  bench: { e: [1.2, 2], room: 1.5, turn: 'river', open: true },
+  duckhouse: { e: [-1, -0.7], room: 1, turn: 'river', solid: 0.6, calm: true },
+  scarecrow: { e: [5, 10], room: 1.5, turn: 'river', open: true },
+  upturned: { e: [1, 2.5], room: 2, turn: 'any', open: true },
+  canoes: { e: [1.5, 3], room: 2.5, turn: 'along', open: true },
+  fingerpost: { e: [1.5, 3], room: 1, turn: 'any' },
+  birdbox: { e: [2, 5], room: 0.8, turn: 'river' },
+  woodpile: { e: [5, 11], room: 3.5, turn: 'along', variants: 2 },
+  highseat: { e: [6, 12], room: 2, turn: 'river' },
+  leanto: { e: [4, 8], room: 3.5, turn: 'river' },
+  throwbag: { e: [0.8, 1.5], room: 1, turn: 'river' },
+  trough: { e: [3, 6], room: 1.5, turn: 'along' },
+  ruin: { e: [4, 9], room: 3.5, turn: 'any' },
+  // (a fan of rock, or of snapped trees, spilled down the slope: its foot, -y, to the river)
+  rockfall: { e: [3, 7], room: 4, turn: 'river' },
+  avalanche: { e: [3, 9], room: 4.5, turn: 'river' },
+  stones: { e: [5, 10], room: 4, turn: 'any' },
+  sunk: { e: [-0.9, -0.6], room: 1, turn: 'any', solid: 1 },
+  shack: { e: [3, 6], room: 3, turn: 'river' },
+};
+/** How far into a freeze (Weather's chill, 0..1) the ice starts to grow, and where it's all there. */
+const ICE_FROM = 0.3;
+const ICE_TO = 0.8;
 
 interface Chunk {
   index: number;
@@ -177,6 +229,9 @@ interface Chunk {
   feet: THREE.Vector3[];
   /** A rainbow in the mist under a waterfall. */
   rainbows: THREE.Sprite[];
+  /** A mill's wheel, turning; the ice on the walls, grown as far as it's freezing. */
+  wheels: THREE.Object3D[];
+  ices: THREE.Object3D[];
   /** The cottages' chimneys, for their smoke; and banks of mist lying on the water. */
   chimneys: THREE.Vector3[];
   mists: THREE.Sprite[];
@@ -195,6 +250,8 @@ interface Chunk {
 export class Land {
   readonly group = new THREE.Group();
   private tiles = new Map<string, THREE.Mesh>();
+  /** How hard it's freezing, as last told (see freeze). */
+  private chill = 0;
   private chunks = new Map<number, Chunk>();
   private ground = toon(new THREE.Color(1, 1, 1), { vertexColors: true });
   private crowns: THREE.Material[] | null;
@@ -325,6 +382,7 @@ export class Land {
     this.mist.opacity = (0.26 + Math.sin(time * 0.4) * 0.05) * (1 - night * 0.6);
     for (const chunk of this.chunks.values()) {
       for (const m of chunk.mists) m.position.x = m.userData.x + Math.sin(time * 0.15 + m.id) * 2;
+      for (const w of chunk.wheels) w.quaternion.copy(w.userData.rest).multiply(TURN.setFromAxisAngle(AXLE, time * 0.5));
       for (const g of chunk.glows) {
         const l = g.userData as Lamp;
         const f = flicker(l, time);
@@ -432,7 +490,7 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], flames: [], embers: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], chimneys: [], mists: [], clearings: [], solids: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], flames: [], embers: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], wheels: [], ices: [], chimneys: [], mists: [], clearings: [], solids: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
@@ -457,6 +515,7 @@ export class Land {
           m.scale.x = (p.width + 3 + Math.abs(off) * 2) / span;
           group.add(m);
         }
+        this.gateLights(chunk, thing, p.y);
       } else if ((thing.kind === 'rock' && !thing.scenery) || thing.kind === 'log') this.obstacle(chunk, thing, r);
       else if (thing.kind === 'ball' && !thing.taken) {
         const m = new THREE.Group();
@@ -489,6 +548,7 @@ export class Land {
     this.camps(chunk, s0, rng(mix(course.seed, c, 1)));
     this.distant(chunk, s0, rng(mix(course.seed, c, 2)));
     this.foxfire(chunk, s0, rng(mix(course.seed, c, 3)));
+    this.details(chunk, s0, rng(mix(course.seed, c, 4)));
     this.banks(chunk, s0, s1, r);
     this.springs(chunk, s0, s1, rng(course.seed * 104729 + c));
     this.islands(chunk, s0, s1, r);
@@ -513,7 +573,7 @@ export class Land {
    */
   private batch(chunk: Chunk) {
     const { group } = chunk;
-    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows, ...chunk.flames, ...chunk.springs, ...chunk.rainbows, ...chunk.mists]);
+    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows, ...chunk.flames, ...chunk.springs, ...chunk.rainbows, ...chunk.mists, ...chunk.wheels, ...chunk.ices]);
     for (const [thing, m] of chunk.things) {
       const kind = (thing as Partial<Obstacle>).kind;
       if (kind !== 'rock' && kind !== 'log') keep.add(m);
@@ -558,7 +618,7 @@ export class Land {
   private obstacle(chunk: Chunk, o: Obstacle, r: () => number) {
     const y = this.course.at(o.s).y;
     if (o.kind === 'rock') {
-      const kind = o.post ? `post_${o.variant % 3}` : `rock_${o.variant}`;
+      const kind = o.post ? `post_${o.variant % 3}` : this.rock(o.variant, o.x, o.z);
       const m = this.assets.clone(this.assets.has(kind) ? kind : `rock_${o.variant % 5}`);
       const radius = this.assets.extras.get(kind)?.radius ?? 1;
       m.scale.setScalar(o.r / radius);
@@ -593,7 +653,7 @@ export class Land {
     const p = this.course.at(s);
     for (const side of [-1, 1]) {
       for (let k = 0; k < 2; k++) {
-        const kind = `rock_${Math.floor(r() * 5)}`;
+        const kind = this.rock(Math.floor(r() * 5), s, side * 3 + k);
         const m = this.assets.clone(kind);
         const scale = 0.9 + height * 0.35 + r() * 0.3;
         m.scale.setScalar(scale);
@@ -616,6 +676,15 @@ export class Land {
       chunk.group.add(bow);
       chunk.rainbows.push(bow);
     }
+  }
+
+  /**
+   * Which of the river's rocks stands at (x, z): one of the worn round ones, or on a jagged river
+   * (as often as it's jagged) a sharp one, split and not yet rolled.
+   */
+  private rock(n: number, x: number, z: number) {
+    const sharp = `shard_${n}`;
+    return hash2(x * 0.73 + 11, z * 1.37 - 5) < this.look.jagged && this.assets.has(sharp) ? sharp : `rock_${n}`;
   }
 
   /** Where a point `e` metres past the edge on one side of sample s is, or null if that's water. */
@@ -699,6 +768,22 @@ export class Land {
       f.visible = false;
       chunk.flames.push(f);
     }
+  }
+
+  /**
+   * After dark a gate is lit, as for a night race: a glow on top of each buoy (red, like its flag)
+   * or on each pole (green, a downstream gate), and between them a soft light on the water, so the
+   * line through shows from upstream. (Only the one between lights anything: a river of gates
+   * would crowd the fires out.)
+   */
+  private gateLights(chunk: Chunk, gate: Gate, y: number) {
+    const color = gate.hung ? GATE_GLOW : BUOY_GLOW;
+    const top = gate.hung ? 1.4 : 0.9;
+    for (const b of [gate.a, gate.b]) {
+      this.lightAt(chunk, new THREE.Vector3(b.x, y + top, b.z), { color, radius: 0, intensity: 0, flicker: 0.04, size: gate.hung ? 1.1 : 1.5, seed: Math.random() * 100, far: true });
+    }
+    const mid = new THREE.Vector3((gate.a.x + gate.b.x) / 2, y + 0.6, (gate.a.z + gate.b.z) / 2);
+    this.lightAt(chunk, mid, { color, radius: 3.2, intensity: 0.45, flicker: 0, size: 0, seed: 0, dim: 0 });
   }
 
   private lightAt(chunk: Chunk, at: THREE.Vector3, lamp: Lamp) {
@@ -1009,6 +1094,174 @@ export class Land {
     }
   }
 
+  /**
+   * The bits of somebody's life by the water, as the river has them (Look.details), each now and
+   * then: a watermill turning, beehives and a bench on the gentle rivers; timber stacked, a high
+   * seat and a gauge where the forest's worked; and on the hard ones, an old mine gone into the
+   * valley side, a rope bridge that used to cross a gorge, and a moose's skull on a rock.
+   */
+  private details(chunk: Chunk, s0: number, r: () => number) {
+    const course = this.course;
+    for (const [kind, weight] of Object.entries(this.look.details) as [Detail, number][]) {
+      if (r() >= weight * DETAIL[kind]) continue;
+      const s = s0 + 4 + r() * (CHUNK - 8);
+      const p = course.at(s);
+      const side = r() < 0.5 ? -1 : 1;
+      const inland = facing(-side * Math.cos(p.a), -side * Math.sin(p.a)); // (a model's front, -y in Blender, to the river)
+      if (p.isle > 0 || Math.abs(s - course.finish) < 40) continue;
+      if (course.features.some((f) => Math.abs(f.s - s) < 20)) continue; // (not in a camp, or under a bridge)
+      const open = p.gorge < 0.25;
+      if (kind === 'bridgeOut') {
+        // both tops of a gorge, facing each other over it, where the wall's properly high
+        if (p.gorge < 0.6) continue;
+        for (const w of [-1, 1]) {
+          let top = null;
+          for (let e = 0.6; e < 5 && !top; e += 0.4) {
+            const at = this.beside(s, w, e);
+            if (!at) break;
+            if (at.y - p.y > 3) top = at;
+          }
+          if (top) this.put(chunk, 'bridge_out', top, facing(-w * Math.cos(p.a), -w * Math.sin(p.a)));
+        }
+        continue;
+      }
+      if (kind === 'mill') {
+        // at the edge of slow water, its wheel's foot in it
+        if (!open || p.speed > 5 || p.rough > 0.3) continue;
+        const at = this.beside(s, side, 2.4);
+        const m = at && this.put(chunk, 'mill', { ...at, y: p.y }, inland);
+        if (!at || !m) continue;
+        chunk.clearings.push({ x: at.x, z: at.z, r: 7 });
+        this.glowAt(chunk, m);
+        const wheels: THREE.Object3D[] = [];
+        m.traverse((o) => {
+          if (o.userData.wheel) wheels.push(o);
+        });
+        for (const w of wheels) {
+          chunk.group.attach(w);
+          w.userData.rest = w.quaternion.clone();
+          chunk.wheels.push(w);
+        }
+        // (the wheel stands in the edge of the water: something to steer round)
+        const out = -side * 2.4;
+        this.solid(chunk, { kind: 'rock', x: at.x + Math.cos(p.a) * out, z: at.z + Math.sin(p.a) * out, r: 0.8, s, variant: 0 });
+        continue;
+      }
+      if (kind === 'gauge') {
+        // (its board stands in the water at the edge, where it can read the river)
+        const at = this.beside(s, side, 0.8);
+        const m = at && this.put(chunk, 'gauge', { ...at, y: p.y }, inland);
+        if (m) this.glowAt(chunk, m);
+        continue;
+      }
+      if (kind === 'skull') {
+        const at = this.beside(s, side, 0.5 + r() * 1.2);
+        if (at && !this.cleared(chunk, at)) this.put(chunk, 'skull', { ...at, y: Math.max(at.y - 0.1, p.y) }, r() * 6.3, 1.5 + r() * 0.3);
+        continue;
+      }
+      if (kind === 'mine') {
+        // (sunk into the valley side, out of a gorge, where there's room in front of it)
+        if (p.gorge > 0.35) continue;
+        const at = this.beside(s, side, 5 + r() * 3);
+        if (!at || this.cleared(chunk, at)) continue;
+        if (this.put(chunk, 'mine', { ...at, y: at.y - 0.4 }, inland + (r() - 0.5) * 0.3)) chunk.clearings.push({ x: at.x, z: at.z, r: 5 });
+        continue;
+      }
+      if (kind === 'cableway') {
+        // a tower on each bank, the cable between them over the middle of the river
+        if (p.gorge > 0.5) continue;
+        const ends = [-1, 1].map((w) => this.beside(s, w, 1.5));
+        if (!ends[0] || !ends[1]) continue;
+        const y = Math.max(ends[0].y, ends[1].y);
+        ends.forEach((at, i) => {
+          const w = i ? 1 : -1;
+          const m = this.put(chunk, `cableway_${i}`, { ...at!, y }, facing(-w * Math.cos(p.a), -w * Math.sin(p.a)));
+          // (stretched out over the water to meet the other's, whatever the river's width)
+          if (m) m.scale.z *= (p.width / 2 + 1.5) / (this.assets.extras.get(`cableway_${i}`)?.reach ?? 8);
+          chunk.clearings.push({ x: at!.x, z: at!.z, r: 2.5 });
+        });
+        continue;
+      }
+      if (kind === 'ferrata' || kind === 'icefall') {
+        // on a gorge's wall: the via ferrata from the top all the way down it; the ledge low down
+        if (p.gorge < 0.45) continue;
+        if (kind === 'icefall') {
+          const at = this.beside(s, side, 0.7 + r() * 0.6);
+          const m = at && this.put(chunk, 'icefall', { ...at, y: at.y - 0.3 }, inland + (r() - 0.5) * 0.4, 0.9 + r() * 0.4);
+          if (!m) continue;
+          const ices: THREE.Object3D[] = [];
+          m.traverse((o) => {
+            if (o.userData.ice) ices.push(o);
+          });
+          for (const ice of ices) {
+            chunk.group.attach(ice);
+            ice.userData.rest = ice.scale.y;
+            chunk.ices.push(ice);
+            this.frozen(ice);
+          }
+          continue;
+        }
+        let top = null;
+        for (let e = 0.6; e < 5 && !top; e += 0.4) {
+          const at = this.beside(s, side, e);
+          if (!at) break;
+          if (at.y - p.y > 3.5) top = at;
+        }
+        if (top) this.put(chunk, 'ferrata', top, inland, Math.min(1.3, (top.y - p.y) / (this.assets.extras.get('ferrata')?.drop ?? 6)));
+        continue;
+      }
+      const place = PLACE[kind];
+      if (!place) continue;
+      if (place.open ? !open : p.gorge > 0.5) continue;
+      if (place.calm && (p.speed > 5 || p.rough > 0.3)) continue;
+      const [e0, e1] = place.e;
+      const at = this.beside(s, side, e0 + r() * (e1 - e0));
+      if (!at || this.cleared(chunk, at)) continue;
+      const turn = place.turn === 'along' ? -p.a + Math.PI / 2 + (r() - 0.5) * 0.3 : place.turn === 'river' ? inland + (r() - 0.5) * (kind === 'beehives' ? 0.8 : 0.3) : r() * Math.PI * 2;
+      const model = place.variants ? `${kind}_${Math.floor(r() * place.variants)}` : kind;
+      // (out in the water it sits at the waterline, and it's something to steer round)
+      const y = place.solid ? p.y : at.y - 0.05;
+      if (!this.put(chunk, model, { ...at, y }, turn)) continue;
+      chunk.clearings.push({ x: at.x, z: at.z, r: place.room });
+      if (place.solid) this.solid(chunk, { kind: 'rock', x: at.x, z: at.z, r: place.solid, s, variant: 0 });
+    }
+  }
+
+  /** How hard it's freezing (Weather's chill, 0..1): the ice on the gorges' walls grows or goes. */
+  freeze(chill: number) {
+    if (Math.abs(chill - this.chill) < 0.005) return;
+    this.chill = chill;
+    for (const chunk of this.chunks.values()) for (const ice of chunk.ices) this.frozen(ice);
+  }
+
+  private frozen(ice: THREE.Object3D) {
+    const k = THREE.MathUtils.smoothstep(this.chill, ICE_FROM, ICE_TO);
+    ice.visible = k > 0.01;
+    // (it hangs from the lip: grown down from it)
+    ice.scale.y = ice.userData.rest * Math.max(0.01, k);
+  }
+
+  /**
+   * Whether a tree's crown is between `at` and the eye, looking back along `toEye` (a unit
+   * vector): the leaves aren't raycast (there are far too many of them), so their crowns are
+   * tested as the spheres they're grown in.
+   */
+  underLeaves(at: THREE.Vector3, toEye: THREE.Vector3) {
+    for (const chunk of this.chunks.values()) {
+      if (!chunk.foliage?.visible) continue;
+      for (const c of chunk.canopies) {
+        const dx = c.position.x - at.x;
+        const dy = c.position.y - at.y;
+        const dz = c.position.z - at.z;
+        const t = dx * toEye.x + dy * toEye.y + dz * toEye.z;
+        if (t < 0 || t > 40) continue;
+        const r = c.radius * 0.85;
+        if (dx * dx + dy * dy + dz * dz - t * t < r * r) return true;
+      }
+    }
+    return false;
+  }
+
   /** Whether `at` is in a clearing (round a cottage, a picnic) that the trees stay off. */
   private cleared(chunk: Chunk, at: { x: number; z: number }) {
     return chunk.clearings.some((c) => (at.x - c.x) ** 2 + (at.z - c.z) ** 2 < c.r * c.r);
@@ -1084,7 +1337,7 @@ export class Land {
           const e = -0.4 + r() * 1.2;
           let at = this.beside(s, side, e);
           if (at) {
-            const kind = `rock_${Math.floor(r() * 5)}`;
+            const kind = this.rock(Math.floor(r() * 5), at.x, at.z);
             const turn = r() * 6.3;
             const scale = 0.9 + r() * 0.8;
             // (a big one set back, so it doesn't close the edge of the river)
@@ -1096,7 +1349,8 @@ export class Land {
         if (r() < p.gorge * 0.2) {
           const at = this.beside(s, side, 2.2 + r() * 4);
           const spire = r() < this.look.grim * 0.5;
-          if (at) this.put(chunk, spire ? `spire_${Math.floor(r() * 2)}` : `crag_${Math.floor(r() * 2)}`, at, r() * 6.3, spire ? 0.7 + r() * 0.5 : 0.6 + r() * 0.6);
+          const crag = at && hash2(at.x * 0.61 + 3, at.z * 0.83 - 7) < this.look.jagged ? 'jag' : 'crag';
+          if (at) this.put(chunk, spire ? `spire_${Math.floor(r() * 2)}` : `${crag}_${Math.floor(r() * 2)}`, at, r() * 6.3, spire ? 0.7 + r() * 0.5 : 0.6 + r() * 0.6);
         }
         // and needles of black rock standing about the banks, even out of the gorges, and up on
         // the mountainsides high up, big ones, splintering out of the scree
@@ -1198,7 +1452,9 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color, 
   const hills = (n - 0.5) * 4.5 * far + far * 1.2 + valley;
   const bank = p.y + 0.35 + smooth(0, 2.2, e) * 0.9 + hills;
   const beach = p.y + 0.06 + Math.min(0.6, e * 0.1) + hills * 0.85;
-  const wall = p.y + 0.2 + smooth(0.2, 2.4, e) * (6 + n * 2.5) * (1 + high * 0.5) + hills;
+  // (on a jagged river the rim's broken into teeth of rock, a few metres apart)
+  const jag = look && look.jagged > 0 && gorge > 0 ? (1 - Math.abs(noise2(x * 0.22 + 40, z * 0.22) * 2 - 1)) ** 3 * smooth(1.8, 3.4, e) * (1 - smooth(8, 14, e)) * look.jagged * 2.6 : 0;
+  const wall = p.y + 0.2 + smooth(0.2, 2.4, e) * (6 + n * 2.5) * (1 + high * 0.5) + hills + jag;
   const soft = bank + (beach - bank) * smooth(0.4, 0.9, clear);
   const land = soft + (wall - soft) * gorge;
   const h = land + (Math.min(shelf, land) - land) * (1 - smooth(0.4, 1.2, e));
@@ -1210,11 +1466,13 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color, 
     if (e < 0.5) color.copy(clear > 0.5 ? WET : PEBBLES[0]);
     else if (e < 1.4 + clear * 2) color.copy(clear > 0.5 && k > 0.3 ? SAND[Math.floor(k * 3)] : PEBBLES[Math.floor(k * 3)]);
     else color.copy(e < 5 ? moss : floor);
-    // the gorge's walls: stripes of rock where it's steep
+    // the gorge's walls: stripes of rock where it's steep, lying level as the river cuts down
+    // through them (so down a steep stretch they slant against the water, and you see it fall)
     if (gorge > 0.3 && e > 0.3 && e < 3.2) {
-      const band = Math.floor((h - p.y) * 1.3 + n * 2) % 4;
+      const band = Math.floor(h * 1.3 + n * 2) % 4;
       color.lerp(CLIFF[(band + 4) % 4], smooth(0.3, 0.6, gorge));
     }
+    if (jag * gorge > 0.35) color.lerp(CLIFF[Math.floor(k * 4)], smooth(0.35, 0.9, jag * gorge));
     // the river's own green: lush and sunny, or dark and cold
     if (look && look.earth[1] > 0 && e > 1.4 + clear * 2) color.lerp(earthOf(look), look.earth[1]);
     // bare rock showing through high on the valley's sides (on a hard river, everywhere)

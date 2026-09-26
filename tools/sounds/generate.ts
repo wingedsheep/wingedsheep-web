@@ -96,14 +96,22 @@ export const SOUNDS: Sfx[] = [
   { name: 'dropin', seconds: 2, prompt: 'A kayak plunging into whitewater rapids, a low surge of rushing water swelling up' },
   { name: 'hole', seconds: 2, prompt: 'Water churning and recirculating in a river hydraulic, a turbulent pouring roar' },
   { name: 'slap', seconds: 1.5, prompt: 'Loud close-up slap on the water: a flat paddle smacked hard onto a lake surface, a sharp crack then splashing' },
-  { name: 'howl', seconds: 5, prompt: 'A pack of wolves howling far off across a valley at dusk, one starts and the others join in' },
-  { name: 'huff', seconds: 1.5, prompt: 'A brown bear huffing and snorting, a deep breathy woof, twice' },
+  // (the pack on the bank as you come by: close, one long clear howl first and the others joining in)
+  { name: 'howl-1', seconds: 7, prompt: 'A grey wolf standing close by on a riverbank lifts its head and lets out one long, clear, rising howl, then two more wolves of the pack join in, a little off-key, in a quiet pine forest valley, a river faintly behind, no music' },
+  { name: 'howl-2', seconds: 7, prompt: 'A wolf pack howling together close by in a dark pine forest beside a river: one deep lead howl swelling up, the others joining in higher and wavering, then fading into the trees, no music' },
+  // (knee-deep in the rapids, up on its hind legs to see what you are: close, and it means it)
+  { name: 'growl-1', seconds: 3.5, prompt: 'A huge brown grizzly bear rearing up close by in a river lets out one deep, thunderous, guttural roar, a rumbling growl swelling into a full-throated bellow, then a sharp huff, rushing water faintly behind, no music' },
+  { name: 'growl-2', seconds: 3.5, prompt: 'A big angry brown bear standing up in shallow rapids roars at you from a few metres away, a low chesty growl rising into a loud rasping roar that tails off into snorts, whitewater in the background, no music' },
   { name: 'croak', seconds: 1, prompt: 'A single frog croaking by a pond, two ribbits, no other sounds' },
   ...[1, 2].map((i) => ({ name: `whoosh-${i}`, seconds: 1, prompt: 'A kayak rushing fast past a rock, a quick whoosh of water spray, no voice' })),
   { name: 'kingfisher', seconds: 1.5, prompt: 'A kingfisher calling as it flies fast and low over a river, a shrill piping whistle, a short quick series, no water sounds' },
   { name: 'otter', seconds: 1.5, prompt: 'A river otter chirping and squeaking, a few short high whistles, close, no other animals' },
-  { name: 'grunt', seconds: 2, prompt: 'A bull moose grunting, a low short croaking grunt, twice, in a quiet forest' },
-  { name: 'yeti', seconds: 4, prompt: 'A huge unknown creature in snowy mountains letting out a long mournful howling roar, far away, echoing off the cliffs' },
+  // (the bull in the shallows, head up out of the weed, and you've been noticed)
+  { name: 'grunt-1', seconds: 3, prompt: 'A huge bull moose standing in a river close by gives a deep, hollow, croaking grunt, then a long nasal bellowing moan, oo-waaah, rich and resonant, water dripping, a quiet northern forest, no music' },
+  { name: 'grunt-2', seconds: 3, prompt: 'A big bull moose calling across a still river in the wilderness, three deep throaty croaking grunts, heavy and resonant, a snort of breath after, no birds, no music' },
+  // (up on the bank above you with its arms over its head: close enough to carry over the water, and off the cliffs after)
+  { name: 'yeti-1', seconds: 5, prompt: 'A huge shaggy ape-like creature on a snowy mountainside close by throws back its head and lets out one deep booming whooping call, rising into a long wavering howl, then its echo rolling back off the cliffs, no music' },
+  { name: 'yeti-2', seconds: 5, prompt: 'A giant unknown beast in snowy mountains nearby bellows twice, deep chesty whoops like a huge gorilla crossed with a wolf howl, and the sound echoes back off the rock walls of a gorge, no music' },
 
   // --- the island ---------------------------------------------------------------------------
   { name: 'gull', seconds: 2, prompt: 'A herring gull crying overhead at the seaside, three calls, no waves, no other birds' },

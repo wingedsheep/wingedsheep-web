@@ -455,7 +455,7 @@ export class River implements RoomInput {
       u.uLight.value.copy(noon.light);
       const sound = this.ctx.sound;
       sound.rain = sound.hail = sound.snow = sound.wind = sound.fog = 0;
-      game.update(dt, { sun: noon.sun, hemi: noon.hemi, fog: noon.fog, night: 0, rain: 0, snow: 0, fair: true, storm: 0, flash: 0, haze: 0 });
+      game.update(dt, { sun: noon.sun, hemi: noon.hemi, fog: noon.fog, night: 0, rain: 0, snow: 0, fair: true, storm: 0, flash: 0, haze: 0, chill: this.ctx.weather.heat.chill });
     } else {
       const w = this.ctx.weather.now;
       // the island's evening comes on early (its lamps are its clock): out on the river, lift its
@@ -488,6 +488,7 @@ export class River implements RoomInput {
         storm: w.storm,
         flash: w.flash,
         haze: w.fog,
+        chill: this.ctx.weather.heat.chill,
       });
     }
     // the river's own air over the island's grade: golden and soft on the Dawdle, grey and cold

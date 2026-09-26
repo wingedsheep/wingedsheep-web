@@ -42,8 +42,29 @@ export interface Look {
    * sides climb to bare rock and old snow, the trees thin out to pines, and the light is thinner.
    */
   alpine: number;
+  /**
+   * 0..1: how much of its rock is freshly split, not rolled round: sharp blades and slabs in the
+   * water and splintered crags on the banks, in place of the worn boulders.
+   */
+  jagged: number;
+  /** What else is by the water, and how often against the default (see land.ts details). */
+  details: Partial<Record<Detail, number>>;
   mood: Mood;
 }
+
+/**
+ * The bits of somebody's life along a river, and what the mountains have done: a watermill,
+ * beehives, a duck house and a scarecrow on the gentle ones, canoes for hire and a fingerpost on
+ * the path; timber stacked, a high seat, a gauge, a lean-to and a throw bag where the forest's
+ * worked and walked; a ruined hut, a cableway and rockfalls up in the Long Drop's crags; standing
+ * stones, a sunk boat and a shack left to fall down in the black forest; and on the hardest,
+ * avalanche wreckage, a via ferrata down the gorge, and ice on its walls when it's freezing.
+ */
+export type Detail =
+  | 'mill' | 'beehives' | 'bench' | 'duckhouse' | 'scarecrow' | 'upturned' | 'canoes' | 'fingerpost' | 'birdbox'
+  | 'woodpile' | 'highseat' | 'gauge' | 'leanto' | 'throwbag' | 'trough'
+  | 'ruin' | 'cableway' | 'rockfall' | 'ferrata'
+  | 'mine' | 'bridgeOut' | 'skull' | 'stones' | 'sunk' | 'shack' | 'avalanche' | 'icefall';
 
 /**
  * The air a river's run in, a lean on the island's own light (its time of day and its weather
@@ -153,7 +174,7 @@ export const RIVERS: RiverDef[] = [
     length: 800, heat: [0, 0.1], cap: 0.3, cascades: Infinity, falls: Infinity, gorges: 0, stairs: 1,
     speed: 0.85, pieces: ['balls'], ledges: false, snags: 0, key: 'wingedsheep:river:dawdle',
     rare: { chance: 0.3, who: { beaver: 3, otter: 2 } }, signature: [], look: { water: { shallow: [0.48, 0.82, 0.42], mid: [0.14, 0.5, 0.3], deep: [0.06, 0.3, 0.22] }, pines: 0.04, birch: 0.25, meadow: 2.4, snow: 0, springs: 0,
-      earth: ['#9ccf52', 0.3], crags: 0, homely: 1, grim: 0, flutter: 1.5, dark: false, alpine: 0,
+      earth: ['#9ccf52', 0.3], crags: 0, homely: 1, grim: 0, flutter: 1.5, dark: false, alpine: 0, jagged: 0, details: { mill: 1, beehives: 1, bench: 1, duckhouse: 1, scarecrow: 1, upturned: 1 },
       mood: { air: ['#f4dcaa', 0.3], sight: 1, sun: 1.1, tint: ['#ffcf8a', 0.3], grade: [1.12, 0.98, 1.05], vignette: 0.4, mist: 0.35, night: 0 } },
   },
   {
@@ -162,7 +183,7 @@ export const RIVERS: RiverDef[] = [
     length: 1000, heat: [0, 0.2], cap: 0.3, cascades: Infinity, falls: Infinity, gorges: 0.3, stairs: 1,
     speed: 0.92, pieces: ['balls', 'fork', 'slalom'], ledges: true, snags: 0.4, key: 'wingedsheep:river:meander',
     rare: { chance: 0.35, who: { beaver: 3, otter: 3, moose: 1 } }, signature: [], look: { water: { shallow: [0.25, 0.8, 0.62], mid: [0.06, 0.43, 0.48], deep: [0.03, 0.2, 0.33] }, pines: 0.2, birch: 0.45, meadow: 1.7, snow: 0, springs: 0.4,
-      earth: ['#8fcf62', 0.2], crags: 0, homely: 0.55, grim: 0, flutter: 1, dark: false, alpine: 0.1,
+      earth: ['#8fcf62', 0.2], crags: 0, homely: 0.55, grim: 0, flutter: 1, dark: false, alpine: 0.1, jagged: 0, details: { beehives: 0.6, bench: 0.8, woodpile: 0.6, highseat: 0.5, canoes: 1, fingerpost: 1, birdbox: 1, upturned: 0.4 },
       mood: { air: ['#d8eef2', 0.25], sight: 1, sun: 1.05, tint: ['#fff0d0', 0.15], grade: [1.07, 1, 1.03], vignette: 0.5, mist: 0.35, night: 0 } },
   },
   {
@@ -171,7 +192,7 @@ export const RIVERS: RiverDef[] = [
     length: 1200, heat: [0.05, 0.38], cap: 0.42, cascades: Infinity, falls: Infinity, gorges: 0.6, stairs: 1,
     speed: 1, pieces: ['balls', 'fork', 'slalom', 'doors', 'strainers', 'waves'], ledges: true, snags: 0.8, key: 'wingedsheep:river:tumble',
     rare: { chance: 0.45, who: { otter: 2, moose: 2, bear: 1.5, wolves: 0.5 } }, signature: [], look: { water: { shallow: [0.22, 0.78, 0.66], mid: [0.05, 0.4, 0.52], deep: [0.03, 0.17, 0.33] }, pines: 0.45, birch: 0.15, meadow: 1, snow: 0, springs: 0.8,
-      earth: ['#6fae4a', 0], crags: 0.1, homely: 0.15, grim: 0, flutter: 0.4, dark: false, alpine: 0.45,
+      earth: ['#6fae4a', 0], crags: 0.1, homely: 0.15, grim: 0, flutter: 0.4, dark: false, alpine: 0.45, jagged: 0.08, details: { woodpile: 1, highseat: 1, gauge: 1, bench: 0.3, leanto: 1, throwbag: 1, trough: 1, fingerpost: 0.4 },
       mood: { air: ['#bfe0f0', 0.15], sight: 1, sun: 1, tint: ['#ffffff', 0], grade: [1.03, 1, 1], vignette: 0.6, mist: 0.3, night: 0.35 } },
   },
   {
@@ -180,7 +201,7 @@ export const RIVERS: RiverDef[] = [
     length: 1400, heat: [0.08, 0.52], cap: 0.55, cascades: 450, falls: Infinity, gorges: 0.8, stairs: 3,
     speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:drop',
     rare: { chance: 0.5, who: { moose: 2, bear: 2.5, wolves: 1.5, lynx: 0.5 } }, signature: ['cascade'], look: { water: { shallow: [0.24, 0.74, 0.56], mid: [0.05, 0.38, 0.42], deep: [0.03, 0.18, 0.27] }, pines: 0.55, birch: 0.1, meadow: 0.7, snow: 0, springs: 1.2,
-      earth: ['#5f8a52', 0.15], crags: 0.3, homely: 0, grim: 0.2, flutter: 0.2, dark: false, alpine: 0.6,
+      earth: ['#5f8a52', 0.15], crags: 0.3, homely: 0, grim: 0.2, flutter: 0.2, dark: false, alpine: 0.6, jagged: 0.3, details: { gauge: 1, highseat: 0.5, woodpile: 0.6, mine: 0.5, bridgeOut: 0.4, ruin: 1, cableway: 1, rockfall: 1, throwbag: 0.5, ferrata: 0.4 },
       mood: { air: ['#a8b8c6', 0.35], sight: 0.95, sun: 0.9, tint: ['#d8e2f0', 0.15], grade: [0.93, 1, 0.98], vignette: 0.7, mist: 0.45, night: 0.5 } },
   },
   {
@@ -190,7 +211,7 @@ export const RIVERS: RiverDef[] = [
     length: 1800, heat: [0.12, 0.75], cap: 0.78, cascades: 750, falls: 950, gorges: 1, stairs: 1,
     speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:takeout',
     rare: { chance: 0.55, who: { bear: 2, wolves: 2.5, lynx: 1.5, yeti: 0.08 } }, signature: ['falls'], look: { water: { shallow: [0.34, 0.56, 0.4], mid: [0.07, 0.22, 0.25], deep: [0.02, 0.07, 0.11] }, pines: 0.85, birch: 0.03, meadow: 0.2, snow: 0, springs: 1.3,
-      earth: ['#4a6656', 0.25], crags: 0.5, homely: 0, grim: 0.6, flutter: 0, dark: true, alpine: 0.3,
+      earth: ['#4a6656', 0.25], crags: 0.5, homely: 0, grim: 0.6, flutter: 0, dark: true, alpine: 0.3, jagged: 0.65, details: { mine: 1, bridgeOut: 0.8, skull: 0.8, gauge: 0.4, stones: 1, sunk: 1, shack: 1, rockfall: 0.4 },
       mood: { air: ['#74868a', 0.4], sight: 0.82, sun: 0.85, tint: ['#a8c8c0', 0.25], grade: [0.82, 1, 0.97], vignette: 0.8, mist: 0.9, night: 0.75 } },
   },
   {
@@ -199,7 +220,7 @@ export const RIVERS: RiverDef[] = [
     length: 2200, heat: [0.55, 1], cap: 1, cascades: 600, falls: 650, gorges: 1.5, stairs: 1,
     speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:coffee',
     rare: { chance: 0.6, who: { wolves: 2.5, lynx: 2, bear: 1.5, yeti: 0.15 } }, signature: ['cascade', 'falls'], look: { water: { shallow: [0.4, 0.58, 0.6], mid: [0.1, 0.24, 0.3], deep: [0.02, 0.07, 0.12] }, pines: 0.9, birch: 0, meadow: 0, snow: 1, springs: 1.7,
-      earth: ['#5a6662', 0.35], crags: 1, homely: 0, grim: 1, flutter: 0, dark: true, alpine: 1,
+      earth: ['#5a6662', 0.35], crags: 1, homely: 0, grim: 1, flutter: 0, dark: true, alpine: 1, jagged: 0.9, details: { mine: 1.4, bridgeOut: 1, skull: 1, avalanche: 1, ferrata: 1, icefall: 1, rockfall: 0.8 },
       mood: { air: ['#687280', 0.45], sight: 0.8, sun: 0.75, tint: ['#b0bcd8', 0.35], grade: [0.7, 1, 0.95], vignette: 0.9, mist: 0.6, night: 0.65 } },
   },
 ];

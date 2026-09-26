@@ -84,7 +84,7 @@ const SFX = {
   telly: { 'tv-murder': 1, 'tv-location': 1, 'tv-bnb': 1, 'tv-rail': 1 },
   // only on the special days that need them (scene/calendar.ts)
   festive: { fireworks: 1, 'fw-launch': 2, 'fw-burst': 3, 'fw-crackle': 2, 'steam-whistle': 1 },
-  river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 1, huff: 1, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 1, yeti: 1, raven: 1 },
+  river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
 /**
@@ -103,7 +103,7 @@ const LEVEL: Record<string, number> = {
   'bike-bell': 0.4, 'castle-clock': 0.5, 'bus-doors': 0.35, 'bus-go': 0.35, 'truck-horn': 0.45, 'car-door': 0.45, turbine: 0.6,
   cheers: 0.5, cowbells: 0.45, transformer: 0.4,
   stroke: 0.3, hit: 0.85, bump: 0.5, splash: 0.7, capsize: 0.8, roll: 0.55, brace: 0.55, boof: 0.7, dropin: 0.55,
-  hole: 0.6, slap: 0.65, howl: 0.45, huff: 0.55, croak: 0.4, whoosh: 0.35, kingfisher: 0.4, otter: 0.4, grunt: 0.55,
+  hole: 0.6, slap: 0.65, howl: 0.6, growl: 0.7, croak: 0.4, whoosh: 0.35, kingfisher: 0.4, otter: 0.4, grunt: 0.65,
   yeti: 0.6,
   'fw-launch': 0.3, 'fw-burst': 0.75, 'fw-crackle': 0.35, 'steam-whistle': 0.65,
 };
@@ -112,7 +112,7 @@ const LEVEL: Record<string, number> = {
  * held back to this much of their daytime level.
  */
 const STARTLING: Record<string, number> = {
-  fox: 0.5, foghorn: 0.6, horn: 0.6, yeti: 0.55, roar: 0.6, howl: 0.65, bellow: 0.65, boom: 0.6, firework: 0.65, thunder: 0.65,
+  fox: 0.5, foghorn: 0.6, horn: 0.6, yeti: 0.55, growl: 0.6, roar: 0.6, howl: 0.65, bellow: 0.65, boom: 0.6, firework: 0.65, thunder: 0.65,
 };
 /** The beds are levelled lower (-24 LUFS) and each gets its own trim into its old volume curve. */
 const BED = { sea: 1.8, fire: 3.5, rain: 3, wind: 2.5, cicadas: 8, falls: 1.6, crickets: 1.5, birdsong: 1.5, hail: 2.5, leaves: 2, drips: 2, flag: 2, fireworks: 1.6 };
@@ -891,11 +891,13 @@ export class Sound {
         }
         break;
       }
-      case 'huff': // a bear (or a moose): a deep, breathy huff, twice
-        for (let i = 0; i < 2; i++) {
-          this.hiss(t + i * 0.45, 0.35, 320, 0.35 * volume);
-          this.tone(t + i * 0.45, 'sawtooth', [[0, 90], [0.25, 60]], 0.12 * volume, 0.3, 220);
-        }
+      case 'growl': // the bear, up on its hind legs: a rumble that swells into a roar, and a huff after
+        this.tone(t, 'sawtooth', [[0, 70], [0.5, 120], [1.4, 105], [2, 55]], 0.3 * volume, 2.1, 260);
+        this.tone(t + 0.05, 'sawtooth', [[0, 110], [0.55, 190], [1.3, 160], [1.9, 85]], 0.14 * volume, 1.9, 520);
+        this.tone(t, 'square', [[0, 38], [1.6, 30]], 0.12 * volume, 1.8, 110);
+        this.hiss(t, 1.9, 380, 0.4 * volume);
+        this.hiss(t + 0.35, 1.1, 1300, 0.12 * volume);
+        this.hiss(t + 2.3, 0.35, 320, 0.3 * volume);
         break;
       case 'spotted': // something rare: a soft, wondering phrase, up and up
         [523, 659, 880, 1047].forEach((f, i) => this.tone(t + i * 0.14, 'sine', [[0, f]], 0.07 * volume, 0.6));

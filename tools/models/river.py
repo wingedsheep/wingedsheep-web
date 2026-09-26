@@ -1066,6 +1066,841 @@ def raven():
     fauna._wings(body, "raven", (0.02, 0.05, 0.03), 0.55, 0.22, RAVEN, tip=RAVEN_SHEEN, tip_frac=0.35)
 
 
+# --- the sharp stuff: what the hard rivers are made of --------------------------------------
+
+# rock freshly split and not yet worn round: grey slate, its edges catching the light
+SHARD_DRY = ["#8a8396", "#968fa2", "#7e778b", "#a09aab"]
+SHARD_TOP = ["#c2bbcb", "#ccc6d4", "#b6afc0", "#d2ccd8"]
+
+
+def _hull(m: Model, points, color: str):
+    """A faceted lump: the convex hull of `points`, for rock with edges."""
+    verts = [m.bm.verts.new(p) for p in points]
+    res = bmesh.ops.convex_hull(m.bm, input=verts)
+    loose = {v for v in res["geom_interior"] + res["geom_unused"] if isinstance(v, bmesh.types.BMVert)}
+    bmesh.ops.delete(m.bm, geom=list(loose), context="VERTS")
+    idx = m._slot(color, False)
+    faces = [g for g in res["geom"] if isinstance(g, bmesh.types.BMFace) and g.is_valid]
+    for f in faces:
+        f.material_index = idx
+    return faces
+
+
+def _blade(m: Model, rng, base, r, h, lean, color, sides=5):
+    """One splinter of rock: an uneven foot, narrowing to an edge or a point, leaning over."""
+    x0, y0, z0 = base
+    pts = []
+    for k in range(sides):
+        a = k * math.tau / sides + rng.uniform(-0.35, 0.35)
+        d = r * rng.uniform(0.7, 1.05)
+        pts.append((x0 + math.cos(a) * d, y0 + math.sin(a) * d, z0))
+    for k in range(3):                                                                   # the shoulders
+        a = rng.uniform(0, math.tau)
+        d = r * rng.uniform(0.35, 0.6)
+        t = rng.uniform(0.35, 0.6)
+        pts.append((x0 + math.cos(a) * d + lean[0] * t, y0 + math.sin(a) * d + lean[1] * t, z0 + h * t))
+    # the top: a short ridge rather than a needle, so it reads as split stone
+    a = rng.uniform(0, math.tau)
+    for s in (-1, 1):
+        pts.append((x0 + lean[0] + math.cos(a) * r * 0.16 * s, y0 + lean[1] + math.sin(a) * r * 0.16 * s, z0 + h * rng.uniform(0.9, 1.0)))
+    _hull(m, pts, color)
+
+
+def _bands(m: Model, band: float, top: str, moss=None):
+    """Colour a river rock as the water leaves it: dark under, a wet band above the waterline, dry
+    stone above that and the flattest faces palest (mossy on one side, if `moss`)."""
+    for z in (0.0, band):
+        bm = m.bm
+        bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces),
+                               plane_co=(0, 0, z), plane_no=(0, 0, 1))
+    m.bm.normal_update()
+    wet = m._slot(ROCK_WET[m.rng.randrange(3)], False)
+    under = m._slot(ROCK_UNDER, False)
+    light_top = m._slot(top, False)
+    greens = [m._slot(c, False) for c in MOSS[:2]]
+    for k, f in enumerate(m.bm.faces):
+        c = f.calc_center_median()
+        if c.z < 0:
+            f.material_index = under
+        elif c.z < band:
+            f.material_index = wet
+        elif moss is not None and c.z > band + 0.08 and f.normal.z > 0.3 \
+                and abs(math.remainder(math.atan2(c.y, c.x) - moss, math.tau)) < 0.85:
+            f.material_index = greens[k % 2]
+        elif f.normal.z > 0.55:
+            f.material_index = light_top
+
+
+def shards():
+    """The hard rivers' rocks: split and sharp, not rolled round. Blades of slate leaning with the
+    current, a slab of tilted strata stood up on its edge like a knife, a broken tooth. Banded
+    like the round ones (wet, dry, pale on top), radius about 1 at the waterline; z = 0 is the
+    water. The runtime swaps them in for rock_<n> on a jagged river."""
+    for i in range(5):
+        m = Model(f"shard_{i}", seed=600 + i)
+        rng = random.Random(600 + i)
+        dry = SHARD_DRY[i % 4]
+        if i == 2:
+            # a slab of strata tipped up on its edge, a long knife of rock, its top edge broken
+            # into steps (a hull apiece, as the edge isn't convex)
+            for k, (x0, x1, h0, h1) in enumerate(((-1.25, -0.45, 0.5, 1.1), (-0.5, 0.35, 1.0, 1.9), (0.3, 1.2, 1.5, 0.7))):
+                pts = []
+                for x, top in ((x0, h0), (x1, h1)):
+                    for t in (-0.28, 0.28):
+                        pts.append((x, t, -0.5))
+                        pts.append((x * 0.92, t * 0.2 + top * 0.55, top))           # (thin at the top: an edge)
+                _hull(m, pts, SHARD_DRY[(i + k) % 4])
+            _blade(m, rng, (0.9, -0.45, -0.4), 0.4, 0.8, (0.1, 0.2), SHARD_DRY[(i + 1) % 4], sides=4)
+        elif i == 0:
+            # teeth: three blades together, the middle one tallest
+            for k, (x, y, h) in enumerate(((-0.5, 0.1, 1.1), (0.1, -0.1, 1.8), (0.6, 0.2, 0.9))):
+                _blade(m, rng, (x, y, -0.5), 0.5, h + 0.5, (x * 0.3, 0.35 * h), SHARD_DRY[(i + k) % 4], sides=4 + k % 2)
+        else:
+            h = (0, 1.1, 0, 2.3, 0.7)[i]
+            lean = (rng.uniform(-0.2, 0.2), rng.uniform(0.3, 0.5) * h)
+            _blade(m, rng, (0, 0, -0.5), 0.95, h + 0.5, lean, dry, sides=5 + i % 2)
+            for k in range(1 + i % 2):                                                   # and a splinter or two off its foot
+                a = rng.uniform(0, math.tau)
+                _blade(m, rng, (math.cos(a) * 0.7, math.sin(a) * 0.7, -0.4), rng.uniform(0.3, 0.45), h * rng.uniform(0.4, 0.6) + 0.3,
+                       (math.cos(a) * 0.25, math.sin(a) * 0.25 + 0.15), SHARD_DRY[(i + k + 1) % 4], sides=4)
+        _bands(m, 0.12 + 0.18 * (i != 4), SHARD_TOP[i % 4], moss=2.0 if i == 4 else None)
+        radius = max(math.hypot(v.co.x, v.co.y) for v in m.bm.verts if v.co.z >= -0.01)
+        root = _root(f"shard_{i}", radius=round(radius, 3))
+        m.build(root)
+
+
+def jags():
+    """Splintered crags for the banks of the hard rivers: blades of dark rock all tipped the same
+    way (the strata), up to 4-5 m, and scree at their feet."""
+    for i in range(2):
+        root = _root(f"jag_{i}")
+        m = Model(f"jag_{i}", seed=620 + i)
+        rng = random.Random(620 + i)
+        tilt = (0.35, 0.8)
+        for k in range(4 + i):
+            x, y = rng.uniform(-1.4, 1.4), rng.uniform(-1.0, 1.0)
+            h = rng.uniform(2.2, 3.6 + i * 1.2) * (1.0 if k == 0 else 0.75)
+            _blade(m, rng, (x, y, -0.4), rng.uniform(0.7, 1.1), h, (tilt[0] * h * 0.3, tilt[1] * h * 0.3), (SPIRE + P.PEAK_ROCK[:2])[k % 6], sides=rng.choice((4, 5)))
+        for k in range(5):
+            a = rng.uniform(0, math.tau)
+            d = rng.uniform(1.6, 2.4)
+            _blade(m, rng, (math.cos(a) * d, math.sin(a) * d, -0.1), rng.uniform(0.25, 0.4), rng.uniform(0.2, 0.45), (0, 0), SPIRE[(k + 1) % 4], sides=4)
+        m.build(root)
+
+
+# --- the hard rivers: somebody was here once --------------------------------------------------
+
+RUST = ["#8a4a2e", "#6e3a26"]
+HEMP = ["#b89a6a", "#9a7e52"]
+BONE = ["#e6dfcf", "#d2c9b6"]
+DARK = "#0c0a10"
+
+
+def mine():
+    """An old mine gone into the valley side: a timber frame propped in a face of rock, one post
+    giving way, boards nailed across the dark, the rails running out to an ore cart tipped over
+    and rusting. Its front (-y) to the river; about 5 m across and 4 high."""
+    root = _root("mine")
+    m = Model("mine", seed=640)
+    rng = random.Random(640)
+    # the face of rock it goes into, and the hillside heaped up round and over it
+    _hull(m, [(-2.3, 0.2, -0.4), (2.3, 0.2, -0.4), (-2.1, 0.4, 2.9), (1.9, 0.4, 2.7), (-2.6, 3.0, -0.4), (2.6, 3.0, -0.4), (-1.3, 2.4, 3.3), (1.2, 2.6, 3.2)], P.PEAK_ROCK[0])
+    # crags splitting out of it: along the sides, and up over the top leaning back
+    for k, (x, y, z, h) in enumerate(((-2.7, 0.9, -0.3, 2.6), (-2.2, 2.2, -0.3, 3.4), (2.6, 1.0, -0.3, 2.2), (2.3, 2.3, -0.3, 3.0),
+                                      (-0.9, 1.6, 2.4, 1.8), (0.5, 1.9, 2.3, 2.3), (1.4, 1.2, 2.2, 1.1))):
+        _blade(m, rng, (x, y, z), rng.uniform(0.7, 1.0), h, (x * 0.08, 0.5), (P.PEAK_ROCK + SPIRE)[k % 8], sides=rng.choice((4, 5)))
+    m.box((1.5, 0.4, 2.0), (0, 0.05, 1.0), DARK)                                         # the way in
+    # the frame: a post either side (the left one leaning, its foot kicked out) and the cap on them
+    m.box((0.24, 0.24, 2.3), (0.86, -0.12, 1.12), P.WOOD_DARK)
+    m.box((0.24, 0.24, 2.25), (-0.95, -0.14, 1.08), P.WOOD_DARK, rot=(0, 0.1, 0))
+    m.box((2.3, 0.28, 0.26), (-0.03, -0.14, 2.32), P.WOOD_DARK, rot=(0, 0.04, 0))
+    # boarded up, long ago: two across and one hanging off a nail
+    m.plank_line((-0.75, -0.3, 0.3), (0.72, -0.3, 1.9), 0.2, 0.05, DEAD_BARK[0])
+    m.plank_line((-0.75, -0.32, 1.85), (0.72, -0.32, 0.5), 0.2, 0.05, DEAD_BARK[1])
+    m.plank_line((0.7, -0.35, 1.3), (0.05, -0.35, 0.95), 0.18, 0.04, DEAD_BARK[2])
+    # the rails, out over the spoil and gone in the grass
+    for k in range(6):
+        m.box((1.3, 0.16, 0.08), (0.02, -0.5 - k * 0.55, 0.04), P.WOOD_DARK, rot=(0, 0, rng.uniform(-0.12, 0.12)))
+    for x in (-0.4, 0.4):
+        m.box((0.06, 3.2, 0.07), (x, -1.9, 0.12), RUST[1], rot=(0, 0, 0.03 * x))
+    # the cart, tipped on its side off the end, its spoil spilt
+    cart = (1.5, -3.6, 0.5)
+    m.box((1.0, 0.8, 0.7), cart, RUST[0], rot=(1.25, 0, 0.5), taper=0.8)
+    for dx, dy in ((-0.3, -0.35), (0.35, -0.2)):
+        m.cyl(0.18, 0.08, (cart[0] + dx, cart[1] + dy + 0.55, cart[2] - 0.2), RUST[1], segs=8, rot=(0.3, 0, 0.5))
+    for k in range(6):
+        a = rng.uniform(-1.2, 0.4)
+        m.ball(rng.uniform(0.12, 0.24), (cart[0] + 0.2 + math.cos(a) * 0.6, cart[1] - 0.5 + math.sin(a) * 0.6, 0.05), P.PEAK_ROCK[k % 4], subdiv=1, jitter=0.04)
+    # the old lamp still on its hook
+    m.box((0.05, 0.05, 0.2), (-0.6, -0.3, 2.1), P.IRON)
+    m.box((0.14, 0.14, 0.22), (-0.6, -0.3, 1.9), RUST[0], taper=0.7)
+    m.build(root)
+
+
+def bridge_out():
+    """What's left of a rope bridge across a gorge, one side of it: two posts on the top of the
+    wall, and the bridge hanging straight down it from them, planks gone like missing teeth, one
+    hanging by a corner. The runtime puts one each side, at the same place. Posts at y = 0, the
+    gorge off -y; it hangs about 4 m."""
+    root = _root("bridge_out")
+    m = Model("bridge_out", seed=660)
+    rng = random.Random(660)
+    for x in (-0.85, 0.85):
+        m.cyl(0.13, 1.9, (x, 0.15, -0.3), DEAD_BARK[0], segs=6, rot=(0.12, x * 0.05, 0))
+        m.cyl(0.14, 0.12, (x, 0.13, 1.55), DEAD_BARK[2], segs=6, rot=(0.12, 0, 0))       # a split top
+        for z in (0.2, 1.35):                                                            # lashings
+            m.cyl(0.15, 0.06, (x, 0.12 + z * 0.12, z), HEMP[1], segs=6, rot=(0.12, 0, 0))
+    # the ropes: hand ropes from the tops, foot ropes from low down, falling over the lip
+    def fall(x, z0, sway):
+        pts = [(x, -0.05, z0)]
+        for k in range(1, 9):
+            t = k / 8
+            pts.append((x + math.sin(t * 3 + sway) * 0.12, -0.35 - t * 0.9 - (1 - t) * 0.5, z0 - t * (3.6 + z0 * 0.4)))
+        for a, b in zip(pts, pts[1:]):
+            m.plank_line(a, b, 0.09, 0.09, HEMP[0])
+        return pts
+    hands = [fall(x, 1.45, s) for x, s in ((-0.85, 0.0), (0.85, 1.2))]
+    feet = [fall(x, 0.3, s) for x, s in ((-0.62, 0.4), (0.62, 1.6))]
+    # the planks between the foot ropes, where they're still there
+    for k in (1, 2, 4, 5, 7):
+        a, b = feet[0][k], feet[1][k]
+        mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 0.05, (a[2] + b[2]) / 2)
+        m.box((1.35, 0.08, 0.3), mid, DEAD_BARK[k % 3], rot=(0.15, 0, rng.uniform(-0.1, 0.1)))
+    # and one hanging by its corner off the left rope
+    a = feet[0][6]
+    m.box((0.22, 0.05, 1.3), (a[0] + 0.22, a[1] - 0.05, a[2] - 0.62), DEAD_BARK[1], rot=(0, -0.3, 0))
+    for k in range(3):                                                                   # a slack coil on the top
+        m.cyl(0.3 - k * 0.05, 0.05, (0.2, 0.7, 0.03 + k * 0.05), HEMP[k % 2], segs=8)
+    m.build(root)
+
+
+def skull():
+    """A moose's skull, bleached, lying by the water on a flat rock, one antler's palm up in the
+    air. About 1.6 m across the antlers."""
+    root = _root("skull")
+    m = Model("skull", seed=680)
+    m.ball(0.5, (0, 0, 0.12), SHARD_DRY[2], subdiv=1, scale=(1.5, 1.1, 0.35), jitter=0.05)
+    m.ball(0.17, (0, 0, 0.55), BONE[0], subdiv=1, scale=(1.3, 1.0, 0.9))                 # the braincase
+    m.box((0.5, 0.2, 0.18), (0.36, 0, 0.46), BONE[0], taper=0.6, rot=(0, 0.3, 0))        # the long nose, down on the rock
+    for s in (-1, 1):
+        m.box((0.06, 0.06, 0.06), (0.14, s * 0.12, 0.6), DARK)                           # the sockets
+    # the antlers: a beam out each side to a broad palm with its tines
+    for s, lift in ((-1, 0.9), (1, 0.15)):
+        m.plank_line((-0.05, s * 0.14, 0.62), (-0.12, s * 0.4, 0.62 + lift * 0.25), 0.09, 0.09, BONE[1])
+        palm = [(0.0, 0.0), (0.55, 0.12), (0.62, 0.34), (0.1, 0.36), (-0.12, 0.22)]
+        m.prism(palm, 0.05, (-0.1, s * 0.52, 0.62 + lift * 0.3), BONE[1], rot=(s * (1.5 - lift), 0, math.pi / 2 * s))
+        for k in range(4):
+            t = k / 3
+            m.box((0.05, 0.05, 0.22), (-0.2 + t * 0.35, s * (0.62 + lift * 0.12), 0.72 + lift * 0.45 + t * 0.05), BONE[1], taper=0.3,
+                  rot=(s * (0.5 - lift * 0.6), 0, 0))
+    m.build(root)
+
+
+# --- the middle rivers: the forest's worked, and watched ----------------------------------------
+
+GAUGE_RED = "#d8402e"
+GAUGE_WHITE = "#f2ece2"
+GAUGE_BOX = ["#9aa0a6", "#7c8288"]
+
+
+def gauge():
+    """A river gauge: a board on a post standing in the edge of the water, red and white a metre
+    at a time with its tens marked, and the little grey hut on the bank that logs it (its aerial,
+    its light for the night). The board faces -y, the river; z = 0 is the waterline."""
+    root = _root("gauge")
+    m = Model("gauge", seed=700)
+    m.box((0.14, 0.14, 3.6), (0, -0.75, 0.6), P.IRON)                                    # the post, down into the bed
+    for k in range(5):                                                                   # the board: half-metres, alternating
+        m.box((0.36, 0.05, 0.5), (0, -0.84, -0.2 + k * 0.5 + 0.25), (GAUGE_RED, GAUGE_WHITE)[k % 2])
+        for t in range(1, 5):
+            m.box((0.12 if t % 2 else 0.2, 0.02, 0.03), (-0.1 + (0.04 if t % 2 else 0), -0.87, -0.2 + k * 0.5 + t * 0.1), P.IRON)
+    m.box((0.46, 0.06, 0.08), (0, -0.84, 2.35), P.IRON)
+    # the hut, on a concrete foot
+    m.box((1.2, 1.1, 0.25), (0, 1.1, 0.12), GAUGE_BOX[1])
+    m.box((1.0, 0.9, 1.3), (0, 1.1, 0.9), GAUGE_BOX[0])
+    m.box((1.2, 1.1, 0.1), (0, 1.1, 1.6), GAUGE_BOX[1], rot=(0.1, 0, 0))
+    m.box((0.5, 0.05, 0.9), (0, 0.63, 0.75), GAUGE_BOX[1])                               # its door
+    m.box((0.04, 0.04, 1.4), (0.35, 1.3, 2.3), P.IRON)                                   # the aerial
+    m.box((0.1, 0.1, 0.1), (0.35, 1.3, 3.02), P.WARM_LIGHT, glow=True)
+    m.plank_line((0, 0.6, 0.15), (0, -0.7, 0.05), 0.05, 0.05, P.IRON)                  # the cable down to the water
+    m.build(root)
+    light(root, (0.35, 1.3, 3.05), "#ff5a3a", radius=1.5, intensity=0.35, flicker=0.02)
+
+
+def highseat():
+    """A hunter's high seat at the edge of the trees: four legs splayed out from a little boarded
+    box with a roof, a ladder up to it. About 4.5 m. It looks out -y."""
+    root = _root("highseat")
+    m = Model("highseat", seed=720)
+    top = 2.8
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            _pole(m, (sx * 0.95, sy * 0.95, -0.2), (sx * 0.5, sy * 0.5, top + 0.1), 0.08, P.WOOD, r_end=0.06, segs=5)
+    for z in (0.9, 1.9):                                                                 # the cross braces
+        w = 0.95 - (z / top) * 0.45
+        for sx in (-1, 1):
+            m.plank_line((sx * w, -w, z - 0.3), (sx * w, w, z + 0.3), 0.06, 0.06, P.WOOD_DARK)
+    m.box((1.2, 1.2, 0.08), (0, 0, top), P.PLANK)                                        # the floor
+    for sy, h in ((-1, 0.5), (1, 1.0)):                                                  # boards: low at the front, to look over
+        m.box((1.2, 0.06, h), (0, sy * 0.58, top + h / 2), P.WOOD_LIGHT)
+    for sx in (-1, 1):
+        m.box((0.06, 1.2, 0.7), (sx * 0.58, 0, top + 0.35), P.WOOD_LIGHT)
+        m.box((0.07, 0.07, 1.2), (sx * 0.56, -0.56, top + 0.6), P.WOOD_DARK)            # the front posts
+    m.box((1.5, 1.5, 0.08), (0, 0.05, top + 1.25), P.WOOD_DARK, rot=(-0.15, 0, 0))       # the roof
+    m.box((1.3, 0.1, 0.1), (0, 0.72, top + 1.1), P.WOOD_DARK)
+    # the ladder, leaning up the back
+    for x in (-0.25, 0.25):
+        m.plank_line((x, 1.9, -0.1), (x, 0.62, top + 0.05), 0.06, 0.06, P.WOOD)
+    for k in range(6):
+        t = (k + 0.5) / 6
+        m.box((0.55, 0.05, 0.05), (0, 1.9 - t * 1.28, -0.1 + t * (top + 0.15)), P.WOOD_DARK)
+    m.build(root)
+
+
+def woodpile():
+    """Timber stacked at the edge of a ride, waiting for the lorry: long trunks, stakes at either
+    end, the cut ends pale with their rings. About 5 m long; it runs along x."""
+    for i in range(2):
+        root = _root(f"woodpile_{i}")
+        m = Model(f"woodpile_{i}", seed=740 + i)
+        rng = random.Random(740 + i)
+        r = 0.22
+        rows = (4, 3, 2) if i == 0 else (5, 4, 3, 1)
+        for level, n in enumerate(rows):
+            for k in range(n):
+                y = (k - (n - 1) / 2) * r * 2.02
+                z = r + level * r * 1.75
+                dx = rng.uniform(-0.25, 0.25)
+                length = rng.uniform(4.4, 5.0)
+                m.cyl(r * rng.uniform(0.9, 1.08), length, (-length / 2 + dx, y, z), P.BARK, segs=7, rot=(0, math.pi / 2, 0))
+                for s in (-1, 1):                                                        # the ends
+                    m.cyl(r * 0.86, 0.03, (dx + s * length / 2 - (s < 0) * 0.03, y, z), HEARTWOOD, segs=7, rot=(0, math.pi / 2, 0))
+        for x in (-1.9, 1.9):
+            for s in (-1, 1):
+                m.box((0.08, 0.08, len(rows) * r * 1.8 + 0.3), (x, s * (rows[0] * r + 0.05), len(rows) * r * 0.9), P.WOOD_DARK)
+        m.build(root)
+
+
+# --- the gentle rivers: more of somebody's life ------------------------------------------------
+
+HIVE = ["#f2c52e", "#4f7fae", "#f2ece2", "#c8603a"]
+MILL_WOOD = ["#7a4a2c", "#5c3824"]
+
+
+def beehives():
+    """Three painted hives on a bench of planks at the edge of a meadow, a roof on each. About
+    3 m. Their fronts (the landing boards) face -y."""
+    root = _root("beehives")
+    m = Model("beehives", seed=760)
+    m.box((3.0, 0.7, 0.08), (0, 0, 0.42), P.PLANK)
+    for x in (-1.3, 0, 1.3):
+        m.box((0.1, 0.5, 0.42), (x, 0, 0.2), P.WOOD_DARK)
+    for k, x in enumerate((-0.95, 0, 0.95)):
+        c = HIVE[(k * 2 + 1) % 4] if k != 1 else HIVE[0]
+        for level in range(2 + (k == 1)):                                                # boxes stacked, a stripe between
+            m.box((0.62, 0.55, 0.3), (x, 0, 0.62 + level * 0.32), c)
+            m.box((0.64, 0.57, 0.03), (x, 0, 0.47 + level * 0.32 + 0.31), HIVE[2])
+        z = 0.47 + (2 + (k == 1)) * 0.32
+        m.gable((0.74, 0.7, 0.18), (x, 0, z), MILL_WOOD[1], overhang=0.04, thick=0.05)
+        m.box((0.3, 0.1, 0.02), (x, -0.32, 0.5), P.WOOD_LIGHT)                           # the landing board
+        m.box((0.2, 0.02, 0.05), (x, -0.28, 0.54), DARK)                                 # the way in
+    m.build(root)
+
+
+def bench():
+    """A wooden bench on the bank looking out over the water (-y), a little brass plate on its
+    back for whoever used to sit here."""
+    root = _root("bench")
+    m = Model("bench", seed=780)
+    for k in range(3):
+        m.box((1.7, 0.13, 0.05), (0, -0.14 + k * 0.15, 0.46), P.WOOD_LIGHT)
+    for k in range(2):
+        m.box((1.7, 0.05, 0.13), (0, 0.24, 0.66 + k * 0.18), P.WOOD_LIGHT, rot=(-0.15, 0, 0))
+    for x in (-0.75, 0.75):
+        m.box((0.08, 0.5, 0.08), (x, 0.05, 0.62), P.WOOD_DARK)                          # the arms
+        m.box((0.08, 0.08, 0.66), (x, -0.18, 0.33), P.WOOD_DARK)
+        m.box((0.08, 0.08, 0.98), (x, 0.24, 0.49), P.WOOD_DARK, rot=(-0.15, 0, 0))
+    m.box((0.2, 0.02, 0.06), (0, 0.21, 0.76), "#d8b04a", rot=(-0.15, 0, 0))
+    m.build(root)
+
+
+def mill():
+    """A watermill on the bank: a stone ground floor, a boarded floor above under a red roof, a
+    window lit at night, and the wheel on the river side (-y) with its foot in the water. The
+    wheel's its own piece (`wheel`), for the runtime to turn. About 6 m by 5; z = 0 is the
+    waterline, the mill standing a little up the bank."""
+    root = _root("mill")
+    m = Model("mill", seed=800)
+    m.box((4.6, 3.8, 2.2), (0, 1.8, 1.4), P.STONE)
+    m.box((4.8, 4.0, 0.4), (0, 1.8, 0.2), P.STONE_DARK)
+    m.box((4.8, 4.0, 1.8), (0, 1.8, 3.4), MILL_WOOD[0])
+    for x in [-2.3 + k * 0.46 for k in range(11)]:                                       # the boards' seams
+        m.box((0.04, 4.04, 1.8), (x, 1.8, 3.4), MILL_WOOD[1])
+    m.gable((5.4, 4.6, 2.0), (0, 1.8, 4.3), P.RUST_ROOF, overhang=0.3, thick=0.2)
+    for x in (-2.35, 2.35):                                                              # the gable ends
+        m.prism([(-2.0, 0), (2.0, 0), (0, 1.85)], 0.15, (x, 1.8, 4.3), MILL_WOOD[0], rot=(0, 0, math.pi / 2))
+    m.box((0.9, 0.12, 1.6), (1.3, -0.12, 1.1), DOOR)
+    for x in (-1.2, 0.8):
+        m.box((0.7, 0.1, 0.6), (x, -0.22, 3.4), P.WARM_LIGHT, glow=True)
+        m.box((0.8, 0.12, 0.08), (x, -0.25, 3.05), P.WOOD_DARK)
+    # the race: a trough on trestles along the bank, bringing the water over the top of the wheel
+    m.box((3.6, 0.6, 0.3), (-2.9, -2.4, 3.6), MILL_WOOD[1])
+    m.box((3.6, 0.46, 0.04), (-2.9, -2.4, 3.76), "#6aa8c8")
+    for x in (-2.6, -4.3):
+        m.box((0.12, 0.12, 3.8), (x, -2.4, 1.6), MILL_WOOD[1])
+    m.box((0.14, 2.3, 0.14), (-1.1, -1.25, 1.4), P.IRON)                                 # the axle, into the wall
+    m.build(root)
+    light(root, (-0.2, -0.8, 3.4), P.WARM_LIGHT, radius=6, intensity=0.8)
+    # the wheel: a rim, spokes, paddles; it turns on its axle along y
+    wheel = group("wheel", (-1.1, -2.4, 1.4), parent=root, wheel=1)
+    w = Model("mill_wheel", seed=801)
+    R = 1.6
+    for k in range(16):
+        a = k * math.tau / 16
+        c, s = math.cos(a), math.sin(a)
+        w.box((0.12, 0.62, 0.72), (c * R, 0, s * R), MILL_WOOD[1], rot=(0, -a, 0))       # paddles
+        w.plank_line((c * R, -0.32, s * R), (math.cos(a + math.tau / 16) * R, -0.32, math.sin(a + math.tau / 16) * R), 0.08, 0.08, MILL_WOOD[0])
+        w.plank_line((c * R, 0.32, s * R), (math.cos(a + math.tau / 16) * R, 0.32, math.sin(a + math.tau / 16) * R), 0.08, 0.08, MILL_WOOD[0])
+    for k in range(6):
+        a = k * math.pi / 6
+        for y in (-0.32, 0.32):
+            w.plank_line((-math.cos(a) * R, y, -math.sin(a) * R), (math.cos(a) * R, y, math.sin(a) * R), 0.07, 0.07, MILL_WOOD[1])
+    w.cyl(0.22, 0.8, (0, -0.4, 0), P.IRON, segs=8, rot=(-math.pi / 2, 0, 0))
+    w.build(wheel)
+
+
+# --- more of each river's own: a few things apiece, gentlest first ------------------------------
+
+COAT = ["#8a3a2c", "#5a6a3a"]
+DENIM = "#3f5a8a"
+SACK = "#d8c8a0"
+CANOE = ["#d8402e", "#f2c52e", "#2f9a4a"]
+BIRDBOX = "#4f7fae"
+RESCUE = "#e8502a"
+STEEL = ["#c8403a", "#f2ece2", "#6a6e78"]
+SIGN_YELLOW = "#f2c52e"
+ICE = ["#cfe8f4", "#b4d8ec"]
+OLD_PAINT = ["#3a4a5a", "#5a6a70"]
+
+
+def _tilt(points, pitch, lift=0.0):
+    """Points turned about x by `pitch` (+: the -y end comes up) and lifted by `lift`."""
+    c, s = math.cos(pitch), math.sin(pitch)
+    return [(x, y * c + z * s, -y * s + z * c + lift) for x, y, z in points]
+
+
+def _boat(stations, pitch=0.0, lift=0.0):
+    """The hull of a small boat as points: (y, half-beam, depth) stations, bow towards -y."""
+    pts = []
+    for y, w, d in stations:
+        for x in ((-w, w) if w > 0 else (0,)):
+            pts += [(x, y, 0.0), (x * 0.7, y, -d)]
+    return _tilt(pts, pitch, lift)
+
+
+# the Dawdle and the Meander -----------------------------------------------------------------
+
+def duckhouse():
+    """A duck house on a post out in the slow water by the bank: a little white house with a red
+    roof on a platform, a ramp down to the water. z = 0 is the waterline; its door faces -y."""
+    root = _root("duckhouse")
+    m = Model("duckhouse", seed=900)
+    m.cyl(0.08, 1.7, (0, 0.1, -1.0), P.WOOD_DARK, segs=6)
+    m.box((0.95, 0.95, 0.07), (0, 0, 0.7), P.PLANK)
+    m.box((0.62, 0.56, 0.45), (0, 0.08, 0.96), P.WHITEWASH)
+    m.gable((0.76, 0.72, 0.32), (0, 0.08, 1.18), P.RUST_ROOF, overhang=0.05, thick=0.06)
+    for x in (-0.31, 0.31):
+        m.prism([(-0.28, 0), (0.28, 0), (0, 0.3)], 0.03, (x, 0.08, 1.18), P.WHITEWASH, rot=(0, 0, math.pi / 2))
+    m.box((0.22, 0.04, 0.26), (0, -0.21, 0.87), DARK)
+    m.plank_line((0, -0.47, 0.72), (0, -1.25, -0.02), 0.26, 0.04, P.WOOD_LIGHT)          # the ramp
+    for k in range(4):
+        t = (k + 0.5) / 4
+        m.box((0.28, 0.04, 0.03), (0, -0.47 - t * 0.78, 0.74 - t * 0.74 + 0.03), P.WOOD_DARK)
+    m.build(root)
+
+
+def scarecrow():
+    """A scarecrow in the meadow: a sack head under a battered hat, an old coat stuffed with
+    straw on a cross of poles, one leg of its trousers flapping, and a crow not fooled at all."""
+    root = _root("scarecrow")
+    m = Model("scarecrow", seed=910)
+    m.box((0.08, 0.08, 2.2), (0, 0, 1.0), P.WOOD_DARK)
+    m.plank_line((-0.85, 0, 1.55), (0.85, 0, 1.6), 0.07, 0.07, P.WOOD_DARK)
+    m.box((0.52, 0.32, 0.72), (0, 0, 1.22), COAT[0], taper=1.25)                          # the coat
+    m.plank_line((-0.8, 0, 1.52), (0.8, 0, 1.57), 0.2, 0.2, COAT[0])                     # its sleeves
+    for x in (-0.9, 0.9):
+        for k in range(3):
+            m.box((0.05, 0.05, 0.22), (x, (k - 1) * 0.05, 1.46), HAY[k], rot=(0, x * 0.5, (k - 1) * 0.6), taper=0.4)
+    m.plank_line((-0.12, 0, 0.88), (-0.14, 0.02, 0.35), 0.16, 0.16, DENIM)               # the trousers
+    m.plank_line((0.12, 0, 0.88), (0.3, -0.05, 0.42), 0.16, 0.16, DENIM)
+    m.ball(0.19, (0, 0, 1.86), SACK, subdiv=1, scale=(1, 0.9, 1.05))
+    m.cyl(0.32, 0.04, (0, 0, 2.0), P.WOOD_DARK, segs=8, rot=(0.12, 0, 0))                 # the hat
+    m.cyl(0.16, 0.24, (0, 0.02, 2.02), P.WOOD_DARK, segs=8, r_top=0.14, rot=(0.12, 0, 0))
+    m.box((0.05, 0.02, 0.05), (-0.07, -0.18, 1.9), DARK)
+    m.box((0.05, 0.02, 0.05), (0.07, -0.18, 1.9), DARK)
+    m.ball(0.09, (0.62, 0, 1.73), RAVEN, subdiv=1, scale=(1.6, 0.8, 0.9))                 # the crow
+    m.ball(0.06, (0.73, 0, 1.8), RAVEN, subdiv=1)
+    m.box((0.06, 0.02, 0.02), (0.8, 0, 1.79), "#e8902a")
+    m.build(root)
+
+
+def upturned():
+    """A rowing boat pulled up on the bank and turned over for the winter (or just for now), up on
+    two chocks, its oars lying by it. About 3 m; the bow points -y."""
+    root = _root("upturned")
+    m = Model("upturned", seed=920)
+    top = [(-0.5, 1.3), (-0.5, -0.9), (0.0, -1.6), (0.5, -0.9), (0.5, 1.3)]
+    keel = [(-0.3, 1.15), (-0.3, -0.7), (0.0, -1.2), (0.3, -0.7), (0.3, 1.15)]
+    m.slab(top, 0.12, 0.2, ROWBOAT[1])                                                   # the gunwale, on the ground
+    m.slab(top, 0.2, 0.52, ROWBOAT[0], top=keel)                                         # the hull, keel up
+    m.box((0.06, 2.4, 0.05), (0, 0.0, 0.54), P.WOOD_DARK)                                # the keel
+    for y in (-0.6, 0.8):
+        m.box((1.2, 0.18, 0.14), (0, y, 0.06), P.WOOD_DARK)
+    for x, a in ((0.95, 0.15), (1.2, -0.1)):
+        m.plank_line((x, -1.0, 0.05), (x + a, 1.2, 0.05), 0.05, 0.05, P.WOOD_LIGHT)
+        m.box((0.16, 0.5, 0.03), (x + a * 1.1, 1.35, 0.04), P.WOOD_LIGHT, rot=(0, 0, a * 0.5))
+    m.build(root)
+
+
+def canoes():
+    """A rack of canoes for hire at the water's edge: two timber frames, two canoes on the low bar
+    and one on the high, all upside down. About 4.5 m long, along x."""
+    root = _root("canoes")
+    m = Model("canoes", seed=930)
+    for x in (-1.2, 1.2):
+        for y in (-0.7, 0.7):
+            m.box((0.1, 0.1, 1.6), (x, y, 0.8), P.WOOD)
+        for z in (0.6, 1.25):
+            m.box((0.12, 1.6, 0.1), (x, 0, z), P.WOOD_DARK)
+    hull = [(-2.2, 0.0), (-1.5, 0.36), (1.5, 0.36), (2.2, 0.0), (1.5, -0.36), (-1.5, -0.36)]
+    for k, (y, z) in enumerate(((-0.36, 0.65), (0.36, 0.65), (0.0, 1.3))):
+        pts = [(x, yy + y) for x, yy in hull]
+        keel = [(x * 0.92, yy * 0.55 + y) for x, yy in hull]
+        m.slab(pts, z, z + 0.05, P.WOOD_DARK)                                            # its gunwale
+        m.slab(pts, z + 0.05, z + 0.3, CANOE[k], top=keel)
+    m.build(root)
+
+
+def fingerpost():
+    """A fingerpost where a footpath comes down to the river: a white post, three pointed arms
+    off to wherever it is, a little cap on top."""
+    root = _root("fingerpost")
+    m = Model("fingerpost", seed=940)
+    m.box((0.12, 0.12, 2.3), (0, 0, 1.15), P.WHITE)
+    m.box((0.18, 0.18, 0.06), (0, 0, 2.32), P.WOOD_DARK, taper=0.4)
+    arm = [(0.05, -0.1), (0.8, -0.1), (0.98, 0.0), (0.8, 0.1), (0.05, 0.1)]
+    for z, a in ((2.0, 0.3), (1.72, 2.1), (1.46, 4.0)):
+        m.prism(arm, 0.04, (0, 0, z), P.WHITE, rot=(0, 0, a))
+        m.prism([(0.2, -0.03), (0.7, -0.03), (0.7, 0.03), (0.2, 0.03)], 0.05, (0, 0, z), P.WOOD_DARK, rot=(0, 0, a))  # the lettering
+    m.build(root)
+
+
+def birdbox():
+    """A nesting box on a post by the path, blue, a round hole, a little roof."""
+    root = _root("birdbox")
+    m = Model("birdbox", seed=950)
+    m.box((0.09, 0.09, 1.7), (0, 0, 0.85), P.WOOD_DARK)
+    m.box((0.3, 0.28, 0.4), (0, -0.06, 1.75), BIRDBOX)
+    m.box((0.38, 0.38, 0.05), (0, -0.07, 1.98), P.WOOD_DARK, rot=(-0.25, 0, 0))
+    m.cyl(0.05, 0.03, (0, -0.2, 1.82), DARK, segs=6, rot=(math.pi / 2, 0, 0))
+    m.box((0.03, 0.08, 0.03), (0, -0.25, 1.74), P.WOOD_DARK)
+    m.build(root)
+
+
+# the Tumble ------------------------------------------------------------------------------------
+
+def leanto():
+    """A walkers' lean-to in the pines: a log back wall, a pent roof sloping to the back, a floor
+    to sleep on up off the ground, and a ring of stones in front for a fire. Open to -y."""
+    root = _root("leanto")
+    m = Model("leanto", seed=960)
+    rng = random.Random(960)
+    m.box((2.8, 1.9, 0.12), (0, 0, 0.3), P.PLANK)
+    for x in (-1.35, 1.35):
+        for y in (-0.9, 0.9):
+            m.box((0.12, 0.12, 0.35), (x, y, 0.12), P.WOOD_DARK)
+    for k in range(5):                                                                   # the back wall, logs
+        m.cyl(0.14, 2.9, (-1.45, 0.92, 0.5 + k * 0.26), P.BARK, segs=6, rot=(0, math.pi / 2, 0))
+    for x in (-1.4, 1.4):                                                                # the sides, boarded
+        m.prism([(-0.95, 0), (0.95, 0), (0.95, 1.4), (-0.95, 2.0)], 0.08, (x, 0, 0.36), P.WOOD, rot=(0, 0, math.pi / 2))
+        m.box((0.14, 0.14, 2.0), (x, -0.95, 1.36), P.WOOD_DARK)
+    m.box((3.2, 2.4, 0.1), (0, -0.05, 2.1), P.WOOD_DARK, rot=(-0.3, 0, 0))                # the roof
+    for k in range(6):                                                                   # the fire's ring, cold
+        a = k * math.tau / 6
+        m.ball(0.14, (math.cos(a) * 0.42, -2.1 + math.sin(a) * 0.42, 0.06), P.STONE, subdiv=1, jitter=0.03)
+    m.cyl(0.3, 0.03, (0, -2.1, 0.0), "#3a3434", segs=8)
+    m.cyl(0.18, 1.3, (-0.9, -2.2, 0.15), P.BARK, segs=6, rot=(0, math.pi / 2, rng.uniform(-0.3, 0.3)))   # a log to sit on
+    m.build(root)
+
+
+def throwbag():
+    """A rescue station by the white water: a post with a red throw bag hanging on it, its rope's
+    yellow end looped round a cleat, and a little board so you know what it's for."""
+    root = _root("throwbag")
+    m = Model("throwbag", seed=970)
+    m.box((0.1, 0.1, 1.7), (0, 0, 0.85), P.WOOD)
+    m.box((0.12, 0.12, 0.14), (0, 0, 1.64), SIGN_YELLOW)
+    m.box((0.46, 0.04, 0.3), (0, -0.07, 1.35), P.WHITE)
+    m.box((0.3, 0.02, 0.07), (0, -0.1, 1.35), RESCUE)
+    m.box((0.07, 0.02, 0.2), (0, -0.1, 1.35), RESCUE)
+    m.cyl(0.13, 0.36, (0.13, -0.08, 0.7), RESCUE, segs=8, r_top=0.11)                   # the bag
+    m.plank_line((0.13, -0.08, 1.06), (0.05, -0.06, 1.14), 0.03, 0.03, SIGN_YELLOW)
+    m.cyl(0.14, 0.03, (-0.12, -0.08, 0.95), SIGN_YELLOW, segs=8, rot=(math.pi / 2, 0, 0))
+    m.build(root)
+
+
+def trough():
+    """A spring piped into a hollowed log on the hillside, for the cattle up here in summer: the
+    trough full to the brim, water running into it from a spout on a post."""
+    root = _root("trough")
+    m = Model("trough", seed=980)
+    m.box((2.0, 0.6, 0.45), (0, 0, 0.35), P.WOOD)
+    m.box((1.8, 0.42, 0.04), (0, 0, 0.56), "#6aa8c8")
+    for x in (-0.7, 0.7):
+        m.ball(0.22, (x, 0, 0.1), P.STONE, subdiv=1, scale=(1.2, 1.6, 0.6), jitter=0.03)
+    m.box((0.14, 0.14, 1.1), (1.15, 0, 0.55), P.WOOD_DARK)
+    m.plank_line((1.15, 0, 0.95), (0.8, 0, 0.9), 0.05, 0.05, P.IRON)                    # the spout
+    m.box((0.04, 0.04, 0.34), (0.8, 0, 0.72), "#cfe8f4")                                 # its water
+    m.ball(0.18, (-0.95, 0.25, 0.55), MOSS[0], subdiv=1, scale=(1.4, 0.8, 0.3))
+    m.build(root)
+
+
+# the Long Drop -----------------------------------------------------------------------------------
+
+def ruin():
+    """A shepherd's hut gone to ruin: dry-stone walls tumbled to different heights, the door and a
+    window gaps, the roof long gone, a beam fallen in and a young pine growing up inside."""
+    root = _root("ruin")
+    m = Model("ruin", seed=990)
+    rng = random.Random(990)
+    W, D = 3.2, 2.6
+    # (each wall a run of stones, its top falling away towards one end; a gap for the door)
+    walls = [((-W / 2, -D / 2), (W / 2, -D / 2), 1.6, 0.3), ((W / 2, -D / 2), (W / 2, D / 2), 1.2, 0.9),
+             ((W / 2, D / 2), (-W / 2, D / 2), 2.0, 1.4), ((-W / 2, D / 2), (-W / 2, -D / 2), 1.8, 0.4)]
+    for w, ((x0, y0), (x1, y1), h0, h1) in enumerate(walls):
+        n = 7
+        for k in range(n):
+            t = (k + 0.5) / n
+            if w == 0 and 2 <= k <= 3:
+                continue                                                                 # the doorway
+            x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+            h = max(0.25, (h0 + (h1 - h0) * t) * rng.uniform(0.8, 1.1))
+            along = abs(x1 - x0) > 0.1
+            size = ((W / n + 0.03, 0.45, h) if along else (0.45, D / n + 0.03, h))
+            m.box(size, (x, y, h / 2), (P.STONE, P.STONE_DARK, P.PEAK_ROCK[2])[(k + w) % 3])
+            if w == 2 and k == 3:
+                m.box((0.5, 0.5, 0.4), (x, y, 1.1), DARK)                               # the window's gap
+    for k in range(8):                                                                   # fallen stones
+        a = rng.uniform(0, math.tau)
+        d = rng.uniform(1.9, 2.4)
+        m.box((0.4, 0.3, 0.22), (math.cos(a) * d, math.sin(a) * d * 0.8, 0.1), P.STONE_DARK, rot=(0, 0, a))
+    m.plank_line((-1.2, -0.8, 0.1), (1.0, 1.1, 1.5), 0.16, 0.16, DEAD_BARK[0])            # a beam, fallen in
+    m.cyl(0.08, 0.5, (0.6, -0.3, 0), P.BARK, segs=5)                                     # the pine
+    m.cyl(0.55, 1.0, (0.6, -0.3, 0.4), P.LEAF[1], segs=6, r_top=0.05)
+    m.cyl(0.4, 0.8, (0.6, -0.3, 1.0), P.LEAF[2], segs=6, r_top=0.03)
+    m.build(root)
+
+
+def cableway():
+    """A gauging cableway, one bank's half: a red and white A-frame tower, a guy wire back to the
+    ground behind it, and the cable out over the river (-y), sagging to the middle 8 m out.
+    The runtime stands one on each bank and stretches them to meet; one has the little car."""
+    for i in range(2):
+        root = _root(f"cableway_{i}", reach=8.0)
+        m = Model(f"cableway_{i}", seed=1000 + i)
+        for x in (-0.8, 0.8):
+            for k in range(5):                                                           # its legs, banded
+                z0 = -1.0 + k * 1.2
+                _pole(m, (x * (1 - z0 / 6), 0, z0), (x * (1 - (z0 + 1.2) / 6), 0, z0 + 1.2), 0.08, STEEL[k % 2], segs=5)
+        for z in (1.0, 2.6):
+            m.box((1.4 * (1 - z / 6), 0.08, 0.08), (0, 0, z), STEEL[2])
+        m.box((0.5, 0.3, 0.3), (0, 0, 4.9), STEEL[2])                                   # the head
+        m.cyl(0.18, 0.1, (0, -0.1, 4.9), STEEL[2], segs=8, rot=(0, math.pi / 2, 0))
+        m.plank_line((0, 0.1, 4.9), (0, 3.2, -0.2), 0.05, 0.05, STEEL[2])                # the guy wire
+        m.box((0.4, 0.4, 0.3), (0, 3.2, -0.1), P.STONE)
+        pts = [(0, -8.0 * t, 4.9 - 1.7 * (2 * t - t * t)) for t in (k / 8 for k in range(9))]
+        for a, b in zip(pts, pts[1:]):
+            m.plank_line(a, b, 0.07, 0.07, P.IRON)
+        if i == 0:
+            y, z = -5.5, pts[0][2] - 1.7 * (2 * (5.5 / 8) - (5.5 / 8) ** 2)
+            m.plank_line((0, y, z), (0, y, z - 0.9), 0.04, 0.04, P.IRON)
+            m.box((0.45, 0.35, 0.3), (0, y, z - 1.1), SIGN_YELLOW)
+            m.box((0.1, 0.1, 0.35), (0, y, z - 1.42), P.IRON, taper=0.3)                # the weight
+        m.build(root)
+
+
+def rockfall():
+    """Where the mountain's come down: a fan of broken rock spilled down the slope, a big block
+    come to rest at the bottom, and a pine snapped off by it. About 7 m across."""
+    root = _root("rockfall")
+    m = Model("rockfall", seed=1010)
+    rng = random.Random(1010)
+    for k in range(22):
+        t = rng.random()
+        x = rng.uniform(-1, 1) * (1.2 + t * 2.4)
+        y = 3.0 - t * 5.0
+        _blade(m, rng, (x, y, -0.2), rng.uniform(0.25, 0.55) * (0.7 + t * 0.6), rng.uniform(0.2, 0.6), (0, -0.1), (P.PEAK_ROCK + SPIRE)[k % 8], sides=rng.choice((4, 5)))
+    _blade(m, rng, (0.6, -2.4, -0.3), 1.2, 1.9, (0.2, -0.3), SHARD_DRY[1], sides=5)       # the block
+    m.cyl(0.24, 1.4, (-1.9, 1.6, -0.1), P.BARK, segs=6, r_top=0.2)                        # the pine's stump, splintered
+    m.box((0.1, 0.06, 0.45), (-1.85, 1.6, 1.4), HEARTWOOD, rot=(0.2, 0.3, 0), taper=0.2)
+    m.cyl(0.2, 5.0, (-1.8, 1.2, 0.3), P.BARK, segs=6, r_top=0.08, rot=(1.45, 0, 0.6))    # and the rest of it, lying
+    m.build(root)
+
+
+# Black Water -----------------------------------------------------------------------------------
+
+def stones():
+    """A ring of old standing stones in a clearing in the black forest, grey with lichen, one of
+    them fallen. Nobody knows who put them up. About 6 m across."""
+    root = _root("stones")
+    m = Model("stones", seed=1020)
+    rng = random.Random(1020)
+    for k in range(7):
+        a = k * math.tau / 7 + rng.uniform(-0.15, 0.15)
+        x, y = math.cos(a) * 2.6, math.sin(a) * 2.6
+        if k == 4:                                                                       # the fallen one
+            _hull(m, [(x + dx, y + dy, dz) for dx in (-1.0, 1.0) for dy in (-0.35, 0.35) for dz in (0.0, 0.5)], P.PEAK_ROCK[2])
+            continue
+        h = rng.uniform(1.4, 2.4)
+        w, t = rng.uniform(0.35, 0.5), rng.uniform(0.22, 0.32)
+        ca, sa = math.cos(a + math.pi / 2), math.sin(a + math.pi / 2)
+        pts = []
+        for z, sc in ((-0.2, 1.0), (h * 0.6, 0.9), (h, rng.uniform(0.35, 0.6))):
+            for u in (-w * sc, w * sc):
+                for v in (-t * sc, t * sc):
+                    pts.append((x + ca * u - sa * v, y + sa * u + ca * v, z + rng.uniform(-0.08, 0.08)))
+        _hull(m, pts, (P.PEAK_ROCK[2], P.PEAK_ROCK[3], P.LIMESTONE[2])[k % 3])
+        m.ball(0.2, (x, y, h * rng.uniform(0.2, 0.5)), MOSS[k % 3], subdiv=1, scale=(1.4, 1.4, 0.5))
+    m.build(root)
+
+
+def sunk():
+    """A rowing boat that sank at its mooring: its bow up out of the water at a slant, the paint
+    long gone to grey, dark inside, a snapped rope still tied to it. z = 0 is the water."""
+    root = _root("sunk")
+    m = Model("sunk", seed=1030)
+    stations = [(1.4, 0.5, 0.35), (0.3, 0.52, 0.38), (-0.6, 0.45, 0.35), (-1.2, 0.26, 0.3), (-1.55, 0.0, 0.25)]
+    faces = _hull(m, _boat(stations, pitch=0.8, lift=-0.25), OLD_PAINT[0])
+    up = Vector((0, math.sin(0.8), math.cos(0.8)))
+    inside = m._slot(P.WOOD_DARK, False)
+    for f in faces:
+        f.normal_update()
+        if f.normal.dot(up) > 0.8:
+            f.material_index = inside
+    rim = _boat([(y, w + 0.03, 0.05) for y, w, _ in stations], pitch=0.8, lift=-0.23)
+    for a, b in zip(rim[0::4], rim[4::4]):
+        m.plank_line(a, b, 0.06, 0.06, OLD_PAINT[1])
+    for a, b in zip(rim[1::4], rim[5::4]):
+        m.plank_line(a, b, 0.06, 0.06, OLD_PAINT[1])
+    m.plank_line((0, -1.5, 0.5), (0.2, -1.9, 0.0), 0.04, 0.04, HEMP[1])
+    m.build(root)
+
+
+def shack():
+    """Somebody's shack on stilts at the edge of the black forest, left to fall down: grey boards,
+    the roof sagging with a hole in it, the door hanging open, a board across the window, the
+    stovepipe gone over. It faces -y, the river."""
+    root = _root("shack")
+    m = Model("shack", seed=1040)
+    for x in (-1.2, 1.2):
+        for y in (-0.9, 0.9):
+            m.box((0.14, 0.14, 1.3), (x, y, 0.35), P.WOOD_DARK, rot=(0, (0.08 if x > 0 and y < 0 else 0), 0))
+    m.box((2.8, 2.2, 0.1), (0, 0, 1.0), DEAD_BARK[2])
+    for k in range(9):                                                                   # the walls, board by board
+        x = -1.25 + k * 0.31
+        for y in (-1.0, 1.0):
+            if y < 0 and k in (3, 4):
+                continue                                                                 # the doorway
+            m.box((0.3, 0.06, 1.9 - (k % 3) * 0.06), (x, y, 2.0), DEAD_BARK[k % 2])
+    for x in (-1.35, 1.35):
+        m.box((0.06, 2.0, 1.9), (x, 0, 2.0), DEAD_BARK[1])
+    m.box((0.62, 0.06, 1.7), (-0.05, -1.0, 1.95), DARK)                                  # the dark inside
+    m.box((0.06, 0.62, 1.65), (-0.38, -1.3, 1.9), DEAD_BARK[0], rot=(0, 0, 0.9))         # the door, hanging open
+    m.box((0.5, 0.07, 0.4), (0.8, -1.05, 2.3), DARK)                                     # a window
+    m.box((0.66, 0.08, 0.1), (0.8, -1.1, 2.3), DEAD_BARK[1], rot=(0, 0.4, 0))
+    # the roof: two slabs, the near one sagged in, and a hole
+    m.box((3.2, 1.35, 0.08), (0, -0.55, 3.15), "#4a4448", rot=(0.45, 0.05, 0))
+    m.box((3.2, 1.35, 0.08), (0, 0.6, 3.1), "#4a4448", rot=(-0.52, 0, 0))
+    m.box((0.8, 0.9, 0.09), (0.7, -0.5, 3.18), DARK, rot=(0.45, 0.05, 0))
+    m.plank_line((-0.9, 0.5, 3.2), (-1.4, 0.9, 4.0), 0.12, 0.12, RUST[1])                # the stovepipe, gone over
+    m.plank_line((-0.6, -1.4, 0.6), (-0.1, -2.3, -0.2), 0.3, 0.05, DEAD_BARK[0])         # the step, fallen
+    m.build(root)
+
+
+# Hold My Coffee --------------------------------------------------------------------------------
+
+def avalanche():
+    """What an avalanche left in the spring: pines snapped like matches and thrown down together,
+    all pointing the way it came down (-y), their broken ends pale, a root plate torn up, rock
+    mixed in. About 8 m."""
+    root = _root("avalanche")
+    m = Model("avalanche", seed=1050)
+    rng = random.Random(1050)
+    for k in range(7):
+        x = rng.uniform(-2.4, 2.4)
+        y = rng.uniform(-0.8, 1.8)
+        a = rng.uniform(-0.35, 0.35)
+        length = rng.uniform(3.5, 6.0)
+        z = 0.25 + (k % 3) * 0.35
+        # (from its broken end, uphill at +y, lying down the slope towards -y)
+        base = (x, y + length / 2, z)
+        m.cyl(0.22, length, base, P.BARK, segs=6, r_top=0.1, rot=(math.pi / 2, 0, a))
+        m.cyl(0.21, 0.05, (x, base[1] + 0.04, z), HEARTWOOD, segs=6, rot=(math.pi / 2, 0, a))
+        for t in range(3):                                                               # splinters off the broken end
+            m.box((0.06, 0.06, 0.35), (x + (t - 1) * 0.1, base[1] + 0.12, z + (t - 1) * 0.06), HEARTWOOD, rot=(-math.pi / 2 + 0.3, 0, a + (t - 1) * 0.3), taper=0.2)
+    m.cyl(1.0, 0.35, (1.6, 3.4, 0.9), EARTH, segs=7, rot=(1.2, 0, 0.3))                  # a root plate, stood up
+    for k in range(5):
+        _blade(m, rng, (rng.uniform(-2.5, 2.5), rng.uniform(-1.5, 2.5), -0.2), rng.uniform(0.35, 0.6), rng.uniform(0.3, 0.7), (0, 0), SPIRE[k % 4], sides=4)
+    m.build(root)
+
+
+def ferrata():
+    """A via ferrata down a gorge's wall: iron staples for your hands and feet, a steel cable
+    alongside them, an anchor at the top and a little yellow plate. From the top (y = 0, z = 0)
+    it goes down the wall towards -y, 6 m down and 2 m out; the runtime scales it to the wall."""
+    root = _root("ferrata", drop=6.0)
+    m = Model("ferrata", seed=1060)
+    m.box((0.14, 0.14, 0.9), (0.5, 0.3, 0.45), P.IRON)
+    m.box((0.3, 0.03, 0.2), (0.5, 0.21, 0.75), SIGN_YELLOW)
+    for k in range(12):
+        t = k / 11
+        y, z = -0.1 - t * 2.0, -t * 6.0
+        m.box((0.5, 0.05, 0.05), (0, y - 0.12, z), "#9aa0a8")                            # a staple
+        for x in (-0.23, 0.23):
+            m.box((0.05, 0.14, 0.05), (x, y - 0.05, z), "#9aa0a8")
+    m.plank_line((0.5, 0.3, 0.8), (0.5, -2.1, -6.0), 0.05, 0.05, P.IRON)                 # the cable
+    for k in range(4):
+        t = k / 3
+        m.box((0.08, 0.14, 0.08), (0.5, -0.05 - t * 2.0, -t * 6.0), P.IRON)
+    m.build(root)
+
+
+def icefall():
+    """A ledge of rock on a gorge's wall with a frozen seep under it: the rock always, and icicles
+    along its lip and a sheet of ice down the face beneath, which the runtime grows only when it's
+    freezing (the `ice` marker, which hangs from the lip: scaled down to nothing, it's gone)."""
+    root = _root("icefall")
+    m = Model("icefall", seed=1070)
+    rng = random.Random(1070)
+    # (an overhang: narrow at its foot, reaching out over it at the top)
+    _hull(m, [(-1.3, 0.3, -0.3), (1.3, 0.4, -0.3), (-1.1, 1.3, -0.3), (1.2, 1.3, -0.3),
+              (-1.5, -0.7, 1.45), (1.4, -0.6, 1.4), (-1.3, 1.3, 2.0), (1.2, 1.2, 1.9), (0.2, -0.8, 1.6)], SPIRE[1])
+    for x, h in ((-0.8, 1.2), (0.5, 0.8)):
+        _blade(m, rng, (x, 0.4, 1.6), 0.5, h, (0.1, 0.2), SPIRE[(int(h * 10)) % 4], sides=4)
+    m.box((1.6, 0.05, 1.2), (0, 0.25, 0.55), SPIRE[3], rot=(-0.55, 0, 0))                 # the wet streak under it
+    m.build(root)
+    ice = group("ice", (0, -0.62, 1.42), parent=root, ice=1)
+    c = Model("icefall_ice", seed=1071)
+    for k in range(14):
+        x = -1.2 + k * 0.18 + rng.uniform(-0.04, 0.04)
+        length = rng.uniform(0.3, 0.8) + (0.6 if k % 4 == 1 else 0)
+        c.cyl(rng.uniform(0.05, 0.09), length, (x, rng.uniform(-0.05, 0.05), 0), ICE[k % 2], segs=4, r_top=0.004, rot=(math.pi, 0, 0))
+    # the seep frozen as it ran: columns of ice down the face, from the lip to its foot
+    for x, r in ((-0.45, 0.2), (0.1, 0.26), (0.6, 0.16)):
+        c.cyl(r, 1.7, (x, 0.1, 0), ICE[1], segs=5, r_top=r * 1.5, rot=(math.pi + 0.45, 0, 0))
+    c.build(ice)
+
+
 # --- the rare ones: out on some runs, if you're lucky ------------------------------------------
 
 BEAVER = "#6e4a30"
@@ -1081,8 +1916,8 @@ MOOSE_ANTLER = "#cdb88e"
 BEAR = "#6e4830"
 BEAR_DARK = "#4e3222"
 BEAR_MUZZLE = "#a07a56"
-WOLF = "#948a7e"
-WOLF_PALE = "#ddd4c6"
+WOLF = "#b1a898"
+WOLF_PALE = "#ece6da"
 WOLF_DARK = "#4e4640"
 LYNX = "#b8905e"
 LYNX_PALE = "#eadcc2"
@@ -1222,30 +2057,42 @@ def bear():
 
 
 def wolf():
-    """A grey wolf, long-legged and lean, with a dark saddle. The head pivots at the neck, up to
-    howl; the tail hangs, and wags."""
+    """A grey wolf, long-legged and lean: a deep chest and a thick ruff at the neck, narrowing to
+    the waist; pale grey with a dark saddle and a cream belly, throat and muzzle, so it stands out
+    from the banks, and amber eyes that catch the light. A long muzzle, big upright ears, and a
+    bushy tail with a black tip. The head pivots at the neck, up to howl; the tail hangs, and wags."""
     root = _root("wolf")
     b = Model("wolf_body", seed=640)
-    b.ball(0.24, (0, 0, 0), WOLF, subdiv=2, scale=(1.8, 0.72, 0.82))
-    b.ball(0.2, (0.02, 0, 0.07), WOLF_DARK, subdiv=1, scale=(1.6, 0.66, 0.6))            # the saddle
-    b.ball(0.16, (0.08, 0, -0.1), WOLF_PALE, subdiv=1, scale=(2.0, 0.6, 0.45))
-    b.ball(0.18, (0.3, 0, 0.02), WOLF, subdiv=1, scale=(1.0, 0.85, 1.05))                # the ruff
-    body = b.build(root, loc=(0, 0, 0.72))
-    fauna._legs(body, "wolf", ((0.3, 0.1, -0.12), (0.3, -0.1, -0.12), (-0.3, 0.1, -0.1), (-0.3, -0.1, -0.1)),
-             0.6, 0.045, WOLF, hoof=WOLF_DARK)
+    b.ball(0.25, (0.2, 0, 0.0), WOLF, subdiv=2, scale=(1.15, 0.8, 1.05))                  # the chest, deep
+    b.ball(0.2, (-0.1, 0, 0.03), WOLF, subdiv=2, scale=(1.5, 0.68, 0.78))                 # the waist
+    b.ball(0.2, (-0.34, 0, 0.04), WOLF, subdiv=2, scale=(1.0, 0.8, 0.92))                 # the haunches
+    b.ball(0.24, (-0.06, 0, 0.14), WOLF_DARK, subdiv=1, scale=(2.2, 0.72, 0.5))           # the saddle, over the back
+    b.ball(0.18, (0.04, 0, -0.11), WOLF_PALE, subdiv=1, scale=(2.1, 0.55, 0.4))           # the belly
+    b.ball(0.2, (0.38, 0, 0.1), WOLF, subdiv=1, scale=(0.95, 1.0, 1.15))                  # the ruff
+    b.ball(0.13, (0.44, 0, -0.04), WOLF_PALE, subdiv=1, scale=(0.9, 0.9, 1.1))            # the throat
+    body = b.build(root, loc=(0, 0, 0.74))
+    # legs: long, the forelegs straight under the chest, the hind ones set back; dark paws
+    fauna._legs(body, "wolf", ((0.26, 0.1, -0.12), (0.26, -0.1, -0.12), (-0.34, 0.11, -0.08), (-0.34, -0.11, -0.08)),
+                0.64, 0.055, WOLF, hoof=WOLF_DARK)
     t = Model("wolf_tail", seed=641)
-    for i, (x, z, r) in enumerate(((-0.06, -0.06, 0.06), (-0.14, -0.16, 0.07), (-0.2, -0.28, 0.065), (-0.23, -0.38, 0.05))):
-        t.ball(r, (x, 0, z), WOLF_DARK if i == 3 else WOLF, subdiv=1, scale=(1.0, 0.9, 1.3))
-    t.build(body, loc=(-0.4, 0, 0.06))
+    for i, (x, z, r) in enumerate(((-0.05, -0.04, 0.07), (-0.13, -0.13, 0.09), (-0.19, -0.24, 0.095), (-0.22, -0.35, 0.085), (-0.23, -0.44, 0.06))):
+        t.ball(r, (x, 0, z), WOLF_DARK if i >= 3 else WOLF, subdiv=1, scale=(1.0, 0.9, 1.35))
+    t.build(body, loc=(-0.5, 0, 0.1))
     h = Model("wolf_head", seed=642)
-    h.ball(0.13, (0.04, 0, 0.02), WOLF, subdiv=1, scale=(1.2, 0.95, 0.9))
-    h.box((0.22, 0.1, 0.09), (0.2, 0, -0.02), WOLF, taper=0.6, rot=(0, math.pi / 2, 0))
-    h.box((0.18, 0.09, 0.04), (0.18, 0, -0.06), WOLF_PALE)
-    h.box((0.04, 0.05, 0.04), (0.3, 0, 0.0), P.INK)
-    fauna._eyes(h, 0.13, 0.06, 0.06, 0.025, color="#d8a030")
+    h.ball(0.13, (0.04, 0, 0.04), WOLF, subdiv=1, scale=(1.25, 1.05, 0.95))                # the skull
     for s in (1, -1):
-        h.cyl(0.055, 0.14, (-0.01, s * 0.065, 0.12), WOLF, segs=3, r_top=0.0)
-    h.build(body, loc=(0.42, 0, 0.14))
+        h.ball(0.075, (0.1, s * 0.075, -0.01), WOLF_PALE, subdiv=1, scale=(1.3, 0.8, 0.9))  # the cheeks
+    # the muzzle: long and tapering, level, pale underneath, a black nose on the end
+    h.prism([(0.1, -0.06), (0.36, -0.045), (0.38, 0.0), (0.1, 0.07)], 0.12, (0, 0, 0), WOLF)
+    h.prism([(0.12, -0.075), (0.34, -0.055), (0.34, -0.035), (0.12, -0.03)], 0.1, (0, 0, 0), WOLF_PALE)
+    h.box((0.05, 0.07, 0.05), (0.375, 0, -0.01), P.INK)
+    h.box((0.1, 0.13, 0.025), (0.14, 0, 0.085), WOLF_DARK, rot=(0, 0.25, 0))              # the brow
+    for s in (1, -1):                                                                    # amber, catching the light
+        h.box((0.035, 0.022, 0.03), (0.15, s * 0.062, 0.055), "#ffb830", glow=True)
+        # big upright ears, dark at the back
+        h.prism([(-0.05, 0.0), (0.05, 0.0), (0.0, 0.17)], 0.03, (0.0, s * 0.075, 0.1), WOLF_DARK, rot=(s * -0.2, 0.15, 0))
+        h.prism([(-0.035, 0.01), (0.035, 0.01), (0.0, 0.13)], 0.012, (0.02, s * 0.075, 0.1), WOLF_PALE, rot=(s * -0.2, 0.15, 0))
+    h.build(body, loc=(0.46, 0, 0.18))
 
 
 def lynx():
@@ -1525,4 +2372,33 @@ def build():
     spires()
     wreck()
     raven()
+    shards()
+    jags()
+    mine()
+    bridge_out()
+    skull()
+    gauge()
+    highseat()
+    woodpile()
+    beehives()
+    bench()
+    mill()
+    duckhouse()
+    scarecrow()
+    upturned()
+    canoes()
+    fingerpost()
+    birdbox()
+    leanto()
+    throwbag()
+    trough()
+    ruin()
+    cableway()
+    rockfall()
+    stones()
+    sunk()
+    shack()
+    avalanche()
+    ferrata()
+    icefall()
     rare()
