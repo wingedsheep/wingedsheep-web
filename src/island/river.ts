@@ -14,7 +14,7 @@ import type { Device, Nav } from './river/controls';
 import type { Stretch } from './river/course';
 import { FLIP, type Hint, type RiverGame, type Tally } from './river/game';
 import { TIP } from './river/kayak';
-import { RIVERS, type RiverDef } from './river/rivers';
+import { RARE, RIVERS, type Rare, type RiverDef } from './river/rivers';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
@@ -22,6 +22,8 @@ const FADE = 0.35; // seconds for the iris to close (and again to open)
 const SETTLE = 700;
 /** The river you picked last time. */
 const PICK = 'wingedsheep:river:pick';
+/** The rare ones you've seen, on any river. */
+const SPOTTED = 'wingedsheep:river:spotted';
 
 /** What the river is like as you come into it, for the banner. */
 function banner(s: Stretch, index: number) {
@@ -131,12 +133,15 @@ export class River implements RoomInput {
   private swims = 0;
   private finishes = 0;
   /** Each river's best, by its id, and which one's picked. */
+  /** The rare ones you've seen, on any river. */
+  private log = readLog();
   private bests: Record<string, Best> = Object.fromEntries(RIVERS.map((r) => [r.id, readBest(r.key)]));
   private pick = 0;
   private fresh = false; // a new best this run
   private named = false; // the river's name has been up this run
   private cardAt = 0; // when the card on screen came up (ms)
   private $: Record<string, HTMLElement> = {};
+  private grade = new THREE.Vector3();
 
   constructor(
     private ctx: IslandContext,
@@ -187,6 +192,18 @@ export class River implements RoomInput {
     });
     this.showBest();
     this.showPicks();
+    this.showLog();
+  }
+
+  /** On the start card, the rare ones you've seen so far. */
+  private showLog() {
+    const el = this.el.querySelector('[data-river-spotted]');
+    if (!el) return;
+    const seen = RARE.filter((r) => this.log.has(r.id)).map((r) => r.name);
+    const left = RARE.length - seen.length;
+    el.textContent = seen.length
+      ? `Spotted: ${seen.join(', ')}${left ? ` · ${left} still out there` : ' · every one. Now nobody believes you.'}`
+      : 'Keep an eye on the banks: on some runs, something rare is about.';
   }
 
   private get river(): RiverDef {
@@ -234,6 +251,7 @@ export class River implements RoomInput {
 
   /** A fresh river: the one picked, from the top. */
   private again() {
+    if (this.game) this.game.logged = this.log;
     this.game?.reset(this.river);
     this.named = false;
     this.fresh = false;
@@ -376,7 +394,16 @@ export class River implements RoomInput {
       rain: Math.min(1, w.rain + w.hail),
       snow: w.snow,
       fair: w.storm < 0.3 && w.rain < 0.2,
+      storm: w.storm,
+      flash: w.flash,
+      haze: w.fog,
     });
+    // the river's own air over the island's grade: golden and soft on the Dawdle, grey and cold
+    // and dark round the edges on the big ones
+    const mood = game.river.look.mood;
+    const u = this.pixels.uniforms;
+    (u.uGrade.value as THREE.Vector3).multiply(this.grade.fromArray(mood.grade));
+    u.uVignette.value = mood.vignette;
     const roar = game.roar;
     this.ctx.sound.riverWater(true, game.state === 'ready' ? 0.2 : game.rough, game.tally.speed, roar.level, roar.near);
     this.hud(game.tally);
@@ -453,6 +480,16 @@ export class River implements RoomInput {
       bark: () => this.ctx.sound.bark(),
       baa: () => this.ctx.sound.baa(),
       quack: () => this.ctx.sound.call('quack', 0.6),
+      spotted: (kind) => {
+        const r = RARE.find((x) => x.id === kind)!;
+        const first = !this.log.has(kind);
+        if (first) {
+          this.log.add(kind);
+          writeLog(this.log);
+          this.showLog();
+        }
+        this.ctx.toast(first ? `${r.line} · ${this.log.size} of ${RARE.length} spotted` : r.line);
+      },
     };
   }
 
@@ -686,9 +723,13 @@ export class River implements RoomInput {
     set('[data-over-bonus]', t.finished ? `+${round(t.bonus.time)}` : '–');
     set('[data-over-gates]', t.finished ? `${t.gates} · +${round(t.bonus.gates)}` : String(t.gates));
     set('[data-over-balls]', t.finished ? `${t.balls} · +${round(t.bonus.balls)}` : String(t.balls));
+    set('[data-over-sends]', t.sends ? `${t.sends} · +${round(t.sent)}` : '0');
+    set('[data-over-hot]', t.flatOut ? `${Math.floor(t.longest)}s · +${round(t.flatOut)}` : '–');
     set('[data-over-flips]', t.flips ? `${t.flips} · −${round(t.flips * FLIP)}` : '0');
     set('[data-over-flow]', `×${t.bestFlow.toFixed(1)}`);
     set('[data-over-score]', round(t.score));
+    for (const el of this.el.querySelectorAll<HTMLElement>('[data-over-spotted], [data-over-spotted-label]')) el.hidden = !t.spotted.length;
+    set('[data-over-spotted]', t.spotted.map((k) => RARE.find((r) => r.id === k)!.name).join(', '));
     const title = this.el.querySelector('[data-over-title]');
     if (title) title.textContent = this.fresh ? 'A new best' : quickest ? 'Your quickest yet' : t.finished ? 'Down' : 'Swimming';
     if (this.fresh || quickest) this.ctx.sound.river('best');
@@ -696,6 +737,20 @@ export class River implements RoomInput {
     this.card('over');
     if (next) this.focus(onward);
   }
+}
+
+function readLog(): Set<Rare> {
+  try {
+    const ids = JSON.parse(localStorage.getItem(SPOTTED) ?? '[]');
+    if (Array.isArray(ids)) return new Set(RARE.map((r) => r.id).filter((id) => ids.includes(id)));
+  } catch {}
+  return new Set();
+}
+
+function writeLog(log: Set<Rare>) {
+  try {
+    localStorage.setItem(SPOTTED, JSON.stringify([...log]));
+  } catch {}
 }
 
 function readBest(key: string): Best {

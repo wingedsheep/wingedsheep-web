@@ -488,7 +488,32 @@ export class Sound {
       case 'gate':
         [659, 784, 988].forEach((f, i) => this.tone(t + i * 0.09, 'triangle', [[0, f]], 0.08 * volume, 0.25));
         break;
-      case 'croak': // a heron, put out: a harsh, rasping "fraank"
+      case 'slap': // a beaver's tail on the water: a flat crack, like a shot, and the splash
+        this.hiss(t, 0.12, 2200, 0.5 * volume);
+        this.tone(t, 'sine', [[0, 160], [0.1, 60]], 0.5 * volume, 0.16);
+        this.hiss(t + 0.05, 0.9, 600, 0.3 * volume);
+        break;
+      case 'howl': { // wolves: one long rising howl, and the others joining in, off-key
+        const f0 = r(330, 380);
+        this.tone(t, 'sine', [[0, f0 * 0.8], [0.5, f0 * 1.25], [2.2, f0 * 1.2], [3, f0 * 0.85]], 0.12 * volume, 3.1);
+        this.tone(t, 'triangle', [[0, f0 * 1.6], [0.5, f0 * 2.5], [2.2, f0 * 2.4], [3, f0 * 1.7]], 0.02 * volume, 3.1, 1400);
+        for (let i = 0; i < 2; i++) {
+          const f = f0 * r(1.15, 1.45);
+          const at = t + 1.2 + i * r(0.4, 0.9);
+          this.tone(at, 'sine', [[0, f * 0.85], [0.4, f], [1.6, f * 0.97], [2.1, f * 0.8]], 0.07 * volume, 2.2);
+        }
+        break;
+      }
+      case 'huff': // a bear (or a moose): a deep, breathy huff, twice
+        for (let i = 0; i < 2; i++) {
+          this.hiss(t + i * 0.45, 0.35, 320, 0.35 * volume);
+          this.tone(t + i * 0.45, 'sawtooth', [[0, 90], [0.25, 60]], 0.12 * volume, 0.3, 220);
+        }
+        break;
+      case 'spotted': // something rare: a soft, wondering phrase, up and up
+        [523, 659, 880, 1047].forEach((f, i) => this.tone(t + i * 0.14, 'sine', [[0, f]], 0.07 * volume, 0.6));
+        break;
+
         this.tone(t, 'sawtooth', [[0, 380], [0.25, 260]], 0.12 * volume, 0.32, 700);
         this.hiss(t, 0.3, 1100, 0.05 * volume);
         break;

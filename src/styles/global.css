@@ -568,6 +568,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .river-go:hover { background: #f2c35f; }
 .river-back { background: var(--paper-2); box-shadow: inset 0 -4px 0 var(--paper-edge); font-weight: 400; }
 .river-best-line { margin: 10px 0 0; font: 14px var(--ui); color: var(--ink-soft); }
+.river-spotted { margin-top: 4px; }
 .river-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .river-tally { display: grid; grid-template-columns: 1fr auto; gap: 2px 18px; margin: 0 auto 16px; max-width: 260px; font: 17px var(--ui); text-align: left; }
 .river-tally dd { margin: 0; text-align: right; font-weight: 700; }

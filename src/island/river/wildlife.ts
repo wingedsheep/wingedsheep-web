@@ -4,6 +4,7 @@ import type { RiverAssets } from './assets';
 import type { Course, Thing } from './course';
 import { waterAt } from './flow';
 import type { Spot } from './land';
+import type { Rare } from './rivers';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -17,7 +18,14 @@ export interface WildlifeEvents {
   quack?(): void;
   baa?(): void;
   bark?(): void;
+  /** One of the rare ones, seen for the first time this run. */
+  spotted?(kind: Rare): void;
+  /** A beaver's tail smacked on the water; wolves howling; a bear's (or a moose's) huff. */
+  slap?(): void;
+  howl?(): void;
+  huff?(): void;
 }
+
 
 interface Actor {
   s: number;
@@ -123,6 +131,10 @@ const LEAVES_GREEN = ['#4a8c45', '#72b04c'].map((c) => new THREE.Color(c));
 const LEAVES_AUTUMN = ['#cc622c', '#d4ae40', '#a0392c', '#e08a3a'].map((c) => new THREE.Color(c));
 const CONFETTI = ['#ffd35a', '#e2ee3a', '#ff7a5a', '#f2c3d6', '#7ad0e6', '#f2f7f6'].map((c) => new THREE.Color(c));
 const BLOSSOM = ['#f2c3d6', '#fbe0ea'].map((c) => new THREE.Color(c));
+/** Butterflies over the meadows (cabbage whites, brimstones, a peacock, a blue), and thistledown. */
+const BUTTERFLIES = ['#f4f0e6', '#f2dc5a', '#d8602a', '#6a9ae8'].map((c) => new THREE.Color(c));
+const DOWN = new THREE.Color('#f6f2e8');
+const SMOKE = ['#c9c4c8', '#b3aeb6', '#dcd8da'].map((c) => new THREE.Color(c));
 
 /**
  * Life along the river: the animals the land left room for (a heron fishing, ducks, deer
@@ -136,14 +148,24 @@ export class Wildlife {
   events: WildlifeEvents = {};
   /** The ground's height at (x, z), for animals on the bank. */
   ground: (x: number, z: number) => number = () => 0;
+  /** Whether something (a tree, a rock, the land itself) stands between a point and the camera. */
+  hidden: (at: THREE.Vector3) => boolean = () => false;
   private actors: Actor[] = [];
   private clock = 0;
   /** Everything in the water round the kayak, for the specks floating on it to go round. */
   private things: Thing[] = [];
   private kingfisherIn = rand(12, 30);
   private sheepIn = rand(90, 200);
+  private ravensIn = rand(6, 14);
+  /** 0..1: how stormy it is on the island (the rain comes in sideways on the wind). */
+  storm = 0;
   private beikeDone = false;
   private waiting = false; // Beike's waiting at the take-out
+  /** The rare ones already in your log (the ones you haven't seen come up more often). */
+  seen: ReadonlySet<Rare> = new Set();
+  /** Who's out this run, and from where down the river we start looking for somewhere for them. */
+  private rare?: { kind: Rare; from: number };
+  private rareIn = 0;
 
   constructor(private assets: RiverAssets, private course: Course) {
     this.group.add(this.specks.points, this.froths.points);
@@ -157,8 +179,25 @@ export class Wildlife {
     this.froths.clear();
     this.kingfisherIn = rand(12, 30);
     this.sheepIn = rand(90, 200);
+    this.ravensIn = rand(6, 14);
+    this.storm = 0;
     this.beikeDone = false;
     this.waiting = false;
+    this.rare = undefined;
+    const { chance, who } = course.profile.rare;
+    if (Math.random() < chance) {
+      // the ones not in your log yet come up more often (all but the yeti: that stays a rumour)
+      const pool = (Object.entries(who) as [Rare, number][]).map(([k, w]) => [k, this.seen.has(k) || k === 'yeti' ? w : w * 2.5] as const);
+      let pick = Math.random() * pool.reduce((a, [, w]) => a + w, 0);
+      const kind = pool.find(([, w]) => (pick -= w) < 0)?.[0] ?? pool[0][0];
+      const length = Number.isFinite(course.finish) ? course.finish : 1000;
+      this.rare = { kind, from: rand(150, Math.max(200, length * 0.6)) };
+    }
+  }
+
+  /** Whichever rare one's out this run (for ?rare=bear to go looking for one). */
+  force(kind: Rare) {
+    this.rare = { kind, from: 60 };
   }
 
   /** A chunk of river came into view with places for animals. */
@@ -182,6 +221,12 @@ export class Wildlife {
       this.kingfisherIn = rand(25, 60);
       this.actors.push(this.kingfisher(s));
     }
+    // on the hard rivers, ravens wheeling overhead, waiting to see how it goes
+    const look = this.course.profile.look;
+    if (look.grim > 0 && (this.ravensIn -= dt) < 0 && night < 0.7) {
+      this.ravensIn = rand(25, 50) / look.grim;
+      for (let n = 1 + Math.floor(Math.random() * 3); n > 0; n--) this.actors.push(this.raven(s));
+    }
     // the winged sheep, crossing high over the river
     if ((this.sheepIn -= dt) < 0 && fair) {
       this.sheepIn = rand(180, 360);
@@ -201,6 +246,16 @@ export class Wildlife {
     if (!this.waiting && Number.isFinite(this.course.finish) && s > this.course.finish - 80) {
       this.waiting = true;
       this.actors.push(this.waiter(this.course.finish + 9));
+    }
+
+    // the rare one, if there's one out today: at the first place along that suits it
+    if (this.rare && s > this.rare.from && s < this.course.finish - 120 && (this.rareIn -= dt) < 0) {
+      this.rareIn = 0.3;
+      const a = this.spawnRare(this.rare.kind, s + 34, night);
+      if (a) {
+        this.rare = undefined;
+        this.actors.push(a);
+      }
     }
 
     this.ambient(dt, kayak, s, night, rain, snow);
@@ -260,6 +315,11 @@ export class Wildlife {
     this.specks.emit(at, V(rand(-0.3, 0.3), rand(0, 0.6), rand(-0.3, 0.3)), DRIP, 0.5);
   }
 
+  /** A puff of smoke from a cottage's chimney, rising and drifting off. */
+  smoke(at: THREE.Vector3) {
+    this.specks.emit(at.clone().add(V(rand(-0.15, 0.15), 0, rand(-0.15, 0.15))), V(rand(0.2, 0.5), rand(0.6, 1), rand(-0.1, 0.2)), SMOKE[Math.floor(Math.random() * SMOKE.length)], rand(2.5, 4), 2);
+  }
+
   /** Froth left behind on the water, floating off downstream. */
   froth(at: THREE.Vector3, life = rand(0.8, 1.6)) {
     this.froths.emit(at.clone().setY(at.y + 0.05), V(), FOAM, life, 1);
@@ -289,12 +349,26 @@ export class Wildlife {
       const q = this.course.at(s + rand(-10, 30));
       this.specks.emit(V(q.x + Math.cos(q.a) * u, q.y + rand(0.6, 2), q.z + Math.sin(q.a) * u), V(), FIREFLY, rand(3, 6), 3);
     }
-    // rain, and snow, falling round you
-    const fall = (rain + snow) * 60;
+    // on a gentle river on a fine day, butterflies over the banks and thistledown drifting across
+    const flutter = this.course.profile.look.flutter * (1 - night) * (0.3 + warm) * (1 - rain);
+    if (flutter > 0 && Math.random() < dt * flutter * 2.5) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const u = side * (half * rand(0.3, 1) + rand(0, 5));
+      const q = this.course.at(s + rand(-5, 30));
+      this.specks.emit(V(q.x + Math.cos(q.a) * u, q.y + rand(0.5, 1.6), q.z + Math.sin(q.a) * u), V(), BUTTERFLIES[Math.floor(Math.random() * BUTTERFLIES.length)], rand(5, 9), 3);
+    }
+    if (flutter > 0 && Math.random() < dt * flutter * 1.5) {
+      const q = this.course.at(s + rand(0, 35));
+      const u = rand(-1.4, 1.4) * q.width / 2;
+      this.specks.emit(V(q.x + Math.cos(q.a) * u, q.y + rand(1, 3), q.z + Math.sin(q.a) * u), V(rand(0.4, 0.9) * rx, rand(-0.05, 0.1), rand(0.4, 0.9) * rz), DOWN, rand(6, 10), 2);
+    }
+    // rain, and snow, falling round you: in a storm, driven in sideways on the wind
+    const fall = (rain + snow) * 60 * (1 + this.storm);
+    const slant = 0.4 + this.storm * 7;
     for (let n = Math.floor(fall * dt + Math.random()); n > 0; n--) {
-      const at = kayak.clone().add(V(rand(-22, 22), rand(8, 14), rand(-30, 12)));
-      if (Math.random() < snow / Math.max(rain + snow, 0.01)) this.specks.emit(at, V(rand(-0.5, 0.5), -1.2, rand(-0.5, 0.5)), WHITE, 10, 2);
-      else this.specks.emit(at, V(0.4, -16, 0), RAIN, 1, 2);
+      const at = kayak.clone().add(V(rand(-22, 22) - slant * 0.6, rand(8, 14), rand(-30, 12)));
+      if (Math.random() < snow / Math.max(rain + snow, 0.01)) this.specks.emit(at, V(rand(-0.5, 0.5) + slant * 0.3, -1.2, rand(-0.5, 0.5)), WHITE, 10, 2);
+      else this.specks.emit(at, V(slant, -16 - this.storm * 6, 0), RAIN, 1, 2);
     }
   }
 
@@ -307,6 +381,7 @@ export class Wildlife {
       case 'deer': return this.deer(spot);
       case 'sheep': return this.sheep(spot);
       case 'fish': return this.fish(spot);
+      case 'swans': return this.swans(spot);
     }
   }
 
@@ -481,6 +556,78 @@ export class Wildlife {
     };
   }
 
+  /** A pair of swans and their cygnets, gliding about the slow water, in no hurry for anybody. */
+  private swans(spot: Spot): Actor {
+    const root = new THREE.Group();
+    const pair = [0, 1].map((i) => {
+      const w = this.assets.clone('swan');
+      w.scale.setScalar(1.3);
+      w.position.set(-i * 1.4, 0, i * 0.7);
+      root.add(w);
+      return w;
+    });
+    const brood = Array.from({ length: Math.floor(Math.random() * 4) }, (_, i) => {
+      const c = this.assets.clone('cygnet');
+      c.position.set(-0.6 - i * 0.45, 0, 0.35 + rand(-0.15, 0.15));
+      root.add(c);
+      return c;
+    });
+    root.position.set(spot.x, spot.y, spot.z);
+    let heading = face(-Math.sin(spot.a), Math.cos(spot.a)) + rand(-0.5, 0.5);
+    root.rotation.y = heading;
+    this.group.add(root);
+    const bank = V(Math.cos(spot.a) * spot.side, 0, Math.sin(spot.a) * spot.side);
+    return {
+      s: spot.s,
+      root,
+      update: (dt, kayak) => {
+        const t = this.clock;
+        pair.forEach((w, i) => (w.position.y = Math.sin(t * 1.4 + i) * 0.015));
+        brood.forEach((c, i) => (c.position.y = Math.sin(t * 2.5 + i) * 0.012));
+        // (turning, unhurried, to the bank as you come by)
+        if (root.position.distanceTo(kayak) < 10) heading += (face(bank.x, bank.z) - heading) * Math.min(1, dt * 0.8);
+        root.rotation.y = heading;
+        root.position.add(V(Math.cos(heading) * dt * 0.3, 0, -Math.sin(heading) * dt * 0.3));
+        return true;
+      },
+    };
+  }
+
+  /** A raven, wheeling high over the river ahead, keeping pace with you for a while. */
+  private raven(s: number): Actor {
+    const root = this.assets.clone('raven');
+    root.scale.setScalar(2);
+    const wings = [root.getObjectByName('raven_wing_l'), root.getObjectByName('raven_wing_r')];
+    const radius = rand(5, 10);
+    const height = rand(9, 14);
+    const spin = (Math.random() < 0.5 ? -1 : 1) * rand(0.35, 0.6);
+    let a = rand(0, Math.PI * 2);
+    let at = s + rand(15, 30);
+    let life = rand(18, 30);
+    let flap = 0;
+    this.group.add(root);
+    return {
+      s,
+      root,
+      update: (dt) => {
+        life -= dt;
+        a += spin * dt;
+        at += dt * 3.5;
+        const p = this.course.at(at);
+        // circling, and leaving: up and away when it's seen enough
+        const up = life < 0 ? -life * 4 : 0;
+        root.position.set(p.x + Math.cos(a) * radius, p.y + height + up, p.z + Math.sin(a) * radius);
+        root.rotation.y = face(-Math.sin(a) * spin, Math.cos(a) * spin);
+        root.rotation.z = -spin * 0.5; // banked into the turn
+        // gliding mostly, with a few lazy beats now and then
+        if ((flap -= dt) < -rand(2, 4)) flap = 0.8;
+        const beat = flap > 0 ? Math.sin(this.clock * 12) * 0.7 : 0.12;
+        wings.forEach((w, i) => w && (w.rotation.x = (i ? -1 : 1) * beat));
+        return life > -6;
+      },
+    };
+  }
+
   private kingfisher(s: number): Actor {
     const root = this.assets.clone('kingfisher');
     root.scale.setScalar(2.2); // a speck otherwise: the river's own flash of blue
@@ -645,6 +792,593 @@ export class Wildlife {
           if (tail) tail.rotation.x = Math.sin(t * 5) * 0.2;
         }
         return true;
+      },
+    };
+  }
+
+  // --- the rare ones ----------------------------------------------------------------------------
+
+  /** Somewhere for the rare one at `at`, if the river there suits it (null: try further down). */
+  private spawnRare(kind: Rare, at: number, night: number): Actor | null {
+    const q = this.course.at(at);
+    switch (kind) {
+      case 'beaver': return q.speed < 5 && q.rough < 0.35 && q.gorge < 0.4 ? this.beaver(at) : null;
+      case 'otter': return q.rough < 0.5 ? this.otter(at) : null;
+      case 'moose': return q.speed < 5.5 && q.rough < 0.4 && q.gorge < 0.35 ? this.moose(at) : null;
+      case 'bear': return q.gorge < 0.6 ? this.bear(at) : null;
+      case 'wolves': return q.gorge < 0.45 ? this.wolves(at, night) : null;
+      case 'lynx': return this.lynx(at);
+      case 'yeti': return q.gorge < 0.7 ? this.yeti(at) : null;
+    }
+  }
+
+  /** Once it's in sight of the kayak (on screen: the view reaches ~20 m ahead), say so, the once. */
+  private spotter(kind: Rare, range = 17) {
+    let seen = false;
+    return (at: THREE.Vector3, kayak: THREE.Vector3) => {
+      if (seen || at.distanceTo(kayak) > range) return;
+      seen = true;
+      this.events.spotted?.(kind);
+    };
+  }
+
+  /** A spot on the bank `e` metres back from the water at s, if it isn't another bend of the river. */
+  private bank(s: number, side: number, e: number) {
+    const q = this.course.at(s);
+    const u = side * (q.width / 2 + e);
+    const x = q.x + Math.cos(q.a) * u;
+    const z = q.z + Math.sin(q.a) * u;
+    const near = this.course.nearest(x, z);
+    if (e > 0 && near.d - near.sample.width / 2 < e * 0.6) return null;
+    return { q, x, z, y: this.ground(x, z) };
+  }
+
+  /**
+   * Somewhere on the bank near `at`, between `e0` and `e1` metres back from the water, that the
+   * camera can see: not under a tree, behind a boulder or round the side of a crag. (The land's
+   * scenery gets in the way of anything much past the water's edge.)
+   */
+  private open(at: number, e0: number, e1: number, height: number) {
+    const first = Math.random() < 0.5 ? -1 : 1;
+    const up = V();
+    for (const ds of [0, 3, -3, 6])
+      for (const side of [first, -first])
+        for (const e of [e0, (e0 + e1) / 2, e1]) {
+          const b = this.bank(at + ds, side, e);
+          if (!b) continue;
+          if (this.hidden(up.set(b.x, b.y + 0.3, b.z)) || this.hidden(up.set(b.x, b.y + height, b.z))) continue;
+          return { ...b, side, s: at + ds };
+        }
+    return null;
+  }
+
+  /** How far down the river the kayak is. */
+  private kayakS(kayak: THREE.Vector3) {
+    return this.course.nearest(kayak.x, kayak.z).sample.s;
+  }
+
+  /** A head turned (about its own neck) towards something, as far as a neck goes. */
+  private look(head: THREE.Object3D | undefined, root: THREE.Object3D, at: THREE.Vector3, reach = 1, dt = 1) {
+    if (!head) return;
+    let d = face(at.x - root.position.x, at.z - root.position.z) - root.rotation.y;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const want = Math.max(-reach, Math.min(reach, d));
+    head.rotation.y += (want - head.rotation.y) * Math.min(1, dt * 3);
+  }
+
+  /**
+   * A beaver swimming across with a leafy stick in its teeth, from its lodge on the bank. Come too
+   * close and it smacks its tail on the water, loud as a shot, and it's gone.
+   */
+  private beaver(at: number): Actor {
+    const q = this.course.at(at);
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const half = q.width / 2;
+    const rx = Math.cos(q.a);
+    const rz = Math.sin(q.a);
+    const root = new THREE.Group();
+    const home = this.assets.clone('lodge');
+    home.position.set(q.x + rx * side * (half + 0.6), q.y, q.z + rz * side * (half + 0.6));
+    home.rotation.y = rand(0, Math.PI * 2);
+    const b = this.assets.clone('beaver');
+    b.scale.setScalar(1.6);
+    b.position.set(q.x + rx * side * (half - 1.8), q.y, q.z + rz * side * (half - 1.8));
+    // across, and a little upstream against the current
+    const heading = V(-rx * side, 0, -rz * side).add(V(-Math.sin(q.a) * 0.35, 0, Math.cos(q.a) * 0.35)).normalize();
+    b.rotation.y = face(heading.x, heading.z);
+    root.add(home, b);
+    this.group.add(root);
+    const tail = b.getObjectByName('beaver_tail');
+    const spot = this.spotter('beaver');
+    let swum = 0;
+    let slap = -1;
+    return {
+      s: at,
+      root,
+      update: (dt, kayak) => {
+        spot(b.position, kayak);
+        const t = this.clock;
+        if (slap < 0) {
+          // (stopping short of the far bank, to sit in the shallows and eat)
+          if (swum < half * 1.6) {
+            b.position.addScaledVector(heading, dt * 0.6);
+            swum += dt * 0.6;
+            // a V of ripples spreading out behind
+            if (Math.random() < dt * 5) this.froth(b.position.clone().addScaledVector(heading, -0.5), rand(1, 2));
+          }
+          b.position.y = q.y + Math.sin(t * 2) * 0.02;
+          if (tail) tail.rotation.z = Math.sin(t * 3) * 0.12;
+          if (b.position.distanceTo(kayak) < 9) slap = 0;
+          return true;
+        }
+        slap += dt;
+        // the tail up, and down, smack; then under
+        if (tail) tail.rotation.z = slap < 0.3 ? -1.4 * (slap / 0.3) : Math.min(0.2, -1.4 + (slap - 0.3) * 20);
+        if (slap >= 0.37 && slap - dt < 0.37) {
+          const at2 = b.position.clone().addScaledVector(heading, -0.8);
+          this.ring(at2, 24, 0.9);
+          this.spray(at2, 16, 1.1);
+          this.events.slap?.();
+        }
+        if (slap > 0.4) {
+          b.position.y -= dt * 0.9;
+          b.rotation.z = Math.max(-0.7, b.rotation.z - dt * 2); // nose down
+        }
+        b.visible = slap < 1.3;
+        return true;
+      },
+    };
+  }
+
+  /**
+   * An otter, fooling about in the river: swimming, floating on its back, ducking under and
+   * coming up somewhere else. Come close and it's under; it comes up behind, head up, to look.
+   */
+  private otter(at: number): Actor {
+    const q0 = this.course.at(at);
+    const o = this.assets.clone('otter');
+    o.scale.setScalar(1.8);
+    o.rotation.order = 'YXZ'; // so it rolls over about its own length, whichever way it's heading
+    this.group.add(o);
+    const u = rand(-0.5, 0.5) * q0.width / 2;
+    o.position.set(q0.x + Math.cos(q0.a) * u, q0.y, q0.z + Math.sin(q0.a) * u);
+    let heading = face(-Math.sin(q0.a), Math.cos(q0.a)) + rand(-1, 1);
+    let mode: 'swim' | 'back' | 'under' | 'watch' = 'swim';
+    let timer = rand(1.5, 3);
+    let wary = false;
+    let gone = 0;
+    const spot = this.spotter('otter');
+    const water = () => this.course.nearest(o.position.x, o.position.z);
+    const under = () => {
+      mode = 'under';
+      this.spray(o.position, 6, 0.5);
+      o.visible = false;
+    };
+    return {
+      s: at,
+      root: o,
+      update: (dt, kayak) => {
+        spot(o.position, kayak);
+        const t = this.clock;
+        timer -= dt;
+        const near = water();
+        const y = near.sample.y;
+        if (!wary && mode !== 'under' && o.position.distanceTo(kayak) < 8) {
+          wary = true;
+          under();
+          timer = rand(2, 3);
+        }
+        // turning back from the bank
+        if (near.d > near.sample.width / 2 - 1.2) {
+          const c = near.sample;
+          heading += (face(c.x - o.position.x, c.z - o.position.z) - heading) * Math.min(1, dt * 2);
+        }
+        switch (mode) {
+          case 'swim':
+            heading += Math.sin(t * 0.7) * dt * 0.6;
+            o.position.add(V(Math.cos(heading) * dt * 0.9, 0, -Math.sin(heading) * dt * 0.9));
+            o.position.y = y + Math.sin(t * 3) * 0.02;
+            o.rotation.x *= 0.9;
+            o.rotation.z *= 0.9;
+            if (timer < 0) {
+              const r = Math.random();
+              if (r < 0.45) mode = 'back';
+              else if (r < 0.8) under();
+              else heading += rand(-2, 2);
+              timer = rand(2, 4);
+            }
+            break;
+          case 'back': // over on its back, idling on the current
+            o.rotation.x += (Math.PI - o.rotation.x) * Math.min(1, dt * 3);
+            o.position.y = y + 0.06;
+            if (timer < 0) {
+              mode = 'swim';
+              timer = rand(2, 4);
+            }
+            break;
+          case 'under':
+            if (timer < 0) {
+              // up again a few metres off, or, if you've gone by, behind you to have a look
+              const off = wary ? 6 : rand(2, 4);
+              const a = wary ? Math.atan2(o.position.z - kayak.z, o.position.x - kayak.x) : rand(0, Math.PI * 2);
+              o.position.add(V(Math.cos(a) * off, 0, Math.sin(a) * off));
+              const n = water();
+              if (n.d > n.sample.width / 2 - 1) o.position.set(n.sample.x, n.sample.y, n.sample.z);
+              o.visible = true;
+              o.rotation.x = 0;
+              this.spray(o.position, 5, 0.4);
+              mode = wary ? 'watch' : 'swim';
+              timer = rand(2, 4);
+            }
+            break;
+          case 'watch': // head up out of the water, turned to watch you go
+            heading += (face(kayak.x - o.position.x, kayak.z - o.position.z) - heading) * Math.min(1, dt * 3);
+            o.rotation.z += (0.45 - o.rotation.z) * Math.min(1, dt * 4);
+            o.position.y = y + 0.12 + Math.sin(t * 2.5) * 0.02;
+            gone += dt;
+            if (gone > 6 && Math.random() < dt) {
+              under();
+              timer = Infinity;
+            }
+            break;
+        }
+        o.rotation.y = heading;
+        return true;
+      },
+    };
+  }
+
+  /**
+   * A bull moose, knee-deep in the shallows with his head in the water for weed, coming up
+   * dripping. He looks at you as you go by, and carries on; then wades off into the trees.
+   */
+  private moose(at: number): Actor | null {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const q = this.course.at(at);
+    const u = side * (q.width / 2 - 1.6);
+    const m = this.assets.clone('moose');
+    m.position.set(q.x + Math.cos(q.a) * u, q.y - 0.55, q.z + Math.sin(q.a) * u);
+    // side on to you, more or less, a little turned to the bank
+    const across = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
+    m.rotation.y = face(-Math.sin(q.a) + across.x * 0.8, Math.cos(q.a) + across.z * 0.8) + Math.PI * (Math.random() < 0.5 ? 0 : 1);
+    this.group.add(m);
+    const neck = m.getObjectByName('moose_neck');
+    const legs = ['fl', 'fr', 'bl', 'br'].map((k) => m.getObjectByName(`moose_leg_${k}`));
+    const spot = this.spotter('moose');
+    let feeding = rand(1, 3);
+    let noticed = false;
+    let off = -1;
+    const nose = V();
+    return {
+      s: at,
+      root: m,
+      update: (dt, kayak) => {
+        spot(m.position, kayak);
+        const t = this.clock;
+        const d = m.position.distanceTo(kayak);
+        if (!noticed && d < 16) {
+          noticed = true;
+          this.events.huff?.();
+        }
+        if (off < 0 && noticed && this.kayakS(kayak) > at + 10) off = 0;
+        if (neck) {
+          feeding -= dt;
+          if (feeding < -3.5) feeding = rand(3, 5);
+          const down = feeding > 0 && !noticed && off < 0;
+          neck.rotation.z += ((down ? -1.15 : 0.05) - neck.rotation.z) * Math.min(1, dt * 1.5);
+          if (noticed && off < 0) this.look(neck, m, kayak, 0.8, dt);
+          // up out of the water, dripping weed
+          if (!down && neck.rotation.z < -0.4 && Math.random() < dt * 30) {
+            neck.localToWorld(nose.set(0.85, 0, 0));
+            this.drip(nose);
+          }
+        }
+        if (off < 0) return true;
+        // off to the trees, unhurried
+        off += dt;
+        if (neck) neck.rotation.y *= 0.95;
+        m.rotation.y += (face(-across.x, -across.z) - m.rotation.y) * Math.min(1, dt * 0.8);
+        m.position.add(V(Math.cos(m.rotation.y) * dt * 1.2, 0, -Math.sin(m.rotation.y) * dt * 1.2));
+        m.position.y = Math.max(q.y - 0.55, Math.min(this.ground(m.position.x, m.position.z), m.position.y + dt * 0.4));
+        const g = Math.sin(off * 5);
+        legs.forEach((l, i) => l && (l.rotation.z = (i === 0 || i === 3 ? 1 : -1) * g * 0.35));
+        return off < 14;
+      },
+    };
+  }
+
+  /**
+   * A brown bear on a rock at the edge of the rapids, fishing: the salmon leap and now and then
+   * one doesn't get past. It rears up to look at you, huffs, and goes back to its fishing.
+   */
+  private bear(at: number): Actor | null {
+    const spot0 = this.open(at, 0.2, 0.8, 1.6);
+    if (!spot0) return null;
+    const { q, side } = spot0;
+    at = spot0.s;
+    const root = new THREE.Group();
+    const b = this.assets.clone('bear');
+    b.scale.setScalar(1.2);
+    b.position.set(spot0.x, Math.max(spot0.y, q.y - 0.3), spot0.z);
+    const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
+    const up = V(-Math.sin(q.a), 0, Math.cos(q.a));
+    b.rotation.y = face(toWater.x + up.x * 0.5, toWater.z + up.z * 0.5);
+    const fish = this.assets.clone('salmon');
+    fish.scale.setScalar(1.5);
+    fish.visible = false;
+    root.add(b, fish);
+    this.group.add(root);
+    const body = b.getObjectByName('bear_body');
+    const head = b.getObjectByName('bear_head');
+    const legs = ['fl', 'fr', 'bl', 'br'].map((k) => b.getObjectByName(`bear_leg_${k}`));
+    const spot = this.spotter('bear');
+    let leapIn = rand(1, 3);
+    let leap = -1;
+    let caught = -1;
+    let rear = -1;
+    let off = -1;
+    const from = V();
+    const to = V();
+    return {
+      s: at,
+      root,
+      update: (dt, kayak) => {
+        spot(b.position, kayak);
+        const d = b.position.distanceTo(kayak);
+        // up on its hind legs, to see what you are
+        if (rear < 0 && d < 15) {
+          rear = 0;
+          this.events.huff?.();
+        }
+        let lift = 0;
+        if (rear >= 0) {
+          rear += dt;
+          lift = rear < 0.6 ? rear / 0.6 : rear < 3.4 ? 1 : Math.max(0, 1 - (rear - 3.4) / 0.6);
+          if (lift > 0.9) this.look(head, b, kayak, 0.7, dt);
+        }
+        // the salmon going up past it: now and then, one is supper
+        if (leap < 0 && caught < 0 && rear < 0 && (leapIn -= dt) < 0) {
+          leap = 0;
+          leapIn = rand(2.5, 5);
+          const mouth = b.position.clone().addScaledVector(toWater, 1.7);
+          from.copy(mouth).addScaledVector(up, -1.6).setY(q.y);
+          to.copy(mouth).addScaledVector(up, 1.6).setY(q.y);
+          fish.visible = true;
+          this.spray(from, 6, 0.6);
+        }
+        let lunge = 0;
+        if (leap >= 0) {
+          leap += dt;
+          const k = leap / 0.8;
+          fish.position.lerpVectors(from, to, k).setY(q.y + Math.sin(Math.PI * Math.min(1, k)) * 1.3);
+          fish.rotation.set(0, face(up.x, up.z), Math.cos(Math.PI * k) * 0.9);
+          lunge = Math.sin(Math.PI * Math.min(1, k / 0.6)) * (k < 0.6 ? 1 : 0);
+          if (k >= 0.5 && k - dt / 0.8 < 0.5 && head && Math.random() < 0.5) {
+            // got it
+            head.attach(fish);
+            fish.position.set(0.42, -0.08, 0);
+            fish.rotation.set(Math.PI / 2, 0, 0);
+            leap = -1;
+            caught = 0;
+            this.spray(to.clone().lerp(from, 0.5), 8, 0.6);
+          } else if (k >= 1) {
+            this.spray(to, 6, 0.5);
+            fish.visible = false;
+            leap = -1;
+          }
+        }
+        if (caught >= 0 && (caught += dt) > 3) {
+          root.attach(fish);
+          fish.visible = false;
+          caught = -1;
+        }
+        if (body) body.rotation.z = lift * 1.05 - lunge * 0.2;
+        if (head && lift < 0.5) head.rotation.z = -0.25 - lunge * 0.3;
+        // once you're by, it's had enough of the company
+        if (off < 0 && rear > 4 && this.kayakS(kayak) > at + 6) off = 0;
+        if (off < 0) return true;
+        off += dt;
+        b.rotation.y += (face(-toWater.x, -toWater.z) - b.rotation.y) * Math.min(1, dt * 1.5);
+        if (off > 1) b.position.add(V(Math.cos(b.rotation.y) * dt * 2, 0, -Math.sin(b.rotation.y) * dt * 2));
+        b.position.y = Math.max(q.y - 0.3, this.ground(b.position.x, b.position.z));
+        const g = Math.sin(off * 8);
+        legs.forEach((l, i) => l && (l.rotation.z = (i === 0 || i === 3 ? 1 : -1) * g * 0.5));
+        return off < 10;
+      },
+    };
+  }
+
+  /**
+   * A wolf pack on the bank, watching the river; one of them lifts its head and howls. They lope
+   * along beside you for a while, and then they're off into the trees.
+   */
+  private wolves(at: number, night: number): Actor | null {
+    const spot0 = this.open(at, 1, 2.2, 1);
+    if (!spot0) return null;
+    const side = spot0.side;
+    at = spot0.s;
+    const root = new THREE.Group();
+    this.group.add(root);
+    const pack = Array.from({ length: 3 + Math.floor(Math.random() * 2) }, (_, i) => {
+      const w = this.assets.clone('wolf');
+      w.scale.setScalar(1.25);
+      root.add(w);
+      return {
+        w,
+        e: 1 + (i % 2) * 1.2 + rand(0, 0.6),
+        ds: (i - 1.5) * 2.2 + rand(-0.5, 0.5),
+        head: w.getObjectByName('wolf_head'),
+        tail: w.getObjectByName('wolf_tail'),
+        legs: ['fl', 'fr', 'bl', 'br'].map((k) => w.getObjectByName(`wolf_leg_${k}`)),
+        seed: Math.random() * 10,
+        out: 0,
+      };
+    });
+    let along = at;
+    let mode: 'watch' | 'run' | 'away' = 'watch';
+    let t = 0;
+    let runFor = rand(7, 11);
+    let howl = night > 0.3 || Math.random() < 0.6 ? 0.4 : -1;
+    const spot = this.spotter('wolves');
+    const place = (f: (typeof pack)[number]) => {
+      const q = this.course.at(along + f.ds);
+      let e = f.e + f.out;
+      let x = 0;
+      let z = 0;
+      // (further back from the water where another bend of the river comes close)
+      for (let n = 0; n < 6; n++, e += 1.5) {
+        const u = side * (q.width / 2 + e);
+        x = q.x + Math.cos(q.a) * u;
+        z = q.z + Math.sin(q.a) * u;
+        const near = this.course.nearest(x, z);
+        if (near.d - near.sample.width / 2 > e * 0.6) break;
+      }
+      f.w.position.set(x, this.ground(x, z), z);
+      return q;
+    };
+    for (const f of pack) {
+      const q = place(f);
+      f.w.rotation.y = face(-Math.cos(q.a) * side, -Math.sin(q.a) * side) + rand(-0.6, 0.6);
+    }
+    return {
+      s: at,
+      root,
+      update: (dt, kayak) => {
+        t += dt;
+        const lead = pack[0].w;
+        spot(lead.position, kayak);
+        if (mode === 'watch') {
+          if (howl >= 0 && (howl -= dt) < 0) {
+            howl = -2; // howling: the lead's head goes back
+            this.events.howl?.();
+          }
+          pack.forEach((f, i) => {
+            if (i === 0 && howl < -1 && howl > -5.5) {
+              howl -= dt;
+              if (f.head) f.head.rotation.z += (1.0 - f.head.rotation.z) * Math.min(1, dt * 4);
+            } else {
+              if (f.head) f.head.rotation.z *= 0.9;
+              this.look(f.head, f.w, kayak, 0.9, dt);
+            }
+            if (f.tail) f.tail.rotation.y = Math.sin(t * 2 + f.seed) * 0.15;
+          });
+          if (lead.position.distanceTo(kayak) < 15) mode = 'run';
+          return true;
+        }
+        if (mode === 'run') {
+          runFor -= dt;
+          const target = this.kayakS(kayak) + 3;
+          along += Math.max(0, Math.min(9, (target - along) * 2 + 3)) * dt;
+          if (runFor < 0) mode = 'away';
+        } else {
+          for (const f of pack) f.out += dt * 5;
+          along += dt * 2;
+        }
+        for (const f of pack) {
+          const q = place(f);
+          const run = Math.sin(t * 13 + f.seed);
+          f.legs.forEach((l, i) => l && (l.rotation.z = (i < 2 ? 1 : -1) * run * 0.7));
+          f.w.position.y += Math.abs(run) * 0.06;
+          const dx = Math.sin(q.a) + (mode === 'away' ? Math.cos(q.a) * side * 2 : 0);
+          const dz = -Math.cos(q.a) + (mode === 'away' ? Math.sin(q.a) * side * 2 : 0);
+          f.w.rotation.y += (face(dx, dz) - f.w.rotation.y) * Math.min(1, dt * 4);
+          if (f.head) {
+            f.head.rotation.z *= 0.9;
+            f.head.rotation.y *= 0.9;
+          }
+          if (f.tail) f.tail.rotation.y = Math.sin(t * 6 + f.seed) * 0.2;
+        }
+        return pack[0].out < 30;
+      },
+    };
+  }
+
+  /**
+   * A lynx on the bank, dead still, watching you come with its head turning to follow; once
+   * you're past, it's away into the trees as if it had never been.
+   */
+  private lynx(at: number): Actor | null {
+    const spot0 = this.open(at, 0.5, 2, 0.9);
+    if (!spot0) return null;
+    const { q, side } = spot0;
+    at = spot0.s;
+    const l = this.assets.clone('lynx');
+    l.scale.setScalar(1.5);
+    l.position.set(spot0.x, spot0.y, spot0.z);
+    const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
+    l.rotation.y = face(toWater.x - Math.sin(q.a) * 0.5, toWater.z + Math.cos(q.a) * 0.5);
+    this.group.add(l);
+    const head = l.getObjectByName('lynx_head');
+    const legs = ['fl', 'fr', 'bl', 'br'].map((k) => l.getObjectByName(`lynx_leg_${k}`));
+    const spot = this.spotter('lynx');
+    let off = -1;
+    return {
+      s: at,
+      root: l,
+      update: (dt, kayak) => {
+        spot(l.position, kayak);
+        if (off < 0) {
+          this.look(head, l, kayak, 1.3, dt);
+          if (l.position.distanceTo(kayak) < 7 || this.kayakS(kayak) > at + 3) off = 0;
+          return true;
+        }
+        off += dt;
+        if (head) head.rotation.y *= 0.9;
+        l.rotation.y += (face(-toWater.x, -toWater.z) - l.rotation.y) * Math.min(1, dt * 5);
+        if (off > 0.3) l.position.add(V(Math.cos(l.rotation.y) * dt * 2.2, 0, -Math.sin(l.rotation.y) * dt * 2.2));
+        l.position.y = this.ground(l.position.x, l.position.z);
+        const g = Math.sin(off * 10);
+        legs.forEach((k, i) => k && (k.rotation.z = (i === 0 || i === 3 ? 1 : -1) * g * 0.5));
+        return off < 6;
+      },
+    };
+  }
+
+  /**
+   * The yeti, if it is one: far back at the edge of the trees, standing there looking at you. By
+   * the time you've looked twice it's turned and gone into the snow, and nobody will believe you.
+   */
+  private yeti(at: number): Actor | null {
+    // at the edge of the trees, where you can just see it, and then gone into them
+    const spot0 = this.open(at, 2, 4.5, 2.6);
+    if (!spot0) return null;
+    const { q, side } = spot0;
+    at = spot0.s;
+    const y = this.assets.clone('yeti');
+    y.scale.setScalar(1.25); // (seen from up here, just the top of a head and a pair of shoulders otherwise)
+    y.position.set(spot0.x, spot0.y, spot0.z);
+    const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
+    y.rotation.y = face(toWater.x, toWater.z);
+    this.group.add(y);
+    const head = y.getObjectByName('yeti_head');
+    const arms = [y.getObjectByName('yeti_arm_l'), y.getObjectByName('yeti_arm_r')];
+    const legs = [y.getObjectByName('yeti_leg_l'), y.getObjectByName('yeti_leg_r')];
+    const spot = this.spotter('yeti');
+    let off = -1;
+    let t = 0;
+    return {
+      s: at,
+      root: y,
+      update: (dt, kayak) => {
+        t += dt;
+        spot(y.position, kayak);
+        if (off < 0) {
+          this.look(head, y, kayak, 0.8, dt);
+          arms.forEach((a, i) => a && (a.rotation.z = Math.sin(t * 1.2 + i) * 0.05));
+          if (y.position.distanceTo(kayak) < 13) off = 0;
+          return true;
+        }
+        off += dt;
+        if (head) head.rotation.y *= 0.95;
+        y.rotation.y += (face(-toWater.x + Math.sin(q.a) * 0.4, -toWater.z - Math.cos(q.a) * 0.4) - y.rotation.y) * Math.min(1, dt * 2);
+        if (off > 0.6) y.position.add(V(Math.cos(y.rotation.y) * dt * 2.6, 0, -Math.sin(y.rotation.y) * dt * 2.6));
+        const g = Math.sin(off * 4.5);
+        y.position.y = this.ground(y.position.x, y.position.z) + Math.abs(g) * 0.08;
+        legs.forEach((l, i) => l && (l.rotation.z = (i ? 1 : -1) * g * 0.5));
+        arms.forEach((a, i) => a && (a.rotation.z = (i ? -1 : 1) * g * 0.45));
+        // (and a puff of snow off its feet, the last you'll see of it)
+        if (Math.random() < dt * 6) this.specks.emit(y.position.clone().add(V(rand(-0.4, 0.4), 0.1, rand(-0.4, 0.4))), V(rand(-0.3, 0.3), rand(0.4, 1), rand(-0.3, 0.3)), WHITE, rand(0.8, 1.5), 2);
+        return off < 9;
       },
     };
   }

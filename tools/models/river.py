@@ -733,6 +733,537 @@ def gravel():
     m.build(root)
 
 
+# --- the gentle rivers: somebody lives here ---------------------------------------------------
+
+THATCH = ["#c9a55a", "#b8924a", "#d8b86a"]
+SHUTTER = "#4f7fae"
+DOOR = "#7a3a2c"
+GERANIUM = ["#d8402e", "#e87aa8"]
+CHECK = ["#c8403a", "#f2ece2"]
+WICKER = ["#b88a4a", "#9a6e38"]
+HAY = ["#d9b85a", "#c9a44a", "#e6c96e"]
+ROWBOAT = ["#3f7fae", "#f2ece2"]
+
+
+def cottage():
+    """A whitewashed cottage with a thatched roof, blue shutters and geraniums in the window
+    boxes, a little picket garden out front (-y, towards the river) and smoke from the chimney
+    (the `chimney` marker). Its windows glow at night. About 5 m by 4."""
+    root = _root("cottage")
+    m = Model("cottage", seed=470)
+    m.box((4.6, 3.6, 2.4), (0, 0, 1.2), P.WHITEWASH)
+    m.box((4.7, 3.7, 0.3), (0, 0, 0.15), P.STONE)                                        # the footing
+    m.gable((5.4, 4.2, 2.1), (0, 0, 2.4), THATCH[0], overhang=0.35, thick=0.45)
+    m.box((5.5, 0.5, 0.3), (0, 0, 4.35), THATCH[1])                                      # the ridge
+    for x in (-2.3, 2.3):                                                                # the gable ends
+        m.prism([(-1.8, 0), (1.8, 0), (0, 2.0)], 0.2, (x, 0, 2.4), P.WHITEWASH, rot=(0, 0, math.pi / 2))
+    m.box((0.8, 0.12, 1.5), (0, -1.81, 0.75), DOOR)
+    m.box((0.95, 0.14, 0.12), (0, -1.82, 1.55), P.WOOD_DARK)                            # the lintel
+    for x in (-1.45, 1.45):
+        m.box((0.8, 0.1, 0.7), (x, -1.8, 1.45), P.WARM_LIGHT, glow=True)                 # the windows
+        m.box((0.1, 0.12, 0.8), (x, -1.83, 1.45), P.WHITE)
+        for sx in (-0.52, 0.52):
+            m.box((0.24, 0.1, 0.8), (x + sx, -1.84, 1.45), SHUTTER)
+        m.box((0.95, 0.3, 0.2), (x, -1.9, 1.02), P.WOOD)                                 # the window box
+        for k in range(4):
+            m.ball(0.1, (x - 0.33 + k * 0.22, -1.92, 1.2), GERANIUM[k % 2], subdiv=1)
+    m.box((0.6, 0.6, 1.6), (1.4, 0.6, 4.0), P.STONE)                                     # the chimney
+    m.box((0.7, 0.7, 0.15), (1.4, 0.6, 4.8), P.STONE_DARK)
+    m.box((1.2, 0.8, 0.1), (0, -2.3, 0.05), P.GRAVEL[0])                                 # the step
+    # the garden: a picket fence round a patch in front, with a gate on the path
+    for x in [i * 0.45 - 2.7 for i in range(13)]:
+        if abs(x) < 0.5:
+            continue
+        m.box((0.08, 0.05, 0.7), (x, -3.8, 0.35), P.WHITE, taper=0.5)
+    for x0, x1 in ((-2.7, -0.5), (0.5, 2.7)):
+        m.box((x1 - x0, 0.04, 0.07), ((x0 + x1) / 2, -3.78, 0.45), P.WHITE)
+    for x in (-2.7, 2.7):
+        for y in [-3.8 + i * 0.45 for i in range(5)]:
+            m.box((0.05, 0.08, 0.7), (x, y, 0.35), P.WHITE, taper=0.5)
+        m.box((0.04, 1.9, 0.07), (x, -2.85, 0.45), P.WHITE)
+    for k, (x, y) in enumerate(((-1.8, -3.0), (-1.2, -3.3), (1.3, -3.1), (1.9, -2.7), (-2.1, -2.5))):
+        m.ball(0.3, (x, y, 0.25), P.LEAF[2 + k % 2], subdiv=1, scale=(1, 1, 0.8))
+        m.ball(0.09, (x + 0.1, y - 0.15, 0.48), (GERANIUM + [BUTTERCUP])[k % 3], subdiv=1)
+    m.build(root)
+    group("chimney", (1.4, 0.6, 5.0), parent=root, chimney=1)
+    light(root, (0, -2.4, 1.5), P.WARM_LIGHT, radius=7, intensity=0.9)
+
+
+def jetty():
+    """A little wooden jetty running out from the bank (y = 0) over the water (-y, 4 m), with a
+    rowing boat tied up alongside it. z = 0 is the waterline."""
+    root = _root("jetty", length=4.0)
+    m = Model("jetty", seed=480)
+    rng = random.Random(480)
+    for k in range(9):
+        y = 0.4 - k * 0.5
+        m.box((1.4, 0.44, 0.08), (rng.uniform(-0.03, 0.03), y, 0.5), (P.PLANK, P.WOOD_LIGHT)[k % 2],
+              rot=(0, 0, rng.uniform(-0.03, 0.03)))
+    for y in (-0.1, -1.9, -3.6):
+        for x in (-0.62, 0.62):
+            m.cyl(0.08, 1.4, (x, y, -0.8), P.WOOD_DARK, segs=6)
+    m.box((0.08, 0.08, 0.6), (-0.62, -3.6, 0.8), P.WOOD_DARK)                            # a mooring post
+    # the boat: a clinker-blue hull, pointed at the bow (-y), a white gunwale and the wooden
+    # inside, a thwart, the oars shipped. Every part at its own height, so nothing flickers
+    b = Model("rowboat", seed=481)
+    top = [(-0.5, 1.3), (-0.5, -0.9), (0.0, -1.6), (0.5, -0.9), (0.5, 1.3)]
+    keel = [(-0.34, 1.15), (-0.34, -0.7), (0.0, -1.2), (0.34, -0.7), (0.34, 1.15)]
+    inside = [(-0.4, 1.2), (-0.4, -0.85), (0.0, -1.45), (0.4, -0.85), (0.4, 1.2)]
+    b.slab(keel, -0.05, 0.3, ROWBOAT[0], top=top)
+    b.slab(top, 0.3, 0.36, ROWBOAT[1])                                                   # the gunwale
+    b.slab(inside, 0.36, 0.38, P.WOOD_DARK)                                              # the inside
+    b.box((0.8, 0.18, 0.04), (0, 0.2, 0.42), P.WOOD_LIGHT)                               # the thwart
+    for x in (-0.22, 0.22):
+        b.box((0.06, 1.8, 0.04), (x, -0.1, 0.47), P.WOOD_LIGHT, rot=(0, 0, x * 0.3))
+    b.build(root, loc=(-1.3, -2.8, 0.0), rot_z=0.05)
+    m.plank_line((-0.62, -3.6, 1.0), (-1.3, -3.9, 0.35), 0.03, 0.03, SWING_ROPE)         # tied up
+    m.build(root)
+
+
+def picnic():
+    """A picnic on the grass: a checked blanket, a wicker basket, two mugs, a flask and an apple
+    or two. About 2 m square."""
+    root = _root("picnic")
+    m = Model("picnic", seed=490)
+    for i in range(6):
+        for j in range(6):
+            m.box((0.34, 0.34, 0.03), (-0.85 + i * 0.34, -0.85 + j * 0.34, 0.015), CHECK[(i + j) % 2])
+    m.box((0.6, 0.4, 0.34), (0.3, 0.35, 0.2), WICKER[0])
+    m.box((0.62, 0.42, 0.05), (0.3, 0.35, 0.39), WICKER[1])
+    m.plank_line((0.05, 0.35, 0.4), (0.3, 0.35, 0.62), 0.04, 0.04, WICKER[1])
+    m.plank_line((0.3, 0.35, 0.62), (0.55, 0.35, 0.4), 0.04, 0.04, WICKER[1])
+    for x, y in ((-0.4, -0.2), (-0.1, -0.45)):
+        m.cyl(0.07, 0.13, (x, y, 0.03), P.WHITE, segs=7)
+        m.cyl(0.055, 0.015, (x, y, 0.15), P.COFFEE, segs=7)                             # (just proud of the rim)
+    m.cyl(0.08, 0.34, (-0.55, 0.3, 0.03), "#3f7fae", segs=7)                             # the flask
+    m.cyl(0.085, 0.07, (-0.55, 0.3, 0.37), P.IRON, segs=7)
+    for x, y in ((0.15, -0.35), (0.28, -0.25)):
+        m.ball(0.07, (x, y, 0.1), P.RED, subdiv=1)
+    m.box((0.36, 0.24, 0.03), (-0.35, 0.55, 0.045), P.WHITE, rot=(0, 0, 0.3))            # a paperback, face down
+    m.box((0.4, 0.26, 0.02), (-0.35, 0.55, 0.07), "#2f5d8c", rot=(0, 0, 0.3))
+    m.build(root)
+
+
+def hay():
+    """Round hay bales, one and a pair, for the meadows."""
+    for i in range(2):
+        root = _root(f"hay_{i}")
+        m = Model(f"hay_{i}", seed=500 + i)
+        spots = [(0, 0, 0)] if i == 0 else [(-0.8, 0, 0), (0.75, 0.3, 0.4)]
+        for x, y, a in spots:
+            m.cyl(0.75, 1.1, (x, y + 0.55, 0.75), HAY[0], segs=10, rot=(math.pi / 2, 0, a))
+            for k, dy in enumerate((-0.2, 0.2)):
+                m.cyl(0.76, 0.06, (x, y + 0.55 + dy - 0.03, 0.75), HAY[1 + k], segs=10, rot=(math.pi / 2, 0, a))
+            m.cyl(0.55, 0.02, (x, y - 0.56, 0.75), HAY[2], segs=10, rot=(math.pi / 2, 0, a))
+        m.build(root)
+
+
+def fence():
+    """A run of post-and-rail fence along x, 6 m long, a bit crooked."""
+    root = _root("fence", length=6.0)
+    m = Model("fence", seed=510)
+    rng = random.Random(510)
+    for k in range(4):
+        x = -3 + k * 2
+        m.box((0.14, 0.14, 1.1), (x, 0, 0.5), P.WOOD, rot=(rng.uniform(-0.06, 0.06), rng.uniform(-0.06, 0.06), 0), taper=0.8)
+    for z in (0.45, 0.85):
+        for k in range(3):
+            m.plank_line((-3 + k * 2, 0.07, z + rng.uniform(-0.04, 0.04)), (-1 + k * 2, 0.07, z + rng.uniform(-0.04, 0.04)),
+                         0.1, 0.06, P.WOOD_LIGHT)
+    m.build(root)
+
+
+def swan():
+    """A mute swan gliding about: white, an S of a neck, an orange bill with a black knob."""
+    root = _root("swan")
+    b = Model("swan_body", seed=520)
+    b.ball(0.3, (0, 0, 0.12), P.WHITE, subdiv=2, scale=(1.5, 0.85, 0.6))
+    b.ball(0.2, (-0.2, 0, 0.26), "#fbf8f2", subdiv=1, scale=(1.4, 1.0, 0.6))           # the wings, folded high
+    b.box((0.2, 0.18, 0.05), (-0.5, 0, 0.24), P.WHITE, rot=(0, -0.4, 0), taper=0.5)    # the tail, cocked up
+    b.build(root)
+    n = Model("swan_neck", seed=521)
+    _pole(n, (0.3, 0, 0.2), (0.42, 0, 0.55), 0.07, P.WHITE, r_end=0.055)
+    _pole(n, (0.42, 0, 0.55), (0.36, 0, 0.82), 0.055, P.WHITE, r_end=0.05)
+    n.ball(0.08, (0.4, 0, 0.86), P.WHITE, subdiv=1, scale=(1.4, 0.8, 0.8))
+    n.box((0.14, 0.05, 0.04), (0.53, 0, 0.84), "#e8702a", rot=(0, 0.35, 0))
+    n.box((0.04, 0.06, 0.05), (0.46, 0, 0.88), P.INK)
+    n.box((0.02, 0.1, 0.02), (0.43, 0, 0.88), P.INK)                                     # the eyes
+    n.build(root)
+    cygnet = _root("cygnet")
+    c = Model("cygnet", seed=522)
+    c.ball(0.13, (0, 0, 0.06), "#a8a0a6", subdiv=1, scale=(1.4, 0.9, 0.7))
+    c.ball(0.07, (0.14, 0, 0.18), "#b3abb2", subdiv=1)
+    c.box((0.06, 0.03, 0.02), (0.22, 0, 0.17), P.INK)
+    c.build(cygnet)
+
+
+# --- the hard rivers: nobody lives here ------------------------------------------------------
+
+DEAD_BARK = ["#7a7270", "#8e8682", "#5e5654"]
+SPIRE = ["#3a3440", "#46404c", "#524b58", "#2e2934"]
+RAVEN = "#16141c"
+RAVEN_SHEEN = "#2a2a3e"
+
+
+def snags():
+    """Dead trees: silver-grey and bare, a broken top, a few crooked limbs. For the banks of the
+    rivers where the storms come through. About 6 m and 8 m."""
+    for i in range(2):
+        root = _root(f"snag_{i}", height=6.0 + i * 2)
+        m = Model(f"snag_{i}", seed=530 + i)
+        rng = random.Random(530 + i)
+        h = 5.0 + i * 2.2
+        lean = (rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3))
+        top = (lean[0], lean[1], h)
+        _pole(m, (0, 0, 0), top, 0.3 + i * 0.06, DEAD_BARK[i], r_end=0.1)
+        m.cyl(0.5, 0.5, (0, 0, 0), DEAD_BARK[2], segs=6, r_top=0.3)
+        for k in range(3):                                                               # the splintered top
+            a = k * 2.1 + rng.uniform(0, 1)
+            m.box((0.08, 0.06, 0.5), (top[0] + math.cos(a) * 0.06, top[1] + math.sin(a) * 0.06, h + 0.15), DEAD_BARK[1],
+                  rot=(rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), a), taper=0.2)
+        for k in range(4 + i * 2):
+            t = 0.35 + k * (0.5 / (4 + i * 2))
+            a = rng.uniform(0, math.tau)
+            z = h * t
+            base = (lean[0] * t, lean[1] * t, z)
+            l = rng.uniform(1.0, 2.0) * (1.2 - t)
+            tip = (base[0] + math.cos(a) * l, base[1] + math.sin(a) * l, z + rng.uniform(0.2, 0.9))
+            _pole(m, base, tip, 0.15, DEAD_BARK[k % 2], r_end=0.06, segs=5)
+            if rng.random() < 0.6:                                                       # a twig off the end
+                a2 = a + rng.uniform(-0.9, 0.9)
+                m.plank_line(tip, (tip[0] + math.cos(a2) * 0.7, tip[1] + math.sin(a2) * 0.7, tip[2] + 0.5), 0.08, 0.08, DEAD_BARK[1])
+        m.build(root)
+
+
+def spires():
+    """Jagged needles of dark rock, for the tops of the gorges and the banks of the hard rivers:
+    a cluster of tall splintered blades, 4-7 m high."""
+    for i in range(2):
+        root = _root(f"spire_{i}", height=5.0 + i * 2)
+        m = Model(f"spire_{i}", seed=540 + i)
+        rng = random.Random(540 + i)
+        for k in range(3 + i):
+            x, y = rng.uniform(-0.9, 0.9), rng.uniform(-0.9, 0.9)
+            h = rng.uniform(2.5, 4.5 + i * 2.2) * (1.0 if k == 0 else 0.7)
+            r = rng.uniform(0.7, 1.1)
+            m.cyl(r, h, (x, y, -0.3), SPIRE[k % 4], segs=rng.choice((4, 5)), r_top=r * rng.uniform(0.05, 0.2),
+                  rot=(rng.uniform(-0.12, 0.12), rng.uniform(-0.12, 0.12), rng.uniform(0, 1)))
+        for k in range(4):                                                               # scree at the foot
+            a = rng.uniform(0, math.tau)
+            m.ball(rng.uniform(0.3, 0.55), (math.cos(a) * 1.4, math.sin(a) * 1.4, 0.05), SPIRE[(k + 1) % 4],
+                   subdiv=1, jitter=0.1, scale=(1.2, 1, 0.6))
+        m.build(root)
+
+
+def wreck():
+    """What's left of somebody's boat, washed up on the rocks: the back half of a kayak, split
+    open, a paddle snapped and stuck in the gravel. About 2 m. Nobody's in it."""
+    root = _root("wreck")
+    m = Model("wreck", seed=550)
+    for k, (x, y, r) in enumerate(((0, 0, 0.6), (0.9, 0.5, 0.45), (-0.8, 0.4, 0.5))):
+        m.ball(r, (x, y, 0.05), ROCK_DRY[k], subdiv=1, jitter=0.1, scale=(1.2, 1, 0.6))
+    # the stern half, lying on its side against the rock
+    m.prism([(-0.3, 0.0), (0.3, 0.0), (0.26, 0.3), (-0.26, 0.3)], 1.3, (0.1, -0.7, 0.18), P.KAYAK, rot=(0.25, 0.7, 0.3))
+    m.prism([(-0.2, 0.0), (0.2, 0.0), (0, 0.24)], 0.4, (0.28, -1.35, 0.25), P.KAYAK, rot=(0.25, 0.7, 0.3))
+    for k in range(3):                                                                   # the torn edge
+        m.box((0.08, 0.04, 0.22), (-0.2 + k * 0.12, -0.08, 0.35 + k * 0.05), P.KAYAK, rot=(0.4, 0.8, k), taper=0.2)
+    m.box((0.5, 0.35, 0.05), (0.05, -0.4, 0.42), CREEK_TRIM, rot=(0.25, 0.7, 0.3))       # the cockpit rim
+    # the paddle, snapped, its blade stuck in the gravel
+    m.plank_line((-1.0, -0.6, 0.0), (-1.2, -0.7, 1.3), 0.05, 0.05, SHAFT)
+    m.box((0.2, 0.05, 0.5), (-1.0, -0.6, 0.05), BLADE, rot=(0, -0.15, 0))
+    m.box((0.07, 0.07, 0.12), (-1.21, -0.7, 1.32), "#c9c6c0", rot=(0.3, 0.2, 0), taper=0.3)  # the splintered end
+    m.build(root)
+
+
+def raven():
+    """A raven, black with a blue-black sheen, to wheel over the hard rivers. Wings out along ±y,
+    as the island's birds."""
+    root = _root("raven")
+    b = Model("raven_body", seed=560)
+    b.ball(0.14, (0, 0, 0), RAVEN, subdiv=1, scale=(1.7, 0.8, 0.75))
+    b.ball(0.09, (0.22, 0, 0.03), RAVEN, subdiv=1)
+    b.box((0.13, 0.04, 0.05), (0.33, 0, 0.02), RAVEN_SHEEN, taper=0.3)
+    b.prism([(-0.2, 0.0), (-0.45, 0.14), (-0.45, -0.14)], 0.03, (0, 0, 0), RAVEN, rot=(math.pi / 2, 0, 0))  # the wedge of a tail
+    body = b.build(root)
+    fauna._wings(body, "raven", (0.02, 0.05, 0.03), 0.55, 0.22, RAVEN, tip=RAVEN_SHEEN, tip_frac=0.35)
+
+
+# --- the rare ones: out on some runs, if you're lucky ------------------------------------------
+
+BEAVER = "#6e4a30"
+BEAVER_DARK = "#4e3222"
+BEAVER_TAIL = "#3a3036"
+BEAVER_TEETH = "#e8902a"   # (they really are orange)
+OTTER = "#5e4232"
+OTTER_PALE = "#cdb89c"
+MOOSE = "#4a3428"
+MOOSE_DARK = "#33241c"
+MOOSE_LEG = "#9a8c7c"
+MOOSE_ANTLER = "#cdb88e"
+BEAR = "#6e4830"
+BEAR_DARK = "#4e3222"
+BEAR_MUZZLE = "#a07a56"
+WOLF = "#948a7e"
+WOLF_PALE = "#ddd4c6"
+WOLF_DARK = "#4e4640"
+LYNX = "#b8905e"
+LYNX_PALE = "#eadcc2"
+LYNX_SPOT = "#6e4e34"
+SALMON = "#c9a8a0"
+SALMON_BACK = "#5a6a6e"
+SALMON_RED = "#c2503a"
+STICK = ["#8a6a48", "#9c7a52", "#6e5238"]
+LODGE_MUD = "#5a4636"
+
+
+def beaver():
+    """A beaver swimming, a leafy stick in its orange teeth: the waterline at z = 0, so only its
+    head and the hump of its back show. The flat tail pivots at the rump, for the slap."""
+    root = _root("beaver")
+    b = Model("beaver_body", seed=600)
+    b.ball(0.2, (0, 0, -0.04), BEAVER, subdiv=2, scale=(1.6, 0.9, 0.6))
+    b.ball(0.12, (0.28, 0, 0.05), BEAVER, subdiv=1, scale=(1.2, 0.95, 0.9))              # head
+    b.ball(0.07, (0.4, 0, 0.03), BEAVER_DARK, subdiv=1, scale=(1.1, 1.0, 0.8))           # muzzle
+    b.box((0.03, 0.04, 0.03), (0.47, 0, 0.05), P.INK)
+    b.box((0.02, 0.035, 0.04), (0.46, 0, -0.01), BEAVER_TEETH)
+    fauna._eyes(b, 0.34, 0.07, 0.1, 0.022)
+    for s in (1, -1):
+        b.ball(0.03, (0.24, s * 0.1, 0.15), BEAVER_DARK, subdiv=0)                        # little round ears
+    # the stick, crosswise in its teeth, a few leaves still on it
+    b.plank_line((0.48, 0.45, 0.0), (0.44, -0.45, 0.02), 0.035, 0.035, STICK[0])
+    for i, y in enumerate((0.32, 0.4, -0.36)):
+        b.ball(0.05, (0.45 + i * 0.02, y, 0.03), WILLOW[i % len(WILLOW)], subdiv=0, scale=(1.4, 1.0, 0.5))
+    body = b.build(root)
+    t = Model("beaver_tail", seed=601)
+    t.box((0.3, 0.18, 0.035), (-0.15, 0, 0), BEAVER_TAIL, taper=0.8)
+    t.box((0.26, 0.2, 0.03), (-0.17, 0, 0), BEAVER_TAIL)
+    t.build(body, loc=(-0.3, 0, -0.02))
+
+
+def lodge():
+    """A beaver lodge: a dome of gnawed sticks and mud at the water's edge."""
+    root = _root("lodge")
+    m = Model("lodge", seed=602)
+    rx, ry, rz = 1.7, 1.45, 1.0
+    m.ball(1.0, (0, 0, -0.2), LODGE_MUD, subdiv=2, scale=(rx - 0.1, ry - 0.1, rz - 0.1), jitter=0.08)
+    for i in range(70):
+        # sticks laid over the dome, along its surface, every which way
+        a = m.rng.uniform(0, math.tau)
+        up = m.rng.uniform(0.05, 1.3)
+        n = Vector((math.cos(a) * math.cos(up), math.sin(a) * math.cos(up), math.sin(up)))
+        p = Vector((n.x * rx, n.y * ry, n.z * rz - 0.2))
+        normal = Vector((n.x / rx, n.y / ry, n.z / rz)).normalized()
+        d = normal.cross(Vector((m.rng.uniform(-1, 1), m.rng.uniform(-1, 1), m.rng.uniform(-1, 1)))).normalized()
+        half = m.rng.uniform(0.35, 0.75)
+        m.plank_line(tuple(p - d * half), tuple(p + d * half), 0.07, 0.07, STICK[i % 3])
+    m.build(root)
+
+
+def otter():
+    """An otter swimming: long and low, whiskery, a thick tail. Pale underneath, so it shows when
+    it rolls over on its back."""
+    root = _root("otter")
+    b = Model("otter_body", seed=610)
+    b.ball(0.13, (0, 0, -0.02), OTTER, subdiv=2, scale=(2.4, 0.85, 0.65))
+    b.ball(0.11, (0.02, 0, -0.08), OTTER_PALE, subdiv=1, scale=(2.2, 0.75, 0.4))         # the pale belly
+    b.ball(0.085, (0.33, 0, 0.05), OTTER, subdiv=1, scale=(1.3, 1.0, 0.85))              # head
+    b.ball(0.05, (0.41, 0, 0.03), OTTER_PALE, subdiv=1, scale=(1.1, 1.1, 0.8))           # the pale chin and muzzle
+    b.box((0.025, 0.035, 0.025), (0.46, 0, 0.05), P.INK)
+    fauna._eyes(b, 0.38, 0.05, 0.09, 0.02)
+    for s in (1, -1):
+        b.ball(0.02, (0.28, s * 0.07, 0.11), OTTER, subdiv=0)
+        b.box((0.005, 0.12, 0.005), (0.43, s * 0.05, 0.035), OTTER_PALE, rot=(0, 0, s * 0.3))  # whiskers
+    body = b.build(root)
+    t = Model("otter_tail", seed=611)
+    t.cyl(0.05, 0.36, (0, 0, 0), OTTER, segs=5, r_top=0.012, rot=(0, -math.pi / 2, 0))
+    t.build(body, loc=(-0.28, 0, -0.02))
+
+
+def moose():
+    """A bull moose, standing in the shallows up to his knees: dark and huge, pale-legged, a long
+    overhanging nose, a bell under his chin and a pair of broad flat antlers. His neck pivots
+    at the shoulders, down into the water for weed and back up, dripping."""
+    root = _root("moose")
+    b = Model("moose_body", seed=620)
+    b.ball(0.5, (0, 0, 0), MOOSE, subdiv=2, scale=(1.6, 0.72, 0.8))
+    b.ball(0.38, (0.3, 0, 0.16), MOOSE_DARK, subdiv=1, scale=(1.1, 0.8, 0.95))           # the hump of his shoulders
+    b.ball(0.3, (-0.45, 0, 0.0), MOOSE, subdiv=1, scale=(1.0, 0.85, 0.95))
+    body = b.build(root, loc=(0, 0, 1.55))
+    fauna._legs(body, "moose", ((0.5, 0.2, -0.25), (0.5, -0.2, -0.25), (-0.55, 0.2, -0.22), (-0.55, -0.2, -0.22)),
+             1.35, 0.1, MOOSE_LEG, hoof=MOOSE_DARK)
+    t = Model("moose_tail")
+    t.box((0.06, 0.07, 0.12), (0, 0, -0.05), MOOSE_DARK)
+    t.build(body, loc=(-0.78, 0, 0.12))
+    n = Model("moose_neck", seed=621)
+    fauna._limb(n, (0, 0, 0), (0.35, 0, 0.25), 0.2, 0.15, MOOSE_DARK, segs=6)
+    n.ball(0.16, (0.42, 0, 0.26), MOOSE, subdiv=1, scale=(1.2, 0.8, 0.95))               # head
+    n.box((0.4, 0.2, 0.2), (0.66, 0, 0.14), MOOSE, rot=(0, 0.55, 0), taper=0.8)          # the long face
+    n.ball(0.12, (0.84, 0, 0.02), MOOSE_DARK, subdiv=1, scale=(1.2, 1.0, 1.0))           # the big soft nose
+    n.box((0.04, 0.12, 0.04), (0.95, 0, 0.0), P.INK)
+    n.box((0.08, 0.06, 0.22), (0.44, 0, 0.0), MOOSE_DARK, taper=0.4)                     # the bell
+    fauna._eyes(n, 0.56, 0.1, 0.28, 0.035)
+    for s in (1, -1):
+        n.box((0.07, 0.18, 0.1), (0.38, s * 0.14, 0.38), MOOSE, rot=(s * -0.6, 0, 0), taper=0.5)
+        # the antlers: out sideways from the crown, then a broad flat palm, tipped up, with points
+        n.plank_line((0.44, s * 0.08, 0.36), (0.42, s * 0.3, 0.42), 0.07, 0.07, MOOSE_ANTLER)
+        n.box((0.46, 0.42, 0.05), (0.4, s * 0.5, 0.5), MOOSE_ANTLER, rot=(s * 0.45, 0, 0))
+        for k in range(5):
+            base = Vector((0.22 + k * 0.08, s * 0.68, 0.62))
+            n.plank_line(tuple(base), tuple(base + Vector((0.02, s * 0.07, 0.14))), 0.04, 0.04, MOOSE_ANTLER)
+    n.build(body, loc=(0.62, 0, 0.18))
+
+
+def bear():
+    """A brown bear, come down to fish the rapids. The body pivots at the hips (the back legs are
+    the root's), so he can rear up on his hind legs to look at you."""
+    root = _root("bear")
+    b = Model("bear_body", seed=630)
+    b.ball(0.45, (0.45, 0, 0.05), BEAR, subdiv=2, scale=(1.5, 0.95, 0.9))
+    b.ball(0.32, (0.72, 0, 0.3), BEAR_DARK, subdiv=1, scale=(1.0, 0.95, 0.75))           # the shoulder hump
+    b.ball(0.36, (0.05, 0, 0.02), BEAR, subdiv=1, scale=(1.0, 1.0, 0.95))
+    b.ball(0.07, (-0.3, 0, 0.1), BEAR_DARK, subdiv=0)                                     # a stub of a tail
+    body = b.build(root, loc=(-0.3, 0, 0.72))
+    for tag, y in (("fl", 0.24), ("fr", -0.24)):
+        g = Model(f"bear_leg_{tag}")
+        fauna._limb(g, (0, 0, 0), (0, 0, -0.62), 0.13, 0.11, BEAR_DARK)
+        g.box((0.22, 0.16, 0.08), (0.05, 0, -0.64), BEAR_DARK)
+        g.build(body, loc=(0.85, y, -0.1))
+    for tag, y in (("bl", 0.24), ("br", -0.24)):
+        g = Model(f"bear_leg_{tag}")
+        fauna._limb(g, (0, 0, 0), (0, 0, -0.6), 0.16, 0.11, BEAR_DARK)
+        g.box((0.24, 0.16, 0.08), (0.06, 0, -0.62), BEAR_DARK)
+        g.build(root, loc=(-0.3, y, 0.66))
+    h = Model("bear_head", seed=631)
+    h.ball(0.24, (0.05, 0, 0), BEAR, subdiv=1, scale=(1.05, 1.0, 0.9))
+    h.box((0.24, 0.2, 0.16), (0.24, 0, -0.06), BEAR_MUZZLE, taper=0.8)
+    h.box((0.06, 0.1, 0.06), (0.37, 0, -0.02), P.INK)
+    fauna._eyes(h, 0.18, 0.1, 0.07, 0.03)
+    for s in (1, -1):
+        h.ball(0.07, (-0.02, s * 0.17, 0.2), BEAR_DARK, subdiv=0)                         # round ears
+    h.build(body, loc=(1.1, 0, 0.22))
+
+
+def wolf():
+    """A grey wolf, long-legged and lean, with a dark saddle. The head pivots at the neck, up to
+    howl; the tail hangs, and wags."""
+    root = _root("wolf")
+    b = Model("wolf_body", seed=640)
+    b.ball(0.24, (0, 0, 0), WOLF, subdiv=2, scale=(1.8, 0.72, 0.82))
+    b.ball(0.2, (0.02, 0, 0.07), WOLF_DARK, subdiv=1, scale=(1.6, 0.66, 0.6))            # the saddle
+    b.ball(0.16, (0.08, 0, -0.1), WOLF_PALE, subdiv=1, scale=(2.0, 0.6, 0.45))
+    b.ball(0.18, (0.3, 0, 0.02), WOLF, subdiv=1, scale=(1.0, 0.85, 1.05))                # the ruff
+    body = b.build(root, loc=(0, 0, 0.72))
+    fauna._legs(body, "wolf", ((0.3, 0.1, -0.12), (0.3, -0.1, -0.12), (-0.3, 0.1, -0.1), (-0.3, -0.1, -0.1)),
+             0.6, 0.045, WOLF, hoof=WOLF_DARK)
+    t = Model("wolf_tail", seed=641)
+    for i, (x, z, r) in enumerate(((-0.06, -0.06, 0.06), (-0.14, -0.16, 0.07), (-0.2, -0.28, 0.065), (-0.23, -0.38, 0.05))):
+        t.ball(r, (x, 0, z), WOLF_DARK if i == 3 else WOLF, subdiv=1, scale=(1.0, 0.9, 1.3))
+    t.build(body, loc=(-0.4, 0, 0.06))
+    h = Model("wolf_head", seed=642)
+    h.ball(0.13, (0.04, 0, 0.02), WOLF, subdiv=1, scale=(1.2, 0.95, 0.9))
+    h.box((0.22, 0.1, 0.09), (0.2, 0, -0.02), WOLF, taper=0.6, rot=(0, math.pi / 2, 0))
+    h.box((0.18, 0.09, 0.04), (0.18, 0, -0.06), WOLF_PALE)
+    h.box((0.04, 0.05, 0.04), (0.3, 0, 0.0), P.INK)
+    fauna._eyes(h, 0.13, 0.06, 0.06, 0.025, color="#d8a030")
+    for s in (1, -1):
+        h.cyl(0.055, 0.14, (-0.01, s * 0.065, 0.12), WOLF, segs=3, r_top=0.0)
+    h.build(body, loc=(0.42, 0, 0.14))
+
+
+def lynx():
+    """A lynx: tawny and spotted, long in the leg, with the ruff, the black ear-tufts and the
+    stub of a black-tipped tail. The head turns, to watch you go by."""
+    root = _root("lynx")
+    b = Model("lynx_body", seed=650)
+    b.ball(0.2, (0, 0, 0), LYNX, subdiv=2, scale=(1.6, 0.75, 0.85))
+    b.ball(0.15, (0.04, 0, -0.08), LYNX_PALE, subdiv=1, scale=(1.8, 0.7, 0.5))
+    for i in range(16):  # spots, on the flanks
+        x = b.rng.uniform(-0.22, 0.22)
+        z = b.rng.uniform(-0.04, 0.12)
+        y = (1 if i % 2 else -1) * 0.15 * math.sqrt(max(0.05, 1 - (x / 0.32) ** 2 - (z / 0.17) ** 2))
+        b.ball(0.02, (x, y, z), LYNX_SPOT, subdiv=0, scale=(1, 0.5, 1))
+    b.ball(0.05, (-0.32, 0, 0.06), LYNX, subdiv=0, scale=(1.3, 0.9, 0.9))
+    b.ball(0.035, (-0.38, 0, 0.07), P.INK, subdiv=0)                                      # the black tip
+    body = b.build(root, loc=(0, 0, 0.5))
+    fauna._legs(body, "lynx", ((0.22, 0.08, -0.08), (0.22, -0.08, -0.08), (-0.22, 0.08, -0.06), (-0.22, -0.08, -0.06)),
+             0.44, 0.045, LYNX, hoof=LYNX_PALE)
+    h = Model("lynx_head", seed=651)
+    h.ball(0.11, (0.02, 0, 0.01), LYNX, subdiv=1, scale=(1.0, 1.0, 0.9))
+    h.box((0.08, 0.1, 0.06), (0.1, 0, -0.03), LYNX_PALE)
+    h.box((0.025, 0.035, 0.025), (0.14, 0, -0.01), "#8a5a4a")
+    fauna._eyes(h, 0.09, 0.045, 0.03, 0.022, color="#b8a030")
+    for s in (1, -1):
+        h.ball(0.06, (0.0, s * 0.09, -0.05), LYNX_PALE, subdiv=1, scale=(0.6, 0.7, 1.1))   # the ruff
+        h.cyl(0.04, 0.1, (-0.01, s * 0.06, 0.1), LYNX, segs=3, r_top=0.0)
+        h.box((0.012, 0.012, 0.08), (-0.01, s * 0.06, 0.18), P.INK)                       # the tufts
+    h.build(body, loc=(0.32, 0, 0.12))
+
+
+def salmon():
+    """A salmon going up, for the bear to catch: bigger than the other fish, and red-flanked."""
+    root = _root("salmon")
+    b = Model("salmon_body", seed=660)
+    b.ball(0.12, (0, 0, 0), SALMON, subdiv=1, scale=(2.4, 0.55, 0.85))
+    b.ball(0.08, (0, 0, 0.05), SALMON_BACK, subdiv=1, scale=(3.2, 0.5, 0.5))
+    b.ball(0.07, (0.02, 0, -0.02), SALMON_RED, subdiv=1, scale=(2.6, 0.62, 0.5))
+    fauna._eyes(b, 0.22, 0.04, 0.02, 0.02)
+    b.box((0.12, 0.02, 0.18), (-0.33, 0, 0), SALMON_BACK, taper=1.8, rot=(0, math.pi / 2, 0))
+    b.build(root)
+
+
+YETI = ["#eef2f4", "#dfe6ea", "#f6f8f8"]
+YETI_SKIN = "#7a8aa0"
+YETI_DARK = "#56647a"
+
+
+def yeti():
+    """The yeti: tall, stooped and shaggy white, long arms hanging, a blue-grey face. Arms pivot
+    at the shoulders and legs at the hips, for its long stride off into the snow."""
+    root = _root("yeti")
+    b = Model("yeti_body", seed=670)
+    b.ball(0.5, (0, 0, 0), YETI[0], subdiv=2, scale=(0.8, 1.0, 1.25), jitter=0.05)
+    b.ball(0.42, (0.08, 0, 0.45), YETI[1], subdiv=1, scale=(0.9, 1.15, 0.8), jitter=0.05)   # the hunched shoulders
+    for i in range(40):  # shaggy: tufts all over
+        a = b.rng.uniform(0, math.tau)
+        z = b.rng.uniform(-0.5, 0.7)
+        r = 0.42 * math.sqrt(max(0.1, 1 - (z / 0.8) ** 2))
+        b.ball(b.rng.uniform(0.08, 0.13), (math.cos(a) * r * 0.85, math.sin(a) * r * 1.05, z), YETI[i % 3], subdiv=0)
+    body = b.build(root, loc=(0, 0, 1.45))
+    h = Model("yeti_head", seed=671)
+    h.ball(0.26, (0, 0, 0.1), YETI[2], subdiv=1, scale=(1.0, 1.0, 1.1), jitter=0.03)
+    h.ball(0.16, (0.17, 0, 0.06), YETI_SKIN, subdiv=1, scale=(0.6, 1.0, 1.0))              # the face
+    h.box((0.06, 0.2, 0.05), (0.26, 0, 0.14), YETI_DARK)                                   # a heavy brow
+    fauna._eyes(h, 0.25, 0.06, 0.1, 0.035, color="#e8d88a")
+    h.box((0.04, 0.12, 0.03), (0.26, 0, -0.02), YETI_DARK)                                 # the mouth
+    for i in range(10):
+        a = h.rng.uniform(-2.2, 2.2) + math.pi
+        h.ball(0.08, (math.cos(a) * 0.2, math.sin(a) * 0.22, 0.18 + h.rng.uniform(-0.1, 0.12)), YETI[i % 3], subdiv=0)
+    h.build(body, loc=(0.22, 0, 0.72))
+    for tag, s in (("l", 1), ("r", -1)):
+        a = Model(f"yeti_arm_{tag}", seed=672 + s)
+        fauna._limb(a, (0, 0, 0), (0.12, s * 0.08, -1.05), 0.17, 0.12, YETI[1])
+        a.ball(0.13, (0.14, s * 0.09, -1.12), YETI_SKIN, subdiv=1, scale=(1.1, 0.8, 1.0))   # the hand
+        for k in range(4):
+            a.ball(0.1, (0.05 + k * 0.02, s * 0.05, -0.2 - k * 0.22), YETI[k % 3], subdiv=0)
+        a.build(body, loc=(0.1, s * 0.58, 0.45))
+        g = Model(f"yeti_leg_{tag}", seed=674 + s)
+        fauna._limb(g, (0, 0, 0), (0, 0, -1.0), 0.2, 0.15, YETI[0])
+        g.box((0.42, 0.22, 0.12), (0.1, 0, -1.02), YETI_SKIN)                                # big feet
+        g.build(root, loc=(0, s * 0.25, 1.05))
+
+
+def rare():
+    yeti()
+    beaver()
+    lodge()
+    otter()
+    moose()
+    bear()
+    wolf()
+    lynx()
+    salmon()
+
+
 # --- the animals ------------------------------------------------------------------------------
 
 def kingfisher(root):
@@ -904,3 +1435,14 @@ def build():
     willow()
     swing()
     gravel()
+    cottage()
+    jetty()
+    picnic()
+    hay()
+    fence()
+    swan()
+    snags()
+    spires()
+    wreck()
+    raven()
+    rare()

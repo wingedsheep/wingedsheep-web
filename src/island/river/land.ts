@@ -6,6 +6,7 @@ import { leavesAt, season } from '../scene/season';
 import { toon } from '../scene/toon';
 import type { RiverAssets } from './assets';
 import { type Course, type Obstacle, type Sample, type Split, rng } from './course';
+import type { Look } from './rivers';
 import { waterRibbon } from './water';
 
 export const CHUNK = 32; // metres of river per chunk of water and furniture
@@ -47,6 +48,25 @@ function noise2(x: number, z: number) {
   const d = hash2(ix + 1, iz + 1);
   return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
 }
+/** Smooth noise along the river (0..1), a new wave every `every` metres or so. */
+const along = (s: number, seed: number, every: number) => noise2(s / every, seed * 0.013 % 97);
+
+/**
+ * 0..1: how high up in the mountains the river is at arc length s. On a river that climbs at
+ * all, a stretch here and there where the valley's sides rise to bare rock and snow; and the
+ * harder the river, the higher it runs all the way down (Hold My Coffee never leaves the peaks).
+ */
+export function highAt(look: Look, seed: number, s: number) {
+  if (look.alpine <= 0) return 0;
+  const base = look.alpine * look.alpine * 0.6;
+  return look.alpine * (base + (1 - base) * smooth(0.62, 0.8, along(s, seed + 3, 300)));
+}
+
+/** 0..1: how thick the fog is at s: banks of it lying in the valley here and there, thinning between. */
+export function fogAt(look: Look, seed: number, s: number) {
+  return look.mood.mist * smooth(0.7, 0.86, along(s, seed + 11, 200));
+}
+
 const fbm = (x: number, z: number) => noise2(x * 0.045, z * 0.045) * 0.65 + noise2(x * 0.13, z * 0.13) * 0.35;
 
 /** Let go of a tile of ground and its grass. */
@@ -75,7 +95,7 @@ function dropChunk(chunk: Chunk) {
 
 /** One bit of the riverside that stands somewhere: an animal's spot, a tree, a heron's pool. */
 export interface Spot {
-  kind: 'heron' | 'ducks' | 'deer' | 'sheep' | 'fish';
+  kind: 'heron' | 'ducks' | 'deer' | 'sheep' | 'fish' | 'swans';
   x: number;
   y: number;
   z: number;
@@ -103,6 +123,11 @@ interface Chunk {
   feet: THREE.Vector3[];
   /** A rainbow in the mist under a waterfall. */
   rainbows: THREE.Sprite[];
+  /** The cottages' chimneys, for their smoke; and banks of mist lying on the water. */
+  chimneys: THREE.Vector3[];
+  mists: THREE.Sprite[];
+  /** Ground kept clear round a cottage or a picnic, for the trees to stay off. */
+  clearings: { x: number; z: number; r: number }[];
 }
 
 /**
@@ -125,8 +150,10 @@ export class Land {
   /** The side streams' pouring water (in time with the river's), and the rainbows' arcs. */
   private spring: THREE.ShaderMaterial;
   private rainbow = new THREE.SpriteMaterial({ map: rainbowTexture(), transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
+  /** Mist lying on the water of the darker rivers. */
+  private mist: THREE.SpriteMaterial;
   /** What this river looks like (rivers.ts). */
-  private look: Course['profile']['look'];
+  private look: Look;
   /** Every chunk's animal spots, for the wildlife to take up. */
   onSpots?: (spots: Spot[]) => void;
   onDrop?: (chunk: number) => void;
@@ -142,6 +169,7 @@ export class Land {
     this.look = course.profile.look;
     this.spring = springMaterial((water as THREE.ShaderMaterial).uniforms);
     this.ballGlow = new THREE.SpriteMaterial({ map: halo, color: C('#f2ff5a'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
+    this.mist = new THREE.SpriteMaterial({ map: halo, color: C('#dfe8ea'), depthWrite: false, transparent: true, opacity: 0.3 });
   }
 
   /**
@@ -217,6 +245,11 @@ export class Land {
     for (const chunk of this.chunks.values()) yield* chunk.feet;
   }
 
+  /** The chimneys in view, for their smoke. */
+  *chimneys() {
+    for (const chunk of this.chunks.values()) yield* chunk.chimneys;
+  }
+
   /** The mesh standing for a rock, log or ball, if its chunk is built. */
   meshOf(thing: object) {
     for (const chunk of this.chunks.values()) {
@@ -229,7 +262,9 @@ export class Land {
   /** How bright the lanterns and windows are (0 by day … 1 at night). */
   glow(night: number, time: number, sunny = 1) {
     this.rainbow.opacity = (1 - night) * sunny * (0.4 + Math.sin(time * 0.7) * 0.08);
+    this.mist.opacity = (0.26 + Math.sin(time * 0.4) * 0.05) * (1 - night * 0.6);
     for (const chunk of this.chunks.values()) {
+      for (const m of chunk.mists) m.position.x = m.userData.x + Math.sin(time * 0.15 + m.id) * 2;
       for (const g of chunk.glows) {
         (g.material as THREE.SpriteMaterial).opacity = night * (0.85 + Math.sin(time * 9 + g.id) * 0.08);
         g.visible = night > 0.05;
@@ -250,7 +285,7 @@ export class Land {
   /** Height and colour of the ground at (x, z). */
   heightAt(x: number, z: number, color?: THREE.Color) {
     const { sample: p, d, side } = this.course.nearest(x, z);
-    const h = shape(p, d - p.width / 2, x, z, color, this.look.snow);
+    const h = shape(p, d - p.width / 2, x, z, color, this.look, highAt(this.look, this.course.seed, p.s));
     if (p.isle <= 0 || h > p.y) return h;
     return island(p, this.course.splitAt(p.s)?.kind ?? 'isle', p.isle - Math.abs(side - p.isleU), h, x, z, color);
   }
@@ -318,7 +353,7 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], chimneys: [], mists: [], clearings: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
@@ -370,9 +405,12 @@ export class Land {
     for (let s = Math.ceil(s0 / 250) * 250; s < s1; s += 250) if (s > 0 && s < course.finish - 30) this.post(chunk, s, r);
     // and the finish, on both banks by the bridge
     if (course.finish >= s0 && course.finish < s1) for (const side of [-1, 1]) this.post(chunk, course.finish - 4, r, 'FINISH', side);
+    // (the homes first, so the forest grows round them)
+    this.homes(chunk, s0, rng(course.seed * 15485863 + c));
     this.banks(chunk, s0, s1, r);
     this.springs(chunk, s0, s1, rng(course.seed * 104729 + c));
     this.islands(chunk, s0, s1, r);
+    this.forsaken(chunk, s0, s1, rng(course.seed * 32452843 + c));
     if (chunk.canopies.length) {
       chunk.foliage = createFoliage(chunk.canopies, group);
       group.add(chunk.foliage);
@@ -393,7 +431,7 @@ export class Land {
    */
   private batch(chunk: Chunk) {
     const { group } = chunk;
-    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows, ...chunk.springs, ...chunk.rainbows]);
+    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows, ...chunk.springs, ...chunk.rainbows, ...chunk.mists]);
     for (const [thing, m] of chunk.things) {
       const kind = (thing as Partial<Obstacle>).kind;
       if (kind !== 'rock' && kind !== 'log') keep.add(m);
@@ -527,7 +565,7 @@ export class Land {
         const scale = m.scale.x;
         chunk.canopies.push({
           position: o.getWorldPosition(new THREE.Vector3()), radius: o.userData.canopy * scale,
-          palette: o.userData.palette ?? 'leaf', squash: o.userData.squash ?? 1, tree,
+          palette: this.look.dark ? 'pine' : (o.userData.palette ?? 'leaf'), squash: o.userData.squash ?? 1, tree,
         });
       }
       if (o.name.startsWith('crown') && (o as THREE.Mesh).isMesh) {
@@ -597,7 +635,7 @@ export class Land {
     if (m) this.glowAt(chunk, m);
   }
 
-  private post(chunk: Chunk, s: number, r: () => number, text?: string, side = r() < 0.5 ? -1 : 1) {
+  private post(chunk: Chunk, s: number, r: () => number, text?: string, side = r() < 0.5 ? -1 : 1, danger = false) {
     const at = this.beside(s, side, 1.6);
     if (!at) return;
     // turned to the river, and a little upstream, so you can read it coming
@@ -605,7 +643,7 @@ export class Land {
     const m = this.put(chunk, 'sign', at, facing(-side * Math.cos(a) - Math.sin(a) * 0.8, -side * Math.sin(a) + Math.cos(a) * 0.8));
     if (!m) return;
     // the model's boxes have no UVs: the painted face is a plane just in front of the board
-    const face = new THREE.Mesh(BOARD, signMaterial(text ?? (s >= 1000 ? `${(s / 1000).toFixed(s % 1000 ? 2 : 0)} km` : `${s} m`)));
+    const face = new THREE.Mesh(BOARD, signMaterial(text ?? (s >= 1000 ? `${(s / 1000).toFixed(s % 1000 ? 2 : 0)} km` : `${s} m`), danger));
     face.position.set(0, 1.45, 0.125);
     m.add(face);
   }
@@ -696,6 +734,109 @@ export class Land {
   }
 
   /**
+   * On the gentle rivers, somebody lives here: now and then a cottage by an open bank (smoke from
+   * the chimney, the windows lit at night), a jetty with a rowing boat tied up, a picnic left on
+   * the grass, and fences and hay out in the meadows.
+   */
+  private homes(chunk: Chunk, s0: number, r: () => number) {
+    const home = this.look.homely;
+    if (home <= 0) return;
+    const course = this.course;
+    const open = (s: number) => {
+      const p = course.at(s);
+      return p.gorge < 0.25 && p.isle <= 0 && Math.abs(s - course.finish) > 30;
+    };
+    const s = s0 + 4 + r() * (CHUNK - 8);
+    const p = course.at(s);
+    const side = r() < 0.5 ? -1 : 1;
+    const inland = facing(-side * Math.cos(p.a), -side * Math.sin(p.a)); // (a model's front, -y in Blender, to the river)
+    const pick = r();
+    if (!open(s)) return;
+    if (pick < home * 0.22) {
+      const at = this.beside(s, side, 4.5 + r() * 2);
+      const m = at && this.put(chunk, 'cottage', at, inland + (r() - 0.5) * 0.3);
+      if (m) {
+        chunk.clearings.push({ x: at.x, z: at.z, r: 6 });
+        this.glowAt(chunk, m);
+        m.updateMatrixWorld(true);
+        m.traverse((o) => {
+          if (o.userData.chimney) chunk.chimneys.push(o.getWorldPosition(new THREE.Vector3()));
+        });
+      }
+    } else if (pick < home * 0.4 && p.speed < 5) {
+      // (standing on the bank at the waterline, reaching out over the water)
+      const at = this.beside(s, side, 0.8);
+      if (at && this.put(chunk, 'jetty', { ...at, y: p.y }, inland)) {
+        // (its end post and the boat stand in the water: things to steer round, not through)
+        const out = -side * 3.2;
+        this.course.addObstacle({ kind: 'rock', x: at.x + Math.cos(p.a) * out, z: at.z + Math.sin(p.a) * out, r: 0.8, s, variant: 0 });
+      }
+    } else if (pick < home * 0.52) {
+      const at = this.beside(s, side, 3 + r() * 3);
+      if (at && this.put(chunk, 'picnic', at, r() * 6.3)) chunk.clearings.push({ x: at.x, z: at.z, r: 2.5 });
+    }
+    // the meadows behind: a fence running along the valley, and hay
+    for (let k = 0; k < 3; k++) {
+      const s = s0 + r() * CHUNK;
+      if (!open(s)) continue;
+      const p = course.at(s);
+      const side = r() < 0.5 ? -1 : 1;
+      if (r() < home * 0.35) {
+        const at = this.beside(s, side, 3 + r() * 6);
+        // (the model runs along its x: turned to run with the river)
+        if (at && !this.cleared(chunk, at)) this.put(chunk, 'fence', { ...at, y: at.y - 0.05 }, -p.a + Math.PI / 2 + (r() - 0.5) * 0.3);
+      }
+      if (r() < home * 0.3) {
+        const at = this.beside(s, side, 3.5 + r() * 9);
+        if (at && !this.cleared(chunk, at)) this.put(chunk, `hay_${Math.floor(r() * 2)}`, { ...at, y: at.y - 0.05 }, r() * 6.3, 0.9 + r() * 0.2);
+      }
+    }
+  }
+
+  /** Whether `at` is in a clearing (round a cottage, a picnic) that the trees stay off. */
+  private cleared(chunk: Chunk, at: { x: number; z: number }) {
+    return chunk.clearings.some((c) => (at.x - c.x) ** 2 + (at.z - c.z) ** 2 < c.r * c.r);
+  }
+
+  /**
+   * On the hard rivers, nobody does: what's left of somebody's boat on the rocks by the white
+   * water, banks of mist lying on the water, and a board by the bank before every big fall.
+   */
+  private forsaken(chunk: Chunk, s0: number, s1: number, r: () => number) {
+    const course = this.course;
+    // (in a bank of fog, lying thick on the water)
+    const mist = fogAt(this.look, course.seed, s0 + CHUNK / 2);
+    for (let n = mist * 4 + r(); n >= 1; n--) {
+      const p = course.at(s0 + r() * CHUNK);
+      const u = (r() - 0.5) * p.width;
+      const m = new THREE.Sprite(this.mist);
+      m.position.set(p.x + Math.cos(p.a) * u, p.y + 0.6 + r() * 0.8, p.z + Math.sin(p.a) * u);
+      m.userData.x = m.position.x;
+      m.scale.set(12 + r() * 10, 4 + r() * 3, 1);
+      m.renderOrder = 3;
+      chunk.group.add(m);
+      chunk.mists.push(m);
+    }
+    // a warning, well before the big drops (a cascade's steps only get the one, at its top)
+    for (const t of course.near(s0 + 50, s1 + 50)) {
+      if (!('kind' in t) || t.kind !== 'ledge' || t.height < 2.5) continue;
+      const at = t.s - 50;
+      if (at < s0 || at >= s1) continue;
+      const above = course.near(t.s - 70, t.s - 1).some((o) => 'kind' in o && o.kind === 'ledge');
+      if (!above) this.post(chunk, at, r, t.height >= 3 ? 'FALLS' : 'DANGER', r() < 0.5 ? -1 : 1, true);
+    }
+    const grim = this.look.grim;
+    if (grim <= 0) return;
+    const s = s0 + r() * CHUNK;
+    const p = course.at(s);
+    if (p.rough > 0.3 && p.isle <= 0 && r() < grim * 0.22) {
+      const side = r() < 0.5 ? -1 : 1;
+      const at = this.beside(s, side, 0.3 + r() * 0.8);
+      if (at) this.put(chunk, 'wreck', { ...at, y: Math.max(at.y - 0.2, p.y - 0.1) }, r() * 6.3);
+    }
+  }
+
+  /**
    * Thick mixed forest down to the water on both banks: pines and broadleaves, ferns and bushes
    * underneath, mossy boulders, reeds at the edges of the slow pools and lily pads on them, and
    * crags along the tops of the gorges. And the places animals will be.
@@ -703,21 +844,24 @@ export class Land {
   private banks(chunk: Chunk, s0: number, s1: number, r: () => number) {
     for (let s = s0; s < s1; s++) {
       const p = this.course.at(s);
+      const high = highAt(this.look, this.course.seed, s);
       for (const side of [-1, 1]) {
         // trees: two rows of chances, the near one sparser so the water stays in view
         for (const [chance, e0, e1] of [[0.22, 1.6, 6], [0.75, 6, 34]] as const) {
-          if (r() >= chance * (1 - p.gorge * 0.4)) continue;
+          if (r() >= chance * (1 - p.gorge * 0.4) * (1 - high * 0.4)) continue;
           const e = e0 + p.gorge * 2.5 + r() * (e1 - e0);
           const at = this.beside(s, side, e);
-          if (!at) continue;
-          const pine = r() < this.look.pines + p.gorge * 0.3 + Math.min(0.3, e / 100);
-          const kind = pine ? `pine_${Math.floor(r() * 3)}` : r() < this.look.birch ? `birch_${Math.floor(r() * 2)}` : `tree_${Math.floor(r() * 3)}`;
+          if (!at || this.cleared(chunk, at)) continue;
+          const pine = r() < this.look.pines + p.gorge * 0.3 + Math.min(0.3, e / 100) + high * 0.6;
+          // (on the hard rivers, the storms have had a good few of them: dead and silver)
+          const dead = r() < this.look.grim * (0.16 + p.rough * 0.2);
+          const kind = dead ? `snag_${Math.floor(r() * 2)}` : pine ? `pine_${Math.floor(r() * 3)}` : r() < this.look.birch ? `birch_${Math.floor(r() * 2)}` : `tree_${Math.floor(r() * 3)}`;
           this.put(chunk, kind, at, r() * Math.PI * 2, (0.85 + r() * 0.5) * (e < 6 ? 0.85 : 1));
         }
         // the undergrowth: ferns and bushes, thickest near the water
         if (r() < 0.32) {
           const at = this.beside(s, side, 0.6 + Math.pow(r(), 1.5) * 16);
-          if (at) this.put(chunk, r() < 0.55 ? 'fern' : `bush_${Math.floor(r() * 2)}`, at, r() * 6.3, 0.8 + r() * 0.7);
+          if (at && !this.cleared(chunk, at)) this.put(chunk, r() < 0.55 ? 'fern' : `bush_${Math.floor(r() * 2)}`, at, r() * 6.3, 0.8 + r() * 0.7);
         }
         // mossy boulders at the water's edge, and crags along the top of a gorge
         if (r() < 0.05 + p.rough * 0.05) {
@@ -726,7 +870,18 @@ export class Land {
         }
         if (r() < p.gorge * 0.2) {
           const at = this.beside(s, side, 2.2 + r() * 4);
-          if (at) this.put(chunk, `crag_${Math.floor(r() * 2)}`, at, r() * 6.3, 0.6 + r() * 0.6);
+          const spire = r() < this.look.grim * 0.5;
+          if (at) this.put(chunk, spire ? `spire_${Math.floor(r() * 2)}` : `crag_${Math.floor(r() * 2)}`, at, r() * 6.3, spire ? 0.7 + r() * 0.5 : 0.6 + r() * 0.6);
+        }
+        // and needles of black rock standing about the banks, even out of the gorges, and up on
+        // the mountainsides high up, big ones, splintering out of the scree
+        if (r() < (this.look.grim * 0.02 + high * 0.035) * (1 - p.gorge * 0.5)) {
+          const at = this.beside(s, side, 1.5 + r() * 12);
+          if (at) this.put(chunk, `spire_${Math.floor(r() * 2)}`, { ...at, y: at.y - 0.3 }, r() * 6.3, 0.6 + r() * 0.7);
+        }
+        if (r() < high * 0.05) {
+          const at = this.beside(s, side, 5 + r() * 14);
+          if (at) this.put(chunk, `spire_${Math.floor(r() * 2)}`, { ...at, y: at.y - 0.5 }, r() * 6.3, 1.1 + r() * 1.2);
         }
         // wildflowers in the clearings, toadstools and old stumps under the trees, a fallen trunk
         // gone green with moss, and somebody's cairn on a beach
@@ -781,6 +936,7 @@ export class Land {
         };
         if (slow && pick < 0.06) add('heron', -0.6);
         else if (slow && pick < 0.12) add('ducks', -1.8);
+        else if (slow && this.look.homely > 0.5 && p.clear > 0.3 && pick < 0.15) add('swans', -p.width * 0.25);
         else if (p.gorge < 0.5 && pick < 0.16) add('deer', 0.8);
         else if (slow && pick < 0.24) add('fish', -p.width * 0.3);
         // on a meadow river, sheep grazing the open banks
@@ -795,7 +951,7 @@ export class Land {
  * character of the river at sample p. Far from the water it all settles into the same rolling
  * country, so neighbouring stretches meet without a seam.
  */
-function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color, snow = 0) {
+function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color, look?: Look, high = 0) {
   const n = fbm(x, z);
   const { clear, gorge } = p;
   // the bank shelves steadily through the waterline rather than stepping up out of it, so the
@@ -808,11 +964,16 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color, 
   // a mossy bank, a pebbly beach by the pools, or a gorge's walls; and beyond, the valley's
   // sides climbing away into the mountains, lumpy with hills
   const far = smooth(4, 22, e);
-  const valley = smooth(6, 60, e) * 16 + smooth(25, 70, e) * 10;
+  // (higher up, the valley's a deep one, its sides climbing steep to jagged ridges)
+  // (the climb starting closer in, so from the river you see the mountain go up)
+  const ridge = high > 0 ? (1 - Math.abs(noise2(x * 0.07, z * 0.07) * 2 - 1)) ** 2 * smooth(8, 30, e) * high * 12 : 0;
+  // (but never so steep that a ridge between two bends hides the water from the camera: no
+  // steeper than the camera looks down)
+  const valley = Math.min((smooth(6 - high * 3, 60 - high * 30, e) * 16 + smooth(25 - high * 12, 70 - high * 25, e) * 10) * (1 + high) + ridge, Math.max(0, e - 4));
   const hills = (n - 0.5) * 4.5 * far + far * 1.2 + valley;
   const bank = p.y + 0.35 + smooth(0, 2.2, e) * 0.9 + hills;
   const beach = p.y + 0.06 + Math.min(0.6, e * 0.1) + hills * 0.85;
-  const wall = p.y + 0.2 + smooth(0.2, 2.4, e) * (6 + n * 2.5) + hills;
+  const wall = p.y + 0.2 + smooth(0.2, 2.4, e) * (6 + n * 2.5) * (1 + high * 0.5) + hills;
   const soft = bank + (beach - bank) * smooth(0.4, 0.9, clear);
   const land = soft + (wall - soft) * gorge;
   const h = land + (Math.min(shelf, land) - land) * (1 - smooth(0.4, 1.2, e));
@@ -829,13 +990,26 @@ function shape(p: Sample, e: number, x: number, z: number, color?: THREE.Color, 
       const band = Math.floor((h - p.y) * 1.3 + n * 2) % 4;
       color.lerp(CLIFF[(band + 4) % 4], smooth(0.3, 0.6, gorge));
     }
-    // bare rock showing through high on the valley's sides
-    if (e > 30 && n > 0.62) color.lerp(CLIFF[Math.floor(k * 4)], 0.7);
+    // the river's own green: lush and sunny, or dark and cold
+    if (look && look.earth[1] > 0 && e > 1.4 + clear * 2) color.lerp(earthOf(look), look.earth[1]);
+    // bare rock showing through high on the valley's sides (on a hard river, everywhere)
+    const crags = Math.min(1, (look?.crags ?? 0) + high * 0.6);
+    if (e > 30 - crags * 22 && n > 0.62 - crags * 0.14) color.lerp(CLIFF[Math.floor(k * 4)], 0.7);
     // and up there, on a cold river, snow
-    if (snow > 0) color.lerp(SNOW, snow * smooth(15 - n * 6, 19 - n * 6, h - p.y + (k - 0.5) * 1.5));
+    // (and high up in the mountains, old snow lying on the tops whatever the river)
+    const snow = Math.max(look?.snow ?? 0, high * 0.9);
+    const line = 15 + high * 6;
+    if (snow > 0) color.lerp(SNOW, snow * smooth(line - n * 6, line + 4 - n * 6, h - p.y + (k - 0.5) * 1.5));
   }
   return h;
 }
+
+const earths = new Map<string, THREE.Color>();
+const earthOf = (look: Look) => {
+  let c = earths.get(look.earth[0]);
+  if (!c) earths.set(look.earth[0], (c = C(look.earth[0])));
+  return c;
+};
 
 /**
  * An island, `e` metres in from its edge (negative: in the water beside it), where the rest of the
@@ -880,18 +1054,20 @@ const facing = (dx: number, dz: number) => Math.atan2(dx, dz);
 const BOARD = new THREE.PlaneGeometry(1.26, 0.56);
 const signs = new Map<string, THREE.Material>();
 /** A distance board, painted. */
-function signMaterial(text: string) {
-  let mat = signs.get(text);
+function signMaterial(text: string, danger = false) {
+  let mat = signs.get(text + danger);
   if (mat) return mat;
   const c = document.createElement('canvas');
   c.width = 64;
   c.height = 32;
   const g = c.getContext('2d')!;
-  g.fillStyle = '#b27a48';
+  // a warning's red on white, and ringed in red; a distance post's painted on the bare wood
+  g.fillStyle = danger ? '#c8403a' : '#b27a48';
   g.fillRect(0, 0, 64, 32);
-  g.fillStyle = '#8a5a36';
-  g.fillRect(0, 26, 64, 6);
-  g.fillStyle = '#2a1a12';
+  g.fillStyle = danger ? '#f2ece2' : '#8a5a36';
+  if (danger) g.fillRect(3, 3, 58, 26);
+  else g.fillRect(0, 26, 64, 6);
+  g.fillStyle = danger ? '#b0302a' : '#2a1a12';
   g.font = 'bold 15px monospace';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
@@ -900,7 +1076,7 @@ function signMaterial(text: string) {
   tex.magFilter = tex.minFilter = THREE.NearestFilter;
   tex.colorSpace = THREE.SRGBColorSpace;
   mat = new THREE.MeshToonMaterial({ map: tex });
-  signs.set(text, mat);
+  signs.set(text + danger, mat);
   return mat;
 }
 

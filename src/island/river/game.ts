@@ -4,8 +4,8 @@ import { RiverAssets } from './assets';
 import { Controls } from './controls';
 import { Course, type Split, type Stretch } from './course';
 import { BOOF_WINDOW, Kayak } from './kayak';
-import { Land } from './land';
-import { RIVERS, type RiverDef } from './rivers';
+import { Land, fogAt, highAt } from './land';
+import { RARE, RIVERS, type Rare, type RiverDef } from './rivers';
 import { waterAt } from './flow';
 import { MAX_HOLES, MAX_LIPS, MAX_RIPPLES, MAX_ROCKS, MAX_TONGUES, riverWater } from './water';
 import { Wildlife } from './wildlife';
@@ -29,6 +29,21 @@ const QUIET_START = 4;
 export const GATE = 150;
 export const BALL_POINTS = 100;
 export const FLIP = 300;
+/**
+ * Off a drop at SEND_FROM m/s or more and landed clean (a boof, a tuck): a send, paid on the spot.
+ * SEND a metre of drop, twice that going SEND_TOP and over, times the flow.
+ */
+const SEND_FROM = 7;
+const SEND_TOP = 11;
+const SEND = 60;
+/**
+ * Flat out: going FAST or more (a dip under it forgiven for HOT_GRACE s), every HOT_EVERY s of it
+ * pays, each more than the last (HOT, then twice it, then three times…), times the flow.
+ */
+const HOT = 60;
+const HOT_EVERY = 5;
+const HOT_GRACE = 1;
+const HOT_WORDS = ['Flat out', 'Flying', 'Rocket', 'Unstoppable'];
 
 export type State = 'ready' | 'running' | 'over';
 
@@ -42,6 +57,12 @@ export interface Tally {
   finished: boolean;
   bonus: { time: number; gates: number; balls: number };
   balls: number;
+  /** Drops gone off flat out, and what they paid. */
+  sends: number;
+  sent: number;
+  /** The longest you held it flat out (s), and what going flat out paid. */
+  longest: number;
+  flatOut: number;
   /** The multiplier: built by doing things well, lost on a knock or a swim. */
   flow: number;
   bestFlow: number;
@@ -49,6 +70,8 @@ export interface Tally {
   speed: number;
   /** The speed bonus, ×1..×2: drifting earns the least, going like the clappers the most. */
   pace: number;
+  /** The rare ones seen on the way down. */
+  spotted: Rare[];
 }
 
 /** What the game needs from the island outside: its light and weather. */
@@ -61,9 +84,13 @@ export interface Outside {
   snow: number;
   /** Fair weather, for the winged sheep to be out. */
   fair: boolean;
+  /** 0..1: how stormy it is, a flash of the island's lightning, and how foggy a day it is. */
+  storm?: number;
+  flash?: number;
+  haze?: number;
 }
 
-export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile';
+export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'huff' | 'spotted';
 export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball';
 
 export interface GameEvents {
@@ -89,6 +116,8 @@ export interface GameEvents {
   bark?(): void;
   baa?(): void;
   quack?(): void;
+  /** One of the rare ones, seen (the first time this run). */
+  spotted?(kind: Rare): void;
 }
 
 /**
@@ -117,6 +146,9 @@ export class RiverGame {
   private course!: Course;
   private land!: Land;
   private wildlife: Wildlife;
+  /** For the wildlife: whether the camera can see a spot on the bank. */
+  private sight = new THREE.Raycaster(undefined, undefined, 0, 80);
+  private sightDir = new THREE.Vector3();
   private water = riverWater();
   private sun = new THREE.DirectionalLight();
   private hemi = new THREE.HemisphereLight();
@@ -161,11 +193,23 @@ export class RiverGame {
   private ripples: { x: number; z: number; age: number; size: number }[] = [];
   /** Where the last eddy was caught: the next one has to be further down to count. */
   private eddyS = -99;
+  /** How long you've been flat out (s), how many times it's paid, and how long a dip you've left. */
+  private hotFor = 0;
+  private hotPaid = 0;
+  private hotLeft = 0;
   /** Where the kayak goes in: far enough down that there's river behind you too. To try a harder
    * stretch straight away: ?downriver=1500 (metres further on; you still push off in calm water,
    * see calm()). */
   private start = 50;
   private downriver = Number(new URLSearchParams(location.search).get('downriver')) || 0;
+  /** How far down in a gorge the light is (0 open … 1 deep between the walls), how high up in the
+   * mountains, and how thick the fog (see land.ts highAt, fogAt), eased as you go. */
+  private walls = 0;
+  private high = 0;
+  private fogged = 0;
+  private air = new THREE.Color();
+  private tint = new THREE.Color();
+  private mist = new THREE.Color();
 
   constructor(private assets: RiverAssets, el: HTMLElement, private texels: () => number) {
     this.controls = new Controls(el);
@@ -201,6 +245,11 @@ export class RiverGame {
   }
 
   /** A fresh river (this one again, or `river`), the kayak at the top of it, waiting for you to push off. */
+  /** The rare ones already in your log (set before reset: the ones not in it come up more). */
+  set logged(seen: ReadonlySet<Rare>) {
+    this.wildlife.seen = seen;
+  }
+
   reset(river = this.river) {
     this.river = river;
     // its own water
@@ -219,7 +268,15 @@ export class RiverGame {
     this.land.onSpots = (spots) => this.wildlife.settle(spots);
     this.scene.add(this.land.group);
     this.wildlife.reset(this.course);
+    // ?rare=bear to go and look for one
+    const rare = new URLSearchParams(location.search).get('rare') as Rare | null;
+    if (rare && RARE.some((r) => r.id === rare)) this.wildlife.force(rare);
     this.wildlife.ground = (x, z) => this.land.heightAt(x, z);
+    this.wildlife.hidden = (at) => {
+      this.sight.camera = this.camera; // (the glows are sprites, which need it)
+      this.sight.set(at, this.camera.getWorldDirection(this.sightDir).negate());
+      return this.sight.intersectObject(this.land.group, true).length > 0;
+    };
     this.kayak.launch(this.course, this.start);
     this.kayak.assisted = this.controls.assisted;
     this.tally = fresh();
@@ -235,7 +292,10 @@ export class RiverGame {
     this.squish = this.squishV = 0;
     this.ripples = [];
     this.eddyS = -99;
+    this.hotFor = this.hotPaid = this.hotLeft = 0;
     this.quiet = QUIET_START;
+    this.high = highAt(river.look, seed, this.start);
+    this.fogged = fogAt(river.look, seed, this.start);
     this.zoom = 1;
     this.yaw = this.course.at(this.start + 10).a;
     this.frame(0);
@@ -325,6 +385,7 @@ export class RiverGame {
     this.course.extend(k.s + 300);
     this.land.update(k.pos, this.reach, k.s - 40, k.s + 100);
     this.land.glow(outside.night, this.clock, outside.fair ? 1 : 0.15);
+    this.wildlife.storm = outside.storm ?? 0;
     this.wildlife.update(dt, k.pos, k.s, k.speed, outside.night, outside.rain, outside.snow, outside.fair);
     this.shade(dt);
     this.bob(dt);
@@ -381,7 +442,42 @@ export class RiverGame {
       this.clean = true;
     }
     this.round();
+    this.flatOut(dt);
     if (metres >= this.length) this.finish();
+  }
+
+  /** Holding it flat out: every HOT_EVERY s pays, and more the longer it goes on. */
+  private flatOut(dt: number) {
+    const k = this.kayak;
+    const t = this.tally;
+    if (k.speed >= FAST && k.balance === 'up') this.hotLeft = HOT_GRACE;
+    else if ((this.hotLeft -= dt) <= 0) {
+      this.hotFor = this.hotPaid = 0;
+      return;
+    }
+    this.hotFor += dt;
+    t.longest = Math.max(t.longest, this.hotFor);
+    const n = Math.floor(this.hotFor / HOT_EVERY);
+    if (n <= this.hotPaid) return;
+    this.hotPaid = n;
+    const points = Math.round(HOT * n * t.flow);
+    t.score += points;
+    t.flatOut += points;
+    const word = HOT_WORDS[Math.min(n, HOT_WORDS.length) - 1];
+    this.well(`${word} ${n * HOT_EVERY}s · +${points}`, 0.15 + Math.min(n, 4) * 0.05, { sound: 'whoosh', rumble: 0.3 + Math.min(n, 4) * 0.1, kick: 0.2 + Math.min(n, 4) * 0.1 });
+    this.wildlife.sparkle(k.pos, 8 + n * 4, undefined, 0.7);
+  }
+
+  /** Off a drop and landed clean: if you went over it flat out, what that's worth (0 if not). */
+  private send(height: number) {
+    const fast = (this.kayak.lipSpeed - SEND_FROM) / (SEND_TOP - SEND_FROM);
+    if (fast < 0 || this.state !== 'running') return 0;
+    const t = this.tally;
+    const points = Math.round(SEND * Math.max(1, height) * (1 + Math.min(1, fast)) * t.flow);
+    t.score += points;
+    t.sends++;
+    t.sent += points;
+    return points;
   }
 
   /** Under the bridge: the clock stops, every second under par pays, and so does every gate and ball. */
@@ -466,6 +562,7 @@ export class RiverGame {
     this.clean = false;
     this.splitClean = false;
     this.streak = 0;
+    this.hotFor = this.hotPaid = this.hotLeft = 0;
     if (cost) {
       this.tally.score = Math.max(0, this.tally.score - cost);
       this.events.broke?.(why, cost);
@@ -538,7 +635,11 @@ export class RiverGame {
         this.controls.rumble(Math.min(1, size / 9), 0.4, 200);
       },
       ledge: (how, height) => {
-        if (how === 'boof') this.well(height > 2 ? 'BOOF!' : 'Boof!', height > 2 ? 0.7 : 0.5, { stop: 0.09, flash: 0.35, sound: 'boof', rumble: 0.8, kick: 0.6 });
+        const sent = how === 'boof' || how === 'tuck' ? this.send(height) : 0;
+        if (sent) {
+          this.well(`Full send! +${sent}`, 0.9, { stop: 0.18, flash: 0.5, sound: 'boof', rumble: 1, kick: 1 });
+          this.wildlife.sparkle(k.pos, 30, undefined, 1.2);
+        } else if (how === 'boof') this.well(height > 2 ? 'BOOF!' : 'Boof!', height > 2 ? 0.7 : 0.5, { stop: 0.09, flash: 0.35, sound: 'boof', rumble: 0.8, kick: 0.6 });
         else if (how === 'tuck') this.well('Tucked it!', 0.8, { stop: 0.12, flash: 0.4, sound: 'boof', rumble: 1, kick: 0.8 });
         else if (how === 'flat' || how === 'skew') {
           this.shake = 1;
@@ -640,6 +741,15 @@ export class RiverGame {
       bark: () => this.events.bark?.(),
       baa: () => this.events.baa?.(),
       quack: () => this.events.quack?.(),
+      spotted: (kind) => {
+        if (this.tally.spotted.includes(kind)) return;
+        this.tally.spotted.push(kind);
+        this.events.sound?.('spotted');
+        this.events.spotted?.(kind);
+      },
+      slap: () => this.events.sound?.('slap'),
+      howl: () => this.events.sound?.('howl'),
+      huff: () => this.events.sound?.('huff'),
     };
   }
 
@@ -763,6 +873,10 @@ export class RiverGame {
         this.wildlife.spray(new THREE.Vector3(p.x + Math.cos(p.a) * u, p.y + 0.2, p.z + Math.sin(p.a) * u), 1, 0.5 + t.height * 0.2);
       }
     }
+    // smoke from the cottages' chimneys
+    for (const c of this.land.chimneys()) {
+      if (Math.random() < dt * 5 && c.distanceToSquared(k.pos) < 70 * 70) this.wildlife.smoke(c);
+    }
     // spray where a side stream lands
     for (const f of this.land.feet()) {
       if (Math.random() < dt * 8 && f.distanceToSquared(k.pos) < 60 * 60) this.wildlife.spray(f, 1, 0.6);
@@ -797,27 +911,51 @@ export class RiverGame {
     this.kayak.model.scale.set(this.size.x * (1 + q * 0.5), this.size.y * (1 - q), this.size.z * (1 - q * 0.4));
   }
 
-  /** Light the river as the island is lit, right now. */
+  /**
+   * Light the river as the island is lit, right now (its time of day, its weather), in the air
+   * this river's run in: a warmer or a greyer light, darker down in a gorge, thinner and bluer
+   * high up in the mountains, and muffled in a bank of fog.
+   */
   private light(o: Outside) {
-    this.sun.color.copy(o.sun.color);
-    this.sun.intensity = o.sun.intensity;
-    this.hemi.color.copy(o.hemi.color);
+    const mood = this.river.look.mood;
+    const course = this.course;
+    const s = this.kayak.s;
+    const ease = this.paused ? 0 : 0.02;
+    this.walls += (course.at(s).gorge - this.walls) * ease * 1.5;
+    this.high += (highAt(this.river.look, course.seed, s) - this.high) * ease;
+    this.fogged += (fogAt(this.river.look, course.seed, s) - this.fogged) * ease;
+    const day = 1 - o.night;
+    const flash = o.flash ?? 0;
+    // (the river's own tint is for the daylight: at night the moon's the moon)
+    const tint = this.tint.set(mood.tint[0]).lerp(ICE, this.high * 0.5);
+    const lean = (mood.tint[1] + this.high * 0.15) * day;
+    this.sun.color.copy(o.sun.color).lerp(tint, lean);
+    this.sun.intensity = o.sun.intensity * (1 + (mood.sun - 1) * day) * (1 - this.walls * 0.22) * (1 - this.fogged * 0.25) * (1 + this.high * 0.08);
+    this.hemi.color.copy(o.hemi.color).lerp(tint, lean * 0.6);
     this.hemi.groundColor.copy(o.hemi.groundColor);
-    this.hemi.intensity = o.hemi.intensity;
+    this.hemi.intensity = o.hemi.intensity * (1 + (mood.sun - 1) * 0.6 * day) * (1 - this.walls * 0.1) * (1 + this.fogged * 0.1); // (the island's lightning's already in its light)
     // the same sun, but never so low that a pine's shadow reaches across the river
     const dir = o.sun.position.clone().normalize();
     dir.y = Math.max(dir.y, 0.62);
     dir.normalize();
     this.sun.target.position.copy(this.kayak.pos);
     this.sun.position.copy(this.kayak.pos).addScaledVector(dir, 100);
-    (this.scene.fog as THREE.Fog).color.copy(o.fog);
-    this.scene.background = o.fog;
+    // the air: the island's, leaning a little to the river's own (and dark at night, whatever it
+    // leans to); pale in a fog bank, clearer high up, and white for a moment in the island's lightning
+    const fog = this.scene.fog as THREE.Fog;
+    this.air.set(mood.air[0]).multiplyScalar(1 - o.night * 0.85);
+    this.mist.copy(MIST).multiplyScalar(0.25 + day * 0.75);
+    fog.color.copy(o.fog).lerp(this.air, mood.air[1]).lerp(this.mist, this.fogged * 0.6).lerp(WHITE, flash * 0.3);
+    const sight = mood.sight * (1 - this.fogged * 0.35) * (1 + this.high * 0.1) * (1 - (o.haze ?? 0) * 0.4);
+    fog.near = DISTANCE + 30 * sight * sight;
+    fog.far = DISTANCE + 160 * sight;
+    this.scene.background = fog.color;
     const u = this.water.uniforms;
-    u.uLight.value.copy(o.hemi.color).lerp(o.sun.color, 0.3).lerp(new THREE.Color(1, 1, 1), 0.35).multiplyScalar(0.3 + Math.min(o.sun.intensity, 2.5) * 0.29);
+    u.uLight.value.copy(this.hemi.color).lerp(this.sun.color, 0.3).lerp(WHITE, 0.35).multiplyScalar(0.3 + Math.min(this.sun.intensity, 2.5) * 0.29);
     u.uNight.value = o.night;
     u.uRain.value = o.rain;
     u.uSunDir.value.copy(dir);
-    u.uSky.value.copy(o.hemi.color).lerp(o.fog, 0.5);
+    u.uSky.value.copy(this.hemi.color).lerp(fog.color, 0.5);
     // the camera looks down the river from behind, ELEVATION above the horizon
     u.uView.value.set(Math.sin(this.yaw) * Math.cos(ELEVATION), -Math.sin(ELEVATION), -Math.cos(this.yaw) * Math.cos(ELEVATION));
   }
@@ -880,9 +1018,12 @@ export class RiverGame {
 }
 
 const BALL = new THREE.Color('#d4dc3c');
+const WHITE = new THREE.Color(1, 1, 1);
+const ICE = new THREE.Color('#dce8ff');
+const MIST = new THREE.Color('#d8e0e2');
 
 function fresh(): Tally {
-  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0 }, balls: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1 };
+  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0 }, balls: 0, sends: 0, sent: 0, longest: 0, flatOut: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1, spotted: [] };
 }
 
 /**

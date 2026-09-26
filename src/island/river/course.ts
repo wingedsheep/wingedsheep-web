@@ -190,12 +190,12 @@ export interface Stretch {
 
 const BASE: Record<Kind, Character> = {
   pool: { width: 19, speed: 2.4, rough: 0, rocks: 0.006, bend: 0.35, slope: 0, clear: 1, gorge: 0, heat: 0 },
-  run: { width: 13, speed: 5.0, rough: 0.3, rocks: 0.045, bend: 0.8, slope: 0.015, clear: 0.3, gorge: 0, heat: 0 },
+  run: { width: 13, speed: 5.4, rough: 0.3, rocks: 0.045, bend: 0.8, slope: 0.015, clear: 0.3, gorge: 0, heat: 0 },
   // fast, smooth water with its rocks laid out in set pieces: going like the clappers, with time to dodge
-  chute: { width: 13.5, speed: 7.2, rough: 0.35, rocks: 0, bend: 0.5, slope: 0.035, clear: 0, gorge: 0.2, heat: 0 },
-  rapids: { width: 13.5, speed: 6.8, rough: 0.9, rocks: 0.13, bend: 1, slope: 0.05, clear: 0, gorge: 0.15, heat: 0 },
+  chute: { width: 13.5, speed: 7.6, rough: 0.35, rocks: 0, bend: 0.5, slope: 0.035, clear: 0, gorge: 0.2, heat: 0 },
+  rapids: { width: 13.5, speed: 7.4, rough: 0.9, rocks: 0.13, bend: 1, slope: 0.05, clear: 0, gorge: 0.15, heat: 0 },
   cascade: { width: 11, speed: 5.0, rough: 0.55, rocks: 0.03, bend: 0.3, slope: 0.01, clear: 0, gorge: 0.35, heat: 0 },
-  gorge: { width: 11, speed: 6.4, rough: 0.65, rocks: 0.07, bend: 0.9, slope: 0.035, clear: 0, gorge: 1, heat: 0 },
+  gorge: { width: 11, speed: 6.9, rough: 0.65, rocks: 0.07, bend: 0.9, slope: 0.035, clear: 0, gorge: 1, heat: 0 },
   falls: { width: 12, speed: 4.6, rough: 0.3, rocks: 0.01, bend: 0.2, slope: 0.005, clear: 0.2, gorge: 0.5, heat: 0 },
 };
 
@@ -275,6 +275,8 @@ export class Course {
   private chuteNames: string[];
   /** Where the line through the set pieces is (m across, + is river right), and the last piece laid. */
   private lane = 0;
+  /** Where the last row of rocks left its gap, across the river (-1..1), from one place() to the next. */
+  private gap = 0;
   private lastPiece: Piece | null = null;
   /** The line the set pieces were laid round, beat by beat (for the tests to paddle). */
   readonly line: { s: number; u: number; piece: Piece | 'rest' }[] = [];
@@ -718,7 +720,7 @@ export class Course {
    */
   private place(to: number) {
     const r = this.scatter;
-    let gap = 0; // where the last gap was, across the river (-1..1)
+    let gap = this.gap;
     while (this.placedTo < to) {
       const s = this.placedTo;
       const p = this.at(s);
@@ -742,8 +744,9 @@ export class Course {
       const white = stretch.kind === 'rapids' || stretch.kind === 'gorge';
       const density = BASE[stretch.kind].rocks * (0.55 + h * 1.6);
       // rows of rocks come closer together the hotter it gets: a couple of seconds apart in the
-      // first rapid, hardly more than one in the big stuff (in seconds, whatever the speed)
-      const spacing = Math.max(white ? Math.max(6, p.speed) * (1.9 - h * 0.6) : 7, Math.min(40, 1.4 / Math.max(density, 0.01) / 3.2));
+      // first rapid, not much less in the big stuff (in seconds, whatever the speed): fast water
+      // with room to pick a line
+      const spacing = Math.max(white ? Math.max(6, p.speed) * (2.1 - h * 0.5) : 7, Math.min(40, 1.4 / Math.max(density, 0.01) / 3.2));
       const step = spacing * (0.8 + r() * 0.4);
       this.placedTo += step;
       if (s < 120) continue; // a clear start
@@ -769,8 +772,8 @@ export class Course {
       // not much more than the boat's width in the big stuff
       const gapHalf = Math.max(1.15, 2.6 - h * 1.45) / half;
 
-      const perRow = stretch.kind === 'rapids' ? 1 + Math.floor(r() * (1.6 + h * 2.6))
-        : stretch.kind === 'gorge' ? 1 + Math.floor(r() * (1.5 + h * 1.5))
+      const perRow = stretch.kind === 'rapids' ? 1 + Math.floor(r() * (1.3 + h * 2))
+        : stretch.kind === 'gorge' ? 1 + Math.floor(r() * (1.3 + h * 1.2))
           : stretch.kind === 'run' || stretch.kind === 'cascade' ? 1 + Math.floor(r() * (1.2 + h)) : 1;
       // (a wider river has room for more of them)
       const inRow = r() < density * spacing * 1.6 ? Math.max(1, Math.round(perRow * Math.min(1.5, half / 5.5))) : 0;
@@ -778,11 +781,13 @@ export class Course {
       let right = false;
       for (let k = 0; k < inRow; k++) {
         let u = r() * 2 - 1;
-        if (Math.abs(u - gap) < gapHalf) u = gap + Math.sign(u - gap || 1) * (gapHalf + r() * 0.35);
+        const rad = 0.55 + r() * (0.5 + p.rough * 0.5);
+        // the whole rock clear of the gap, not just its middle: a big one could all but close it
+        const clear = gapHalf + (rad * 0.9) / half;
+        if (Math.abs(u - gap) < clear) u = gap + Math.sign(u - gap || 1) * (clear + r() * 0.35);
         if (Math.abs(u) > 1.05) continue;
         if (u < gap) left = true;
         else right = true;
-        const rad = 0.55 + r() * (0.5 + p.rough * 0.5);
         const at = across(u);
         this.addObstacle({ kind: 'rock', x: at.x, z: at.z, r: rad, s: s + (r() - 0.5) * 2, variant: Math.floor(r() * 5) });
       }
@@ -821,6 +826,8 @@ export class Course {
         this.file({ a: across(g - w), b: across(g + w), s, passed: false } satisfies Gate);
       }
     }
+    // (the game lays the river a little at a time as you go: the next row carries on from here)
+    this.gap = gap;
     // the hole at the foot of every ledge: all the way across, stronger the bigger the drop
     for (const l of this.ledges) {
       if ((l as Ledge & { holed?: boolean }).holed || l.s > to) continue;

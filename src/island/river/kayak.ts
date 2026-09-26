@@ -158,6 +158,8 @@ export class Kayak {
   private lastCatch = -9;
   private boofing = false;
   private dropHeight = 0; // the drop being flown off, as built
+  /** How fast you were going over the last lip (m/s). */
+  lipSpeed = 0;
   private lipSkew = 0; // how far off the river's line the bow pointed going over the lip
   private pitchNow = 0; // leaning forward (+) or back (-)
   private leanNow = 0;
@@ -786,6 +788,7 @@ export class Kayak {
     if (l.passed || this.s < l.s - 0.3) return;
     l.passed = true;
     this.dropHeight = l.height;
+    this.lipSpeed = this.speed;
     this.lipSkew = this.here ? angle(this.heading - this.here.a) : 0;
     // a boof: a stroke catching right at the lip, not leaning forward (leaning back lifts the bow more)
     this.boofing = running && this.balance === 'up' && this.clock - this.lastCatch < BOOF_WINDOW && this.pitchNow < 0.3;

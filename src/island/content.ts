@@ -539,7 +539,7 @@ export const PLACES: Record<string, Place> = {
         return;
       }
       const note = ctx.journal.has('cartridge')
-        ? 'A strip of masking tape inside the cockpit. In marker: “level 1?” Take it downriver?'
+        ? 'Masking tape inside the cockpit, a list in marker, most of it peeled away. Only the top line is left: “start gentle.” Take it downriver?'
         : 'The seat is still wet. There’s a river on the other side of the hill. Take the kayak down it?';
       ctx.ask(note, [{ label: 'Paddle', pick: () => ctx.openPanel('river') }, { label: 'Later' }]);
     },

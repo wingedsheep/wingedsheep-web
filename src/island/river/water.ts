@@ -136,17 +136,26 @@ export function riverWater() {
       // pixel beside each), here carried along at the water's own speed. Long and quick down the
       // fast line, short and lazy in slow water, back upstream in an eddy. Each lot drifts for a
       // cycle and pops out dash by dash as the next lot pops in, so nothing smears.
-      // lp: river space (m across, m along). Returns 1 on a dash, -1 on its shadow, 0 elsewhere.
-      float dashes(vec2 lp, float along, float fast, float rough, float phase, float seed) {
+      // Each pixel carries its dashes on at its own speed, so where the speed changes quickly
+      // down the river (off a rock's eddy, into a tongue) the pattern gets squeezed, and squeezed
+      // hard enough it folds over and runs the wrong way. So a lot is drifted from half a cycle
+      // behind its resting place to half a cycle past it (half the squeeze of starting from
+      // rest), and fades out wherever it would fold.
+      // lp: river space (m across, m along); stretch: how fast a cycle's travel grows per metre
+      // downstream. Returns 1 on a dash, -1 on its shadow, 0 elsewhere.
+      float dashes(vec2 lp, float along, float stretch, float fast, float rough, float phase, float seed) {
         float t = fract(uTime / CYCLE + phase);
+        float k = t - 0.5;
         vec2 size = vec2(0.7, mix(1.4, 3.6, fast));
-        vec2 q = lp - vec2(0.0, along * t * CYCLE);
+        vec2 q = lp - vec2(0.0, along * k * CYCLE);
         q.y += hash(vec2(floor(q.x / size.x), seed)) * size.y; // stagger the columns
         vec2 cell = floor(q / size);
         vec2 l = q / size - cell;
         float h = hash(cell + seed);
         float life = 1.0 - abs(2.0 * t - 1.0);
-        float on = step(h, mix(0.07, 0.22, fast) + rough * 0.1) * step(hash(cell + seed + 3.1), life * 1.6);
+        // (never lit right at the turn of the cycle, or it'd jump back upstream to start again)
+        float on = step(h, mix(0.05, 0.15, fast) + rough * 0.06) * step(0.12 + hash(cell + seed + 3.1) * 0.88, life * 1.6);
+        on *= smoothstep(0.3, 0.7, 1.0 - stretch * k);
         float len = mix(0.18, 0.75, fast) * (0.6 + 0.4 * hash(cell + seed + 7.7)) + rough * 0.15;
         float x = (l.x - 0.5) * size.x;
         float inLen = step(abs(l.y - 0.5), len * 0.5);
@@ -311,11 +320,20 @@ export function riverWater() {
         col = mix(col, col * 0.85, step(0.74, noise(p * 2.2)) * see * 0.6);
 
         // --- the current ------------------------------------------------------------------
-        float dash = dashes(lp, along, fast, rough, 0.0, 0.0) + dashes(lp + vec2(0.35, 0.0), along, fast, rough, 0.5, 11.0);
+        // how fast a cycle's travel changes per metre downstream, from how it and the river's own
+        // coordinates change from one screen pixel to the next
+        float travel = along * CYCLE;
+        vec2 gOff = vec2(dFdx(off), dFdy(off));
+        vec2 gS = vec2(dFdx(s), dFdy(s));
+        vec2 gT = vec2(dFdx(travel), dFdy(travel));
+        float det = gOff.x * gS.y - gOff.y * gS.x;
+        float stretch = abs(det) > 1e-9 ? (gOff.x * gT.y - gOff.y * gT.x) / det : 0.0;
+        float dash = dashes(lp, along, stretch, fast, rough, 0.0, 0.0) + dashes(lp + vec2(0.35, 0.0), along, stretch, fast, rough, 0.5, 11.0);
         dash *= 1.0 - calm * 0.7;
         vec3 light = mix(vec3(0.55, 0.85, 0.95), vec3(0.9, 0.97, 0.97), rough);
-        col = mix(col, mix(col, light, 0.5 + fast * 0.2), step(0.5, dash));
-        col = mix(col, col * 0.84, step(dash, -0.5));
+        // (a hint of the current, not a pattern laid over the water)
+        col = mix(col, mix(col, light, 0.3 + fast * 0.15), step(0.5, dash));
+        col = mix(col, col * 0.9, step(dash, -0.5));
 
         col = mix(col, mix(col, vec3(0.75, 0.95, 1.0), 0.45), chevron * (1.0 - uNight * 0.5));
 
@@ -332,23 +350,42 @@ export function riverWater() {
         col = mix(col, col * 0.8, wet * 0.5);
         col = mix(col, vec3(0.92, 0.97, 0.94), max(ring, pillow * step(0.35, noise(p * 2.4 + drift * 8.0))));
 
-        // holes: a dark trough, then a band of water boiling back on itself
+        // holes: a smooth dark trough, then a pile of foam boiling back on itself along a ragged,
+        // gently curved line, breaking up into flecks that drift off downstream. Its ends taper
+        // off into the current (a hole behind a rock); a ledge's runs from bank to bank
         for (int k = 0; k < ${MAX_HOLES}; k++) {
           vec4 hl = uHoles[k];
           if (hl.z <= 0.0) continue;
-          vec2 dd = wp - hl.xy;
-          float a = dot(dd, dir);
-          float inside = step(abs(dot(dd, right)), hl.z + noise(p * 1.5) * 0.4);
-          float trough = step(-1.6, a) * step(a, -0.5) * inside;
-          float boil = step(-0.6, a) * step(a, 0.9 + hl.w * 0.5) * inside;
-          float churn = step(0.35, noise(p * 3.0 + drift * 12.0) * 0.6 + noise(p * 1.4 - drift * 7.0) * 0.6);
-          col = mix(col, col * 0.62, trough);
-          col = mix(col, mix(vec3(0.78, 0.9, 0.92), vec3(0.97, 1.0, 1.0), churn), boil);
+          vec2 dd = p - hl.xy; // (on the art-pixel grid, so its edges are pixel steps)
+          float c = dot(dd, right);
+          float x = c / (hl.z + 0.3);
+          if (abs(x) > 1.4) continue;
+          float taper = sqrt(max(0.0, 1.0 - x * x));
+          // (bowed: the middle held a little further upstream than the ends)
+          float a = dot(dd, dir) - x * x * min(hl.z, 3.0) * 0.18;
+          float jag = (noise(vec2(c * 1.8, uTime * 0.7)) - 0.5) * 0.5; // the boil line, never straight
+          float a0 = -0.6 + jag;
+          float len = (1.3 + hl.w * 1.5) * taper + (noise(vec2(c * 0.9 + 5.0, uTime * 0.5)) - 0.5) * 0.6;
+          float t = (a - a0) / max(len, 0.01); // 0 at the boil line … 1 where the foam's thinned out
+          float trough = smoothstep(a0 - 1.2, a0 - 0.2, a) * step(a, a0) * taper;
+          col = mix(col, col * 0.72, floor(trough * 3.0 + 0.5) / 3.0);
+          if (t < 0.0 || taper <= 0.0) continue;
+          float churn = noise(p * 1.7 + vec2(0.0, uTime * 1.1) + drift * 8.0) * 0.65 + noise(p * 3.4 - drift * 6.0) * 0.4;
+          float foam = step(0.18 + t * 0.62, churn);
+          // aerated water between the clumps, fading out behind them
+          float froth = (1.0 - smoothstep(0.3, 1.25, t)) * 0.45;
+          col = mix(col, mix(col, vec3(0.86, 0.95, 0.96), 0.6), froth);
+          col = mix(col, mix(vec3(0.84, 0.94, 0.95), vec3(0.97, 1.0, 1.0), step(t, 0.3 + jag * 0.4)), foam * step(t, 1.0));
+          // and flecks carried off on the current
+          float fleck = step(0.86 + (t - 1.0) * 0.06, noise(vec2(c * 2.4, (a - uTime * 2.4) * 2.0))) * step(1.0, t) * step(t, 3.0);
+          col = mix(col, vec3(0.9, 0.97, 0.96), fleck);
         }
 
-        // over a fall: all white, pouring
-        float pour = step(0.35, noise(vec2(u * 12.0, s * 2.0 - uTime * 14.0)));
-        col = mix(col, mix(vec3(0.82, 0.93, 0.95), vec3(1.0), pour), drop);
+        // over a fall: a curtain of white water pouring down in streaks, glassy green-blue
+        // showing between them
+        float streak = noise(vec2(u * vBend.x * 1.6, s * 0.5 - uTime * 7.0)) + (noise(p * 2.0 - vec2(0.0, uTime * 9.0)) - 0.5) * 0.5;
+        vec3 curtain = mix(mix(mid, vec3(0.8, 0.94, 0.96), 0.4), vec3(1.0), step(0.45, streak));
+        col = mix(col, curtain, step(0.4 + (noise(vec2(u * vBend.x * 2.5, uTime * 3.0)) - 0.5) * 0.6, drop)); // (ragged at the top and foot)
 
         // the lip: a bright edge, pulsing gold in the moment to boof it
         float pulse = 0.75 + 0.25 * sin(uTime * 18.0);
