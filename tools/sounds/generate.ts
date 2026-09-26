@@ -75,7 +75,7 @@ export const SOUNDS: Sfx[] = [
   { name: 'truck-horn', seconds: 1.5, prompt: 'A lorry giving a short friendly double toot of its horn' },
   { name: 'car-door', seconds: 1, prompt: 'A car door opening and shutting with a solid thunk' },
   { name: 'turbine', seconds: 4, prompt: 'Standing right under a wind turbine, the huge blades sweeping past with a deep rhythmic whoosh' },
-  { name: 'cheers', seconds: 2, prompt: 'Two beer glasses clinking together outside a mountain hut, a cheerful Prost and a little laugh' },
+  { name: 'cheers', seconds: 6, prompt: 'Busy crowded mountain hut restaurant, many people talking at once, a constant lively warm murmur of German conversation filling the room, glasses clinking now and then in the background, cosy walla crowd ambience' },
   { name: 'cowbells', seconds: 4, prompt: 'Alpine cowbells clonking gently on a mountain pasture, a few cows moving about, far off' },
   { name: 'transformer', seconds: 2, prompt: 'A full electrical transformer humming loudly, a low buzzing mains drone with a crackle' },
   // the telly in the lighthouse, one bed per programme she might have on (companion.ts SHOWS)
