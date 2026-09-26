@@ -1033,7 +1033,7 @@ let dreamPage = -1;
 const waiting = inTurn([
   'The timer says twenty minutes. She checks the oven anyway, every two.',
   'Tradwife hour, she announces. It lasts exactly as long as the pie is in the oven, not a minute longer.',
-  'She offers you the first slice. It’s far too hot, and you both eat it anyway.',
+  'She cuts the first slice at nineteen minutes. Close enough, she says. It is not close enough.',
 ]);
 
 export const HUT_PLACES: Record<string, Place> = {
@@ -1048,17 +1048,17 @@ export const HUT_PLACES: Record<string, Place> = {
       ctx.toast(her && !him
         ? 'Her side’s taken. His is turned down, and he said he’d be right up. He said that an hour ago.'
         : him || her
-          ? 'Two under the red check duvet, and the stove ticking as it cools. Shh.'
+          ? 'Both asleep. Most of the duvet has ended up on her side, which is how it ends up every night.'
           : ctx.sky.lamps > 0.6
-            ? 'Turned down, the candle lit, and nobody in it yet.'
-            : 'Made up with the red check duvet. His name is on the board over it; hers is on the pillow she always takes, by the candle.');
+            ? 'Turned down, and nobody in it yet. Someone is still “just finishing something”.'
+            : 'A red check duvet on a bed slightly too short for him. She gets the side by the candle; that was never up for discussion.');
     },
   },
   vincent_asleep: {
     label: 'Vincent · fast asleep',
     activate: (() => {
       const lines = [
-        'He mumbles something about a double jump, smiles, and rolls over.',
+        'He mumbles something about a double jump and rolls over, taking the duvet with him.',
         'Out like a light. The alarm is set for the sunrise; the alarm is going to lose.',
         'Fast asleep, and already looking forward to the first coffee.',
       ];
@@ -1077,7 +1077,7 @@ export const HUT_PLACES: Record<string, Place> = {
     label: 'Asleep, the book on the duvet',
     activate(ctx) {
       ctx.sound.here('snore', 0.7);
-      ctx.toast('Asleep, a finger still keeping her page. The candle can stay lit a bit longer.');
+      ctx.toast('Asleep mid-chapter, a finger still in the book. Tomorrow she’ll start the chapter again.');
     },
   },
   dream_journal: {
@@ -1096,7 +1096,7 @@ export const HUT_PLACES: Record<string, Place> = {
   alarm_clock: { label: 'An alarm clock', activate: say('Set for half past five, for the sunrise over the peaks. It has a snooze button, and it knows it.') },
   headlamp: { label: 'A headlamp', activate: say('Hung on the bedpost, ready for the early start. The batteries are nearly flat. They always are.') },
   stove: { label: 'The stove', activate: say('Fed all day from the basket beside it. This is the warmest spot in the hut, which is why the socks are here too.') },
-  kettle: { label: 'The kettle', activate: say('Always on. Tea for whoever comes in out of the cold. Coffee is the other machine’s job.') },
+  kettle: { label: 'The kettle', activate: say('Always on. Tea only: coffee is the other machine’s job, and it takes that very seriously.') },
   nespresso: {
     label: 'The coffee machine',
     activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
@@ -1104,7 +1104,7 @@ export const HUT_PLACES: Record<string, Place> = {
       : 'A capsule machine, carried all the way up here in someone’s pack. The first cup of the day is black, and not negotiable.'),
   },
   capsules: { label: 'A tower of capsules', activate: say('Every colour but one is already running low. Nobody drinks the decaf.') },
-  soup_pot: { label: 'A pot of soup', activate: say('Barley soup, on since this morning. There’s always enough for one more.') },
+  soup_pot: { label: 'A pot of soup', activate: say('Barley soup, on since this morning. It has been topped up with water twice, and it shows.') },
   soup: { label: 'Soup and bread', activate: say('Three bowls, still hot, and fresh bread. Everyone’s just stepped out to look at the view.') },
   socks: { label: 'Socks, drying', activate: say('Wool socks on a line over the stove. Six socks. Three pairs, probably.') },
   guestbook: {
@@ -1127,8 +1127,8 @@ export const HUT_PLACES: Record<string, Place> = {
   boots: { label: 'A row of boots', activate: say('Lined up by the door, still drying out. The muddiest pair has just done the Peaks of the Balkans.') },
   cat: indoorPet('The dock cat · on the bed', [
     'She came all the way up the trail to sleep on the red check duvet. Mrrp. She is not getting off it.',
-    'A slow blink, a purr, and she tucks her white paws back under her chin. The stove ticks. The rain keeps on.',
-    'Paw prints across the duvet, still a little damp. Nobody is going to say anything about it.',
+    'A slow blink that means: this is my bed now. The rain can keep going for all she cares.',
+    'Muddy paw prints across the duvet. Whose turn it is to wash it is a discussion for tomorrow.',
   ], 'cat'),
   rope: { label: 'A rope and an ice axe', activate: say('For the stretch above the hut, where the trail stops being a trail.') },
 };
