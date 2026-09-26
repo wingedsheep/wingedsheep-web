@@ -21,7 +21,7 @@ const SPIN_DAMP = 0.6;
 // the paddle
 const BLADE = 1.05; // how hard a blade bites
 const BLADE_SPEED = 6.5; // how fast a blade moves through a stroke (m/s): you can't paddle faster than it
-const RUDDER = 0.4; // a planted blade's drag
+const RUDDER = 0.2; // a planted blade's drag
 
 /** How far over it can go (radians of roll) before it wants to keep going. */
 export const TIP = 0.95;
@@ -315,7 +315,7 @@ export class Kayak {
       const va = relAlong;
       const vl = relAcross + this.yawRate * a;
       const fa = -RUDDER * va * Math.abs(va);
-      const fl = -RUDDER * 0.5 * vl * Math.abs(vl);
+      const fl = -RUDDER * 0.35 * vl * Math.abs(vl);
       return { fa, fl, tau: a * fl - l * fa };
     }
     // a stroke: the blade goes in near the feet and comes out by the hip (a sweep reaches wide
@@ -325,11 +325,13 @@ export class Kayak {
     const a = fwd ? 1.1 - b.t * 1.8 : -0.7 + b.t * 1.8;
     const l = b.side * (b.sweep ? 1.6 : 0.7);
     const u = BLADE_SPEED * (0.6 + 0.4 * b.power);
-    const bite = fwd ? Math.max(0, u - relAlong) : Math.max(0, u + relAlong);
+    // (going forward, a reverse blade bites harder, but only so much)
+    const bite = fwd ? Math.max(0, u - relAlong) : Math.max(0, Math.min(u * 1.25, u + relAlong));
     let fa = BLADE * bite * env * (fwd ? 1 : -1) * (b.sweep ? 0.75 : 1) * (0.5 + 0.5 * b.power);
     // a sweep also pushes the ends out sideways: the bow away at the start, the stern at the end
-    const fl = b.sweep ? -b.side * BLADE * 2.4 * env * (fwd ? 1 : -1) * Math.sign(a) * (0.5 + 0.5 * b.power) : 0;
-    if (!fwd) fa *= 1.3;
+    // (a reverse sweep checks you and swings you round: a firm correction, not a handbrake turn)
+    const fl = b.sweep ? -b.side * BLADE * 2.4 * env * (fwd ? 1 : -0.4) * Math.sign(a) * (0.5 + 0.5 * b.power) : 0;
+    if (!fwd) fa *= 0.6;
     let tau = a * fl - l * fa;
     // forward strokes can't wind you up past a brisk turn on their own: the blade's only going
     // round as fast as the boat already is. A reverse sweep bites into the water and whips you

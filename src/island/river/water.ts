@@ -43,6 +43,9 @@ export function riverWater() {
       uLight: { value: new THREE.Color(1, 1, 1) },
       uNight: { value: 0 },
       uRain: { value: 0 },
+      uSunDir: { value: new THREE.Vector3(0.3, 0.8, 0.4).normalize() },
+      uView: { value: new THREE.Vector3(0, -0.74, -0.67) },
+      uSky: { value: new THREE.Color(0.7, 0.85, 0.95) },
       // ?flow in the address: the water coloured by its speed (red fast, blue back upstream)
       uDebug: { value: new URLSearchParams(location.search).has('flow') ? 1 : 0 },
       uBoat: { value: new THREE.Vector4(0, 0, 0, 0) },
@@ -89,6 +92,9 @@ export function riverWater() {
       uniform float uNight;
       uniform float uRain;
       uniform float uDebug;
+      uniform vec3 uSunDir;
+      uniform vec3 uView;
+      uniform vec3 uSky;
       uniform vec4 uBoat; // x, z, the heading of its wake, how fast it's moving through the water
       uniform vec4 uRocks[${MAX_ROCKS}];
       uniform vec4 uHoles[${MAX_HOLES}];
@@ -199,8 +205,10 @@ export function riverWater() {
           if (g.z <= 0.0) continue;
           vec2 dd = wp - g.xy;
           float a = dot(dd, dir);
-          float w = g.z * clamp((2.5 - a) / 5.5, 0.0, 1.0);
-          calm = max(calm, step(-3.0, a) * step(a, 2.5) * step(abs(dot(dd, right)), w));
+          // (its edges ragged, and fading out at either end, so it never shows as a hard triangle)
+          float w = g.z * clamp((2.5 - a) / 5.5, 0.0, 1.0) + (noise(p * 2.0) - 0.5) * 0.35;
+          float ends = smoothstep(-3.0, -1.8, a) * (1.0 - smoothstep(1.2, 2.5, a));
+          calm = max(calm, step(abs(dot(dd, right)), w) * step(0.5, ends + (noise(p * 3.0) - 0.5) * 0.4));
         }
         along += calm * 2.2;
         rough *= (1.0 - calm) * (1.0 - eddy * 0.75);
@@ -224,8 +232,26 @@ export function riverWater() {
         // the standing waves in stepped bands: lit backs, dark troughs
         float lit = floor(clamp(wave, -1.0, 1.0) * 2.5 + 0.5) / 2.5;
         col *= 1.0 + lit * rough * 0.16;
+
+        // the surface catching the light, one art pixel at a time: ripples that shimmer in
+        // place (choppier in white water, glassy in a tongue), lit from the sun, with a little of
+        // the sky in them where they tilt away
+        vec2 e = vec2(1.0 / 6.0, 0.0);
+        float chop = 0.25 + rough * 0.6 + fast * 0.15;
+        float h0 = noise(p * 1.7 + drift * 4.0) + noise(p * 3.3 - drift * 6.0) * 0.5;
+        float hx = noise((p + e.xy) * 1.7 + drift * 4.0) + noise((p + e.xy) * 3.3 - drift * 6.0) * 0.5;
+        float hz = noise((p + e.yx) * 1.7 + drift * 4.0) + noise((p + e.yx) * 3.3 - drift * 6.0) * 0.5;
+        vec3 n = normalize(vec3((h0 - hx) * chop * (1.0 - calm * 0.8), 1.0, (h0 - hz) * chop * (1.0 - calm * 0.8)));
+        vec3 sun = normalize(uSunDir);
+        float shade = floor((dot(n, sun) - dot(vec3(0.0, 1.0, 0.0), sun)) * 12.0 + 0.5) / 12.0;
+        col *= 1.0 + clamp(shade, -0.1, 0.1);
+        vec3 rf = reflect(normalize(uView), n);
+        col = mix(col, uSky, step(0.12, 1.0 - rf.y) * 0.12 * (1.0 - uNight * 0.6) * (1.0 - calm));
         // stepped bands, like a hand-picked palette
         col = floor(col * 14.0 + 0.5) / 14.0;
+        // and the sun glinting off the ripples, a pixel at a time
+        float spec = pow(max(dot(rf, sun), 0.0), 60.0);
+        col += vec3(1.0, 0.97, 0.88) * step(0.6, spec) * 0.45 * (1.0 - uNight * 0.9) * (1.0 - uRain * 0.8);
 
         // caustic squiggles and pebbles in clear, slow shallows
         float see = clamp(clear * 0.9 + (1.0 - depth) * 0.5 - fast * 0.8, 0.0, 1.0) * (1.0 - rough);
@@ -287,22 +313,25 @@ export function riverWater() {
         if (uBoat.w > 0.3) {
           vec2 wd = vec2(sin(uBoat.z), -cos(uBoat.z));
           vec2 dd = wp - uBoat.xy;
-          float a = -dot(dd, wd); // behind it
+          float a = -dot(dd, wd) - 1.2; // behind the stern
           float cc = abs(dot(dd, vec2(-wd.y, wd.x)));
-          float len = 2.0 + uBoat.w * 2.2;
-          float arm = abs(cc - 0.36 - a * 0.36);
-          float wake = step(0.0, a) * step(a, len) * step(arm, 0.1 + a * 0.02) * step(0.3, noise(p * 3.0 + drift * 6.0));
-          col = mix(col, vec3(0.88, 0.96, 0.95), wake * step(a / len, 0.8));
-          float trail = step(1.3, a) * step(a, len * 0.8) * step(cc, 0.25) * step(0.55, noise(p * 2.5 + drift * 9.0));
-          col = mix(col, vec3(0.82, 0.93, 0.95), trail);
+          float len = 0.8 + min(uBoat.w, 5.0) * 0.5;
+          // a short V of broken foam spreading off the stern, thinning out as it goes
+          float arm = abs(cc - 0.3 - max(a, 0.0) * 0.35);
+          float fade = 1.0 - clamp(a / len, 0.0, 1.0);
+          float speck = hash(p + floor(uTime * 6.0));
+          float wake = step(0.0, a) * step(arm, 0.12) * step(speck, fade * fade * 0.9);
+          col = mix(col, vec3(0.88, 0.96, 0.95), wake);
         }
         for (int k = 0; k < ${MAX_RIPPLES}; k++) {
           vec4 r = uRipples[k];
           if (r.w <= 0.0) continue;
-          float rad = r.z * (1.4 + r.w * 0.8);
-          float life = 1.0 - r.z / (0.9 + r.w * 0.6);
+          float rad = 0.2 + r.z * (0.9 + r.w * 0.6);
+          float life = 1.0 - r.z / (0.7 + r.w * 0.5);
           if (life <= 0.0) continue;
-          col = mix(col, vec3(0.84, 0.94, 0.95), step(abs(length(wp - r.xy) - rad), 0.07 + r.w * 0.04) * step(0.25, life));
+          // a thin ring, breaking up as it spreads
+          float on = step(abs(length(wp - r.xy) - rad), 0.06) * step(hash(p + r.xy), life);
+          col = mix(col, vec3(0.84, 0.94, 0.95), on);
         }
 
         // sparkles: sun glints by day, fewer by night

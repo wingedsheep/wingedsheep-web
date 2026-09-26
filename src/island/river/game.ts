@@ -148,8 +148,10 @@ export class RiverGame {
   /** Where the last eddy was caught: the next one has to be further down to count. */
   private eddyS = -99;
   /** Where the kayak goes in: far enough down that there's river behind you too. To try a harder
-   * stretch straight away: ?downriver=1500 (metres further on). */
-  private start = 50 + (Number(new URLSearchParams(location.search).get('downriver')) || 0);
+   * stretch straight away: ?downriver=1500 (metres further on; you still push off in calm water,
+   * see calm()). */
+  private start = 50;
+  private downriver = Number(new URLSearchParams(location.search).get('downriver')) || 0;
 
   constructor(private assets: RiverAssets, el: HTMLElement, private texels: () => number) {
     this.controls = new Controls(el);
@@ -180,6 +182,7 @@ export class RiverGame {
     this.land?.group.removeFromParent();
     // the same seed is the same river: ?seed=1234 to paddle one again
     const seed = Number(new URLSearchParams(location.search).get('seed')) || (Math.random() * 2 ** 31) | 0;
+    this.start = calm(seed, 50 + this.downriver);
     this.course = new Course(seed, this.start + LENGTH);
     this.course.extend(this.start + 400);
     this.land = new Land(this.course, this.assets, this.water.material, this.halo);
@@ -715,6 +718,10 @@ export class RiverGame {
     u.uLight.value.copy(o.hemi.color).lerp(o.sun.color, 0.3).lerp(new THREE.Color(1, 1, 1), 0.35).multiplyScalar(0.3 + Math.min(o.sun.intensity, 2.5) * 0.29);
     u.uNight.value = o.night;
     u.uRain.value = o.rain;
+    u.uSunDir.value.copy(dir);
+    u.uSky.value.copy(o.hemi.color).lerp(o.fog, 0.5);
+    // the camera looks down the river from behind, ELEVATION above the horizon
+    u.uView.value.set(Math.sin(this.yaw) * Math.cos(ELEVATION), -Math.sin(ELEVATION), -Math.cos(this.yaw) * Math.cos(ELEVATION));
   }
 
   /**
@@ -776,6 +783,24 @@ const BALL = new THREE.Color('#d4dc3c');
 
 function fresh(): Tally {
   return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0 }, balls: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1 };
+}
+
+/**
+ * Where to push off, at or after arc length `from`: always in calm water (a pool, or an easy
+ * forest run), with a good stretch of it ahead to get settled before anything happens.
+ */
+function calm(seed: number, from: number) {
+  const probe = new Course(seed);
+  for (let s = from; s < from + 3000; s += 5) {
+    probe.extend(s + 60);
+    const st = probe.stretchAt(s);
+    const easy = st.kind === 'pool' || (st.kind === 'run' && !st.fast);
+    const at = Math.max(s, st.start + 15);
+    // (and not on top of a gravel bar or an island: the kayak goes in mid-river)
+    const clear = !probe.splits.some((x) => at > x.s0 - 45 && at < x.s1 + 10);
+    if (easy && clear && st.end - at >= 50) return at;
+  }
+  return 50;
 }
 
 function white(s: Stretch) {

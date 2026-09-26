@@ -234,6 +234,11 @@ export class Course {
   readonly features: { kind: 'bridge' | 'tent' | 'cabin' | 'swing'; s: number; side: number }[] = [];
   readonly splits: Split[] = [];
   private random: () => number;
+  /**
+   * The rocks, balls and the rest have their own random numbers, so however far ahead they've
+   * been placed, the river's own shape comes out the same for the same seed.
+   */
+  private scatter: () => number;
   private hash = new Map<number, number[]>();
   /** Everything in the water by the 16 m of river it's in, to find the things nearby. */
   private buckets = new Map<number, Thing[]>();
@@ -256,6 +261,7 @@ export class Course {
    */
   constructor(readonly seed: number, readonly finish = Infinity) {
     this.random = rng(seed);
+    this.scatter = rng(seed ^ 0x5bd1e995);
     this.names = [...RAPIDS].sort(() => this.random() - 0.5);
     // a slow green pool to get the feel of it, an easy forest run, a fast chute to learn to
     // dodge in, and then the first white water
@@ -611,7 +617,7 @@ export class Course {
    * from the outside bank.
    */
   private channels(s: number, p: Sample, split: Split, h: number) {
-    const r = this.random;
+    const r = this.scatter;
     if (p.isle < 1) return;
     const half = p.width / 2;
     const rx = Math.cos(p.a);
@@ -654,7 +660,7 @@ export class Course {
    * Logs reach out from a bank. Tennis balls follow the lines between the rocks.
    */
   private place(to: number) {
-    const r = this.random;
+    const r = this.scatter;
     let gap = 0; // where the last gap was, across the river (-1..1)
     while (this.placedTo < to) {
       const s = this.placedTo;
