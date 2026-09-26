@@ -79,6 +79,11 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     pad: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
     touch: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
   },
+  sprint: {
+    keys: 'Hold Shift while you paddle to dig in: faster, for as long as your breath lasts (the bar over the boat)',
+    pad: 'Hold □ while you paddle to dig in: faster, for as long as your breath lasts (the bar over the boat)',
+    touch: 'Hold Sprint while you paddle to dig in: faster, for as long as your breath lasts (the bar over the boat)',
+  },
   peel: {
     keys: 'Eddy caught! Crossing the foamy line back out, lean into the turn (← / →) or the current will trip you',
     pad: 'Eddy caught! Crossing the foamy line back out, lean into the turn with the stick or the current will trip you',
@@ -140,11 +145,19 @@ export class River implements RoomInput {
     private island: THREE.Scene,
   ) {
     this.el = document.querySelector<HTMLElement>('[data-panel="river"]')!;
-    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'praise', 'flash']) {
+    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'praise', 'flash', 'sprint', 'sprint-go']) {
       this.$[name] = this.el.querySelector<HTMLElement>(`[data-river-${name}]`)!;
     }
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-go]')) b.addEventListener('click', () => this.go());
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-resume]')) b.addEventListener('click', () => this.pause(false));
+    // held (a thumb on it while the other paddles, or a finger while both do)
+    const go = this.$['sprint-go'];
+    go.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      go.setPointerCapture(e.pointerId);
+      this.game?.controls.sprint(true);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) go.addEventListener(type, () => this.game?.controls.sprint(false));
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.pause(true);
     });
@@ -425,6 +438,18 @@ export class River implements RoomInput {
       roll.style.setProperty('--needle', String(k.roll.needle));
       roll.style.setProperty('--window', String(k.roll.window));
     }
+    // the sprint: a bar over the boat, draining while you dig in and filling as you get your breath back
+    const running = game.state === 'running' && !game.paused;
+    const sprint = this.$.sprint;
+    const showSprint = running && (k.sprinting || k.wind < 1);
+    sprint.hidden = !showSprint;
+    if (showSprint) {
+      sprint.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y - 40)}px)`;
+      sprint.style.setProperty('--charge', String(k.wind));
+      sprint.classList.toggle('on', k.sprinting);
+    }
+    this.$['sprint-go'].hidden = !running;
+    this.$['sprint-go'].classList.toggle('spent', !k.sprinting && k.wind < 0.2);
     // the flash
     this.$.flash.style.opacity = String(game.flash.amount * 0.6);
     this.$.flash.style.background = `#${game.flash.color.getHexString()}`;

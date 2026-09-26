@@ -5,6 +5,9 @@
  *            left / right        blade planted (hold)         fore and aft)
  * keyboard   A / D  (↑: both)    Q / E                        ← → and W S         Space
  * pad        L2 / R2             L1 / R1                      left stick          ✕ / A
+ *
+ * Holding sprint (Shift, □ / X, or the sprint button on a touch screen) while you paddle digs in:
+ * quicker, harder strokes, on one side or both, for as long as your breath lasts.
  * touch      hold the left or right half of the screen to paddle on that side (both thumbs:
  *            straight on); low down, a reverse sweep (tap) or a planted blade (hold). On a touch
  *            screen the paddler leans for himself.
@@ -31,10 +34,12 @@ export interface Intent {
   pitch: number;
   /** Brace on whichever side you're falling to (Space, ✕). */
   brace: boolean;
+  /** Digging in for speed, held (Shift, □ / X, the sprint button). */
+  sprint: boolean;
 }
 
 export const NEUTRAL: Intent = {
-  left: 0, right: 0, backLeft: false, backRight: false, tapLeft: false, tapRight: false, lean: 0, pitch: 0, brace: false,
+  left: 0, right: 0, backLeft: false, backRight: false, tapLeft: false, tapRight: false, lean: 0, pitch: 0, brace: false, sprint: false,
 };
 
 const DEAD = 0.18;
@@ -49,13 +54,15 @@ export class Controls {
   onPause?: () => void;
   private keys = new Set<string>();
   private taps = { left: false, right: false, brace: false };
+  /** The touch screen's sprint button, held. */
+  private touchSprint = false;
   private fingers = new Map<number, { side: -1 | 1; back: boolean }>();
   /** (Everything starts out held: a button only counts once it's been seen let go.) */
-  private padWas = { go: true, pause: true, l1: true, r1: true };
+  private padWas = { go: true, pause: true, l1: true, r1: true, sprint: true };
   /** A stick only counts once it's been seen at rest: a pad lying on a stick, or one that drifts, can't lean. */
   private centred = [false, false, false, false];
   /** …and the same for the triggers (L2, R2): one held down all along (the pad face down on the desk) can't paddle. */
-  private released = [false, false];
+  private released = [false, false, false]; // (L2, R2 and the sprint button)
   private active = false;
 
   constructor(private el: HTMLElement) {
@@ -66,7 +73,7 @@ export class Controls {
       this.device = 'keys';
       if (e.repeat) return;
       if (k === 'enter') this.onGo?.();
-      if (k === ' ' || k === 'shift') this.taps.brace = true;
+      if (k === ' ') this.taps.brace = true;
       if (k === 'q') this.taps.left = true;
       if (k === 'e') this.taps.right = true;
       if (k === 'p') this.onPause?.();
@@ -88,11 +95,18 @@ export class Controls {
     el.addEventListener('pointercancel', up);
   }
 
+  /** The sprint button on a touch screen, pressed or let go. */
+  sprint(on: boolean) {
+    this.touchSprint = on && this.active;
+  }
+
   /** Listen (or stop listening) for the game. */
   enable(on: boolean) {
     this.active = on;
     this.taps = { left: false, right: false, brace: false };
-    this.padWas = { go: true, pause: true, l1: true, r1: true };
+    this.padWas = { go: true, pause: true, l1: true, r1: true, sprint: true };
+    this.touchSprint = false;
+    this.released[2] = false;
     if (!on) {
       this.keys.clear();
       this.fingers.clear();
@@ -121,6 +135,7 @@ export class Controls {
       lean: (k.has('arrowright') ? 1 : 0) - (k.has('arrowleft') ? 1 : 0),
       pitch: (k.has('w') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0),
       brace: taps.brace,
+      sprint: k.has('shift') || this.touchSprint,
     };
     for (const f of this.fingers.values()) {
       if (f.back) {
@@ -145,6 +160,7 @@ export class Controls {
       const l1 = b(4) > 0.5;
       const r1 = b(5) > 0.5;
       const go = !!pad.buttons[0]?.pressed;
+      const sprint = !!pad.buttons[2]?.pressed;
       const pause = !!(pad.buttons[9]?.pressed || pad.buttons[8]?.pressed);
       const trigger = (n: 0 | 1) => {
         const v = b(6 + n);
@@ -168,7 +184,9 @@ export class Controls {
         this.onGo?.();
       }
       if (pause && !was.pause) this.onPause?.();
-      this.padWas = { go, pause, l1, r1 };
+      if (!sprint) this.released[2] = true;
+      i.sprint ||= sprint && this.released[2];
+      this.padWas = { go, pause, l1, r1, sprint };
     }
     return i;
   }

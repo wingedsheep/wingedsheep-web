@@ -23,6 +23,10 @@ const BLADE = 1.05; // how hard a blade bites
 const BLADE_SPEED = 6.5; // how fast a blade moves through a stroke (m/s): you can't paddle faster than it
 const RUDDER = 0.2; // a planted blade's drag
 
+/** Sprinting: you've breath for this long (s) of quicker, harder strokes, and it takes this long (s) to come back. */
+const SPRINT = 3;
+const RECOVER = 7;
+
 /** How far over it can go (radians of roll) before it wants to keep going. */
 export const TIP = 0.95;
 /** …and past this it's over, unless you brace. */
@@ -81,6 +85,8 @@ export interface KayakEvents {
   shave?(): void;
   /** All the way round in a spin (1 = a 360, 2 = a 720…). */
   spin?(turns: number): void;
+  /** Digging in for a sprint. */
+  sprint?(): void;
   /** A stroke went in: how hard, forward or back, and on which side. */
   stroke?(power: number, back: boolean, side: -1 | 1): void;
 }
@@ -128,6 +134,12 @@ export class Kayak {
   eddy = 0;
   /** When on a touch screen, the paddler balances himself (mostly). */
   assisted = false;
+  /** Digging in: quicker, harder strokes. */
+  sprinting = false;
+  /** 0..1: breath for sprinting, draining while you do and coming back when you stop. */
+  wind = 1;
+  /** Out of breath: let go of sprint (and wait a moment) before you can go again. */
+  private puffed = false;
   /** How many times you've rolled up this run: each roll gets harder. */
   rolls = 0;
 
@@ -196,6 +208,8 @@ export class Kayak {
     this.balance = 'up';
     this.effort = 0;
     this.rolls = 0;
+    this.sprinting = this.puffed = false;
+    this.wind = 1;
     this.flip = 0;
     this.airborne = false;
     this.boofing = false;
@@ -241,6 +255,7 @@ export class Kayak {
     if (running) this.upsideDown(dt, intent.brace || intent.tapLeft || intent.tapRight);
     const i = live ? intent : NEUTRAL;
     this.brace(i);
+    this.sprint(dt, i);
     this.paddling(dt, i);
     // small steps, so fast water never carries it through a rock
     const n = Math.ceil(dt / (1 / 120));
@@ -268,7 +283,8 @@ export class Kayak {
       if (b.t < 1) return;
     }
     const start = (kind: 'fwd' | 'rev', side: -1 | 1, power: number, sweep: boolean) => {
-      this.blade = { kind, side, t: 0, dur: kind === 'rev' ? 0.55 : 0.62 - power * 0.16, power, sweep };
+      const quick = kind === 'fwd' && this.sprinting ? 0.66 : 1;
+      this.blade = { kind, side, t: 0, dur: (kind === 'rev' ? 0.55 : 0.62 - power * 0.16) * quick, power, sweep };
       this.lastSide = side;
       this.effort = Math.min(1, this.effort + 0.3 * power);
       if (kind === 'fwd') this.lastCatch = this.clock;
@@ -304,6 +320,29 @@ export class Kayak {
     this.blade = { ...b, kind: 'none' };
   }
 
+  /**
+   * Sprinting: while sprint's held and you're paddling (one side or both), every stroke is
+   * quicker and harder, for as long as your breath lasts. Run out and you have to let go, and get
+   * a bit of it back, before you can go again.
+   */
+  private sprint(dt: number, i: Intent) {
+    const paddling = i.left > 0.05 || i.right > 0.05;
+    if (!i.sprint) this.puffed = false;
+    const want = i.sprint && paddling && !this.puffed;
+    if (this.sprinting && want && this.wind > 0) {
+      this.wind = Math.max(0, this.wind - dt / SPRINT);
+      this.effort = 1; // digging in: a steady boat
+      if (this.wind <= 0) this.puffed = true;
+      return;
+    }
+    this.sprinting = false;
+    this.wind = Math.min(1, this.wind + dt / RECOVER);
+    if (want && this.wind > 0.2) {
+      this.sprinting = true;
+      this.events.sprint?.();
+    }
+  }
+
   /** The blade's push on the boat right now: along the hull, across it, and the turn (boat frame). */
   private bladeForce(relAlong: number, relAcross: number) {
     const b = this.blade;
@@ -324,7 +363,7 @@ export class Kayak {
     const fwd = b.kind === 'fwd';
     const a = fwd ? 1.1 - b.t * 1.8 : -0.7 + b.t * 1.8;
     const l = b.side * (b.sweep ? 1.6 : 0.7);
-    const u = BLADE_SPEED * (0.6 + 0.4 * b.power);
+    const u = BLADE_SPEED * (0.6 + 0.4 * b.power) * (fwd && this.sprinting ? 1.45 : 1);
     // (going forward, a reverse blade bites harder, but only so much)
     const bite = fwd ? Math.max(0, u - relAlong) : Math.max(0, Math.min(u * 1.25, u + relAlong));
     let fa = BLADE * bite * env * (fwd ? 1 : -1) * (b.sweep ? 0.75 : 1) * (0.5 + 0.5 * b.power);
@@ -332,6 +371,7 @@ export class Kayak {
     // (a reverse sweep checks you and swings you round: a firm correction, not a handbrake turn)
     const fl = b.sweep ? -b.side * BLADE * 2.4 * env * (fwd ? 1 : -0.4) * Math.sign(a) * (0.5 + 0.5 * b.power) : 0;
     if (!fwd) fa *= 0.6;
+    else if (this.sprinting) fa *= 1.25;
     let tau = a * fl - l * fa;
     // forward strokes can't wind you up past a brisk turn on their own: the blade's only going
     // round as fast as the boat already is. A reverse sweep bites into the water and whips you

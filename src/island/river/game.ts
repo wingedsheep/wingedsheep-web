@@ -62,7 +62,7 @@ export interface Outside {
 }
 
 export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile';
-export type Hint = 'paddle' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel';
+export type Hint = 'paddle' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint';
 
 export interface GameEvents {
   /** Into a new stretch of river. */
@@ -426,6 +426,7 @@ export class RiverGame {
       this.events.hint?.(h);
     };
     if (Math.abs(k.tilt) > 0.45 && !this.controls.assisted) ask('lean');
+    if (this.tally.time > 6 && k.speed > 5) ask('sprint');
     for (const t of this.course.near(k.s + 8, k.s + 40)) {
       if (!('kind' in t)) continue;
       if (t.kind === 'ledge' && t.s > k.s + 10 && t.s < k.s + 35) ask(t.height >= 3 ? 'falls' : 'boof');
@@ -530,6 +531,15 @@ export class RiverGame {
         }
       },
       peel: () => this.well('Peeled out', 0.15, { sound: 'whoosh' }),
+      sprint: () => {
+        this.events.sound?.('whoosh', 1);
+        this.controls.rumble(0.5, 0.8, 220);
+        this.kick = Math.max(this.kick, 0.35);
+        this.squash(-0.16);
+        const hx = Math.sin(k.heading);
+        const hz = -Math.cos(k.heading);
+        this.wildlife.spray(k.pos.clone().add(new THREE.Vector3(hx * 1.6, 0.1, hz * 1.6)), 10, 0.9);
+      },
       tongue: () => this.well('On the tongue', 0.2, { sound: 'whoosh' }),
       shave: () => this.well('Close!', 0.15, { sound: 'whoosh' }),
       spin: (turns) => this.well(`${turns * 360}!`, 0.6 + turns * 0.2, { stop: 0.08, flash: 0.3, sound: 'boof', rumble: 0.7, kick: 0.3 }),
@@ -642,7 +652,7 @@ export class RiverGame {
     const hx = Math.sin(k.heading);
     const hz = -Math.cos(k.heading);
     const rough = k.rough;
-    if (Math.random() < dt * (rough * 30 + k.speed * 0.8)) {
+    if (Math.random() < dt * (rough * 30 + k.speed * 0.8 + (k.sprinting ? 20 : 0))) {
       const bow = k.pos.clone().add(new THREE.Vector3(hx * 1.8, 0.1, hz * 1.8));
       this.wildlife.spray(bow, 1 + Math.floor(rough * 3 + k.speed / 6), 0.4 + rough * 0.5);
     }

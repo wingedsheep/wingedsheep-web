@@ -265,6 +265,8 @@ const places = [
     <div class="river-flash" data-river-flash aria-hidden="true"></div>
     <div class="river-praise" data-river-praise aria-hidden="true"></div>
     <div class="river-gauge" data-river-gauge hidden aria-hidden="true"><i></i></div>
+    <div class="river-sprint" data-river-sprint hidden aria-hidden="true"><i></i></div>
+    <button class="river-sprint-go" data-river-sprint-go hidden>Sprint</button>
     <div class="river-roll" data-river-roll hidden aria-hidden="true"><span>Roll!</span><b></b></div>
     <p class="river-banner" data-river-banner hidden aria-live="polite"></p>
     <p class="river-hint" data-river-hint hidden aria-live="polite"></p>
@@ -272,9 +274,9 @@ const places = [
       <h2 id="river-title" tabindex="-1">Wild water</h2>
       <p class="river-lede">A mountain river, 1.8 km down to the take-out. Keep her upright, pick your lines, don't swim, and don't hang about.</p>
       <ul class="river-keys">
-        <li data-for="keys"><kbd>↑</kbd> paddle (or <kbd>A</kbd> <kbd>D</kbd> one side) · <kbd>Q</kbd> <kbd>E</kbd> brake / reverse sweep<br><kbd>←</kbd><kbd>→</kbd> lean · <kbd>W</kbd><kbd>S</kbd> lean forward / back · <kbd>Space</kbd> brace · <kbd>P</kbd> pause</li>
-        <li data-for="pad"><kbd>L2</kbd> <kbd>R2</kbd> paddle on that side (both: straight on)<br><kbd>L1</kbd> <kbd>R1</kbd> brake / reverse sweep / brace · left stick leans</li>
-        <li data-for="touch">Hold both sides of the screen to paddle, one side to turn away from it; low down to brake on that side.</li>
+        <li data-for="keys"><kbd>↑</kbd> paddle (or <kbd>A</kbd> <kbd>D</kbd> one side) · <kbd>Q</kbd> <kbd>E</kbd> brake / reverse sweep<br><kbd>←</kbd><kbd>→</kbd> lean · <kbd>W</kbd><kbd>S</kbd> lean forward / back · <kbd>Space</kbd> brace · <kbd>Shift</kbd> (hold) sprint · <kbd>P</kbd> pause</li>
+        <li data-for="pad"><kbd>L2</kbd> <kbd>R2</kbd> paddle on that side (both: straight on)<br><kbd>L1</kbd> <kbd>R1</kbd> brake / reverse sweep / brace · left stick leans · <kbd>□</kbd> (hold) sprint</li>
+        <li data-for="touch">Hold both sides of the screen to paddle, one side to turn away from it; low down to brake on that side. Hold Sprint to dig in.</li>
       </ul>
       <p class="river-hint-line">Read the water: long bright streaks are the fast line; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball.</p>
       <button class="river-go" data-river-go data-autofocus>Push off</button>
