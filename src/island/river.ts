@@ -1,23 +1,27 @@
 /**
  * Wild water: the kayak off the pier goes a lot further than round the island. Through the iris
  * like a room, but outdoors: a mountain river (src/island/river/), made up ahead of you, lit by the
- * island's own sun and weather, 1.8 km down to the take-out. Distance times flow is the score,
- * less a bit for each capsize; make it down and every second under par, gate and ball pays on
- * top. The best stays in this browser.
+ * island's own sun and weather, a km or two down to the take-out. Six of them, gentlest first
+ * (river/rivers.ts): make it all the way down one and the next one opens. Distance times flow is
+ * the score, less a bit for each capsize; make it down and every second under par, gate and ball
+ * pays on top. Each river's best stays in this browser.
  */
 import * as THREE from 'three';
 import type { IslandContext } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
-import type { Device } from './river/controls';
+import type { Device, Nav } from './river/controls';
 import type { Stretch } from './river/course';
-import { FLIP, type Hint, LENGTH, PAR, type RiverGame, type Tally } from './river/game';
+import { FLIP, type Hint, type RiverGame, type Tally } from './river/game';
 import { TIP } from './river/kayak';
+import { RIVERS, type RiverDef } from './river/rivers';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
-// a new key for the run with a take-out: the endless river's scores don't compare
-const BEST = 'wingedsheep:river:takeout';
+/** How long a card's up before ✕ presses anything on it (a brace mashed as you go over isn't "go again"). */
+const SETTLE = 700;
+/** The river you picked last time. */
+const PICK = 'wingedsheep:river:pick';
 
 /** What the river is like as you come into it, for the banner. */
 function banner(s: Stretch, index: number) {
@@ -27,67 +31,54 @@ function banner(s: Stretch, index: number) {
     case 'cascade': return `Grade ${s.grade} · ${s.name}, all the way down`;
     case 'gorge': return `Grade ${s.grade} · The gorge`;
     case 'falls': return 'Is that… a waterfall?';
-    case 'pool': return index === 0 ? 'A slow green pool. Get the feel of her.' : 'A slow green pool';
-    case 'run': return s.fast ? 'The river picks up…' : 'Into the forest';
+    case 'pool': return 'A slow green pool';
+    case 'chute': return index === 2 ? `The river picks up… ${s.name}` : `Grade ${s.grade} · ${s.name}${s.slot ? ', between the walls' : ', flat out'}`;
+    case 'run': return 'Into the forest';
   }
 }
 
-/** How to deal with each thing, the first time it comes up, for whatever's in your hands. */
+/** How to deal with each thing, the first time it comes up, for whatever's in your hands. Short: you're busy. */
 const HINTS: Record<Hint, Record<Device, string>> = {
-  paddle: {
-    keys: 'Hold ↑ (or A and D) to paddle straight on. Just A sweeps on the left and turns you right; Q / E brakes on that side',
-    pad: 'Hold L2 and R2 to paddle straight on. One trigger sweeps on that side and turns you away; L1 / R1 brakes on that side',
-    touch: 'Hold both sides of the screen to paddle. One side turns you away from it; low down brakes on that side',
+  paddle: { keys: 'Hold ↑ to paddle', pad: 'Hold L2 and R2 to paddle', touch: 'Hold both sides of the screen to paddle' },
+  steer: {
+    keys: 'A or D alone turns you. Q / E brakes',
+    pad: 'One trigger alone turns you. L1 / R1 brakes',
+    touch: 'Hold one side to turn away from it',
   },
-  lean: {
-    keys: 'She’s tipping: lean against it with ← / →',
-    pad: 'She’s tipping: lean against it with the left stick',
-    touch: '',
-  },
-  brace: {
-    keys: 'Going over! Q or E on that side to brace (or Space)',
-    pad: 'Going over! L1 or R1 on that side to brace (or ✕)',
-    touch: 'Going over! Tap low down on that side to brace',
-  },
+  lean: { keys: 'She’s tipping: lean against it with ← / →', pad: 'She’s tipping: lean against it with the stick', touch: '' },
+  brace: { keys: 'Going over! Space to brace', pad: 'Going over! ✕ to brace', touch: 'Going over! Tap low down on that side' },
   boof: {
-    keys: 'A ledge: a fresh stroke right at the lip, not leaning forward, boofs it',
-    pad: 'A ledge: a fresh stroke right at the lip, not leaning forward, boofs it',
-    touch: 'A ledge: a fresh stroke right at the lip boofs it',
+    keys: 'A ledge: a hard stroke right at the lip',
+    pad: 'A ledge: a hard stroke right at the lip',
+    touch: 'A ledge: paddle hard right at the lip',
   },
   falls: {
-    keys: 'A waterfall: lean forward (W) and tuck as you go over. Don’t land flat',
-    pad: 'A waterfall: push the stick forward and tuck as you go over. Don’t land flat',
-    touch: 'A waterfall: hold on tight',
+    keys: 'A waterfall! Lean forward (W) as you go over',
+    pad: 'A waterfall! Stick forward as you go over',
+    touch: 'A waterfall! Hold on tight',
   },
   hole: {
-    keys: 'In a hole! Lean forward (W) and paddle hard to punch through. Lean back and it’ll have you',
-    pad: 'In a hole! Stick forward and paddle hard to punch through. Lean back and it’ll have you',
-    touch: 'In a hole! Keep paddling, or it’ll spit you out sideways',
+    keys: 'In a hole! Lean forward (W) and paddle hard',
+    pad: 'In a hole! Stick forward and paddle hard',
+    touch: 'In a hole! Keep paddling',
   },
   roll: {
-    keys: 'Upside down! Brace (Space) when the needle’s in the gap',
-    pad: 'Upside down! Brace (✕, L1 or R1) when the needle’s in the gap',
+    keys: 'Upside down! Space when the needle’s in the gap',
+    pad: 'Upside down! ✕ when the needle’s in the gap',
     touch: 'Upside down! Tap when the needle’s in the gap',
   },
-  tongue: {
-    keys: 'Aim for the dark V between the rocks: that’s the fast line',
-    pad: 'Aim for the dark V between the rocks: that’s the fast line',
-    touch: 'Aim for the dark V between the rocks: that’s the fast line',
-  },
-  eddy: {
-    keys: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
-    pad: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
-    touch: 'Read the water: long streaks are the fast line. Behind rocks and inside bends it turns back upstream. Tuck in there and stop to catch an eddy',
-  },
+  tongue: { keys: 'The dark V between rocks is the fast line', pad: 'The dark V between rocks is the fast line', touch: 'The dark V between rocks is the fast line' },
+  eddy: { keys: 'Tuck in behind a rock and stop: an eddy', pad: 'Tuck in behind a rock and stop: an eddy', touch: 'Tuck in behind a rock and stop: an eddy' },
   sprint: {
-    keys: 'Hold Shift while you paddle to dig in: faster, for as long as your breath lasts (the bar over the boat)',
-    pad: 'Hold □ while you paddle to dig in: faster, for as long as your breath lasts (the bar over the boat)',
-    touch: 'Hold Sprint while you paddle to dig in: faster, for as long as your breath lasts (the bar over the boat)',
+    keys: 'Hold Shift to dig in, while your breath lasts',
+    pad: 'Hold □ to dig in, while your breath lasts',
+    touch: 'Hold Sprint to dig in, while your breath lasts',
   },
+  ball: { keys: 'Beike’s tennis balls! Paddle over them', pad: 'Beike’s tennis balls! Paddle over them', touch: 'Beike’s tennis balls! Paddle over them' },
   peel: {
-    keys: 'Eddy caught! Crossing the foamy line back out, lean into the turn (← / →) or the current will trip you',
-    pad: 'Eddy caught! Crossing the foamy line back out, lean into the turn with the stick or the current will trip you',
-    touch: 'Eddy caught! Point back downstream and paddle hard across the foamy line',
+    keys: 'Eddy! Lean into the turn on the way out',
+    pad: 'Eddy! Lean into the turn on the way out',
+    touch: 'Eddy! Paddle hard on the way out',
   },
 };
 
@@ -132,8 +123,12 @@ export class River implements RoomInput {
   private mile = 0;
   private swims = 0;
   private finishes = 0;
-  private best: Best = readBest();
+  /** Each river's best, by its id, and which one's picked. */
+  private bests: Record<string, Best> = Object.fromEntries(RIVERS.map((r) => [r.id, readBest(r.key)]));
+  private pick = 0;
   private fresh = false; // a new best this run
+  private named = false; // the river's name has been up this run
+  private cardAt = 0; // when the card on screen came up (ms)
   private $: Record<string, HTMLElement> = {};
 
   constructor(
@@ -150,6 +145,27 @@ export class River implements RoomInput {
     }
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-go]')) b.addEventListener('click', () => this.go());
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-resume]')) b.addEventListener('click', () => this.pause(false));
+    this.el.querySelector('[data-river-next]')?.addEventListener('click', () => {
+      this.select(this.pick + 1);
+      this.go();
+    });
+    this.el.querySelector('[data-river-rivers]')?.addEventListener('click', () => {
+      this.again();
+      this.card('ready');
+    });
+    // the river picked last time (or, to try one straight away, ?river=coffee)
+    const asked = RIVERS.findIndex((r) => r.id === new URLSearchParams(location.search).get('river'));
+    let last = -1;
+    try {
+      last = RIVERS.findIndex((r) => r.id === localStorage.getItem(PICK));
+    } catch {}
+    this.pick = asked >= 0 ? asked : this.open(last) ? last : 0;
+    this.el.querySelectorAll<HTMLElement>('[data-river-pick]').forEach((b, i) => {
+      b.addEventListener('click', () => this.select(i));
+      // a look at the one you're pointing at (even one that's not open yet), then back to the picked one
+      b.addEventListener('pointerenter', () => this.showChosen(i));
+      b.addEventListener('pointerleave', () => this.showChosen(this.pick));
+    });
     // held (a thumb on it while the other paddles, or a finger while both do)
     const go = this.$['sprint-go'];
     go.addEventListener('pointerdown', (e) => {
@@ -162,6 +178,89 @@ export class River implements RoomInput {
       if (document.hidden) this.pause(true);
     });
     this.showBest();
+    this.showPicks();
+  }
+
+  private get river(): RiverDef {
+    return RIVERS[this.pick];
+  }
+
+  private get best(): Best {
+    return this.bests[this.river.id];
+  }
+
+  private set best(b: Best) {
+    this.bests[this.river.id] = b;
+    writeBest(this.river.key, b);
+  }
+
+  /**
+   * How far through the rivers you've got: the one after the last you've made it down. Only
+   * making it down opens the next (so a best from before there were six waits on Black Water).
+   */
+  private get reached() {
+    let n = 0;
+    RIVERS.forEach((r, i) => {
+      if (this.bests[r.id].time) n = Math.max(n, i + 1);
+    });
+    return Math.min(n, RIVERS.length - 1);
+  }
+
+  /** Whether river `i` is open to you. */
+  private open(i: number) {
+    const asked = new URLSearchParams(location.search).get('river');
+    return i >= 0 && i < RIVERS.length && (i <= this.reached || RIVERS[i].id === asked);
+  }
+
+  /** Pick river `i` (if it's open), and put the kayak at the top of it. */
+  private select(i: number) {
+    if (!this.open(i) || i === this.pick) return;
+    this.pick = i;
+    try {
+      localStorage.setItem(PICK, this.river.id);
+    } catch {}
+    if (this.game && this.game.state !== 'running') this.again();
+    this.showPicks();
+    this.showBest();
+  }
+
+  /** A fresh river: the one picked, from the top. */
+  private again() {
+    this.game?.reset(this.river);
+    this.named = false;
+    this.fresh = false;
+    this.lastHud = '';
+    this.mile = 0;
+  }
+
+  /** The stepping stones: which is picked, which are open, which you've made it down, which is next. */
+  private showPicks() {
+    const reached = this.reached;
+    this.el.querySelectorAll<HTMLElement>('[data-river-pick]').forEach((b, i) => {
+      const open = this.open(i);
+      const r = RIVERS[i];
+      b.setAttribute('aria-checked', String(i === this.pick));
+      b.setAttribute('aria-disabled', String(!open));
+      b.setAttribute('aria-label', open ? `${r.name}, grade ${r.grade}` : `${r.name}: make it down ${RIVERS[i - 1].name} first`);
+      b.tabIndex = i === this.pick ? 0 : -1;
+      b.classList.toggle('down', !!this.bests[r.id].time);
+      b.classList.toggle('next', i === reached && !this.bests[r.id].time);
+    });
+    this.showChosen(this.pick);
+  }
+
+  /** Under the stones: the river's name, grade and length, and a line about it (or what it takes to open). */
+  private showChosen(i: number) {
+    const r = RIVERS[i];
+    const open = this.open(i);
+    const set = (sel: string, text: string) => {
+      const el = this.el.querySelector(sel);
+      if (el) el.textContent = text;
+    };
+    set('[data-river-pick-name]', r.name);
+    set('[data-river-pick-meta]', `Grade ${r.grade} · ${(r.length / 1000).toFixed(1)} km`);
+    set('[data-river-pick-lede]', open ? r.lede : `Make it down ${RIVERS[i - 1].name} first.`);
+    this.el.querySelector('[data-river-chosen]')?.classList.toggle('locked', !open);
   }
 
   /** Whether the pointer should drive the river rather than the island. */
@@ -219,12 +318,7 @@ export class River implements RoomInput {
   private go() {
     const game = this.game;
     if (!game || !this.inside) return;
-    if (game.state === 'over') {
-      game.reset();
-      this.fresh = false;
-      this.lastHud = '';
-      this.mile = 0;
-    }
+    if (game.state === 'over') this.again();
     if (game.state !== 'ready') return;
     game.go();
     this.card(null);
@@ -290,10 +384,7 @@ export class River implements RoomInput {
     const game = this.game;
     if (this.inside) {
       this.ctx.rig.room = this;
-      game?.reset();
-      this.fresh = false;
-      this.lastHud = '';
-      this.mile = 0;
+      this.again();
       game?.controls.enable(true);
       this.resize();
     } else {
@@ -307,12 +398,30 @@ export class River implements RoomInput {
 
   private wire(game: RiverGame) {
     game.controls.onGo = () => {
-      if (this.game?.paused) this.pause(false);
+      // on a card, ✕ presses whichever button's picked out (a river stone: push off down it)
+      const card = this.shownCard();
+      const at = document.activeElement as HTMLElement | null;
+      if (card && performance.now() - this.cardAt < SETTLE) return;
+      if (card && at && card.contains(at) && at.matches('button, summary') && !at.matches('[data-river-pick]')) at.click();
+      else if (this.game?.paused) this.pause(false);
       else if (this.game?.state !== 'running') this.go();
     };
     game.controls.onPause = () => this.pause(!this.game?.paused);
+    game.controls.onPick = (dir) => this.step(dir);
+    game.controls.onNav = (dir) => this.nav(dir);
+    // ○: back out one card (off the start card, back to the island)
+    game.controls.onBack = () => {
+      const card = this.shownCard()?.dataset.riverCard;
+      if (card === 'paused') this.pause(false);
+      else if (card === 'over') this.el.querySelector<HTMLElement>('[data-river-rivers]')?.click();
+      else if (card === 'ready') this.ui.back();
+    };
     game.events = {
-      stretch: (s, i) => this.say(banner(s, i)),
+      // pushing off, just the river's name; after that, what's coming
+      stretch: (s, i) => {
+        this.say(this.named ? banner(s, i) : this.river.name);
+        this.named = true;
+      },
       split: (s) => this.say(s.kind === 'bar' ? `A gravel bar · the fast water's on the ${s.hero < 0 ? 'left' : 'right'}` : `The river splits · hero line ${s.hero < 0 ? 'left' : 'right'}, sneak ${s.hero < 0 ? 'right' : 'left'}`),
       praise: (text, big) => this.praise(text, big),
       broke: (why, cost) => {
@@ -323,7 +432,10 @@ export class River implements RoomInput {
         this.praise(`×${flow} flow!`, true);
         this.bounce(this.$.flow, 'tier');
       },
-      ball: () => this.bounce(this.$.balls.parentElement!, 'pop'),
+      ball: () => {
+        this.bounce(this.$.balls.parentElement!, 'pop');
+        this.word('Fetch!', 'ball');
+      },
       hint: (kind) => this.hint(HINTS[kind][game.controls.device]),
       start: () => this.go(),
       over: (tally) => this.over(tally),
@@ -333,6 +445,54 @@ export class River implements RoomInput {
       baa: () => this.ctx.sound.baa(),
       quack: () => this.ctx.sound.call('quack', 0.6),
     };
+  }
+
+  /** Left and right on the start card go through the rivers (skipping the ones not open yet). */
+  private step(dir: -1 | 1) {
+    if (this.game?.state !== 'ready' || this.shownCard()?.dataset.riverCard !== 'ready') return;
+    for (let i = this.pick + dir; i >= 0 && i < RIVERS.length; i += dir) {
+      if (!this.open(i)) continue;
+      this.select(i);
+      this.focus(this.el.querySelector<HTMLElement>(`[data-river-pick="${this.river.id}"]`));
+      return;
+    }
+  }
+
+  /** The d-pad on a card: along the rivers on the start card, otherwise to the nearest button that way. */
+  private nav(dir: Nav) {
+    const card = this.shownCard();
+    if (!card) return;
+    if (card.dataset.riverCard === 'ready' && (dir === 'left' || dir === 'right')) return this.step(dir === 'left' ? -1 : 1);
+    const all = [...card.querySelectorAll<HTMLElement>('button, summary')].filter((b) => b.tabIndex >= 0 && b.offsetParent);
+    const at = document.activeElement as HTMLElement | null;
+    if (!at || !all.includes(at)) return this.focus(card.querySelector<HTMLElement>('[data-river-go], [data-river-resume]'));
+    const from = at.getBoundingClientRect();
+    const [fx, fy] = [from.left + from.width / 2, from.top + from.height / 2];
+    let best: HTMLElement | undefined;
+    let score = Infinity;
+    for (const b of all) {
+      const r = b.getBoundingClientRect();
+      const dx = r.left + r.width / 2 - fx;
+      const dy = r.top + r.height / 2 - fy;
+      // how far that way, and (counting double) how far off to the side
+      const [along, across] = dir === 'up' ? [-dy, dx] : dir === 'down' ? [dy, dx] : dir === 'left' ? [-dx, dy] : [dx, dy];
+      if (b === at || along < 4) continue;
+      const d = along + Math.abs(across) * 2;
+      if (d < score) [best, score] = [b, d];
+    }
+    if (best) this.focus(best);
+  }
+
+  /** Pick out a button (with the focus ring showing, on a pad), scrolled into view. */
+  private focus(el: HTMLElement | null | undefined) {
+    if (!el) return;
+    el.focus({ preventScroll: true, focusVisible: this.game?.controls.device !== 'touch' } as FocusOptions);
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  /** The card on screen, if there is one. */
+  private shownCard() {
+    return this.el.querySelector<HTMLElement>('[data-river-card]:not([hidden])') ?? undefined;
   }
 
   private say(text: string) {
@@ -355,17 +515,21 @@ export class River implements RoomInput {
 
   /** A word popping up over the kayak: a boof, a brace, a clean gate (or the flow breaking). */
   private praise(text: string, big: boolean, bad = false) {
+    this.word(text, big ? 'big' : bad ? 'bad' : '');
+    if (!bad) this.bounce(this.$.flow, 'pop');
+  }
+
+  private word(text: string, kind: '' | 'big' | 'bad' | 'ball') {
     const game = this.game;
     if (!game) return;
     const at = game.onScreen(game.kayak.pos, this.host.clientWidth, this.host.clientHeight);
     const el = document.createElement('span');
-    el.className = `river-word${big ? ' big' : ''}${bad ? ' bad' : ''}`;
+    el.className = `river-word${kind ? ` ${kind}` : ''}`;
     el.textContent = text;
-    el.style.left = `${Math.round(at.x)}px`;
-    el.style.top = `${Math.round(at.y - 60)}px`;
+    el.style.left = `${Math.round(at.x + (kind === 'ball' ? 40 : 0))}px`;
+    el.style.top = `${Math.round(at.y - (kind === 'ball' ? 30 : 60))}px`;
     this.$.praise.append(el);
     setTimeout(() => el.remove(), 1100);
-    if (!bad) this.bounce(this.$.flow, 'pop');
   }
 
   /** Replay a one-off CSS animation on a bit of the HUD. */
@@ -378,29 +542,30 @@ export class River implements RoomInput {
   /** Show one of the cards (the start, paused, a swim), or none. */
   private card(name: 'ready' | 'paused' | 'over' | null) {
     for (const c of this.el.querySelectorAll<HTMLElement>('[data-river-card]')) c.hidden = c.dataset.riverCard !== name;
-    const shown = name && this.el.querySelector<HTMLElement>(`[data-river-card="${name}"] [data-river-go], [data-river-card="${name}"] [data-river-resume]`);
-    shown?.focus({ preventScroll: true });
+    this.cardAt = performance.now();
+    if (name) this.focus(this.el.querySelector<HTMLElement>(`[data-river-card="${name}"] [data-river-go], [data-river-card="${name}"] [data-river-resume]`));
   }
 
   private hud(t: Tally) {
+    const length = this.river.length;
     const pace = Math.round((t.pace - 1) * 10) * 10;
-    const key = `${t.metres}|${Math.floor(t.time)}|${t.balls}|${t.flow}|${Math.round(t.score)}|${pace}`;
+    const key = `${this.river.id}|${t.metres}|${Math.floor(t.time)}|${t.balls}|${t.flow}|${Math.round(t.score)}|${pace}`;
     if (key === this.lastHud) return;
     this.lastHud = key;
     // every 500 m, a moment
     const mile = Math.floor(t.metres / 500);
-    if (mile > this.mile && t.metres < LENGTH) {
+    if (mile > this.mile && t.metres < length) {
       this.mile = mile;
       this.bounce(this.$.metres.parentElement!, 'pop');
       this.ctx.sound.river('mile');
-      if (this.bannerTimer <= 0) this.say(`${round(LENGTH - mile * 500)} m to the take-out`);
+      if (this.bannerTimer <= 0) this.say(`${round(length - mile * 500)} m to the take-out`);
     }
     this.$.pace.textContent = pace > 0 ? `+${pace}%` : '';
     this.$.pace.style.setProperty('--pace', String(pace / 100));
-    this.$.metres.textContent = round(LENGTH - t.metres);
+    this.$.metres.textContent = round(length - t.metres);
     this.$.time.textContent = clock(t.time);
     // past par, the clock's not paying any more
-    this.$.time.parentElement!.classList.toggle('late', t.time > PAR);
+    this.$.time.parentElement!.classList.toggle('late', t.time > this.game!.par);
     this.$.balls.textContent = String(t.balls);
     this.$.score.textContent = round(t.score);
     this.$.flow.textContent = `×${t.flow.toFixed(1)}`;
@@ -409,7 +574,6 @@ export class River implements RoomInput {
       if (!this.fresh && this.best.score > 0) this.say('A new best!');
       this.fresh = true;
       this.best = { ...this.best, score: Math.round(t.score), metres: t.metres };
-      writeBest(this.best);
       this.showBest();
     }
   }
@@ -469,16 +633,31 @@ export class River implements RoomInput {
     };
     // the tally's score already has the bonus in it; a new best score was saved as it came in
     const quickest = t.finished && (!this.best.time || t.time < this.best.time);
-    if (quickest) {
-      this.best = { ...this.best, time: t.time };
-      writeBest(this.best);
-    }
+    const was = this.reached;
+    const first = t.finished && !this.best.time;
+    if (quickest) this.best = { ...this.best, time: t.time };
     if (t.score > this.best.score) {
       this.fresh = true;
       this.best = { ...this.best, score: Math.round(t.score), metres: t.metres };
-      writeBest(this.best);
     }
     this.showBest();
+    this.showPicks();
+    // down one for the first time: the next river opens (or, down the last, that's all of them)
+    const next = this.reached > was && this.pick + 1 === this.reached ? RIVERS[this.reached] : undefined;
+    const unlocked = this.el.querySelector<HTMLElement>('[data-river-unlocked]');
+    if (unlocked) {
+      unlocked.hidden = !next && !(first && this.pick === RIVERS.length - 1);
+      unlocked.textContent = next ? `New river: ${next.name}` : 'Every river down. Beike’s impressed.';
+    }
+    const onward = this.el.querySelector<HTMLElement>('[data-river-next]');
+    if (onward) {
+      onward.hidden = !next;
+      if (next) onward.textContent = `On to ${next.name}`;
+    }
+    // (with somewhere new to go, going again is the second choice)
+    const again = this.el.querySelector<HTMLElement>('[data-river-card="over"] [data-river-go]');
+    again?.classList.toggle('river-back', !!next);
+    again?.classList.toggle('river-go', !next);
     set('[data-river-line]', t.finished ? FINISHES[this.finishes++ % FINISHES.length] : SWIMS[this.swims++ % SWIMS.length]);
     set('[data-over-metres]', t.finished ? 'All the way' : `${round(t.metres)} m`);
     set('[data-over-time]', clock(t.time));
@@ -493,19 +672,20 @@ export class River implements RoomInput {
     if (this.fresh || quickest) this.ctx.sound.river('best');
     this.$.gauge.hidden = this.$.roll.hidden = true;
     this.card('over');
+    if (next) this.focus(onward);
   }
 }
 
-function readBest(): Best {
+function readBest(key: string): Best {
   try {
-    const b = JSON.parse(localStorage.getItem(BEST) ?? 'null');
+    const b = JSON.parse(localStorage.getItem(key) ?? 'null');
     if (b && typeof b.score === 'number') return b;
   } catch {}
   return { score: 0, metres: 0 };
 }
 
-function writeBest(b: Best) {
+function writeBest(key: string, b: Best) {
   try {
-    localStorage.setItem(BEST, JSON.stringify(b));
+    localStorage.setItem(key, JSON.stringify(b));
   } catch {}
 }

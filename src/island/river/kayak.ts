@@ -22,6 +22,7 @@ const SPIN_DAMP = 0.6;
 const BLADE = 1.05; // how hard a blade bites
 const BLADE_SPEED = 6.5; // how fast a blade moves through a stroke (m/s): you can't paddle faster than it
 const RUDDER = 0.2; // a planted blade's drag
+const BACKING = 0.55; // backing up, the blade moves this much slower than it does going forward
 
 /** Sprinting: you've breath for this long (s) of quicker, harder strokes, and it takes this long (s) to come back. */
 const SPRINT = 3;
@@ -168,6 +169,11 @@ export class Kayak {
   private inTongue: Tongue | null = null;
   private skipHole: Hole | null = null;
   private shaved = new WeakSet<Obstacle>();
+  /** Up against a rock or a log (this step), and how long it's been held there, going nowhere. */
+  private touching = false;
+  private pinned = 0;
+  /** Along a log the boat's up against, towards its free end (x, z). */
+  private slide = new THREE.Vector2();
   private paddle?: THREE.Object3D;
   private head?: THREE.Object3D;
   /** 0..1: how hard you've been paddling lately (a paddled boat is a steady boat). */
@@ -269,15 +275,23 @@ export class Kayak {
   // --- the paddle -----------------------------------------------------------------------------
 
   /**
-   * One paddle, one stroke at a time. A reverse sweep tapped (or tapped just before the stroke in
-   * the water finishes) goes next; otherwise forward strokes on whichever sides are held, taking
-   * turns; otherwise a blade held planted. Nothing held: the paddle comes out of the water.
+   * One paddle, one stroke at a time. Both brakes held, back strokes on either side, taking
+   * turns: a hard stop, and then backing up (slowly, and only against slow water). Otherwise a
+   * reverse sweep tapped (or tapped just before the stroke in the water finishes) goes next;
+   * otherwise forward strokes on whichever sides are held, taking turns; otherwise a blade held
+   * planted. Nothing held: the paddle comes out of the water.
    */
   private paddling(dt: number, i: Intent) {
     const b = this.blade;
+    const backing = i.backLeft && i.backRight;
     if (i.tapLeft) this.queued = { side: -1, at: this.clock };
     if (i.tapRight) this.queued = { side: 1, at: this.clock };
     if (this.queued && this.clock - this.queued.at > BUFFER + 0.1) this.queued = null;
+    if (backing) {
+      // (the second brake a moment after the first: the sweep that just started straightens out)
+      this.queued = null;
+      if (b.kind === 'rev' && b.sweep && b.t < 0.35) b.sweep = false;
+    }
     if (b.kind === 'fwd' || b.kind === 'rev') {
       b.t += dt / b.dur;
       if (b.t < 1) return;
@@ -296,6 +310,16 @@ export class Kayak {
     if (this.queued) {
       start('rev', this.queued.side, 1, true);
       this.queued = null;
+      return;
+    }
+    if (backing) {
+      // holding the line he started on, as going forward, but a back stroke pulls the bow
+      // towards its side, so it goes on the side the bow is wandering away from
+      this.line ??= this.heading;
+      const off = angle(this.heading - this.line) + this.yawRate * 0.3;
+      const drift = off > 0.06 ? 1 : off < -0.06 ? -1 : 0;
+      const side: -1 | 1 = drift ? (-drift as -1 | 1) : this.lastSide > 0 ? -1 : 1;
+      start('rev', side, 1, false);
       return;
     }
     const l = i.left;
@@ -364,8 +388,9 @@ export class Kayak {
     const a = fwd ? 1.1 - b.t * 1.8 : -0.7 + b.t * 1.8;
     const l = b.side * (b.sweep ? 1.6 : 0.7);
     const u = BLADE_SPEED * (0.6 + 0.4 * b.power) * (fwd && this.sprinting ? 1.45 : 1);
-    // (going forward, a reverse blade bites harder, but only so much)
-    const bite = fwd ? Math.max(0, u - relAlong) : Math.max(0, Math.min(u * 1.25, u + relAlong));
+    // (going forward, a reverse blade bites harder, but only so much; backing up, it's slower)
+    const back = fwd || b.sweep ? u : u * BACKING;
+    const bite = fwd ? Math.max(0, u - relAlong) : Math.max(0, Math.min(u * 1.25, back + relAlong));
     let fa = BLADE * bite * env * (fwd ? 1 : -1) * (b.sweep ? 0.75 : 1) * (0.5 + 0.5 * b.power);
     // a sweep also pushes the ends out sideways: the bow away at the start, the stern at the end
     // (a reverse sweep checks you and swings you round: a firm correction, not a handbrake turn)
@@ -479,8 +504,22 @@ export class Kayak {
     this.pos.z += this.vel.y * dt;
 
     // rocks and logs knock it about
+    this.touching = false;
+    this.slide.set(0, 0);
     if (this.balance !== 'swimming') {
       for (const t of things) if ('kind' in t && (t.kind === 'rock' || t.kind === 'log')) this.collide(t, running);
+    }
+    // pinned broadside on a rock or across two, going nowhere: the current swings the boat round
+    // until it points down the river (or back up it), and it slides off or slips through
+    this.pinned = this.touching && this.speed < 1.5 ? this.pinned + dt : Math.max(0, this.pinned - dt * 0.5);
+    if (this.pinned > 0.35) {
+      const down = angle(p.a - this.heading);
+      const back = angle(p.a + Math.PI - this.heading);
+      const to = Math.abs(down) < Math.abs(back) ? down : back;
+      this.yawRate += Math.sign(to) * Math.min(1, Math.abs(to) * 2) * 6 * dt;
+      // along a log, it's washed off the end
+      this.vel.x += this.slide.x * 4 * dt;
+      this.vel.y += this.slide.y * 4 * dt;
     }
 
     // the banks shove you back into the stream (a gorge's walls do it hard)
@@ -827,6 +866,11 @@ export class Kayak {
       const pen = HULL_R + r - d;
       closest = Math.min(closest, -pen);
       if (pen <= 0) continue;
+      this.touching = true;
+      if (o.kind === 'log') {
+        const len = Math.hypot(o.x1 - o.x0, o.z1 - o.z0) || 1;
+        this.slide.set((o.x1 - o.x0) / len, (o.z1 - o.z0) / len);
+      }
       const nx = dx / d;
       const nz = dz / d;
       this.pos.x += nx * pen;

@@ -20,6 +20,9 @@ const WET = C('#a88457');
 const PEBBLES = ['#8c7f86', '#7d7483', '#a09aa2'].map(C);
 const CLIFF = ['#6a5d6e', '#827485', '#9a8d9c', '#5d5063'].map(C);
 const BED = C('#6a5a44');
+/** Beike's tennis balls: bigger than life and a touch brighter, so you can spot one from upstream. */
+const BALL = C('#e2ee3a');
+const BALL_SIZE = 1.6;
 
 const smooth = (a: number, b: number, x: number) => {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
@@ -58,6 +61,8 @@ function dropTile(mesh: THREE.Mesh) {
 /** …and of a chunk's water and leaves (every chunk grows its own). */
 function dropChunk(chunk: Chunk) {
   chunk.water.geometry.dispose();
+  // (the batches share their geometry and materials with the templates: only the instances go)
+  for (const b of chunk.batches) b.dispose();
   if (!chunk.foliage) return;
   const mat = chunk.foliage.material as THREE.MeshToonMaterial;
   mat.map?.dispose();
@@ -89,6 +94,8 @@ interface Chunk {
   /** Where its trees' leaves go, and the leaf cards grown there (as on the island). */
   canopies: CanopyMarker[];
   foliage?: THREE.InstancedMesh;
+  /** Its scenery, folded into one instanced mesh per part (see Land.batch). */
+  batches: THREE.InstancedMesh[];
 }
 
 /**
@@ -104,6 +111,10 @@ export class Land {
   private ground = toon(new THREE.Color(1, 1, 1), { vertexColors: true });
   private crowns: THREE.Material[] | null;
   private halo: THREE.Texture;
+  /** What every ball shares: a soft glow round it, and a ring spreading out on the water under it. */
+  private ballGlow: THREE.SpriteMaterial;
+  private ballRing = new THREE.MeshBasicMaterial({ color: C('#fdfbe0'), transparent: true, depthWrite: false, fog: false });
+  private ringShape = new THREE.RingGeometry(0.62, 0.78, 20).rotateX(-Math.PI / 2);
   /** Every chunk's animal spots, for the wildlife to take up. */
   onSpots?: (spots: Spot[]) => void;
   onDrop?: (chunk: number) => void;
@@ -116,49 +127,74 @@ export class Land {
   ) {
     this.halo = halo;
     this.crowns = crownMaterials();
+    this.ballGlow = new THREE.SpriteMaterial({ map: halo, color: C('#f2ff5a'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
   }
 
-  /** Make sure the ground covers the view and the chunks run from `from` to `to` (arc length). */
-  update(centre: THREE.Vector3, radius: number, from: number, to: number, budget = 3) {
-    // tiles
-    const want = new Set<string>();
-    const t0x = Math.floor((centre.x - radius) / TILE);
-    const t1x = Math.floor((centre.x + radius) / TILE);
-    const t0z = Math.floor((centre.z - radius) / TILE);
-    const t1z = Math.floor((centre.z + radius) / TILE);
-    let built = 0;
-    for (let tx = t0x; tx <= t1x; tx++) {
-      for (let tz = t0z; tz <= t1z; tz++) {
-        const cx = (tx + 0.5) * TILE - centre.x;
-        const cz = (tz + 0.5) * TILE - centre.z;
-        if (Math.hypot(cx, cz) > radius + TILE * 0.71) continue;
-        const k = `${tx},${tz}`;
-        want.add(k);
-        if (!this.tiles.has(k) && built < budget) {
-          const mesh = this.tile(tx, tz);
-          this.tiles.set(k, mesh);
-          this.group.add(mesh);
-          built++;
-        }
-      }
-    }
-    for (const [k, mesh] of this.tiles) {
-      if (want.has(k)) continue;
-      dropTile(mesh);
-      mesh.removeFromParent();
-      this.tiles.delete(k);
-    }
+  /**
+   * The balls' beacon, all of them in time: the glow breathing, and every second and a half a ring
+   * spreading out from each. Returns how big the rings are now.
+   */
+  beacon(time: number) {
+    this.ballGlow.opacity = 0.45 + Math.sin(time * 4) * 0.15;
+    const t = (time / 1.5) % 1;
+    this.ballRing.opacity = 0.75 * (1 - t) * Math.min(1, t * 6);
+    return 0.7 + t * 1.3;
+  }
 
-    // chunks
+  /**
+   * Make sure the ground covers the view and the chunks run from `from` to `to` (arc length),
+   * building at most `budget` tiles and chunks between them: each takes a good few milliseconds,
+   * so one a frame keeps the frame rate steady (there's margin enough round the view for that).
+   */
+  update(centre: THREE.Vector3, radius: number, from: number, to: number, budget = 1) {
+    let built = 0;
+    // chunks first: they hold what you can hit
     const c0 = Math.max(0, Math.floor(from / CHUNK));
     const c1 = Math.floor(to / CHUNK);
-    for (let c = c0; c <= c1; c++) if (!this.chunks.has(c)) this.chunk(c);
+    for (let c = c0; c <= c1 && built < budget; c++) {
+      if (this.chunks.has(c)) continue;
+      this.chunk(c);
+      built++;
+    }
     for (const [c, chunk] of this.chunks) {
       if (c >= c0 && c <= c1) continue;
       dropChunk(chunk);
       chunk.group.removeFromParent();
       this.chunks.delete(c);
       this.onDrop?.(c);
+    }
+
+    // tiles, the nearest first
+    const want = new Set<string>();
+    const t0x = Math.floor((centre.x - radius) / TILE);
+    const t1x = Math.floor((centre.x + radius) / TILE);
+    const t0z = Math.floor((centre.z - radius) / TILE);
+    const t1z = Math.floor((centre.z + radius) / TILE);
+    const missing: { tx: number; tz: number; k: string; d: number }[] = [];
+    for (let tx = t0x; tx <= t1x; tx++) {
+      for (let tz = t0z; tz <= t1z; tz++) {
+        const cx = (tx + 0.5) * TILE - centre.x;
+        const cz = (tz + 0.5) * TILE - centre.z;
+        const d = Math.hypot(cx, cz);
+        if (d > radius + TILE * 0.71) continue;
+        const k = `${tx},${tz}`;
+        want.add(k);
+        if (!this.tiles.has(k)) missing.push({ tx, tz, k, d });
+      }
+    }
+    missing.sort((a, b) => a.d - b.d);
+    for (const { tx, tz, k } of missing) {
+      if (built >= budget) break;
+      const mesh = this.tile(tx, tz);
+      this.tiles.set(k, mesh);
+      this.group.add(mesh);
+      built++;
+    }
+    for (const [k, mesh] of this.tiles) {
+      if (want.has(k)) continue;
+      dropTile(mesh);
+      mesh.removeFromParent();
+      this.tiles.delete(k);
     }
   }
 
@@ -244,7 +280,11 @@ export class Land {
     mesh.raycast = () => {};
     // the island's grass, blade by blade, on the green of the banks
     mesh.updateMatrixWorld();
-    mesh.add(createGrass(mesh));
+    const grass = createGrass(mesh);
+    // (the island's one field of grass is always in view; a tile's often isn't)
+    grass.frustumCulled = true;
+    grass.computeBoundingSphere();
+    mesh.add(grass);
     return mesh;
   }
 
@@ -258,23 +298,48 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], spots: [], canopies: [], batches: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
       if (thing.s < s0 || thing.s >= s1) continue;
       if (!('kind' in thing)) {
-        // a gate: a buoy either side
-        const y = course.at(thing.s).y;
+        // a gate: a buoy either side, or in a chute two poles hung from a wire across the river
+        const p = course.at(thing.s);
         for (const b of [thing.a, thing.b]) {
-          const m = this.assets.clone('buoy');
-          m.position.set(b.x, y, b.z);
+          const m = this.assets.clone(thing.hung ? 'gate_pole' : 'buoy');
+          m.position.set(b.x, p.y, b.z);
           group.add(m);
           chunk.things.set(b, m);
         }
+        if (thing.hung && this.assets.has('gate_wire')) {
+          const span = this.assets.extras.get('gate_wire')?.span ?? 20;
+          const m = this.assets.clone('gate_wire');
+          // the wire runs through both poles, its board over the middle of the gate
+          const mid = { x: (thing.a.x + thing.b.x) / 2, z: (thing.a.z + thing.b.z) / 2 };
+          const off = (mid.x - p.x) * Math.cos(p.a) + (mid.z - p.z) * Math.sin(p.a);
+          m.position.set(p.x + Math.cos(p.a) * off, p.y, p.z + Math.sin(p.a) * off);
+          m.rotation.y = -p.a;
+          m.scale.x = (p.width + 3 + Math.abs(off) * 2) / span;
+          group.add(m);
+        }
       } else if (thing.kind === 'rock' || thing.kind === 'log') this.obstacle(chunk, thing, r);
       else if (thing.kind === 'ball' && !thing.taken) {
-        const m = this.assets.clone('ball');
+        const m = new THREE.Group();
+        const ball = this.assets.clone('ball');
+        ball.scale.setScalar(BALL_SIZE);
+        ball.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = toon(BALL, { glow: true });
+        });
+        const glow = new THREE.Sprite(this.ballGlow);
+        glow.scale.setScalar(1.5);
+        glow.position.y = 0.3;
+        glow.renderOrder = 2;
+        const ring = new THREE.Mesh(this.ringShape, this.ballRing);
+        ring.name = 'ring';
+        ring.position.y = 0.03;
+        ring.renderOrder = 2;
+        m.add(ball, glow, ring);
         m.position.set(thing.x, course.at(thing.s).y, thing.z);
         group.add(m);
         chunk.things.set(thing, m);
@@ -291,24 +356,81 @@ export class Land {
       chunk.foliage = createFoliage(chunk.canopies, group);
       group.add(chunk.foliage);
     }
+    this.batch(chunk);
 
     this.group.add(group);
     this.chunks.set(c, chunk);
     if (chunk.spots.length) this.onSpots?.(chunk.spots);
   }
 
+  /**
+   * Fold everything in a chunk that just stands there (the trees, ferns, flowers, boulders, the
+   * bridge, the signs) into one instanced mesh per part and material: a few dozen draws a chunk
+   * rather than one for every part of every tree, which is what slowed a big screen down. What
+   * moves or gets looked up (the balls and gates, the glows, the leaves, the water) is left as it
+   * is; the rocks and logs only ever get run into, so they go in with the rest.
+   */
+  private batch(chunk: Chunk) {
+    const { group } = chunk;
+    const keep = new Set<THREE.Object3D>([chunk.water, ...chunk.glows]);
+    for (const [thing, m] of chunk.things) {
+      const kind = (thing as Partial<Obstacle>).kind;
+      if (kind !== 'rock' && kind !== 'log') keep.add(m);
+    }
+    if (chunk.foliage) keep.add(chunk.foliage);
+    group.updateMatrixWorld(true);
+    const parts = new Map<string, { mesh: THREE.Mesh; at: THREE.Matrix4[] }>();
+    for (const o of [...group.children]) {
+      if (keep.has(o)) continue;
+      // only plain meshes: anything else (a sprite, a light, an instanced mesh) keeps the lot as it is
+      let plain = true;
+      o.traverse((c) => {
+        const m = c as THREE.Mesh;
+        if (m.isMesh ? (m as THREE.InstancedMesh).isInstancedMesh || Array.isArray(m.material) : c.type !== 'Group' && c.type !== 'Object3D') plain = false;
+      });
+      if (!plain) continue;
+      o.traverseVisible((c) => {
+        const m = c as THREE.Mesh;
+        if (!m.isMesh) return;
+        const mat = m.material as THREE.Material;
+        const key = `${m.geometry.uuid}|${mat.uuid}|${+m.castShadow}${+m.receiveShadow}|${m.renderOrder}`;
+        let part = parts.get(key);
+        if (!part) parts.set(key, (part = { mesh: m, at: [] }));
+        part.at.push(m.matrixWorld.clone());
+      });
+      o.removeFromParent();
+    }
+    for (const { mesh, at } of parts.values()) {
+      const inst = new THREE.InstancedMesh(mesh.geometry, mesh.material, at.length);
+      at.forEach((m, i) => inst.setMatrixAt(i, m));
+      inst.castShadow = mesh.castShadow;
+      inst.receiveShadow = mesh.receiveShadow;
+      inst.renderOrder = mesh.renderOrder;
+      // (the chunk never moves: no need to work its matrices out again every frame)
+      inst.matrixAutoUpdate = false;
+      inst.computeBoundingSphere();
+      group.add(inst);
+      chunk.batches.push(inst);
+    }
+  }
+
   private obstacle(chunk: Chunk, o: Obstacle, r: () => number) {
     const y = this.course.at(o.s).y;
     if (o.kind === 'rock') {
-      const kind = `rock_${o.variant}`;
-      const m = this.assets.clone(kind);
+      const kind = o.post ? `post_${o.variant % 3}` : `rock_${o.variant}`;
+      const m = this.assets.clone(this.assets.has(kind) ? kind : `rock_${o.variant % 5}`);
       const radius = this.assets.extras.get(kind)?.radius ?? 1;
       m.scale.setScalar(o.r / radius);
-      m.scale.y *= 0.8 + r() * 0.5;
+      m.scale.y *= o.post ? 0.9 + r() * 0.3 : 0.8 + r() * 0.5;
       m.position.set(o.x, y, o.z);
       m.rotation.y = r() * Math.PI * 2;
       chunk.group.add(m);
       chunk.things.set(o, m);
+      // a boulder the size of a house has something growing on top
+      if (o.r > 1.7 && !o.post) {
+        const top = new THREE.Box3().setFromObject(m).max.y;
+        this.put(chunk, r() < 0.5 ? 'fern' : `bush_${Math.floor(r() * 2)}`, { x: o.x + (r() - 0.5) * o.r * 0.4, y: top - 0.25, z: o.z + (r() - 0.5) * o.r * 0.4 }, r() * 6.3, 0.7 + r() * 0.3);
+      }
     } else {
       const kind = `log_${o.variant}`;
       const m = this.assets.clone(kind);

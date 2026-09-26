@@ -6,6 +6,10 @@
  * keyboard   A / D  (↑: both)    Q / E                        ← → and W S         Space
  * pad        L2 / R2             L1 / R1                      left stick          ✕ / A
  *
+ * On the cards (start, paused, the end of a run) the d-pad or left stick moves between the
+ * buttons, ✕ presses the one picked out and ○ backs out a card; left and right on the start card go
+ * through the rivers.
+ *
  * Holding sprint (Shift, □ / X, or the sprint button on a touch screen) while you paddle digs in:
  * quicker, harder strokes, on one side or both, for as long as your breath lasts.
  * touch      hold the left or right half of the screen to paddle on that side (both thumbs:
@@ -15,9 +19,11 @@
  * Both sides held, Vincent strokes left, right, left: straight on. One side only, he sweeps on
  * that side and you turn away from it. A reverse sweep brakes and swings you towards its side,
  * whatever the current; a blade left planted after it is a rudder, and only bites as hard as
- * you're moving through the water. A bumper on the side you're falling to is a brace.
+ * you're moving through the water. Both brakes held, he back-paddles: a hard stop, then slowly
+ * backwards (in slow water; a fast current still carries you down). A bumper on the side you're falling to is a brace.
  */
 export type Device = 'keys' | 'pad' | 'touch';
+export type Nav = 'up' | 'down' | 'left' | 'right';
 
 export interface Intent {
   /** 0..1: forward strokes on the left and the right (held). */
@@ -43,6 +49,7 @@ export const NEUTRAL: Intent = {
 };
 
 const DEAD = 0.18;
+const NAV = 0.6; // how far over the stick goes to move round a menu
 const BACK_BAND = 0.78; // below this far down the screen, a finger is a reverse sweep
 
 export class Controls {
@@ -52,13 +59,19 @@ export class Controls {
   onGo?: () => void;
   /** Called once per press of pause (P, Start/Options). */
   onPause?: () => void;
+  /** Called once per press of left or right on the keyboard's arrows, for picking a river. */
+  onPick?: (dir: -1 | 1) => void;
+  /** Called once per push of the d-pad or the left stick, for getting round the cards. */
+  onNav?: (dir: Nav) => void;
+  /** Called once per press of back (○ / B). */
+  onBack?: () => void;
   private keys = new Set<string>();
   private taps = { left: false, right: false, brace: false };
   /** The touch screen's sprint button, held. */
   private touchSprint = false;
   private fingers = new Map<number, { side: -1 | 1; back: boolean }>();
   /** (Everything starts out held: a button only counts once it's been seen let go.) */
-  private padWas = { go: true, pause: true, l1: true, r1: true, sprint: true };
+  private padWas = { go: true, pause: true, l1: true, r1: true, sprint: true, back: true, nav: 'held' as Nav | 'held' | null };
   /** A stick only counts once it's been seen at rest: a pad lying on a stick, or one that drifts, can't lean. */
   private centred = [false, false, false, false];
   /** …and the same for the triggers (L2, R2): one held down all along (the pad face down on the desk) can't paddle. */
@@ -72,11 +85,13 @@ export class Controls {
       if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'w', 'a', 's', 'd', 'q', 'e'].includes(k)) e.preventDefault();
       this.device = 'keys';
       if (e.repeat) return;
-      if (k === 'enter') this.onGo?.();
+      // (Enter on a button presses that button instead)
+      if (k === 'enter' && !(e.target as HTMLElement).closest('button, summary, a')) this.onGo?.();
       if (k === ' ') this.taps.brace = true;
       if (k === 'q') this.taps.left = true;
       if (k === 'e') this.taps.right = true;
       if (k === 'p') this.onPause?.();
+      if (k === 'arrowleft' || k === 'arrowright') this.onPick?.(k === 'arrowleft' ? -1 : 1);
       this.keys.add(k);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
@@ -104,7 +119,7 @@ export class Controls {
   enable(on: boolean) {
     this.active = on;
     this.taps = { left: false, right: false, brace: false };
-    this.padWas = { go: true, pause: true, l1: true, r1: true, sprint: true };
+    this.padWas = { go: true, pause: true, l1: true, r1: true, sprint: true, back: true, nav: 'held' };
     this.touchSprint = false;
     this.released[2] = false;
     if (!on) {
@@ -162,6 +177,13 @@ export class Controls {
       const go = !!pad.buttons[0]?.pressed;
       const sprint = !!pad.buttons[2]?.pressed;
       const pause = !!(pad.buttons[9]?.pressed || pad.buttons[8]?.pressed);
+      const back = !!pad.buttons[1]?.pressed;
+      // the d-pad, or the left stick pushed well over, for the menus
+      const [sx, sy] = [pad.axes[0] ?? 0, pad.axes[1] ?? 0];
+      const nav: Nav | null =
+        pad.buttons[12]?.pressed ? 'up' : pad.buttons[13]?.pressed ? 'down' : pad.buttons[14]?.pressed ? 'left' : pad.buttons[15]?.pressed ? 'right'
+        : Math.max(Math.abs(sx), Math.abs(sy)) < NAV ? null
+        : Math.abs(sx) > Math.abs(sy) ? (sx < 0 ? 'left' : 'right') : sy < 0 ? 'up' : 'down';
       const trigger = (n: 0 | 1) => {
         const v = b(6 + n);
         if (v < 0.05) this.released[n] = true;
@@ -184,9 +206,11 @@ export class Controls {
         this.onGo?.();
       }
       if (pause && !was.pause) this.onPause?.();
+      if (back && !was.back) this.onBack?.();
+      if (nav && was.nav !== 'held' && nav !== was.nav) this.onNav?.(nav);
       if (!sprint) this.released[2] = true;
       i.sprint ||= sprint && this.released[2];
-      this.padWas = { go, pause, l1, r1, sprint };
+      this.padWas = { go, pause, l1, r1, sprint, back, nav: nav && was.nav === 'held' ? 'held' : nav };
     }
     return i;
   }

@@ -6,6 +6,7 @@
  */
 import { getCollection } from 'astro:content';
 import { SECRETS } from '../island/content';
+import { RIVERS } from '../island/river/rivers';
 import { chapters } from '../data/career';
 import piano from '../data/piano.json';
 import { projects } from '../data/projects';
@@ -272,13 +273,34 @@ const places = [
     <p class="river-hint" data-river-hint hidden aria-live="polite"></p>
     <div class="river-card" data-river-card="ready">
       <h2 id="river-title" tabindex="-1">Wild water</h2>
-      <p class="river-lede">A mountain river, 1.8 km down to the take-out. Keep her upright, pick your lines, don't swim, and don't hang about.</p>
+      <p class="river-lede">Rivers over the ridge, gentlest first.</p>
+      <ol class="river-path" role="radiogroup" aria-label="Which river">
+        {RIVERS.map((r, i) => (
+          <li>
+            <button class="river-stone" role="radio" aria-checked={i === 0 ? 'true' : 'false'} aria-label={`${r.name}, grade ${r.grade}`} data-river-pick={r.id} data-grade={r.grade}>
+              <span class="river-stone-n">{i + 1}</span>
+              <span class="river-stone-lock"><PixelIcon name="lock" size={14} /></span>
+              <span class="river-stone-down" title="Made it down"><PixelIcon name="tick" size={10} /></span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div class="river-chosen" data-river-chosen aria-live="polite">
+        <strong data-river-pick-name>{RIVERS[0].name}</strong>
+        <span class="river-chosen-meta" data-river-pick-meta>Grade {RIVERS[0].grade} · {(RIVERS[0].length / 1000).toFixed(1)} km</span>
+        <p class="river-pick-lede" data-river-pick-lede>{RIVERS[0].lede}</p>
+      </div>
       <ul class="river-keys">
-        <li data-for="keys"><kbd>↑</kbd> paddle (or <kbd>A</kbd> <kbd>D</kbd> one side) · <kbd>Q</kbd> <kbd>E</kbd> brake / reverse sweep<br><kbd>←</kbd><kbd>→</kbd> lean · <kbd>W</kbd><kbd>S</kbd> lean forward / back · <kbd>Space</kbd> brace · <kbd>Shift</kbd> (hold) sprint · <kbd>P</kbd> pause</li>
-        <li data-for="pad"><kbd>L2</kbd> <kbd>R2</kbd> paddle on that side (both: straight on)<br><kbd>L1</kbd> <kbd>R1</kbd> brake / reverse sweep / brace · left stick leans · <kbd>□</kbd> (hold) sprint</li>
+        <li data-for="keys"><kbd>↑</kbd> paddle · <kbd>A</kbd><kbd>D</kbd> turn · <kbd>Q</kbd><kbd>E</kbd> brake · <kbd>←</kbd><kbd>→</kbd> lean · <kbd>Space</kbd> brace</li>
+        <li data-for="pad"><kbd>L2</kbd><kbd>R2</kbd> paddle · <kbd>L1</kbd><kbd>R1</kbd> brake / brace · stick leans</li>
         <li data-for="touch">Hold both sides of the screen to paddle, one side to turn away from it; low down to brake on that side. Hold Sprint to dig in.</li>
       </ul>
-      <p class="river-hint-line">Read the water: long bright streaks are the fast line; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball.</p>
+      <details class="river-how">
+        <summary>How it works</summary>
+        <p class="river-hint-line" data-for="keys"><kbd>W</kbd><kbd>S</kbd> lean forward / back · <kbd>Shift</kbd> (hold) sprint · <kbd>P</kbd> pause</p>
+        <p class="river-hint-line" data-for="pad"><kbd>□</kbd> (hold) sprint · Options pauses · on the cards, the d-pad moves, <kbd>✕</kbd> picks, <kbd>○</kbd> goes back</p>
+        <p class="river-hint-line">Read the water: long bright streaks are the fast line; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball.</p>
+      </details>
       <button class="river-go" data-river-go data-autofocus>Push off</button>
       <p class="river-best-line">Your best: <span data-river-best>0</span> · quickest down: <span data-river-fastest>–</span></p>
     </div>
@@ -286,10 +308,12 @@ const places = [
       <h2>Paused</h2>
       <p class="river-lede">Holding on to a branch.</p>
       <button class="river-go" data-river-resume>Carry on</button>
+      <button class="river-leave" data-close>Back to the island</button>
     </div>
     <div class="river-card" data-river-card="over" hidden>
       <h2 data-over-title>Swimming</h2>
       <p class="river-lede" data-river-line></p>
+      <p class="river-unlocked" data-river-unlocked hidden></p>
       <dl class="river-tally">
         <dt>Distance</dt><dd data-over-metres>0 m</dd>
         <dt>Time</dt><dd data-over-time>0:00</dd>
@@ -302,9 +326,11 @@ const places = [
         <dt>Best</dt><dd data-river-best>0</dd>
       </dl>
       <div class="river-buttons">
-        <button class="river-go" data-river-go>Another river</button>
-        <button class="river-back" data-close>Back to the island</button>
+        <button class="river-go" data-river-next hidden>On to the next</button>
+        <button class="river-go" data-river-go>Go again</button>
+        <button class="river-back" data-river-rivers>Rivers</button>
       </div>
+      <button class="river-leave" data-close>Back to the island</button>
     </div>
   </section>
 

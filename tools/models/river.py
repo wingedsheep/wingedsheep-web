@@ -31,6 +31,12 @@ REED = ["#6f8a3a", "#86a04a", "#a0b25a"]
 BULRUSH = "#5a3a24"
 BUOY_RED = "#d8402e"
 BUOY_WHITE = "#f2ece2"
+GATE_GREEN = "#2f9a4a"
+# an old weir's timber: silvery grey where it's dry, dark where it's wet, weed at the waterline
+POST_DRY = ["#a59c98", "#b3aba2"]
+POST_WET = "#5a4a44"
+POST_UNDER = "#3a3038"
+WEED = ["#3f6a34", "#4a7a3a"]
 TAPE = "#b9bcc4"
 TAPE_DARK = "#8a8e98"
 KINGFISHER = "#2f8ac0"
@@ -160,6 +166,70 @@ def buoys():
     m.cyl(0.33, 0.1, (0, 0, 0.08), BUOY_WHITE, segs=10)
     m.cyl(0.04, 0.55, (0, 0, 0.3), P.IRON, segs=5)
     m.box((0.3, 0.02, 0.2), (0.15, 0, 0.72), BUOY_RED)                                 # a little flag
+    m.build(root)
+
+
+def posts():
+    """The posts of an old timber weir, long since washed out: squared oak gone grey, soaked dark
+    where the water keeps them wet, green with weed at the waterline, a rusted iron band round
+    the top and the tops split and rotted ragged. One leans, one still has a broken plank nailed
+    to it. Radius about 0.3 (the runtime scales them); z = 0 is the water."""
+    shapes = [
+        # height above the water, lean (rad), plank
+        (1.3, 0.0, False),
+        (0.95, 0.12, False),
+        (1.15, -0.05, True),
+    ]
+    for i, (h, lean, plank) in enumerate(shapes):
+        root = _root(f"post_{i}", radius=0.3)
+        m = Model(f"post_{i}", seed=90 + i)
+        rng = random.Random(90 + i)
+        rot = (lean, 0, rng.uniform(0, math.pi))
+        up = Vector((0, -math.sin(lean), math.cos(lean)))
+
+        def at(z):
+            return tuple(up * z)
+        m.box((0.46, 0.46, 1.0), at(-0.5), POST_UNDER, rot=rot)                           # under the water
+        m.box((0.48, 0.48, 0.28), at(0.12), WEED[i % 2], rot=rot)                         # weed at the waterline
+        m.box((0.44, 0.44, 0.36), at(0.44), POST_WET, rot=rot)                            # soaked
+        top = h - 0.62
+        m.box((0.42, 0.42, top), at(0.62 + top / 2), POST_DRY[i % 2], rot=rot, taper=0.92)  # grey, dry
+        m.box((0.46, 0.46, 0.08), at(h - 0.22), P.IRON, rot=rot)                          # the iron band
+        # the top, split and rotted into a few ragged teeth
+        for k, (dx, dy) in enumerate(((-0.1, -0.1), (0.1, -0.1), (-0.1, 0.1), (0.1, 0.1))):
+            t = rng.uniform(0.04, 0.16)
+            c = Vector(at(h + t / 2)) + Vector((dx, dy, 0))
+            m.box((0.19, 0.19, t), tuple(c), POST_DRY[(i + k) % 2], rot=rot)
+        if plank:
+            # a broken board, still nailed on, sticking out downstream-ish
+            m.box((1.1, 0.06, 0.24), (0.55, 0.26, 0.7), POST_WET, rot=(0, 0.25, 0.1))
+        m.build(root)
+
+
+def gate_pole():
+    """One pole of a white-water slalom gate: green and white stripes (a downstream gate), hung
+    on a cord from a wire over the river, its foot just clear of the water. The runtime hangs
+    two, a gate's width apart, from `gate_wire`. z = 0 is the water; the cord reaches up to 3.4."""
+    root = _root("gate_pole")
+    m = Model("gate_pole")
+    for k in range(6):
+        m.cyl(0.05, 0.2, (0, 0, 0.25 + k * 0.2), GATE_GREEN if k % 2 == 0 else BUOY_WHITE, segs=6)
+    m.cyl(0.012, 1.95, (0, 0, 1.45), P.INK, segs=4)                                     # the cord
+    m.build(root)
+
+
+def gate_wire():
+    """The wire a chute's slalom gates hang from, and a post on either bank to hold it up. It spans
+    x = -10 … 10; the runtime stretches it (x) to the river's width, like the bridge."""
+    root = _root("gate_wire", span=20.0)
+    m = Model("gate_wire")
+    m.box((21.0, 0.03, 0.03), (0, 0, 3.4), P.INK)
+    for x in (-10.5, 10.5):
+        m.box((0.2, 0.2, 4.2), (x, 0, 1.6), P.WOOD_DARK)
+        m.box((0.3, 0.3, 0.12), (x, 0, 3.72), P.IRON)
+    # a numbered board hung over the middle, green for a downstream gate
+    m.box((0.6, 0.04, 0.42), (0, 0, 3.05), BUOY_WHITE)
+    m.box((0.5, 0.05, 0.08), (0, 0, 3.18), GATE_GREEN)
     m.build(root)
 
 
@@ -781,7 +851,10 @@ def build():
     kayak()
     rocks()
     logs()
+    posts()
     buoys()
+    gate_pole()
+    gate_wire()
     ball()
     tape()
     lily()

@@ -6,13 +6,18 @@
  *
  * In the water: rocks in rows (always with a line through), logs reaching out from the banks,
  * ledges to boof, holes to punch, tongues of smooth fast water between the rocks, and tennis
- * balls. Everything comes from one seed, so the same seed is the same river.
+ * balls. The chutes, and now and then a run or a rapid, are laid out instead as set pieces (see
+ * piece()): a slalom, a row of doors, an old weir, a boulder to pick a side of. Everything comes
+ * from one seed, so the same seed is the same river. How hard it gets, and what's allowed in it, is
+ * the river's Profile (rivers.ts): the Dawdle never gets past grade 2; Hold My Coffee starts hot.
  *
  * Coordinates are three's: x east, y up, z south. The river runs roughly north (-z), never
  * turning more than ~55° off it, so it never doubles back on itself.
  */
 
-export type Kind = 'pool' | 'run' | 'rapids' | 'cascade' | 'gorge' | 'falls';
+import { DEFAULT_PROFILE, type Profile } from './rivers';
+
+export type Kind = 'pool' | 'run' | 'chute' | 'rapids' | 'cascade' | 'gorge' | 'falls';
 
 /** What a stretch is like; each sample drifts towards its stretch's values. */
 interface Character {
@@ -96,6 +101,8 @@ export interface Rock {
   r: number;
   s: number;
   variant: number;
+  /** Not a rock but a timber post of an old weir: it knocks you about just the same. */
+  post?: boolean;
 }
 
 export interface Log {
@@ -120,12 +127,13 @@ export interface Pickup {
   taken: boolean;
 }
 
-/** A pair of slalom buoys: go between them. */
+/** A pair of slalom buoys (or, in a chute, two poles hung from a wire over the river): go between them. */
 export interface Gate {
   a: { x: number; z: number };
   b: { x: number; z: number };
   s: number;
   passed: boolean;
+  hung?: boolean;
 }
 
 /** A step down across the whole river: boof it (a hard stroke at the lip) to land flat. */
@@ -172,8 +180,10 @@ export interface Stretch {
    * the further you get, and white water takes turns being harder and a bit less hard.
    */
   heat: number;
-  /** The chute before the first white water: fast, but with room to learn to dodge. */
-  fast?: boolean;
+  /** A chute between rock walls, rather than trees. */
+  slot?: boolean;
+  /** Where a run or a rapid has a set piece laid out in it (see Course.piece). */
+  pieceAt?: number;
   /** The last pool, with the finish in it. */
   takeout?: boolean;
 }
@@ -181,6 +191,8 @@ export interface Stretch {
 const BASE: Record<Kind, Character> = {
   pool: { width: 19, speed: 2.4, rough: 0, rocks: 0.006, bend: 0.35, slope: 0, clear: 1, gorge: 0, heat: 0 },
   run: { width: 13, speed: 5.0, rough: 0.3, rocks: 0.045, bend: 0.8, slope: 0.015, clear: 0.3, gorge: 0, heat: 0 },
+  // fast, smooth water with its rocks laid out in set pieces: going like the clappers, with time to dodge
+  chute: { width: 13.5, speed: 7.2, rough: 0.35, rocks: 0, bend: 0.5, slope: 0.035, clear: 0, gorge: 0.2, heat: 0 },
   rapids: { width: 13.5, speed: 6.8, rough: 0.9, rocks: 0.13, bend: 1, slope: 0.05, clear: 0, gorge: 0.15, heat: 0 },
   cascade: { width: 11, speed: 5.0, rough: 0.55, rocks: 0.03, bend: 0.3, slope: 0.01, clear: 0, gorge: 0.35, heat: 0 },
   gorge: { width: 11, speed: 6.4, rough: 0.65, rocks: 0.07, bend: 0.9, slope: 0.035, clear: 0, gorge: 1, heat: 0 },
@@ -190,8 +202,16 @@ const BASE: Record<Kind, Character> = {
 /** White water gets a name; the river has seen a few paddlers before you. */
 const RAPIDS = [
   'The Washing Machine', 'The Cheese Grater', 'Rock Garden', 'The Staircase', 'Pinball', 'Last Orders',
-  'The Mangle', 'Sock Drawer', 'Big Wet', 'The Tumble Dryer', 'Second Thoughts', 'Hold My Coffee',
+  'The Mangle', 'Sock Drawer', 'Big Wet', 'The Tumble Dryer', 'Second Thoughts', 'Pardon My French',
 ];
+/** And so do the chutes: the first is always the Flume. */
+const CHUTES = ['The Luge', 'Greased Lightning', 'The Waterslide', 'Express Lane', 'The Bobsleigh', 'Slip Road', 'Hold Onto Your Hat'];
+
+/** The set pieces (see Course.piece). */
+export type Piece = 'slalom' | 'strainers' | 'doors' | 'funnel' | 'weir' | 'fork' | 'balls';
+
+/** How fast a boat can ferry across the current (m/s): no piece asks the line to move faster. */
+const FERRY = 1.25;
 
 /** A small seeded random number generator (mulberry32). */
 export function rng(seed: number) {
@@ -252,6 +272,12 @@ export class Course {
   private bend = 0;
   private placedTo = 0; // rocks and the rest are placed up to here
   private names: string[];
+  private chuteNames: string[];
+  /** Where the line through the set pieces is (m across, + is river right), and the last piece laid. */
+  private lane = 0;
+  private lastPiece: Piece | null = null;
+  /** The line the set pieces were laid round, beat by beat (for the tests to paddle). */
+  readonly line: { s: number; u: number; piece: Piece | 'rest' }[] = [];
   /** The lips still to come, in order. */
   private lips: Ledge[] = [];
 
@@ -259,10 +285,11 @@ export class Course {
    * `finish`: the take-out, where the run ends (a bridge over a last slow pool). Past it the river
    * only pools on, for the kayak to drift in.
    */
-  constructor(readonly seed: number, readonly finish = Infinity) {
+  constructor(readonly seed: number, readonly finish = Infinity, readonly profile: Profile = DEFAULT_PROFILE) {
     this.random = rng(seed);
     this.scatter = rng(seed ^ 0x5bd1e995);
     this.names = [...RAPIDS].sort(() => this.random() - 0.5);
+    this.chuteNames = [...CHUTES].sort(() => this.random() - 0.5);
     // a slow green pool to get the feel of it, an easy forest run, a fast chute to learn to
     // dodge in, and then the first white water
     this.stretches.push({ kind: 'pool', start: 0, end: 110, heat: 0 });
@@ -307,10 +334,15 @@ export class Course {
     return this.at(s)?.heat ?? 0;
   }
 
-  /** Harder the further you get: nothing through the opening, then easing up to 1 by the take-out. */
+  /**
+   * Harder the further you get: the river's starting heat through the opening, then easing up to
+   * its top heat by the take-out. (By the river's length, not the finish, so a probe for where to
+   * push off makes the same river.)
+   */
   private ramp(s: number) {
-    const t = Math.max(0, Math.min(1, (s - 550) / 1300));
-    return t * t * (3 - 2 * t) * 0.6 + t * 0.4;
+    const [lo, hi] = this.profile.heat;
+    const t = Math.max(0, Math.min(1, (s - 550) / Math.max(400, this.profile.length - 500)));
+    return lo + (hi - lo) * (t * t * (3 - 2 * t) * 0.6 + t * 0.4);
   }
 
   /**
@@ -465,37 +497,39 @@ export class Course {
       t.width += 1 - h * 1.5;
       t.slope += h * 0.02;
       t.rough *= 0.65 + h * 0.35;
+    } else if (stretch.kind === 'chute') {
+      // hotter: faster and a bit narrower; a slot is narrower still, between walls
+      t.speed += h * 2.2;
+      t.width += 0.5 - h * 1.2 - (stretch.slot ? 1 : 0);
+      if (stretch.slot) t.gorge = 0.95;
     } else {
       t.speed += h * 0.8;
     }
-    // the forest run at the start dawdles; the chute after it is quick
+    // the forest run at the start dawdles
     if (stretch.kind === 'run' && this.stretches.indexOf(stretch) === 1) t.speed -= 1;
-    if (stretch.fast) {
-      t.speed += 1.8;
-      t.bend = 0.5;
-      t.rough = 0.45;
-    }
+    // a gentle river goes a bit gentler all the way down
+    t.speed *= this.profile.speed;
     // every stretch widens and narrows a little on its own
     t.width *= 1 + noise1(s / 45, this.seed + 3) * 0.15;
     return t;
   }
 
   /**
-   * What comes next. The opening is set: the pool, an easy run, a fast chute and a gentle first
-   * rapid. After that it's mostly white water, taking turns being harder and a bit less hard, with
-   * short breathers in between that still have rocks in them, and fewer and shorter the further
-   * you get. Cascades and waterfalls come once you've shown you can handle rapids.
+   * What comes next. The opening is set: the pool, an easy run, a first chute and a gentle first
+   * rapid. After that it's mostly white water and chutes, taking turns being harder and a bit less
+   * hard, with short breathers in between that still have rocks in them, and fewer and shorter the
+   * further you get. Cascades and waterfalls come once you've shown you can handle rapids.
    */
   private nextStretch(prev: Stretch): Stretch {
     const r = this.random;
     const s = prev.end;
     const d = this.ramp(s);
     const n = this.stretches.length;
+    const pr = this.profile;
     const easy = (k: Kind) => k === 'pool' || k === 'run';
     let kind: Kind;
     let [lo, hi] = [0, 0];
     let heat: number;
-    let fast = false;
     if (s > this.finish - 180) {
       // the take-out: one last slow pool, the bridge over it the finish line
       const next: Stretch = { kind: 'pool', start: s, end: s + 400, heat: 0, takeout: true };
@@ -511,14 +545,13 @@ export class Course {
       [lo, hi] = [110, 130];
       heat = 0;
     } else if (n === 2) {
-      kind = 'run';
-      fast = true;
-      [lo, hi] = [200, 230];
-      heat = 0.12;
+      kind = 'chute';
+      [lo, hi] = [210, 240];
+      heat = 0.1 + this.profile.heat[0] * 0.5;
     } else if (n === 3) {
-      kind = 'rapids'; // the first white water: short and gentle
+      kind = 'rapids'; // the first white water: short and gentle (for the river it's on)
       [lo, hi] = [130, 150];
-      heat = 0.2;
+      heat = Math.min(this.profile.cap, 0.2 + this.profile.heat[0] * 0.5);
     } else {
       const whites = this.stretches.filter((x) => !easy(x.kind)).length;
       const prev2 = this.stretches[n - 2];
@@ -526,14 +559,17 @@ export class Course {
         // after white water, mostly a short breather; further down, more often more of it (but
         // three in a row only once you're well down)
         const more = !easy(prev2.kind) && d < 0.6 ? 0 : 1;
-        kind = pick(r, [['pool', 1.2 * (1 - d) + 0.2], ['run', 2.5], ['rapids', (0.4 + d * 1.6) * more], ['gorge', d * 0.9 * more]]);
+        // (a chute straight out of a rapid: a fast run-out)
+        kind = pick(r, [['pool', 1.2 * (1 - d) + 0.2], ['run', 2.5], ['rapids', (0.4 + d * 1.6) * more], ['gorge', d * 0.9 * more * pr.gorges],
+          ['chute', prev.kind === 'chute' ? 0 : 0.6 * more]]);
       } else {
         // never two breathers in a row
         kind = pick(r, [
           ['rapids', 3],
-          ['cascade', s > 800 ? 1 + d : 0.3],
-          ['gorge', 0.6 + d * 1.5],
-          ['falls', s > 1100 ? 0.5 + d : 0],
+          ['chute', 1.6 + d * 0.4],
+          ['cascade', (s > pr.cascades ? 1 + d : pr.cascades < Infinity ? 0.3 : 0) * pr.stairs],
+          ['gorge', (0.6 + d * 1.5) * pr.gorges],
+          ['falls', s > pr.falls ? 0.5 + d : 0],
         ]);
       }
       if (easy(kind)) {
@@ -542,21 +578,32 @@ export class Course {
       } else {
         // every other bit of white water is a notch up; the one after lets you breathe a little
         const wave = whites % 2 === 0 ? 0.2 : -0.05;
-        heat = Math.max(0.3, Math.min(1, 0.3 + d * 0.6 + wave + (r() - 0.5) * 0.12));
+        heat = Math.max(Math.min(0.3, pr.cap), Math.min(pr.cap, 0.3 + d * 0.6 + wave + (r() - 0.5) * 0.12));
         const lengths: Record<Kind, [number, number]> = {
           pool: [0, 0], run: [0, 0], rapids: [170 + heat * 120, 240 + heat * 200], cascade: [130, 200],
-          gorge: [180, 300], falls: [80, 100],
+          gorge: [180, 300], falls: [80, 100], chute: [200 + heat * 80, 260 + heat * 140],
         };
         [lo, hi] = lengths[kind];
       }
     }
     // nothing runs on into the take-out: it's always the pool
-    const next: Stretch = { kind, start: s, end: Math.min(this.finish - 60, s + Math.round(lo + r() * (hi - lo))), heat, fast };
+    const next: Stretch = { kind, start: s, end: Math.min(this.finish - 60, s + Math.round(lo + r() * (hi - lo))), heat };
     if (kind === 'rapids' || kind === 'gorge' || kind === 'cascade') {
-      next.name = this.names[this.stretches.filter((x) => x.name).length % this.names.length];
+      next.name = this.names[this.stretches.filter((x) => x.name && x.kind !== 'chute').length % this.names.length];
       next.grade = Math.max(2, Math.min(5, 2 + Math.round((heat - 0.2) * 3.4 + (kind === 'cascade' ? 0.4 : 0))));
     }
+    if (kind === 'chute') {
+      const i = this.stretches.filter((x) => x.kind === 'chute').length;
+      next.name = i === 0 ? 'The Flume' : this.chuteNames[(i - 1) % this.chuteNames.length];
+      next.grade = Math.max(2, Math.min(4, 2 + Math.round(heat * 2.5)));
+      next.slot = i > 0 && r() < 0.4;
+    }
+    // now and then a run or a rapid has a set piece in it too
+    if ((kind === 'run' && n > 1 && r() < 0.4) || (kind === 'rapids' && n > 3 && r() < 0.3)) {
+      next.pieceAt = next.start + 40 + r() * Math.max(0, next.end - next.start - 130);
+    }
     if (kind === 'falls') next.grade = 4 + Math.round(d);
+    if (next.grade) next.grade = Math.min(next.grade, pr.grade);
 
     // the ledges: a staircase down a cascade, a big one in the middle of a falls, and now and
     // then one in the rapids or the gorge
@@ -566,7 +613,9 @@ export class Course {
       this.lips.push(l);
       this.file(l);
     };
-    if (kind === 'cascade') {
+    if (!pr.ledges) {
+      // (a gentle river has none: nothing to boof, nothing to fall off)
+    } else if (kind === 'cascade') {
       let at = next.start + 22;
       for (let steps = 3 + Math.floor(r() * (2 + d * 2)); steps > 0 && at < next.end - 15; steps--) {
         ledge(at, 1.1 + r() * 0.8 + heat * 0.7);
@@ -576,13 +625,16 @@ export class Course {
       ledge(next.start + (next.end - next.start) * 0.5, 4 + r() * 1.5 + d);
     } else if (n === 3) {
       ledge(next.start + 70, 0.9); // the first one: small, to learn to boof
-    } else if (((kind === 'rapids' || kind === 'gorge') && r() < 0.5 + heat * 0.3 || kind === 'run' && !fast && r() < 0.2) && n > 3) {
+    } else if (((kind === 'rapids' || kind === 'gorge') && r() < 0.5 + heat * 0.3 || kind === 'run' && r() < 0.2) && n > 3) {
       ledge(next.start + 30 + r() * (next.end - next.start - 60), 1 + r() * 0.8);
+    } else if (kind === 'chute' && heat > 0.3 && r() < 0.45) {
+      // a ledge in a hot chute: a boof at full tilt
+      ledge(next.start + 60 + r() * (next.end - next.start - 110), 0.9 + r() * 0.6);
     }
 
     // now and then the river parts round an island: in the forest runs and the rapids, and a
     // gravel bar in a pool
-    const splitChance = n < 4 ? (n === 2 ? 0.5 : 0) : kind === 'run' ? 0.75 : kind === 'rapids' ? 0.6 : kind === 'pool' ? 0.6 : 0;
+    const splitChance = n < 4 ? 0 : kind === 'run' ? 0.75 : kind === 'rapids' ? 0.6 : kind === 'pool' ? 0.6 : 0;
     let split: Split | null = null;
     if (r() < splitChance) {
       const bar = kind === 'pool';
@@ -596,6 +648,7 @@ export class Course {
           u: (r() - 0.5) * 3, hero: r() < 0.5 ? -1 : 1,
         };
         this.splits.push(split);
+        next.pieceAt = undefined; // (an island is enough going on)
       }
     }
 
@@ -644,7 +697,7 @@ export class Course {
         if (r() < 0.12) {
           const m = at(r() < 0.5 ? 0.15 : 0.85);
           this.addObstacle({ kind: 'rock', ...across(m), r: 0.5 + r() * 0.3, s, variant: Math.floor(r() * 5) });
-        } else if (split.kind === 'isle' && r() < 0.08 && w > 5) {
+        } else if (split.kind === 'isle' && r() < 0.08 * this.profile.snags && w > 5) {
           const base = across(outer + side * 1.2);
           const tip = across(at(0.55));
           this.addObstacle({ kind: 'log', x0: base.x, z0: base.z, x1: tip.x, z1: tip.z, r: 0.38, s, variant: Math.floor(r() * 2) });
@@ -667,9 +720,23 @@ export class Course {
       const p = this.at(s);
       const stretch = this.stretchAt(s);
       const h = p.heat;
+      // a chute is set pieces all the way down, with a breather between each; a run or a rapid
+      // might have one in it
+      if (stretch.kind === 'chute' && s >= 120) {
+        this.placedTo += this.breather(s, stretch);
+        if (this.placedTo < stretch.end - 30) this.placedTo += this.piece(this.placedTo, stretch);
+        continue;
+      }
+      if (stretch.pieceAt !== undefined && s >= stretch.pieceAt) {
+        const at = stretch.pieceAt;
+        stretch.pieceAt = undefined;
+        this.lane = gap * p.width / 2;
+        this.placedTo = at + this.piece(at, stretch) + 6;
+        gap = this.lane / (p.width / 2);
+        continue;
+      }
       const white = stretch.kind === 'rapids' || stretch.kind === 'gorge';
-      // (the chute gets a few more, spread out, to practise dodging on)
-      const density = BASE[stretch.kind].rocks * (0.55 + h * 1.6) * (stretch.fast ? 1.7 : 1);
+      const density = BASE[stretch.kind].rocks * (0.55 + h * 1.6);
       // rows of rocks come closer together the hotter it gets: a couple of seconds apart in the
       // first rapid, hardly more than one in the big stuff (in seconds, whatever the speed)
       const spacing = Math.max(white ? Math.max(6, p.speed) * (1.9 - h * 0.6) : 7, Math.min(40, 1.4 / Math.max(density, 0.01) / 3.2));
@@ -722,13 +789,13 @@ export class Course {
       }
 
       // a hole in the white water, off the line: something to steer round, or punch
-      if ((white && r() < 0.1 + h * 0.65 || stretch.kind === 'run' && !stretch.fast && r() < 0.12) && inRow === 0) {
+      if ((white && r() < (0.1 + h * 0.65) * this.profile.snags || stretch.kind === 'run' && r() < 0.12 * this.profile.snags) && inRow === 0) {
         const u = (gap + (r() < 0.5 ? -1 : 1) * (0.4 + r() * 0.3)) * half;
         this.file({ kind: 'hole', s: s + 3, u, half: 1.2 + r() * 1.2, strength: 0.4 + h * 0.5 });
       }
 
       // a fallen tree, reaching out from one bank but never past the gap
-      if ((stretch.kind === 'run' || stretch.kind === 'gorge') && r() < 0.12 + h * 0.08 && inRow === 0) {
+      if ((stretch.kind === 'run' || stretch.kind === 'gorge') && r() < (0.12 + h * 0.08) * this.profile.snags && inRow === 0) {
         const side = gap > 0 ? -1 : 1;
         const tipU = side < 0 ? Math.min(gap - gapHalf - 0.1, 0.1) : Math.max(gap + gapHalf + 0.1, -0.1);
         const base = across(side * 1.25);
@@ -757,6 +824,221 @@ export class Course {
       const foot = this.at(l.s + LIP + 1.5);
       this.file({ kind: 'hole', s: foot.s, u: 0, half: foot.width / 2, strength: Math.min(1, 0.35 + l.height * 0.15) });
     }
+  }
+  // --- set pieces ------------------------------------------------------------------------
+
+  /** How long a beat of a set piece is (m) at arc length s: about a second and a half of water, less when it's hot. */
+  private beat(s: number, h: number) {
+    return (1.75 - h * 0.45) * (this.at(s).speed + 2.5); // (you'll be paddling too)
+  }
+
+  /**
+   * Open water between set pieces in a chute: a beat or so to breathe, a ball on the line, and now
+   * and then a slalom gate hung over it to thread.
+   */
+  private breather(s: number, stretch: Stretch) {
+    const r = this.scatter;
+    const h = stretch.heat;
+    const len = this.beat(s, h) * (0.8 + (1 - h) * 0.7);
+    while (this.length < s + len + 2) this.grow();
+    const p = this.at(s + len * 0.5);
+    this.lane = this.clampLane(this.lane * 0.6, p, 1.6);
+    const at = this.across(p);
+    if (this.lastPiece !== 'balls' && r() < 0.35 + h * 0.2) {
+      this.file({ a: at(this.lane - 1.6), b: at(this.lane + 1.6), s: p.s, passed: false, hung: true } satisfies Gate);
+    } else if (r() < 0.7) {
+      this.file({ kind: 'ball', ...at(this.lane), s: p.s, taken: false } satisfies Pickup);
+    }
+    this.line.push({ s: p.s, u: this.lane, piece: 'rest' });
+    return len;
+  }
+
+  private across(p: Sample) {
+    return (u: number) => ({ x: p.x + Math.cos(p.a) * u, z: p.z + Math.sin(p.a) * u });
+  }
+
+  /** Keep a line far enough off the banks for a gap `gh` either side of it. */
+  private clampLane(u: number, p: Sample, gh: number) {
+    const room = Math.max(0, p.width / 2 - gh - 0.6);
+    return Math.max(-room, Math.min(room, u));
+  }
+
+  /**
+   * A set piece: something laid out on purpose, a beat at a time, so it reads from upstream and
+   * rewards a line. Each beat is about a second and a half of water, and the line never moves
+   * further across in one than a boat can ferry (FERRY), with a gap either side of it wider than
+   * the boat. Returns how much river it took.
+   *
+   * - slalom: walls of boulders from alternate banks, the line weaving between their ends
+   * - strainers: the same with fallen trees
+   * - doors: rows right across the river with one gap in each (a tongue), never where the last was
+   * - funnel: rows closing in to a slot between two big boulders
+   * - weir: the posts of an old timber weir in staggered rows, to thread
+   * - fork: a house-sized boulder in the middle: pick a side (the balls are down one of them)
+   * - balls: an S of tennis balls to carve through, a rock or two on the outside of it
+   */
+  private piece(s0: number, stretch: Stretch): number {
+    const r = this.scatter;
+    const h = stretch.heat;
+    const chute = stretch.kind === 'chute';
+    const B = this.beat(s0, h);
+    const T = 1.75 - h * 0.45;
+    const shift = FERRY * T; // the furthest the line can move in a beat
+    const gh = 1.9 - h * 0.45; // half the gap left round the line
+    const all: [Piece, number][] = chute
+      ? [['slalom', 1], ['strainers', 0.8], ['doors', 1], ['funnel', 0.6], ['weir', 0.8], ['fork', 0.8], ['balls', 0.5 + (1 - h) * 0.6]]
+      : stretch.kind === 'run' ? [['strainers', 1], ['weir', 1], ['fork', 0.8], ['balls', 0.8]] : [['doors', 1], ['fork', 1], ['funnel', 0.6]];
+    // only the pieces this river has (and on a gentle one, that can be just the balls)
+    const allowed = all.filter(([k]) => this.profile.pieces.includes(k));
+    const options: [Piece, number][] = allowed.length ? allowed : [['balls', 1]];
+    const kind = pick(r, options.map(([k, w]) => [k, k === this.lastPiece ? 0 : w] as [Piece, number]));
+    this.lastPiece = kind;
+    const beats = kind === 'fork' || kind === 'funnel' ? 3 : kind === 'balls' ? 6 + Math.floor(r() * 3) : 3 + Math.floor(r() * (1.5 + h * 2.5));
+    const len = B * (kind === 'weir' ? beats * 0.7 + 0.5 : kind === 'balls' ? beats * 0.55 + 0.8 : beats + (kind === 'fork' ? 0.5 : 0));
+    while (this.length < s0 + len + 20) this.grow();
+    // nothing near a lip, and nothing past the end of the stretch
+    const ok = (s: number) => s < stretch.end - 8 && !this.ledges.some((l) => s > l.s - 8 && s < l.s + 10);
+    const rock = (p: Sample, u: number, rad: number, post = false) => {
+      const at = this.across(p)(u);
+      this.addObstacle({ kind: 'rock', ...at, r: rad, s: p.s + (post ? 0 : (r() - 0.5) * 1.2), variant: Math.floor(r() * (post ? 3 : 5)), post });
+    };
+    // boulders from the edge of a gap (at u, the wall running `dir`-wards) to the bank, with a slot
+    // between each that a boat can only slip through dead straight (and never be pinned across)
+    const wall = (p: Sample, edge: number, dir: number, first = 0.8 + r() * 0.25) => {
+      const bank = p.width / 2 - 0.2;
+      let rad = first;
+      let u = edge + dir * rad * 0.9;
+      while (u * dir < bank + 0.5) {
+        rock(p, u, rad);
+        const next = 0.75 + r() * 0.3;
+        u += dir * (rad * 0.9 + next * 0.9 + 1.0 + r() * 0.25);
+        rad = next;
+      }
+    };
+    const ball = (p: Sample, u: number) => this.file({ kind: 'ball', ...this.across(p)(u), s: p.s, taken: false } satisfies Pickup);
+    const mark = (p: Sample, u: number) => this.line.push({ s: p.s, u, piece: kind });
+
+    switch (kind) {
+      case 'slalom':
+      case 'strainers': {
+        // the line swings from one side to the other, each wall reaching past the middle to meet it
+        const p0 = this.at(s0);
+        const A = Math.max(0.6, Math.min(this.clampLane(99, p0, gh), shift * 0.5));
+        let side = this.lane > 0 ? -1 : this.lane < 0 ? 1 : r() < 0.5 ? -1 : 1; // the bank this beat's wall comes from
+        for (let i = 0; i < beats; i++) {
+          const at = s0 + B * (i + 0.5);
+          if (!ok(at)) continue;
+          const p = this.at(at);
+          const L = this.clampLane(-side * A, p, gh);
+          if (kind === 'slalom') wall(p, L + side * gh, side, 1.0 + r() * 0.3);
+          else {
+            const base = this.across(p)(side * (p.width / 2 + 1.2));
+            const tip = this.across(p)(L + side * (gh + 0.38));
+            this.addObstacle({ kind: 'log', x0: base.x, z0: base.z, x1: tip.x, z1: tip.z, r: 0.38, s: p.s, variant: Math.floor(r() * 2) });
+          }
+          if (i % 2 === 1 || kind === 'strainers') ball(p, L);
+          mark(p, L);
+          this.lane = L;
+          side = -side;
+        }
+        break;
+      }
+      case 'doors':
+      case 'funnel': {
+        for (let i = 0; i < beats; i++) {
+          const at = s0 + B * (i + 0.5);
+          if (!ok(at)) continue;
+          const p = this.at(at);
+          let L: number;
+          let g = gh;
+          if (kind === 'doors') {
+            // somewhere new every time, but reachable: at least half a beat's ferry away
+            const room = this.clampLane(99, p, gh);
+            const dir = Math.abs(this.lane) > room * 0.4 ? -Math.sign(this.lane) : r() < 0.5 ? -1 : 1;
+            L = this.clampLane(this.lane + dir * shift * (0.5 + r() * 0.4), p, gh);
+          } else {
+            // closing in: wide, narrower, and a slot between two big boulders
+            g = gh * [1.9, 1.4, 1.05][i];
+            L = this.clampLane(this.lane + (r() - 0.5) * shift * 0.5, p, g);
+          }
+          const big = kind === 'funnel' && i === 2 ? 1.25 + r() * 0.2 : undefined;
+          wall(p, L - g, -1, big);
+          wall(p, L + g, 1, big);
+          this.file({ kind: 'tongue', s: p.s, u: L, half: g * 0.8, taken: false } satisfies Tongue);
+          if (i === beats - 1 || r() < 0.4) ball(p, L);
+          mark(p, L);
+          this.lane = L;
+        }
+        break;
+      }
+      case 'weir': {
+        // posts in rows across the river, each row's gaps halfway between the last's
+        const gap = 2.7 - h * 0.5;
+        const phase = r() * gap;
+        for (let i = 0; i < beats; i++) {
+          const at = s0 + B * (0.5 + i * 0.7);
+          if (!ok(at)) continue;
+          const p = this.at(at);
+          const half = p.width / 2;
+          const off = phase + (i % 2) * gap * 0.5;
+          let best = this.lane;
+          let bestD = Infinity;
+          for (let u = -half - gap + (off % gap); u < half; u += gap) {
+            if (Math.abs(u) < half - 0.25) rock(p, u, 0.28 + r() * 0.05, true);
+            const mid = u + gap / 2; // a gap: the one nearest the line is the line
+            if (Math.abs(mid) < half - 1 && Math.abs(mid - this.lane) < bestD) {
+              bestD = Math.abs(mid - this.lane);
+              best = mid;
+            }
+          }
+          if (i % 2 === 0) ball(p, best);
+          mark(p, best);
+          this.lane = best;
+        }
+        break;
+      }
+      case 'fork': {
+        const at = s0 + B * 1.5;
+        if (!ok(at)) break;
+        const p = this.at(at);
+        const half = p.width / 2;
+        const R = 1.9 + h * 0.5 + r() * 0.3;
+        // room for a boat and some either side of it
+        const room = Math.max(0, half - 0.55 - R * 0.9 - gh * 1.7);
+        const u0 = Math.max(-room, Math.min(room, -this.lane * 0.3 + (r() - 0.5) * 0.8));
+        rock(p, u0, R);
+        // the balls go down the side you're already on, if you're on one
+        const side = this.lane > u0 + 0.3 ? 1 : this.lane < u0 - 0.3 ? -1 : r() < 0.5 ? -1 : 1;
+        const L = (u0 + side * R * 0.9 + side * (half - 0.55)) / 2;
+        for (const f of [-0.35, 0, 0.35]) ball(this.at(at + f * B), L);
+        mark(this.at(s0 + B * 0.5), (this.lane + L) / 2);
+        mark(p, L);
+        this.lane = L;
+        break;
+      }
+      case 'balls': {
+        // an S to carve: each ball no further across from the last than you can ferry in time
+        const step = 0.55;
+        const p0 = this.at(s0);
+        const A = Math.min(this.clampLane(99, p0, 1.4), (FERRY * T * step * 0.85) / 0.8);
+        const c = this.lane * 0.5;
+        const phi = Math.asin(Math.max(-1, Math.min(1, (this.lane - c) / (A || 1))));
+        for (let i = 0; i < beats; i++) {
+          const at = s0 + B * (0.5 + i * step);
+          if (!ok(at)) continue;
+          const p = this.at(at);
+          const L = this.clampLane(c + A * Math.sin(phi + i * 0.8), p, 1.4);
+          ball(p, L);
+          // on the outside of a curve, a rock, to keep you honest
+          const out = Math.sign(L - c);
+          if (Math.abs(Math.sin(phi + i * 0.8)) > 0.9 && Math.abs(L + out * 3) < p.width / 2 - 0.5) rock(p, L + out * (2.4 + r() * 0.3), 0.6 + r() * 0.3);
+          mark(p, L);
+          this.lane = L;
+        }
+        break;
+      }
+    }
+    return len;
   }
 }
 

@@ -5,6 +5,7 @@ import { Controls } from './controls';
 import { Course, type Split, type Stretch } from './course';
 import { Kayak } from './kayak';
 import { Land } from './land';
+import { RIVERS, type RiverDef } from './rivers';
 import { waterAt } from './flow';
 import { MAX_HOLES, MAX_RIPPLES, MAX_ROCKS, MAX_TONGUES, riverWater } from './water';
 import { Wildlife } from './wildlife';
@@ -15,14 +16,15 @@ const FLOW_MAX = 5;
 /** Speed pays: at or below SLOW m/s a metre's worth its flow, at FAST and over twice that. */
 const SLOW = 3;
 const FAST = 9;
-/** How far it is from where you push off to the take-out (m): about five minutes' paddling. */
-export const LENGTH = 1800;
 /**
- * Par for the run (s): drifting down gets you there in about that. Every second under it at the
- * finish is worth TICK points, times the flow you finish on.
+ * Par for a run (s) is its length over this: drifting down gets you there in about that. Every
+ * second under it at the finish is worth TICK points, times the flow you finish on.
  */
-export const PAR = LENGTH / 4.5;
+const DRIFT = 4.5;
 const TICK = 25;
+/** Seconds of quiet between one teaching hint and the next, and before the first. */
+const QUIET = 10;
+const QUIET_START = 4;
 /** What each gate and each ball is worth at the take-out (only if you make it), and what a capsize costs. */
 export const GATE = 150;
 export const BALL_POINTS = 100;
@@ -62,7 +64,7 @@ export interface Outside {
 }
 
 export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile';
-export type Hint = 'paddle' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint';
+export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball';
 
 export interface GameEvents {
   /** Into a new stretch of river. */
@@ -90,7 +92,7 @@ export interface GameEvents {
 }
 
 /**
- * The wild-water run: a mountain river made up ahead of you, 1.8 km down to the take-out, the
+ * The wild-water run: a mountain river made up ahead of you, a km or two down to the take-out, the
  * kayak, and a camera looking down the river from behind it. How far you get, times how well: the
  * flow builds with every boof, brace, gate and clean line, and a knock or a capsize breaks it (a
  * capsize costs points too). Make it to the take-out and it pays again: for every second under
@@ -107,6 +109,8 @@ export class RiverGame {
   paused = false;
   events: GameEvents = {};
   tally: Tally = fresh();
+  /** Which river it is (rivers.ts): how long, how hard. */
+  river: RiverDef = RIVERS[0];
   /** 0..1: a flash over the picture, for a knock (red) or a boof (warm white). */
   flash = { amount: 0, color: new THREE.Color() };
 
@@ -141,6 +145,14 @@ export class RiverGame {
   private squishV = 0;
   private size: THREE.Vector3;
   private hinted = new Set<Hint>();
+  /**
+   * No teaching hint before this (s into the run): one at a time, with a quiet stretch after
+   * each, and none while the river's name is still up.
+   */
+  private quiet = 0;
+  /** Whether you've paddled at all, and on one side only (then there's no telling you how). */
+  private paddled = false;
+  private steered = false;
   private rumbleAt = 0;
   private lastMetres = 0;
   /** Rings on the water (from a stroke, a landing, a knock), drifting off on the current. */
@@ -176,14 +188,25 @@ export class RiverGame {
     return new RiverGame(await RiverAssets.load(), el, texels);
   }
 
-  /** A fresh river, the kayak at the top of it, waiting for you to push off. */
-  reset() {
+  /** How far it is from where you push off to the take-out (m). */
+  get length() {
+    return this.river.length;
+  }
+
+  /** Par for the run (s). */
+  get par() {
+    return this.river.length / DRIFT;
+  }
+
+  /** A fresh river (this one again, or `river`), the kayak at the top of it, waiting for you to push off. */
+  reset(river = this.river) {
+    this.river = river;
     this.land?.clear();
     this.land?.group.removeFromParent();
     // the same seed is the same river: ?seed=1234 to paddle one again
     const seed = Number(new URLSearchParams(location.search).get('seed')) || (Math.random() * 2 ** 31) | 0;
-    this.start = calm(seed, 50 + this.downriver);
-    this.course = new Course(seed, this.start + LENGTH);
+    this.start = calm(seed, 50 + this.downriver, river);
+    this.course = new Course(seed, this.start + river.length, river);
     this.course.extend(this.start + 400);
     this.land = new Land(this.course, this.assets, this.water.material, this.halo);
     this.land.onSpots = (spots) => this.wildlife.settle(spots);
@@ -205,6 +228,7 @@ export class RiverGame {
     this.squish = this.squishV = 0;
     this.ripples = [];
     this.eddyS = -99;
+    this.quiet = QUIET_START;
     this.zoom = 1;
     this.yaw = this.course.at(this.start + 10).a;
     this.frame(0);
@@ -215,10 +239,6 @@ export class RiverGame {
   go() {
     if (this.state !== 'ready') return;
     this.state = 'running';
-    if (!this.hinted.has('paddle')) {
-      this.hinted.add('paddle');
-      this.events.hint?.('paddle');
-    }
   }
 
   /** Whether the kayak is pointing back towards the camera (its left is then the screen's right). */
@@ -264,6 +284,8 @@ export class RiverGame {
     if (this.state === 'ready' && (intent.left > 0.3 || intent.right > 0.3 || intent.tapLeft || intent.tapRight)) this.events.start?.();
     const running = this.state === 'running';
     if (this.state !== 'ready') this.kayak.update(dt, intent, this.course, running);
+    if (running && (intent.left > 0.3 || intent.right > 0.3)) this.paddled = true;
+    if (running && (intent.left > 0.3) !== (intent.right > 0.3)) this.steered = true;
     const k = this.kayak;
     this.wobble(dt);
     if ((this.streakFor -= realDt) < 0) this.streak = 0;
@@ -296,7 +318,7 @@ export class RiverGame {
     const k = this.kayak;
     const t = this.tally;
     t.time += dt;
-    const metres = Math.min(LENGTH, Math.max(t.metres, Math.floor(k.s - this.start)));
+    const metres = Math.min(this.length, Math.max(t.metres, Math.floor(k.s - this.start)));
     if (metres > this.lastMetres) {
       t.score += (metres - this.lastMetres) * t.flow * t.pace;
       this.lastMetres = metres;
@@ -326,14 +348,14 @@ export class RiverGame {
       this.clean = true;
     }
     this.round();
-    if (metres >= LENGTH) this.finish();
+    if (metres >= this.length) this.finish();
   }
 
   /** Under the bridge: the clock stops, every second under par pays, and so does every gate and ball. */
   private finish() {
     const t = this.tally;
     t.finished = true;
-    t.bonus = { time: Math.round(Math.max(0, PAR - t.time) * TICK * t.flow), gates: t.gates * GATE, balls: t.balls * BALL_POINTS };
+    t.bonus = { time: Math.round(Math.max(0, this.par - t.time) * TICK * t.flow), gates: t.gates * GATE, balls: t.balls * BALL_POINTS };
     t.score += t.bonus.time + t.bonus.gates + t.bonus.balls;
     this.state = 'over';
     this.overIn = 1.4;
@@ -417,21 +439,32 @@ export class RiverGame {
     this.tally.flow = 1;
   }
 
-  /** The first time each thing comes up, a word on how to deal with it. */
+  /**
+   * The first time each thing comes up, a word on how to deal with it: straight away if it's
+   * happening now (tipping, a ledge coming up), otherwise only once it's been quiet a while.
+   */
+  private tell(h: Hint, now = false) {
+    const t = this.tally.time;
+    if (this.hinted.has(h) || (!now && t < this.quiet)) return;
+    this.hinted.add(h);
+    this.events.hint?.(h);
+    this.quiet = Math.max(this.quiet, t + (now ? QUIET / 2 : QUIET));
+  }
+
   private coach() {
     const k = this.kayak;
-    const ask = (h: Hint) => {
-      if (this.hinted.has(h)) return;
-      this.hinted.add(h);
-      this.events.hint?.(h);
-    };
-    if (Math.abs(k.tilt) > 0.45 && !this.controls.assisted) ask('lean');
-    if (this.tally.time > 6 && k.speed > 5) ask('sprint');
-    for (const t of this.course.near(k.s + 8, k.s + 40)) {
-      if (!('kind' in t)) continue;
-      if (t.kind === 'ledge' && t.s > k.s + 10 && t.s < k.s + 35) ask(t.height >= 3 ? 'falls' : 'boof');
-      if (t.kind === 'tongue' && t.s > k.s + 12 && this.hinted.has('boof')) ask('tongue');
-      if (t.kind === 'rock' && t.s > k.s + 14 && this.tally.time > 10) ask('eddy');
+    const t = this.tally.time;
+    if (Math.abs(k.tilt) > 0.45 && !this.controls.assisted) this.tell('lean', true);
+    // the basics, only if you've not found them yourself
+    if (!this.paddled && t > 3) this.tell('paddle');
+    if (!this.steered && t > 12) this.tell('steer');
+    if (t > 30 && k.speed > 5) this.tell('sprint');
+    for (const o of this.course.near(k.s + 8, k.s + 40)) {
+      if (!('kind' in o)) continue;
+      if (o.kind === 'ledge' && o.s > k.s + 10 && o.s < k.s + 35) this.tell(o.height >= 3 ? 'falls' : 'boof', true);
+      if (o.kind === 'tongue' && o.s > k.s + 12 && this.hinted.has('boof')) this.tell('tongue');
+      if (o.kind === 'rock' && o.s > k.s + 14 && t > 50) this.tell('eddy');
+      if (o.kind === 'ball' && !o.taken && o.s > k.s + 12) this.tell('ball');
     }
   }
 
@@ -483,10 +516,7 @@ export class RiverGame {
       },
       tipping: () => {
         this.controls.rumble(0.2, 0.8, 120);
-        if (!this.hinted.has('brace')) {
-          this.hinted.add('brace');
-          this.events.hint?.('brace');
-        }
+        this.tell('brace', true);
       },
       capsize: () => {
         this.events.sound?.('capsize');
@@ -494,10 +524,7 @@ export class RiverGame {
         this.controls.rumble(1, 1, 400);
         if (this.state === 'running') this.tally.flips++;
         this.broke('Upside down', FLIP);
-        if (!this.hinted.has('roll')) {
-          this.hinted.add('roll');
-          this.events.hint?.('roll');
-        }
+        this.tell('roll', true);
       },
       rolled: () => {
         this.events.sound?.('roll');
@@ -514,10 +541,7 @@ export class RiverGame {
       },
       hole: (stuck) => {
         this.events.sound?.('hole', stuck ? 1 : 0.5);
-        if (stuck && !this.hinted.has('hole')) {
-          this.hinted.add('hole');
-          this.events.hint?.('hole');
-        }
+        if (stuck) this.tell('hole', true);
       },
       punched: () => this.well('Punched it!', 0.3, { stop: 0.05, sound: 'whoosh', rumble: 0.5 }),
       // reading the water: out of the current into the slack behind a rock or a bend, and out again
@@ -525,10 +549,7 @@ export class RiverGame {
         if (k.s < this.eddyS + 12) return;
         this.eddyS = k.s;
         this.well('Eddy!', 0.3, { sound: 'gate', rumble: 0.35 });
-        if (!this.hinted.has('peel')) {
-          this.hinted.add('peel');
-          this.events.hint?.('peel');
-        }
+        this.tell('peel', true);
       },
       peel: () => this.well('Peeled out', 0.15, { sound: 'whoosh' }),
       sprint: () => {
@@ -632,16 +653,18 @@ export class RiverGame {
     }
   }
 
-  /** Floating things bob and turn on the current. */
+  /** Floating things bob and turn on the current, and the balls keep calling out to be fetched. */
   private bob(dt: number) {
     const k = this.kayak;
+    const ring = this.land.beacon(this.clock);
     for (const o of this.course.near(k.s - 10, k.s + 80)) {
       if (!('kind' in o) || o.kind !== 'ball') continue;
       const m = this.land.meshOf(o);
       if (!m) continue;
       m.visible = !o.taken;
-      m.position.y = this.course.heightAt(o.s) + Math.sin(this.clock * 2.5 + o.s) * 0.05;
+      m.position.y = this.course.heightAt(o.s) + Math.sin(this.clock * 2.5 + o.s) * 0.07;
       m.rotation.y += dt * 0.8;
+      m.getObjectByName('ring')?.scale.setScalar(ring);
     }
   }
 
@@ -799,12 +822,12 @@ function fresh(): Tally {
  * Where to push off, at or after arc length `from`: always in calm water (a pool, or an easy
  * forest run), with a good stretch of it ahead to get settled before anything happens.
  */
-function calm(seed: number, from: number) {
-  const probe = new Course(seed);
+function calm(seed: number, from: number, river: RiverDef) {
+  const probe = new Course(seed, Infinity, river);
   for (let s = from; s < from + 3000; s += 5) {
     probe.extend(s + 60);
     const st = probe.stretchAt(s);
-    const easy = st.kind === 'pool' || (st.kind === 'run' && !st.fast);
+    const easy = st.kind === 'pool' || st.kind === 'run';
     const at = Math.max(s, st.start + 15);
     // (and not on top of a gravel bar or an island: the kayak goes in mid-river)
     const clear = !probe.splits.some((x) => at > x.s0 - 45 && at < x.s1 + 10);
