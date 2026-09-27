@@ -1233,9 +1233,12 @@ export class RiverGame {
     const hx = Math.sin(k.heading);
     const hz = -Math.cos(k.heading);
     const rough = k.rough;
-    if (Math.random() < dt * (rough * 30 + k.speed * 0.8 + (k.sprinting ? 20 : 0))) {
-      const bow = k.pos.clone().add(new THREE.Vector3(hx * 1.8, 0.1, hz * 1.8));
-      this.wildlife.spray(bow, 1 + Math.floor(rough * 3 + k.speed / 6), 0.4 + rough * 0.5);
+    // (now and then, and off one side of the bow or the other: a steady plume on the tip reads as
+    // the nose buried in the water)
+    if (Math.random() < dt * (rough * 13 + k.speed * 0.5 + (k.sprinting ? 12 : 0))) {
+      const side = Math.random() < 0.5 ? -0.45 : 0.45;
+      const bow = k.pos.clone().add(new THREE.Vector3(hx * 1.3 - hz * side, 0.1, hz * 1.3 + hx * side));
+      this.wildlife.spray(bow, 1 + Math.floor(rough * 2), 0.35 + rough * 0.4);
     }
     // a wake that gets longer the faster you go
     if (Math.random() < dt * (6 + k.speed * 2)) {
