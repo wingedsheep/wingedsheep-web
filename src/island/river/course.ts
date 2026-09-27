@@ -715,11 +715,11 @@ export class Course {
       heat = 0;
     } else if (n === 2) {
       kind = 'chute';
-      [lo, hi] = [210, 240];
+      [lo, hi] = [170, 200];
       heat = 0.1 + this.profile.heat[0] * 0.5;
     } else if (n === 3) {
-      kind = 'rapids'; // the first white water: short and gentle (for the river it's on)
-      [lo, hi] = [130, 150];
+      kind = 'rapids'; // the first white water: gentle (for the river it's on)
+      [lo, hi] = [170, 200];
       heat = Math.min(this.profile.cap, 0.2 + this.profile.heat[0] * 0.5);
     } else {
       const whites = this.stretches.filter((x) => !easy(x.kind)).length;
@@ -730,12 +730,12 @@ export class Course {
         const more = !easy(prev2.kind) && d < 0.6 ? 0 : 1;
         // (a chute straight out of a rapid: a fast run-out)
         kind = pick(r, [['pool', 1.2 * (1 - d) + 0.2], ['run', 2.5], ['rapids', (0.4 + d * 1.6) * more], ['gorge', d * 0.9 * more * pr.gorges],
-          ['chute', prev.kind === 'chute' ? 0 : 0.6 * more]]);
+          ['chute', prev.kind === 'chute' ? 0 : 0.4 * more]]);
       } else {
-        // never two breathers in a row
+        // never two breathers in a row (and mostly rapids: rocks where they lie, a line to find)
         kind = pick(r, [
-          ['rapids', 3],
-          ['chute', 1.6 + d * 0.4],
+          ['rapids', 3.6],
+          ['chute', 1.3 + d * 0.4],
           ['cascade', (s > pr.cascades ? 1 + d : pr.cascades < Infinity ? 0.3 : 0) * pr.stairs],
           ['gorge', (0.6 + d * 1.5) * pr.gorges],
           ['falls', s > pr.falls ? 0.5 + d : 0],
@@ -765,7 +765,7 @@ export class Course {
     // once a run from halfway down (its own dice, so the rest of the river comes out as it always has)
     const dice = rng(this.seed * 7919 + n);
     const owedBig = s > pr.length * 0.5 && !this.stretches.some((x) => x.big);
-    if (kind === 'rapids' && n > 3 && pr.pieces.includes('waves') && (dice() < 0.5 + d * 0.2 || owedBig)) {
+    if (kind === 'rapids' && n > 3 && pr.pieces.includes('waves') && (dice() < 0.3 + d * 0.2 || owedBig)) {
       next.big = true;
       next.end = Math.min(this.finish - 60, s + Math.round(220 + heat * 140 + dice() * 80));
     }
@@ -1174,8 +1174,8 @@ export class Course {
     const shift = FERRY * T; // the furthest the line can move in a beat
     const gh = 2.2 - h * 0.7; // half the gap left round the line (roomy low down, as tight as ever at the top)
     const all: [Piece, number][] = chute
-      ? [['slalom', 1], ['strainers', 0.8], ['doors', 1], ['funnel', 0.6], ['weir', 0.8], ['fork', 0.8], ['balls', 0.5 + (1 - h) * 0.6], ['waves', 0.9]]
-      : stretch.kind === 'run' ? [['strainers', 1], ['weir', 1], ['fork', 0.8], ['balls', 0.8]] : [['doors', 1], ['fork', 1], ['funnel', 0.6]];
+      ? [['slalom', 1], ['strainers', 0.6], ['doors', 1], ['funnel', 0.6], ['weir', 0.8], ['fork', 0.8], ['balls', 0.5 + (1 - h) * 0.6], ['waves', 0.9]]
+      : stretch.kind === 'run' ? [['strainers', 0.7], ['weir', 1], ['fork', 0.8], ['balls', 0.8]] : [['doors', 1], ['fork', 1], ['funnel', 0.6]];
     // only the pieces this river has (and on a gentle one, that can be just the balls)
     const allowed = all.filter(([k]) => this.profile.pieces.includes(k));
     const options: [Piece, number][] = allowed.length ? allowed : [['balls', 1]];
