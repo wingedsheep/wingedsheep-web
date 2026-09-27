@@ -243,6 +243,8 @@ export class RiverGame {
   private squishV = 0;
   private size: THREE.Vector3;
   private hinted = new Set<Hint>();
+  /** The big water you've been warned about, by where it starts (every one, not just the first). */
+  private warned = new Set<number>();
   /**
    * No teaching hint before this (s into the run): one at a time, with a quiet stretch after
    * each, and none while the river's name is still up.
@@ -376,6 +378,7 @@ export class RiverGame {
     this.eddyS = -99;
     this.hotFor = this.hotPaid = this.hotLeft = 0;
     this.quiet = QUIET_START;
+    this.warned.clear();
     this.high = highAt(river.look, seed, this.start);
     this.fogged = fogAt(river.look, seed, this.start);
     this.zoom = 1;
@@ -819,9 +822,13 @@ export class RiverGame {
       // (after the word on big water, not straight on top of it)
       if (o.kind === 'train' && o.s > k.s + 6 && o.s < k.s + 30) this.tell('waves', !this.hinted.has('big'));
     }
-    // big water coming up: a word on how to ride it before you're in it
+    // big water coming up: a word on how to ride it before you're in it, every time
     const ahead = this.course.stretchAt(k.s + 45);
-    if (ahead.big && ahead.start > k.s + 15) this.tell('big', true);
+    if (ahead.big && ahead.start > k.s + 15 && !this.warned.has(ahead.start)) {
+      this.warned.add(ahead.start);
+      this.hinted.delete('big');
+      this.tell('big', true);
+    }
   }
 
   private wire() {

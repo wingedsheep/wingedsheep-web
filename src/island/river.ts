@@ -93,9 +93,9 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     touch: 'Waves! Stroke as you slide down the back of each one',
   },
   big: {
-    keys: 'Big water! Point straight down it, lean forward [W] and keep paddling',
-    pad: 'Big water! Point straight down it, stick forward and keep paddling',
-    touch: 'Big water! Point straight down it and keep paddling',
+    keys: 'Big water! Point straight down it and keep paddling. Balance with [←] / [→], and [Space] braces',
+    pad: 'Big water! Point straight down it and keep paddling. Balance with the stick, and [✕] braces',
+    touch: 'Big water! Point straight down it and keep paddling. Tap low down on the side you tip to brace',
   },
   peel: {
     keys: 'Eddy! Lean into the turn on the way out',
@@ -667,7 +667,7 @@ export class River implements RoomInput {
     }));
     el.hidden = false;
     this.bounce(el, 'in');
-    this.hintTimer = 4.5;
+    this.hintTimer = text.length > 70 ? 6 : 4.5; // the long ones need a moment more
   }
 
   /** A word popping up over the kayak: a boof, a brace, a clean gate (or the flow breaking). */
