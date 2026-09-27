@@ -65,7 +65,7 @@ const HINTS: Record<Hint, Record<Device, string>> = {
   falls: {
     keys: 'A waterfall! Hold the needle in the green to go over straight, then lean forward [↑] as it falls into the gold',
     pad: 'A waterfall! Hold the needle in the green to go over straight, then stick forward as it falls into the gold',
-    touch: 'A waterfall! Hold the needle in the green to go over it straight',
+    touch: 'A waterfall! Hold the needle in the green to go over it straight, then tap as it falls into the gold',
   },
   hole: {
     keys: 'In a hole! Lean forward [↑] and paddle hard',
@@ -110,6 +110,23 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     touch: 'Eddy! Paddle hard on the way out',
   },
 };
+
+/** The waterfall meter's word, and what to press for it: lining up to the lip, then tucking over it. */
+const DROP: Record<'line' | 'tuck' | 'tucked', Record<Device, string>> = {
+  line: { keys: 'Line up [A] [D]', pad: 'Line up [L2] [R2]', touch: 'Line up' },
+  tuck: { keys: 'Tuck! [↑]', pad: 'Tuck! [stick ↑]', touch: 'Tuck! [tap]' },
+  tucked: { keys: 'Tucked', pad: 'Tucked', touch: 'Tucked' },
+};
+
+/** Text with [W] as a key cap. */
+function withKeys(text: string) {
+  return text.split(/\[(.+?)\]/).map((part, i) => {
+    if (i % 2 === 0) return part;
+    const k = document.createElement('kbd');
+    k.textContent = part;
+    return k;
+  });
+}
 
 /** How it ends. */
 const SWIMS = [
@@ -689,13 +706,7 @@ export class River implements RoomInput {
   private hint(text: string) {
     if (!text) return;
     const el = this.$.hint;
-    // [W] as a key cap
-    el.replaceChildren(...text.split(/\[(.+?)\]/).map((part, i) => {
-      if (i % 2 === 0) return part;
-      const k = document.createElement('kbd');
-      k.textContent = part;
-      return k;
-    }));
+    el.replaceChildren(...withKeys(text));
     el.hidden = false;
     this.bounce(el, 'in');
     this.hintTimer = text.length > 70 ? 6 : 4.5; // the long ones need a moment more
@@ -817,7 +828,12 @@ export class River implements RoomInput {
     if (m) {
       drop.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y - 70)}px)`;
       drop.dataset.phase = m.phase;
-      drop.firstElementChild!.textContent = m.phase === 'line' ? 'Line up' : m.hit >= 0 ? 'Tucked' : 'Tuck!';
+      const word = DROP[m.phase === 'line' ? 'line' : m.hit >= 0 ? 'tucked' : 'tuck'][game.controls.device];
+      const label = drop.firstElementChild as HTMLElement;
+      if (label.dataset.text !== word) {
+        label.dataset.text = word;
+        label.replaceChildren(...withKeys(word));
+      }
       // (the bow's angle on screen: the kayak's right is the screen's left when it's pointing back at the camera)
       const needle = m.phase === 'line' && game.facingCamera ? 1 - m.needle : m.needle;
       drop.style.setProperty('--needle', needle.toFixed(3));

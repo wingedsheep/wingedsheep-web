@@ -563,7 +563,7 @@ export class Kayak {
     this.leanNow += (i.lean - this.leanNow) * (1 - Math.exp(-dt * 10));
     this.pitchNow += (i.pitch - this.pitchNow) * (1 - Math.exp(-dt * 10));
     // over a waterfall, the tuck: the first lean forward on the way down is the one that counts
-    const tucking = i.pitch > 0.5;
+    const tucking = i.pitch > 0.5 || i.tuck; // (on a touch screen, a tap)
     if (this.fall && this.fall.hit < 0 && tucking && !this.tucked) this.fall.hit = this.fallPhase();
     this.tucked = tucking;
 
@@ -1051,7 +1051,7 @@ export class Kayak {
 
   private meter(ahead: Ledge | null) {
     const up = this.balance === 'up' || this.balance === 'over';
-    if (this.fall && this.airborne && up && !this.assisted) {
+    if (this.fall && this.airborne && up) {
       const big = bigness(this.dropHeight);
       this.fallMeter = { phase: 'tuck', needle: this.fallPhase(), at: TUCK_AT, window: TUCK_WINDOW - big * TUCK_SHRINK, hit: this.fall.hit };
     } else if (ahead && up && !this.airborne) {
@@ -1096,14 +1096,13 @@ export class Kayak {
       // a waterfall: go over it lined up straight, and tuck forward as you fall into the gold (see
       // TUCK_AT), not before and not after; or land nose first, flat or skewed and feel it. A
       // little one forgives a line a bit off and a tuck a bit out; a big one wants it just so.
-      // (On a touch screen he tucks for himself.)
       const big = bigness(this.dropHeight);
       const hit = this.fall ? this.fall.hit : -1;
       this.fall = null;
       const off = hit >= 0 ? hit - TUCK_AT : 1; // (never tucked: as late as can be)
       const half = (TUCK_WINDOW - big * TUCK_SHRINK) / 2;
-      const tuck = this.assisted ? 1 : Math.max(0, 1 - Math.max(0, Math.abs(off) - half) / 0.15);
-      const early = !this.assisted && off < 0;
+      const tuck = Math.max(0, 1 - Math.max(0, Math.abs(off) - half) / 0.15);
+      const early = off < 0;
       const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.05) / (0.5 - big * 0.3))
         * Math.max(0, 1 - Math.max(0, Math.abs(this.tilt) - 0.1) / (TIP - 0.1)); // (a wobble in the white water at the lip is forgiven)
       const miss = 1 - tuck * straight;

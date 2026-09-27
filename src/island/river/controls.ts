@@ -24,7 +24,7 @@
  * have been seen part way: a pad whose triggers are only on or off would always be sprinting.)
  * touch      hold the left or right half of the screen to paddle on that side (both thumbs:
  *            straight on); low down, a reverse sweep (tap) or a planted blade (hold). On a touch
- *            screen the paddler leans for himself.
+ *            screen the paddler leans for himself; over a waterfall, a fresh tap anywhere tucks.
  *
  * Both sides held, Vincent strokes left, right, left: straight on. One side only, he sweeps on
  * that side and you turn away from it. A reverse sweep brakes and swings you towards its side,
@@ -54,10 +54,12 @@ export interface Intent {
   tipBrace: boolean;
   /** Digging in for speed, held (Shift, □ / X or L3, the sprint button). */
   sprint: boolean;
+  /** A fresh touch anywhere on the screen, this frame: over a waterfall, that's the tuck. */
+  tuck: boolean;
 }
 
 export const NEUTRAL: Intent = {
-  left: 0, right: 0, backLeft: false, backRight: false, tapLeft: false, tapRight: false, lean: 0, pitch: 0, brace: false, tipBrace: false, sprint: false,
+  left: 0, right: 0, backLeft: false, backRight: false, tapLeft: false, tapRight: false, lean: 0, pitch: 0, brace: false, tipBrace: false, sprint: false, tuck: false,
 };
 
 const DEAD = 0.18;
@@ -84,7 +86,7 @@ export class Controls {
   /** Called once per press of back (○ / B). */
   onBack?: () => void;
   private keys = new Set<string>();
-  private taps = { left: false, right: false, brace: false };
+  private taps = { left: false, right: false, brace: false, tuck: false };
   /** The touch screen's sprint button, held. */
   private touchSprint = false;
   private fingers = new Map<number, { side: -1 | 1; back: boolean }>();
@@ -133,6 +135,7 @@ export class Controls {
       const side = e.clientX < r.left + r.width / 2 ? -1 : 1;
       const back = e.clientY > r.top + r.height * BACK_BAND;
       this.fingers.set(e.pointerId, { side, back });
+      this.taps.tuck = true;
       if (back) this.taps[side < 0 ? 'left' : 'right'] = true;
     });
     const up = (e: PointerEvent) => this.fingers.delete(e.pointerId);
@@ -148,7 +151,7 @@ export class Controls {
   /** Listen (or stop listening) for the game. */
   enable(on: boolean) {
     this.active = on;
-    this.taps = { left: false, right: false, brace: false };
+    this.taps = { left: false, right: false, brace: false, tuck: false };
     this.padWas = { go: true, pause: true, l1: true, r1: true, sprint: true, back: true, nav: 'held' };
     this.touchSprint = false;
     this.released[2] = this.released[3] = false;
@@ -171,7 +174,7 @@ export class Controls {
   /** Read everything for this frame. */
   read(): Intent {
     const taps = this.taps;
-    this.taps = { left: false, right: false, brace: false };
+    this.taps = { left: false, right: false, brace: false, tuck: false };
     if (!this.active) return NEUTRAL;
     const k = this.keys;
     const both = k.has('w') ? 1 : 0;
@@ -187,6 +190,7 @@ export class Controls {
       brace: taps.brace,
       tipBrace: false,
       sprint: k.has('shift') || this.touchSprint,
+      tuck: taps.tuck,
     };
     for (const f of this.fingers.values()) {
       if (f.back) {
