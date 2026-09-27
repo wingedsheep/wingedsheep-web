@@ -36,7 +36,17 @@ const OVER = 1.45;
 /** A brace this far over (and still up) is a perfect one. */
 const PERFECT = 1.0;
 /** After a brace it takes this long (s) before you've another in you: one saves you, not a string of them. */
-const BRACE_AGAIN = 2.5;
+const BRACE_AGAIN = 3.2;
+/** How long (s) the blade stays slapped on the water. */
+const BRACE_SLAP = 0.6;
+/**
+ * Threading the needle: a rock or a log close on either side of you at once, no more than NEEDLE
+ * m of water to spare between them all told (and not more than NEEDLE_SIDE on either side), and
+ * out the other end at NEEDLE_SPEED m/s or more without touching either or tipping.
+ */
+export const NEEDLE = 0.8;
+const NEEDLE_SIDE = 0.5;
+const NEEDLE_SPEED = 3;
 /**
  * A waterfall's lip slews you round as you come to it: this far (m) out it starts, and at the lip
  * it turns the bow this hard and pushes you sideways this hard. Hold it straight.
@@ -109,6 +119,8 @@ export interface KayakEvents {
   ledge?(how: 'boof' | 'pencil' | 'tuck' | 'flat' | 'skew', height: number): void;
   /** A brace that saved it; perfect when it came right at the last moment. */
   brace?(perfect: boolean, side: number): void;
+  /** A brace tried too soon after the last one: nothing in it yet. */
+  braceSpent?(side: number): void;
   /** Leaning past the point of no return: brace! */
   tipping?(): void;
   capsize?(): void;
@@ -125,6 +137,8 @@ export interface KayakEvents {
   tongue?(): void;
   /** Past a rock with inches to spare. */
   shave?(): void;
+  /** Through a hole hardly wider than the boat, touching neither side: how much water there was to spare (m). */
+  needle?(room: number): void;
   /** All the way round in a spin (1 = a 360, 2 = a 720…). */
   spin?(turns: number): void;
   /** Digging in for a sprint. */
@@ -256,6 +270,10 @@ export class Kayak {
   private skipHole: Hole | null = null;
   private shaved = new WeakSet<Obstacle>(); // hit, or already credited: no (more) shave for these
   private skimmed = new WeakSet<Obstacle>(); // inches to spare, but not past it yet
+  /** This step, the nearest thing on either side and how much water there is to it (left, right). */
+  private flank: [{ o: Obstacle; d: number } | null, { o: Obstacle; d: number } | null] = [null, null];
+  /** Between two of them with next to no room: which two, and the least water there was to spare. */
+  private threading: { a: Obstacle; b: Obstacle; room: number } | null = null;
   /** Up against a rock or a log (this step), and how long it's been held there, going nowhere. */
   private touching = false;
   private pinned = 0;
@@ -350,6 +368,11 @@ export class Kayak {
   /** Speed over the ground (m/s). */
   get speed() {
     return this.vel.length();
+  }
+
+  /** How far your head's under the water: 0 up in the air … 1 hanging upside down under the boat. */
+  get under() {
+    return this.balance === 'rolling' ? this.flip : 0;
   }
 
   update(dt: number, intent: Intent, course: Course, running: boolean) {
@@ -648,9 +671,11 @@ export class Kayak {
     // rocks and logs knock it about
     this.touching = false;
     this.slide.set(0, 0);
+    this.flank[0] = this.flank[1] = null;
     if (this.balance !== 'swimming') {
       for (const t of things) if ('kind' in t && (t.kind === 'rock' || t.kind === 'log')) this.collide(t, running);
     }
+    this.needle(running);
     // pinned broadside on a rock or across two, going nowhere: the current swings the boat round
     // until it points down the river (or back up it), and it slides off or slips through
     this.pinned = this.touching && this.speed < 1.5 ? this.pinned + dt : Math.max(0, this.pinned - dt * 0.5);
@@ -965,7 +990,7 @@ export class Kayak {
     if (falling > 0 && i.tapRight) i.tapRight = false;
     const side = falling || 1;
     this.braceSide = side;
-    this.braceAnim = 0.45;
+    this.braceAnim = BRACE_SLAP;
     if (leaning && this.braceReady >= 1) {
       const perfect = Math.abs(this.tilt) > PERFECT;
       this.tiltV = -side * (perfect ? 3.4 : 2.6);
@@ -976,6 +1001,7 @@ export class Kayak {
     } else {
       // a brace for nothing, or with nothing left in it just after the last one: the blade only drags
       this.vel.multiplyScalar(0.94);
+      if (leaning) this.events.braceSpent?.(side);
     }
   }
 
@@ -1152,6 +1178,7 @@ export class Kayak {
     const hx = Math.sin(this.heading);
     const hz = -Math.cos(this.heading);
     let closest = Infinity;
+    let side = 0; // which side of the boat it's on, where it's closest (1: to the right)
     for (const along of HULL) {
       const cx = this.pos.x + hx * along;
       const cz = this.pos.z + hz * along;
@@ -1177,6 +1204,7 @@ export class Kayak {
         nz = ez / e;
       }
       const pen = HULL_R - d;
+      if (-pen < closest) side = nx * Math.cos(this.heading) + nz * Math.sin(this.heading) < 0 ? 1 : 0;
       closest = Math.min(closest, -pen);
       if (pen <= 0) continue;
       this.touching = true;
@@ -1204,13 +1232,42 @@ export class Kayak {
       if (-vn > 1.4) this.events.hit?.(-vn, at);
       else this.events.bump?.(-vn, at);
     }
+    if (running && closest > 0 && closest < NEEDLE_SIDE && (!this.flank[side] || closest < this.flank[side]!.d)) this.flank[side] = { o, d: closest };
     // inches to spare, going fast: a close shave, but only once you're clear of it without touching
-    if (this.shaved.has(o)) return;
+    // (and one of a needle's two is the needle's, not a shave of its own)
+    if (this.shaved.has(o) || this.threading?.a === o || this.threading?.b === o) return;
     if (running && closest > 0 && closest < 0.35 && this.speed > 4 && this.balance === 'up') this.skimmed.add(o);
     else if (this.skimmed.has(o) && closest > 0.7) {
       this.shaved.add(o);
       this.events.shave?.();
     }
+  }
+
+  /**
+   * Threading the needle: something close on both sides at once with next to no water between
+   * them, and out past both without a touch, upright and still going.
+   */
+  private needle(running: boolean) {
+    const [l, r] = this.flank;
+    const th = this.threading;
+    const going = running && this.balance === 'up' && this.speed >= NEEDLE_SPEED;
+    if (l && r && l.o !== r.o && l.d + r.d < NEEDLE && going) {
+      if (th && ((th.a === l.o && th.b === r.o) || (th.a === r.o && th.b === l.o))) th.room = Math.min(th.room, l.d + r.d);
+      else if (!th && !this.shaved.has(l.o) && !this.shaved.has(r.o)) this.threading = { a: l.o, b: r.o, room: l.d + r.d };
+      return;
+    }
+    if (!th) return;
+    // a touch or a tip on the way through, and it's not threaded
+    if (this.touching || !going || this.shaved.has(th.a) || this.shaved.has(th.b)) {
+      this.threading = null;
+      return;
+    }
+    // still alongside one or the other
+    if (this.flank.some((f) => f && (f.o === th.a || f.o === th.b))) return;
+    this.threading = null;
+    this.shaved.add(th.a);
+    this.shaved.add(th.b);
+    this.events.needle?.(th.room);
   }
 
   private pickupCheck(thing: Pickup) {
@@ -1252,8 +1309,11 @@ export class Kayak {
     // swings the right blade towards the bow
     const b = this.blade;
     if (this.braceAnim > 0) {
-      // the low brace: the blade flat on the water on the side it's falling to
-      this.paddle?.rotation.set(0, 0, this.braceSide * 0.6);
+      // the low brace: the blade slapped down flat on the water on the side it's falling to, held
+      // there as the hips come back up, and lifted off again
+      const t = 1 - this.braceAnim / BRACE_SLAP;
+      const down = t < 0.15 ? t / 0.15 : t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4;
+      this.paddle?.rotation.set(0, this.braceSide * 0.25 * down, this.braceSide * (0.2 + 0.85 * down));
     } else if (b.kind === 'plant' && paddling) {
       // planted back by the hip on that side, like a rudder
       this.paddle?.rotation.set(0, -b.side * 0.75, b.side * 0.5);
@@ -1269,6 +1329,12 @@ export class Kayak {
       this.paddle?.rotation.set(0, 0, Math.sin(this.idle * 1.3) * 0.05);
     }
     if (this.head) this.head.rotation.y = Math.max(-0.5, Math.min(0.5, -this.yawRate * 0.3));
+  }
+
+  /** Where the blade meets the water for a brace on this side (1: the right). */
+  bladeAt(side: number) {
+    const out = 1.3 * side;
+    return new THREE.Vector3(this.pos.x + Math.cos(this.heading) * out, this.pos.y, this.pos.z + Math.sin(this.heading) * out);
   }
 
   private place() {

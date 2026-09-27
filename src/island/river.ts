@@ -27,6 +27,8 @@ const PICK = 'wingedsheep:river:pick';
 const CALM = 'wingedsheep:river:calm';
 /** The rare ones you've seen, on any river. */
 const SPOTTED = 'wingedsheep:river:spotted';
+/** Which of the tips the start card showed last (one each time, round them all in turn). */
+const TIP_SEEN = 'wingedsheep:river:tip';
 
 /** What the river is like as you come into it, for the banner. */
 function banner(s: Stretch, index: number) {
@@ -54,7 +56,7 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     touch: 'Hold one side to turn away from it',
   },
   lean: { keys: 'She’s tipping: lean against it with [←] / [→]', pad: 'She’s tipping: lean against it with the stick', touch: '' },
-  brace: { keys: 'Going over! [Space] to brace', pad: 'Going over! [✕] to brace', touch: 'Going over! Tap low down on that side' },
+  brace: { keys: 'Going over! [Space] to brace', pad: 'Going over! Tap [✕] or that side’s bumper to brace', touch: 'Going over! Tap low down on that side' },
   boof: {
     keys: 'A ledge! Stroke hard as the lip lights up gold',
     pad: 'A ledge! Stroke hard as the lip lights up gold',
@@ -83,7 +85,7 @@ const HINTS: Record<Hint, Record<Device, string>> = {
   eddy: { keys: 'Tuck in behind a rock and stop: an eddy', pad: 'Tuck in behind a rock and stop: an eddy', touch: 'Tuck in behind a rock and stop: an eddy' },
   sprint: {
     keys: 'Hold [Shift] to dig in, while your breath lasts',
-    pad: 'Hold [□] to dig in, while your breath lasts',
+    pad: 'Hold [□], or squeeze a trigger right in, to dig in while your breath lasts',
     touch: 'Hold Sprint to dig in, while your breath lasts',
   },
   ball: { keys: 'Beike’s tennis balls! Paddle over them', pad: 'Beike’s tennis balls! Paddle over them', touch: 'Beike’s tennis balls! Paddle over them' },
@@ -148,6 +150,11 @@ export class River implements RoomInput {
   private el: HTMLElement;
   private bannerTimer = 0;
   private hintTimer = 0;
+  /** The brace bar stays up this much longer (s) once it's full again, to say so. */
+  private braceShown = 0;
+  private braceWas = 1;
+  /** Upside down under the water, eased (0..1). */
+  private under = 0;
   private lastHud = '';
   private mile = 0;
   private swims = 0;
@@ -183,7 +190,7 @@ export class River implements RoomInput {
     private island: THREE.Scene,
   ) {
     this.el = document.querySelector<HTMLElement>('[data-panel="river"]')!;
-    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'drop', 'praise', 'flash', 'edge', 'sprint', 'sprint-go']) {
+    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'drop', 'praise', 'flash', 'edge', 'sprint', 'sprint-go', 'brace']) {
       this.$[name] = this.el.querySelector<HTMLElement>(`[data-river-${name}]`)!;
     }
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-go]')) b.addEventListener('click', () => this.go());
@@ -506,11 +513,18 @@ export class River implements RoomInput {
     const mood = game.river.look.mood;
     (u.uGrade.value as THREE.Vector3).multiply(this.grade.fromArray(mood.grade));
     // (closing in over a waterfall; and not so heavy round the edges after dark, when it's dark enough already)
+    // upside down: under the water, the picture murky and swimming, the world muffled (quick
+    // under, and back out with a gasp)
+    const under = game.kayak.under;
+    this.under += (under - this.under) * (1 - Math.exp(-dt * (under > this.under ? 6 : 9)));
+    if (this.under < 0.01) this.under = 0;
+    u.uUnder.value = this.under;
     u.uVignette.value = Math.min(1, mood.vignette * (1 - game.night * 0.35) + game.drama * 0.45);
     const roar = game.roar;
     this.ctx.sound.riverWater(true, game.state === 'ready' ? 0.2 : game.rough, game.tally.speed, roar.level, roar.near);
+    this.ctx.sound.underwater(this.under);
     this.hud(game.tally);
-    this.follow(game);
+    this.follow(game, dt);
   }
 
   render() {
@@ -530,6 +544,8 @@ export class River implements RoomInput {
       if (this.ctx.rig.room === this) this.ctx.rig.room = null;
       game?.controls.enable(false);
       this.ctx.sound.riverWater(false);
+      this.ctx.sound.underwater((this.under = 0));
+      this.pixels.uniforms.uUnder.value = 0;
     }
   }
 
@@ -546,6 +562,12 @@ export class River implements RoomInput {
       else if (this.game?.state !== 'running') this.go();
     };
     game.controls.onPause = () => this.pause(!this.game?.paused);
+    // Escape pauses a run (and carries on from the pause card); off a run, it's back to the island
+    game.controls.onEscape = () => {
+      if (this.game?.state !== 'running') return false;
+      this.pause(!this.game.paused);
+      return true;
+    };
     game.controls.onPick = (dir) => this.step(dir);
     game.controls.onNav = (dir) => this.nav(dir);
     // ○: back out one card (off the start card, back to the island)
@@ -563,6 +585,10 @@ export class River implements RoomInput {
       },
       split: (s) => this.say(s.kind === 'bar' ? `A gravel bar · the fast water's on the ${s.hero < 0 ? 'left' : 'right'}` : `The river splits · hero line ${s.hero < 0 ? 'left' : 'right'}, sneak ${s.hero < 0 ? 'right' : 'left'}`),
       praise: (text, big) => this.praise(text, big),
+      braceSpent: () => {
+        this.word('No brace yet', 'bad');
+        this.bounce(this.$.brace, 'nope');
+      },
       broke: (why, cost) => {
         this.praise(cost ? `${why} · −${round(cost)}` : `${why} · flow lost`, false, true);
         this.bounce(this.$.flow, 'lost');
@@ -703,9 +729,27 @@ export class River implements RoomInput {
 
   /** Show one of the cards (the start, paused, a swim), or none. */
   private card(name: 'ready' | 'paused' | 'over' | null) {
-    for (const c of this.el.querySelectorAll<HTMLElement>('[data-river-card]')) c.hidden = c.dataset.riverCard !== name;
+    for (const c of this.el.querySelectorAll<HTMLElement>('[data-river-card]')) {
+      c.hidden = c.dataset.riverCard !== name;
+      if (!c.hidden) c.scrollTop = 0; // (the tips run long: each time, from the top)
+    }
     this.cardAt = performance.now();
+    if (name === 'ready') this.nextTip();
     if (name) this.focus(this.el.querySelector<HTMLElement>(`[data-river-card="${name}"] [data-river-go], [data-river-card="${name}"] [data-river-resume]`));
+  }
+
+  /** Out on the start card, the next of the tips: one at a time, so they sink in. */
+  private nextTip() {
+    const tips = this.el.querySelectorAll<HTMLElement>('[data-river-tip]');
+    let seen = -1;
+    try {
+      seen = Number(localStorage.getItem(TIP_SEEN) ?? -1);
+    } catch {}
+    const at = ((Number.isInteger(seen) ? seen : -1) + 1) % tips.length;
+    tips.forEach((t, i) => (t.hidden = i !== at));
+    try {
+      localStorage.setItem(TIP_SEEN, String(at));
+    } catch {}
   }
 
   private hud(t: Tally) {
@@ -741,7 +785,7 @@ export class River implements RoomInput {
   }
 
   /** The things that follow the kayak: its balance, the roll-up meter, a flash. */
-  private follow(game: RiverGame) {
+  private follow(game: RiverGame, dt: number) {
     const k = game.kayak;
     const at = game.onScreen(k.pos, this.host.clientWidth, this.host.clientHeight);
     // balance: a little arc under the kayak with a needle, when it's leaning at all
@@ -791,6 +835,22 @@ export class River implements RoomInput {
       sprint.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y - 40)}px)`;
       sprint.style.setProperty('--charge', String(k.wind));
       sprint.classList.toggle('on', k.sprinting);
+    }
+    // the brace: after one, a bar under the boat filling up until there's another in you, which
+    // lights up gold when it's full
+    const brace = this.$.brace;
+    if (k.braceReady >= 1 && this.braceWas < 1) {
+      this.braceShown = 0.8;
+      this.bounce(brace, 'ready');
+    }
+    if (k.braceReady < 1) brace.classList.remove('ready');
+    this.braceWas = k.braceReady;
+    this.braceShown = Math.max(0, this.braceShown - dt);
+    const showBrace = running && (k.braceReady < 1 || this.braceShown > 0);
+    brace.hidden = !showBrace;
+    if (showBrace) {
+      brace.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y + 60)}px)`;
+      brace.style.setProperty('--charge', String(k.braceReady));
     }
     this.$['sprint-go'].hidden = !running;
     this.$['sprint-go'].classList.toggle('spent', !k.sprinting && k.wind < 0.2);

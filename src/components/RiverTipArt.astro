@@ -1,0 +1,11 @@
+---
+/** One of the river tips' little pictures (drawn by tools/drawings/river-tips.py), a run of pixels to a rect. */
+import { TIP_ART, TIP_COLOURS } from '../island/river/tip-art';
+
+interface Props { name: string }
+const rows = TIP_ART[Astro.props.name];
+const runs = rows.flatMap((row, y) => [...row.matchAll(/([^.])\1*/g)].map((m) => ({ x: m.index!, y, w: m[0].length, fill: TIP_COLOURS[m[1]] })));
+---
+<svg class="river-tip-art" viewBox={`0 0 ${rows[0].length} ${rows.length}`} shape-rendering="crispEdges" aria-hidden="true">
+  {runs.map((r) => <rect x={r.x} y={r.y} width={r.w} height="1" fill={r.fill} />)}
+</svg>

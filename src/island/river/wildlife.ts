@@ -22,7 +22,7 @@ const turn = (from: number, to: number, k: number) => from + Math.atan2(Math.sin
 /** A value eased towards another at `rate` per second, however long the frame. */
 const ease = (from: number, to: number, rate: number, dt: number) => from + (to - from) * (1 - Math.exp(-dt * rate));
 
-export type Cry = 'heron' | 'kingfisher' | 'otter' | 'grunt' | 'yeti' | 'raven';
+export type Cry = 'heron' | 'kingfisher' | 'otter' | 'grunt' | 'yeti' | 'raven' | 'lynx';
 
 export interface WildlifeEvents {
   /** Something happened worth a line on screen. */
@@ -1197,21 +1197,26 @@ export class Wildlife {
 
   /**
    * An otter, fooling about in the river: swimming, floating on its back, ducking under and
-   * coming up somewhere else. Come close and it's under; it comes up behind, head up, to look.
+   * coming up somewhere else. As you come up the river it's porpoising, arcing out of the water
+   * and back in with a splash, the thing that catches your eye; seen, it pops its head up, looks
+   * right at you and chirps. Come close after that and it's under; it comes up behind, to look.
    */
   private otter(at: number): Actor {
     const q0 = this.course.at(at);
     const o = this.assets.clone('otter');
-    o.scale.setScalar(1.8);
+    o.scale.setScalar(2.3); // (small, otherwise, and low in the water: a dark smudge you'd go right past)
     o.rotation.order = 'YXZ'; // so it rolls over about its own length, whichever way it's heading
     this.group.add(o);
     const u = rand(-0.5, 0.5) * q0.width / 2;
     o.position.set(q0.x + Math.cos(q0.a) * u, q0.y, q0.z + Math.sin(q0.a) * u);
     let heading = face(-Math.sin(q0.a), Math.cos(q0.a)) + rand(-1, 1);
-    let mode: 'swim' | 'back' | 'under' | 'watch' = 'swim';
+    let mode: 'swim' | 'back' | 'under' | 'watch' | 'leap' = 'swim';
     let timer = rand(1.5, 3);
     let wary = false;
     let gone = 0;
+    let seenAt = -1;
+    let leap = 0;
+    const from = V();
     const spot = this.spotter('otter');
     const water = () => this.course.nearest(o.position.x, o.position.z);
     const under = () => {
@@ -1219,16 +1224,40 @@ export class Wildlife {
       this.spray(o.position, 6, 0.5);
       o.visible = false;
     };
+    const jump = () => {
+      mode = 'leap';
+      leap = 0;
+      from.copy(o.position);
+      // (out towards the middle, if it's near the edge: never up onto the bank)
+      const n = water();
+      if (n.d > n.sample.width / 2 - 3) heading = face(n.sample.x - o.position.x, n.sample.z - o.position.z);
+      this.spray(o.position, 7, 0.5);
+    };
+    // (coming into view and not seen yet: showing off, till you look)
+    const showing = (d: number) => seenAt < 0 && d < 30 && this.inView(o.position);
+    const look = (kayak: THREE.Vector3) => {
+      mode = 'watch';
+      timer = rand(2.5, 3.5);
+      this.spray(o.position, 4, 0.35);
+      this.events.cry?.('otter');
+      heading = face(kayak.x - o.position.x, kayak.z - o.position.z);
+    };
     return {
       s: at,
       root: o,
       update: (dt, kayak) => {
-        spot(o.position, kayak);
         const t = this.clock;
         timer -= dt;
+        const d = o.position.distanceTo(kayak);
+        // (only once it's up where you could see it: never 'spotted' while it's under)
+        if (o.visible && mode !== 'under' && spot(o.position, kayak)) {
+          seenAt = t;
+          if (mode !== 'leap') look(kayak);
+        }
         const near = water();
         const y = near.sample.y;
-        if (!wary && mode !== 'under' && o.position.distanceTo(kayak) < 8) {
+        // (it lets you have a good look first)
+        if (!wary && seenAt >= 0 && t - seenAt > 2.8 && mode !== 'under' && mode !== 'leap' && d < 8) {
           wary = true;
           under();
           timer = rand(2, 3);
@@ -1246,19 +1275,40 @@ export class Wildlife {
             o.rotation.x = ease(o.rotation.x, 0, 6, dt);
             o.rotation.z = ease(o.rotation.z, 0, 6, dt);
             if (timer < 0) {
+              // coming into view and not seen yet: out of the water, and again, till you look
+              const show = showing(d);
               const r = Math.random();
-              if (r < 0.45) mode = 'back';
-              else if (r < 0.8) under();
+              if (show) jump();
+              else if (r < 0.3) mode = 'back';
+              else if (r < 0.55) under();
+              else if (r < 0.8) jump();
               else heading += rand(-2, 2);
-              timer = rand(2, 4);
+              timer = show ? rand(0.8, 1.6) : rand(2, 4);
             }
             break;
+          case 'leap': { // an arc out of the water and back in, nose first
+            leap += dt / 0.8;
+            const k = Math.min(1, leap);
+            o.position.set(from.x + Math.cos(heading) * k * 2.2, y + Math.sin(Math.PI * k) * 0.75, from.z - Math.sin(heading) * k * 2.2);
+            o.rotation.x = 0;
+            o.rotation.z = Math.cos(Math.PI * k) * 0.8;
+            if (k >= 1) {
+              this.spray(o.position, 8, 0.55);
+              o.rotation.z = 0;
+              if (seenAt >= 0 && t - seenAt < 1) look(kayak);
+              else {
+                mode = 'swim';
+                timer = showing(d) ? rand(0.5, 1.2) : rand(2, 4);
+              }
+            }
+            break;
+          }
           case 'back': // over on its back, idling on the current
             o.rotation.x += (Math.PI - o.rotation.x) * Math.min(1, dt * 3);
             o.position.y = y + 0.06;
-            if (timer < 0) {
+            if (timer < 0 || showing(d)) {
               mode = 'swim';
-              timer = rand(2, 4);
+              timer = rand(0.3, 1);
             }
             break;
           case 'under':
@@ -1274,15 +1324,19 @@ export class Wildlife {
               this.spray(o.position, 5, 0.4);
               if (wary) this.events.cry?.('otter'); // up behind you, whistling
               mode = wary ? 'watch' : 'swim';
-              timer = rand(2, 4);
+              timer = wary ? Infinity : rand(0.5, 1.5);
             }
             break;
-          case 'watch': // head up out of the water, turned to watch you go
+          case 'watch': // head up out of the water, turned to watch you
             heading = turn(heading, face(kayak.x - o.position.x, kayak.z - o.position.z), dt * 3);
-            o.rotation.z += (0.45 - o.rotation.z) * Math.min(1, dt * 4);
-            o.position.y = y + 0.12 + Math.sin(t * 2.5) * 0.02;
-            gone += dt;
-            if (gone > 6 && Math.random() < dt) {
+            o.rotation.x = ease(o.rotation.x, 0, 8, dt);
+            o.rotation.z += (0.55 - o.rotation.z) * Math.min(1, dt * 5);
+            o.position.y = y + 0.14 + Math.sin(t * 2.5) * 0.02;
+            if (!wary && timer < 0) {
+              mode = 'swim';
+              timer = rand(1, 2);
+            }
+            if (wary && (gone += dt) > 6 && Math.random() < dt) {
               under();
               timer = Infinity;
             }
@@ -1572,42 +1626,80 @@ export class Wildlife {
   }
 
   /**
-   * A lynx on the bank, dead still, watching you come with its head turning to follow; once
-   * you're past, it's away into the trees as if it had never been.
+   * A lynx on the bank, pacing slowly along the water's edge (the movement's what catches your
+   * eye: stock still, it's just a tawny stone). Seen, it freezes, head round to stare you out, and
+   * spits; then it's away into the trees in great bounds, as if it had never been.
    */
   private lynx(at: number): Actor | null {
-    const spot0 = this.open(at, 0.5, 2, 0.9);
+    const spot0 = this.open(at, 0.5, 2, 1.2);
     if (!spot0) return null;
     const { q, side } = spot0;
     at = spot0.s;
     const l = this.assets.clone('lynx');
-    l.scale.setScalar(1.5);
+    l.scale.setScalar(2); // (as big as a lynx is, it's all leg: at 1:1 it's gone in the grass)
     l.position.set(spot0.x, spot0.y, spot0.z);
     const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
-    l.rotation.y = face(toWater.x - Math.sin(q.a) * 0.5, toWater.z + Math.cos(q.a) * 0.5);
+    const up = V(-Math.sin(q.a), 0, Math.cos(q.a));
     this.group.add(l);
     const head = l.getObjectByName('lynx_head');
     const legs = ['fl', 'fr', 'bl', 'br'].map((k) => l.getObjectByName(`lynx_leg_${k}`));
     const spot = this.spotter('lynx');
+    const home = V(spot0.x, spot0.y, spot0.z);
+    let pace = rand(-1.5, 1.5); // along the bank from where it was put (m)
+    let dir = Math.random() < 0.5 ? -1 : 1;
+    let stop = rand(1, 2.5);
+    let seenAt = -1;
     let off = -1;
+    let walk = 0;
     return {
       s: at,
       root: l,
       update: (dt, kayak) => {
-        spot(l.position, kayak);
+        const t = this.clock;
+        if (spot(l.position, kayak)) {
+          seenAt = t;
+          this.events.cry?.('lynx');
+        }
+        const d = l.position.distanceTo(kayak);
         if (off < 0) {
-          this.look(head, l, kayak, 1.3, dt);
-          if (l.position.distanceTo(kayak) < 7 || this.kayakS(kayak) > at + 3) off = 0;
+          const seen = seenAt >= 0;
+          if (!seen) {
+            // up and down the edge of the water, stopping now and then to look
+            stop -= dt;
+            const moving = stop < 0;
+            if (stop < -rand(2, 3.5)) stop = rand(0.8, 1.8);
+            if (moving) {
+              pace += dir * dt * 0.8;
+              if (Math.abs(pace) > 2) dir = -Math.sign(pace);
+              walk += dt * 6;
+            }
+            const x = home.x + up.x * pace;
+            const z = home.z + up.z * pace;
+            l.position.set(x, this.ground(x, z), z);
+            const want = moving ? face(up.x * dir + toWater.x * 0.2, up.z * dir + toWater.z * 0.2) : face(toWater.x - up.x * 0.4, toWater.z - up.z * 0.4);
+            l.rotation.y = turn(l.rotation.y, want, dt * 4);
+            legs.forEach((k, i) => k && (k.rotation.z = moving ? (i === 0 || i === 3 ? 1 : -1) * Math.sin(walk) * 0.35 : ease(k.rotation.z, 0, 8, dt)));
+            this.look(head, l, kayak, 1.3, dt);
+          } else {
+            // stock still, and staring you out
+            legs.forEach((k) => k && (k.rotation.z = ease(k.rotation.z, 0, 10, dt)));
+            l.rotation.y = turn(l.rotation.y, face(kayak.x - l.position.x, kayak.z - l.position.z), dt * 2);
+            this.look(head, l, kayak, 1.3, dt * 3);
+          }
+          if ((seen && t - seenAt > 2) || d < 5 || this.kayakS(kayak) > at + 4) off = 0;
           return true;
         }
+        // away, in great bounds
         off += dt;
         if (head) head.rotation.y = ease(head.rotation.y, 0, 6, dt);
-        l.rotation.y = turn(l.rotation.y, face(-toWater.x, -toWater.z), dt * 5);
-        if (off > 0.3) l.position.add(V(Math.cos(l.rotation.y) * dt * 2.2, 0, -Math.sin(l.rotation.y) * dt * 2.2));
-        l.position.y = this.ground(l.position.x, l.position.z);
-        const g = Math.sin(off * 10);
-        legs.forEach((k, i) => k && (k.rotation.z = (i === 0 || i === 3 ? 1 : -1) * g * 0.5));
-        return off < 6;
+        l.rotation.y = turn(l.rotation.y, face(-toWater.x, -toWater.z), dt * 6);
+        const b = (off * 2.2) % 1; // one bound in each 0.45 s
+        if (off > 0.2) l.position.add(V(Math.cos(l.rotation.y) * dt * 5, 0, -Math.sin(l.rotation.y) * dt * 5));
+        l.position.y = this.ground(l.position.x, l.position.z) + (off > 0.2 ? Math.sin(Math.PI * b) * 0.7 : 0);
+        const g = Math.cos(Math.PI * b);
+        // (front legs reaching out on the way up, the back ones kicking off)
+        legs.forEach((k, i) => k && (k.rotation.z = (i < 2 ? 1 : -1) * g * 0.7));
+        return off < 5;
       },
     };
   }

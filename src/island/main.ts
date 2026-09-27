@@ -288,7 +288,7 @@ export async function bootIsland(host: HTMLElement) {
   new ResizeObserver(resize).observe(host);
   resize();
 
-  bindHud(ctx);
+  bindHud(ctx, () => !river.inside && !river.wanted);
 
   // the visitor's own weather, checked again every half hour. To preview: ?weather=rain (any
   // WEATHER_KINDS), optionally with &k=<0..1 intensity: ?weather=partly&k=0.2 is the odd cloud>,

@@ -3,15 +3,25 @@
  *
  *            forward strokes     reverse sweep (tap) /        lean (side, and     brace
  *            left / right        blade planted (hold)         fore and aft)
- * keyboard   A / D  (↑: both)    Q / E                        ← → and W S         Space
- * pad        L2 / R2 (✕: both)   L1 / R1                      left stick          ✕ / A (tap)
+ * keyboard   A / D  (W: both)    Q / E  (S: both)             ← → ↑ ↓             Space
+ * pad        L2 / R2 (✕: both)   L1 / R1                      left stick          ✕ / A (tap), or
+ *                                                                                  L1 / R1 on the side
+ *                                                                                  you're falling to
+ *
+ * On the keyboard, as on a pad, one hand paddles and the other is your body, since big water
+ * wants both at once: the left hand strokes, brakes, sprints (Shift) and braces (Space, the thumb),
+ * while the right leans on the arrows, balancing and leaning forward over a drop. The letters go by
+ * where they sit, not what they print, so the left hand's keys stay under it on any layout.
  *
  * On the cards (start, paused, the end of a run) the d-pad or left stick moves between the
  * buttons, ✕ presses the one picked out and ○ backs out a card; left and right on the start card go
  * through the rivers.
  *
  * Holding sprint (Shift, □ / X or a click of the left stick, or the sprint button on a touch screen) while you paddle digs in:
- * quicker, harder strokes, on one side or both, for as long as your breath lasts.
+ * quicker, harder strokes, on one side or both, for as long as your breath lasts. On a pad a
+ * trigger squeezed right in digs in too, since the thumb that would press □ is busy: on ✕ paddling,
+ * or free for ✕ to brace, while the other steers and balances on the stick. (Only on triggers that
+ * have been seen part way: a pad whose triggers are only on or off would always be sprinting.)
  * touch      hold the left or right half of the screen to paddle on that side (both thumbs:
  *            straight on); low down, a reverse sweep (tap) or a planted blade (hold). On a touch
  *            screen the paddler leans for himself.
@@ -52,7 +62,11 @@ export const NEUTRAL: Intent = {
 
 const DEAD = 0.18;
 const NAV = 0.6; // how far over the stick goes to move round a menu
+const SQUEEZE = 0.92; // a trigger in this far is digging in
 const BACK_BAND = 0.78; // below this far down the screen, a finger is a reverse sweep
+
+/** A key by where it sits for the letters (KeyW is W on QWERTY, Z on AZERTY), by what it is for the rest. */
+const key = (e: KeyboardEvent) => (/^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : e.key).toLowerCase();
 
 export class Controls {
   /** What was used last, for the hints on screen. */
@@ -61,6 +75,8 @@ export class Controls {
   onGo?: () => void;
   /** Called once per press of pause (P, Start/Options). */
   onPause?: () => void;
+  /** Called on Escape, before the island sees it: true if it was used (pausing, say), and the island shouldn't leave. */
+  onEscape?: () => boolean;
   /** Called once per press of left or right on the keyboard's arrows, for picking a river. */
   onPick?: (dir: -1 | 1) => void;
   /** Called once per push of the d-pad or the left stick, for getting round the cards. */
@@ -78,12 +94,24 @@ export class Controls {
   private centred = [false, false, false, false];
   /** …and the same for the triggers (L2, R2): one held down all along (the pad face down on the desk) can't paddle. */
   private released = [false, false, false, false]; // (L2, R2, the sprint button and ✕)
+  /** The triggers have been seen part way in: squeezing them right in can mean something. */
+  private analog = false;
   private active = false;
 
   constructor(private el: HTMLElement) {
+    // (caught on the way down, ahead of the island's Escape, which would take you back to it)
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (!this.active || e.key !== 'Escape' || e.repeat || !this.onEscape?.()) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      },
+      true,
+    );
     window.addEventListener('keydown', (e) => {
       if (!this.active || (e.target as HTMLElement).closest('input, textarea')) return;
-      const k = e.key.toLowerCase();
+      const k = key(e);
       if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'w', 'a', 's', 'd', 'q', 'e'].includes(k)) e.preventDefault();
       this.device = 'keys';
       if (e.repeat) return;
@@ -96,7 +124,7 @@ export class Controls {
       if (k === 'arrowleft' || k === 'arrowright') this.onPick?.(k === 'arrowleft' ? -1 : 1);
       this.keys.add(k);
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
+    window.addEventListener('keyup', (e) => this.keys.delete(key(e)));
     window.addEventListener('blur', () => this.keys.clear());
     el.addEventListener('pointerdown', (e) => {
       if (!this.active) return;
@@ -146,16 +174,16 @@ export class Controls {
     this.taps = { left: false, right: false, brace: false };
     if (!this.active) return NEUTRAL;
     const k = this.keys;
-    const both = k.has('arrowup') ? 1 : 0;
+    const both = k.has('w') ? 1 : 0;
     const i: Intent = {
       left: Math.max(both, k.has('a') ? 1 : 0),
       right: Math.max(both, k.has('d') ? 1 : 0),
-      backLeft: k.has('q'),
-      backRight: k.has('e'),
+      backLeft: k.has('q') || k.has('s'),
+      backRight: k.has('e') || k.has('s'),
       tapLeft: taps.left,
       tapRight: taps.right,
       lean: (k.has('arrowright') ? 1 : 0) - (k.has('arrowleft') ? 1 : 0),
-      pitch: (k.has('w') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0),
+      pitch: (k.has('arrowup') ? 1 : 0) - (k.has('arrowdown') ? 1 : 0),
       brace: taps.brace,
       tipBrace: false,
       sprint: k.has('shift') || this.touchSprint,
@@ -199,10 +227,12 @@ export class Controls {
       const trigger = (n: 0 | 1) => {
         const v = b(6 + n);
         if (v < 0.05) this.released[n] = true;
+        if (v > 0.25 && v < 0.75) this.analog = true;
         return this.released[n] && v > 0.12 ? v : 0;
       };
       const l2 = trigger(0);
       const r2 = trigger(1);
+      const squeezed = this.analog && Math.max(l2, r2) > SQUEEZE;
       if (Math.abs(lean) > 0.3 || Math.abs(pitch) > 0.3 || l2 > 0.3 || r2 > 0.3 || l1 || r1 || go || back || pause || nav) this.device = 'pad';
       i.left = Math.max(i.left, l2, straight);
       i.right = Math.max(i.right, r2, straight);
@@ -221,7 +251,7 @@ export class Controls {
       if (back && !was.back) this.onBack?.();
       if (nav && was.nav !== 'held' && nav !== was.nav) this.onNav?.(nav);
       if (!sprint) this.released[2] = true;
-      i.sprint ||= sprint && this.released[2];
+      i.sprint ||= (sprint && this.released[2]) || squeezed;
       this.padWas = { go, pause, l1, r1, sprint, back, nav: nav && was.nav === 'held' ? 'held' : nav };
     }
     return i;

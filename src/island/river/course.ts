@@ -1264,8 +1264,11 @@ export class Course {
     }
     const beats = kind === 'fork' || kind === 'funnel' ? 3 : kind === 'balls' ? 6 + Math.floor(r() * 3) : 3 + Math.floor(r() * (1.5 + h * 2.5));
     const wide = kind === 'slalom' || kind === 'strainers' ? 1.3 - h * 0.3 : 1; // (see the slalom's walls)
-    // (the weir's rows: each one's gaps half a gap across from the last's, and time between them to get across)
-    const rowEvery = Math.max(0.7, ((3.6 - h * 0.3) * 0.5) / shift);
+    // the weir's posts, this far apart across the river: roomy to start with, and room enough
+    // between them even in the hardest water (its rows: each one's gaps half a gap across from the
+    // last's, and time between them to get across)
+    const postGap = 4.4 - h * 0.8;
+    const rowEvery = Math.max(0.7, (postGap * 0.5) / shift);
     const len = B * (kind === 'weir' ? (beats - 1) * rowEvery + 1 : kind === 'balls' ? beats * 0.55 + 0.8 : beats * wide + (kind === 'fork' ? 0.5 : 0));
     while (this.length < s0 + len + 20) this.grow();
     // nothing near a lip, and nothing past the end of the stretch
@@ -1348,7 +1351,7 @@ export class Course {
       }
       case 'weir': {
         // posts in rows across the river, each row's gaps halfway between the last's
-        const gap = 3.6 - h * 0.3; // (room enough between them even in the hardest water)
+        const gap = postGap;
         const phase = r() * gap;
         for (let i = 0; i < beats; i++) {
           const at = s0 + B * (0.5 + i * rowEvery);

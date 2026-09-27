@@ -5,10 +5,11 @@ import { type IslandContext, SECRETS } from './content';
 const on = (sel: string, fn: (el: HTMLElement) => void) =>
   document.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
 
-export function bindHud(ctx: IslandContext) {
+/** `turnable` says whether Q/E may turn the island now (not on the river, where they're paddle strokes). */
+export function bindHud(ctx: IslandContext, turnable: () => boolean) {
   bindSketchbook();
   window.addEventListener('keydown', (e) => {
-    if ((e.target as HTMLElement).closest('input, textarea')) return;
+    if ((e.target as HTMLElement).closest('input, textarea') || !turnable()) return;
     if (e.key === 'q') ctx.rig.rotate(-1);
     if (e.key === 'e') ctx.rig.rotate(1);
   });

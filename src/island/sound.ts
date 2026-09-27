@@ -206,6 +206,11 @@ export class Sound {
   /** The two minutes' silence on the fourth of May, 0..1 (remembrance.ts): everything fades right away. */
   silence = 0;
   private hush?: GainNode;
+  /** Upside down in the river: everything heard through the water, and your own pressure in your ears. */
+  private dunk?: BiquadFilterNode;
+  private deep?: GainNode;
+  private under = 0;
+  private bubbleAt = 0;
   /** Told whenever the piano starts or stops (null). */
   onPiano?: (piece: Piece | null) => void;
   private pianoBus?: GainNode;
@@ -776,6 +781,55 @@ export class Sound {
   }
 
   /**
+   * Upside down under the kayak (0..1): the world shut out behind the water, only its low thud
+   * getting through, a pressure humming in your ears, and your breath going up in bubbles.
+   */
+  underwater(amount: number) {
+    if (!this.ctx || !this.dunk || !this.hush || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    if (amount === this.under && amount === 0) return;
+    this.under = amount;
+    this.dunk.frequency.setTargetAtTime(20000 * Math.pow(260 / 20000, amount), t, 0.05);
+    this.dunk.Q.value = 1 + amount * 4; // (a little ring to it, like a head in a bucket)
+    if (!this.deep) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      src.loop = true;
+      src.playbackRate.value = 0.5;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 140;
+      lp.Q.value = 3;
+      this.deep = ctx.createGain();
+      this.deep.gain.value = 0;
+      src.connect(lp).connect(this.deep).connect(this.hush);
+      src.start();
+    }
+    this.deep.gain.setTargetAtTime(this.enabled ? amount * 1.1 : 0, t, 0.08);
+    // bubbles: little rising blips, close by, so they're not behind the water
+    if (this.enabled && amount > 0.6 && t > this.bubbleAt) {
+      this.bubbleAt = t + 0.08 + Math.random() * 0.35;
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const at = t + i * (0.04 + Math.random() * 0.07);
+        const f = 250 + Math.random() * 450;
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, at);
+        osc.frequency.exponentialRampToValueAtTime(f * 2.2, at + 0.07);
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0, at);
+        env.gain.linearRampToValueAtTime(0.07 * amount, at + 0.01);
+        env.gain.exponentialRampToValueAtTime(0.001, at + 0.09);
+        osc.connect(env).connect(this.hush);
+        osc.start(at);
+        osc.stop(at + 0.12);
+      }
+    }
+  }
+
+  /**
    * A fall coming up: from far off a low rumble with the highs eaten by the air, opening out into
    * a thundering roar as you close in, and under a big one a slow, heavy throb you feel more than
    * hear.
@@ -898,6 +952,12 @@ export class Sound {
         this.hiss(t, 1.9, 380, 0.4 * volume);
         this.hiss(t + 0.35, 1.1, 1300, 0.12 * volume);
         this.hiss(t + 2.3, 0.35, 320, 0.3 * volume);
+        break;
+      case 'lynx': // a lynx, seen: a spitting hiss, and a low, cross yowl
+        this.hiss(t, 0.3, 2800, 0.3 * volume);
+        this.hiss(t + 0.05, 0.45, 1100, 0.18 * volume);
+        this.tone(t + 0.3, 'sawtooth', [[0, 200], [0.25, 320], [0.7, 290], [1, 180]], 0.09 * volume, 1.05, 900);
+        this.tone(t + 0.3, 'sine', [[0, 400], [0.25, 640], [0.7, 580], [1, 360]], 0.04 * volume, 1.05);
         break;
       case 'spotted': // something rare: a soft, wondering phrase, up and up
         [523, 659, 880, 1047].forEach((f, i) => this.tone(t + i * 0.14, 'sine', [[0, f]], 0.07 * volume, 0.6));
@@ -1187,7 +1247,10 @@ export class Sound {
     safety.attack.value = 0.003;
     safety.release.value = 0.25;
     this.hush = ctx.createGain();
-    this.master.connect(this.hush).connect(safety).connect(ctx.destination);
+    this.dunk = ctx.createBiquadFilter();
+    this.dunk.type = 'lowpass';
+    this.dunk.frequency.value = 20000;
+    this.master.connect(this.dunk).connect(this.hush).connect(safety).connect(ctx.destination);
 
     // two seconds of brown-ish noise, reused by the sea and the fire
     const len = ctx.sampleRate * 2;

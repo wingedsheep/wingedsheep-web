@@ -3,7 +3,7 @@ import { haloTexture } from '../scene/sky';
 import { RiverAssets } from './assets';
 import { Controls } from './controls';
 import { Course, type Piece, type SetPiece, type Split, type Stretch } from './course';
-import { BOOF_WINDOW, Kayak, LIP_AT } from './kayak';
+import { BOOF_WINDOW, Kayak, LIP_AT, NEEDLE } from './kayak';
 import { Land, type Lamp, flicker, fogAt, highAt } from './land';
 import { type Goal, RARE, RIVERS, type Rare, type RiverDef } from './rivers';
 import { waterAt } from './flow';
@@ -31,7 +31,8 @@ const QUIET_START = 4;
  * gate and a ball; a set piece got through without touching a thing, SET a beat of it, more the
  * hotter the water (the S of balls: every one of them); a stretch of white water without a knock,
  * CLEAN a grade; the hero line round an island; a boof, BOOF a metre of drop (a send pays more,
- * see SEND); a spin, SPIN a turn; a perfect brace. And what a capsize costs.
+ * see SEND); a spin, SPIN a turn; a perfect brace; threading the needle, THREAD, up to twice that
+ * the less room there was. And what a capsize costs.
  */
 const GATE = 50;
 const FETCH = 30;
@@ -41,6 +42,7 @@ const HERO = 150;
 const BOOF = 30;
 const SPIN = 100;
 const BRACE = 25;
+const THREAD = 80;
 export const FLIP = 300;
 /** What getting through each kind of set piece clean is called (the fork's just picking a side). */
 const SETS: Partial<Record<Piece, string>> = {
@@ -150,6 +152,8 @@ export interface GameEvents {
   split?(s: Split): void;
   /** Something done well: a word to pop up over the kayak (big: the best kind). */
   praise?(text: string, big: boolean): void;
+  /** A brace tried before there's another in you. */
+  braceSpent?(): void;
   /** The flow broke (and why, and what it cost in points if anything). */
   broke?(why: string, cost: number): void;
   /** The flow went up a whole notch (to ×2, ×3…). */
@@ -956,9 +960,19 @@ export class RiverGame {
           this.broke(how === 'flat' ? 'Tucked too late: landed flat' : 'Landed sideways');
         } else this.broke(height >= 2.5 ? 'Tucked too soon: nose first' : 'Nose first');
       },
-      brace: (perfect) => {
+      brace: (perfect, side) => {
+        // the slap: white water thrown up off the blade, and a ring spreading from it
+        const at = k.bladeAt(side);
+        this.wildlife.spray(at, perfect ? 22 : 14, perfect ? 1 : 0.8);
+        this.wildlife.ring(at, 12, 0.5);
+        this.ripple(at.x, at.z, 1.8);
         if (perfect) this.well(`Perfect brace! +${this.pay(BRACE)}`, 0.5, { flash: 0.25, sound: 'brace', rumble: 0.7, kick: 0.3 });
         else this.well('Brace', 0.2, { sound: 'brace', rumble: 0.4 });
+      },
+      braceSpent: (side) => {
+        this.wildlife.spray(k.bladeAt(side), 4, 0.4); // the blade only skims
+        this.controls.rumble(0.1, 0.3, 60);
+        this.events.braceSpent?.();
       },
       tipping: () => {
         this.controls.rumble(0.2, 0.8, 120);
@@ -1041,6 +1055,11 @@ export class RiverGame {
         if (all) this.wildlife.sparkle(k.pos, 20, undefined, 1);
       },
       shave: () => this.well('Close!', 0.15, { sound: 'whoosh' }),
+      needle: (room) => {
+        const tight = 1 - room / NEEDLE;
+        this.well(`Threaded the needle! +${this.pay(THREAD * (1 + tight))}`, 0.4 + tight * 0.3, { flash: 0.3, sound: 'cleared', rumble: 0.5, kick: 0.4 });
+        this.wildlife.sparkle(k.pos, 14 + Math.round(tight * 10), undefined, 0.9);
+      },
       spin: (turns) => (this.state === 'running' && this.tally.spins++, this.well(`${turns * 360}! +${this.pay(SPIN * turns)}`, 0.6 + turns * 0.2, { flash: 0.3, sound: 'boof', rumble: 0.7, kick: 0.3 })),
       stroke: (q, back, side) => {
         this.events.sound?.('stroke', 0.25 + q * 0.35);

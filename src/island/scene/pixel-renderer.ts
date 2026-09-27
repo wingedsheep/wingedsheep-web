@@ -45,6 +45,7 @@ export class PixelRenderer {
         uTone: { value: 0 }, // 0..1: how far they lean
         uVignette: { value: 0.5 }, // 0..1: the dithered darkening round the edges
         uHeat: { value: 0 }, // 0..1: heat shimmer on a scorching day
+        uUnder: { value: 0 }, // 0..1: under the water (a kayak upside down): swimming, murky and dim
         uTime: { value: 0 },
         uFade: { value: 0 },
         uFadeColor: { value: new THREE.Color(0x15111c) },
@@ -68,6 +69,7 @@ export class PixelRenderer {
         uniform float uTone;
         uniform float uVignette;
         uniform float uHeat;
+        uniform float uUnder;
         uniform float uTime;
         uniform float uFade;
         uniform vec3 uFadeColor;
@@ -87,6 +89,12 @@ export class PixelRenderer {
           if (uHeat > 0.0) {
             float w = sin(float(p.y) * 0.8 + uTime * 6.0) * sin(float(p.y) * 0.17 - uTime * 1.7 + float(p.x) * 0.02);
             p.x += int(step(1.0 - uHeat * 0.3, abs(w)) * sign(w));
+          }
+          // under the water: the whole picture swims, rows and columns sliding a texel or two
+          if (uUnder > 0.0) {
+            float a = uTime * 2.2;
+            p.x += int(round(sin(float(p.y) * 0.19 + a) * 2.4 * uUnder));
+            p.y += int(round(sin(float(p.x) * 0.13 - a * 0.7) * 1.4 * uUnder));
           }
           vec3 col = texelFetch(tColor, p, 0).rgb;
 
@@ -110,12 +118,25 @@ export class PixelRenderer {
           float lt = dot(col, vec3(0.299, 0.587, 0.114));
           col = mix(col, col * mix(uShade, uLight, smoothstep(0.1, 0.75, lt)), uTone);
 
-          // vignette in dithered steps, darkening towards the shadow colour so it stays pixel art
           float bayer = (BAYER[(p.x & 3) + (p.y & 3) * 4] + 0.5) / 16.0;
+
+          // vignette in dithered steps, darkening towards the shadow colour so it stays pixel art
           vec2 size = vec2(textureSize(tDepth, 0));
           vec2 q = (vec2(p) / size - 0.5) * vec2(size.x / size.y, 1.0);
           float v = floor(smoothstep(0.45, 1.05, length(q)) * uVignette * 4.0 + bayer) / 4.0;
           col = mix(col, col * uShade * 0.55, v * 0.5);
+
+          // under the water: murky green going dark, lit from above in slow wavering bands, and
+          // the edges closing in, dithered to black
+          if (uUnder > 0.0) {
+            float lu = dot(col, vec3(0.299, 0.587, 0.114));
+            vec3 murk = mix(vec3(0.01, 0.05, 0.07), vec3(0.22, 0.46, 0.42), lu);
+            float band = sin(float(p.x) * 0.08 + sin(float(p.y) * 0.05 + uTime * 0.9) * 2.2 + uTime * 0.7);
+            murk *= 1.0 + step(0.75 - bayer * 0.3, band) * 0.5;
+            col = mix(col, murk, uUnder * 0.9);
+            float dark = floor(smoothstep(0.2, 0.95, length(q)) * uUnder * 4.0 + bayer) / 4.0;
+            col *= 1.0 - dark * 0.7;
+          }
 
           // the iris: the edges dither shut first, and it opens again from the middle
           if (uFade > 0.0) {
