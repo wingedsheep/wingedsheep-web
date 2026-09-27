@@ -47,26 +47,26 @@ function banner(s: Stretch, index: number) {
  * you're busy. [Keys] in brackets show as key caps.
  */
 const HINTS: Record<Hint, Record<Device, string>> = {
-  paddle: { keys: 'Hold [↑] to paddle', pad: 'Hold [✕], or [L2] and [R2], to paddle', touch: 'Hold both sides of the screen to paddle' },
+  paddle: { keys: 'Hold [W] to paddle', pad: 'Hold [✕], or [L2] and [R2], to paddle', touch: 'Hold both sides of the screen to paddle' },
   steer: {
-    keys: '[A] or [D] alone turns you. [Q] / [E] brakes',
+    keys: '[A] or [D] alone turns you. [Q] / [E] brakes, [S] backs up',
     pad: 'One trigger alone turns you. [L1] / [R1] brakes',
     touch: 'Hold one side to turn away from it',
   },
   lean: { keys: 'She’s tipping: lean against it with [←] / [→]', pad: 'She’s tipping: lean against it with the stick', touch: '' },
-  brace: { keys: 'Going over! Lean back up and [Space] to brace', pad: 'Going over! Stick back up and [✕] to brace', touch: 'Going over! Tap low down on that side' },
+  brace: { keys: 'Going over! [Space] to brace', pad: 'Going over! [✕] to brace', touch: 'Going over! Tap low down on that side' },
   boof: {
     keys: 'A ledge! Stroke hard as the lip lights up gold',
     pad: 'A ledge! Stroke hard as the lip lights up gold',
     touch: 'A ledge! Paddle hard as the lip lights up gold',
   },
   falls: {
-    keys: 'A waterfall! Go over straight, leaning forward [W]',
+    keys: 'A waterfall! Go over straight, leaning forward [↑]',
     pad: 'A waterfall! Go over straight, stick forward',
     touch: 'A waterfall! Go over it straight',
   },
   hole: {
-    keys: 'In a hole! Lean forward [W] and paddle hard',
+    keys: 'In a hole! Lean forward [↑] and paddle hard',
     pad: 'In a hole! Stick forward and paddle hard',
     touch: 'In a hole! Keep paddling',
   },
@@ -754,6 +754,7 @@ export class River implements RoomInput {
       const tilt = Math.max(-1.6, Math.min(1.6, k.tilt)) * (game.facingCamera ? -1 : 1);
       gauge.style.setProperty('--tilt', `${tilt * (180 / Math.PI) * 0.9}deg`);
       gauge.classList.toggle('danger', Math.abs(k.tilt) > TIP * 0.8);
+      gauge.classList.toggle('spent', k.braceReady < 1); // no brace in you yet: lean
     }
     // the roll: a needle sweeping across a bar, and the gap to hit
     const roll = this.$.roll;

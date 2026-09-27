@@ -35,12 +35,8 @@ export const TIP = 0.95;
 const OVER = 1.45;
 /** A brace this far over (and still up) is a perfect one. */
 const PERFECT = 1.0;
-/**
- * A brace takes it out of you: each one leaves you this much more winded, and the next is that
- * much weaker (it comes back at BRACE_REST a second). One saves you; a string of them only buys time.
- */
-const BRACE_TIRE = 1.2;
-const BRACE_REST = 0.3;
+/** After a brace it takes this long (s) before you've another in you: one saves you, not a string of them. */
+const BRACE_AGAIN = 2.5;
 /** A boof: the stroke has to catch this close (s) before the lip. */
 export const BOOF_WINDOW = 0.45;
 /** The lip: this far (m) above a ledge's arc length the river starts to pour over it. */
@@ -175,6 +171,8 @@ export class Kayak {
   sprinting = false;
   /** 0..1: breath for sprinting, draining while you do and coming back when you stop. */
   wind = 1;
+  /** 0..1: getting another brace in you (1: ready). */
+  braceReady = 1;
   /** Out of breath: let go of sprint (and wait a moment) before you can go again. */
   private puffed = false;
   /** How many times you've rolled up this run: each roll gets harder. */
@@ -223,7 +221,6 @@ export class Kayak {
   private lastHole: Hole | null = null;
   private braceAnim = 0;
   private braceSide = 0;
-  private braceLoad = 0; // how winded the last few braces left you (see BRACE_TIRE)
   private tipped = false;
   private slam = 0; // a bad landing off a waterfall still rolling you over (torque, fading)
   private flip = 0; // 0 upright … 1 upside down (the model)
@@ -274,7 +271,8 @@ export class Kayak {
     this.s = s;
     this.side = 0;
     this.here = p;
-    this.tilt = this.tiltV = this.slam = this.braceLoad = 0;
+    this.tilt = this.tiltV = this.slam = 0;
+    this.braceReady = 1;
     this.balance = 'up';
     this.effort = 0;
     this.rolls = 0;
@@ -308,7 +306,8 @@ export class Kayak {
     this.bed = p.y;
     this.vel.set(0, 0);
     this.heading = p.a;
-    this.yawRate = this.tilt = this.tiltV = this.slam = this.braceLoad = this.vy = 0;
+    this.yawRate = this.tilt = this.tiltV = this.slam = this.vy = 0;
+    this.braceReady = 1;
     this.airborne = false;
   }
 
@@ -917,22 +916,16 @@ export class Kayak {
     const side = falling || 1;
     this.braceSide = side;
     this.braceAnim = 0.45;
-    // a fresh brace rights you; one straight after another has less and less in it, so it's the
-    // lean that has to keep you up. And the blade only holds you while the hips right the boat: a
-    // brace without leaning back up has only a third of it (on a touch screen he leans for himself)
-    const hips = this.assisted ? 1 : Math.max(0, Math.min(1, -side * this.leanNow));
-    const fresh = (1 / (1 + this.braceLoad * BRACE_TIRE)) * (0.35 + 0.65 * hips);
-    if (leaning) {
-      const perfect = Math.abs(this.tilt) > PERFECT && fresh > 0.6;
-      // it checks the fall rather than undoing it: going over fast, it's the lean that stops you
-      this.tiltV = this.tiltV * (1 - 0.6 * fresh) - side * (perfect ? 2.9 : 2.1) * fresh;
-      this.tilt *= 1 - 0.25 * fresh;
+    if (leaning && this.braceReady >= 1) {
+      const perfect = Math.abs(this.tilt) > PERFECT;
+      this.tiltV = -side * (perfect ? 3.4 : 2.6);
+      this.tilt *= 0.75;
       this.vel.multiplyScalar(perfect ? 0.97 : 0.9);
-      this.braceLoad += 1;
+      this.braceReady = 0;
       this.events.brace?.(perfect, side);
     } else {
-      this.vel.multiplyScalar(0.94); // a brace for nothing: the blade drags
-      this.braceLoad += 0.5;
+      // a brace for nothing, or with nothing left in it just after the last one: the blade only drags
+      this.vel.multiplyScalar(0.94);
     }
   }
 
@@ -1164,7 +1157,7 @@ export class Kayak {
     this.pitch += (0 - this.pitch) * (1 - Math.exp(-dt * 3));
     this.downhill += (Math.atan(this.course?.gradeAt(this.s) ?? 0) - this.downhill) * (1 - Math.exp(-dt * 4));
     this.braceAnim -= dt;
-    this.braceLoad = Math.max(0, this.braceLoad - dt * BRACE_REST);
+    this.braceReady = Math.min(1, this.braceReady + dt / BRACE_AGAIN);
     const flipTo = paddling ? 0 : 1;
     this.flip += (flipTo - this.flip) * (1 - Math.exp(-dt * (flipTo ? 7 : 5)));
     this.place();

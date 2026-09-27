@@ -635,6 +635,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .river-gauge i { position: absolute; left: 50%; bottom: 0; width: 3px; height: 28px; margin-left: -1.5px; background: var(--paper); transform-origin: 50% 100%; transform: rotate(var(--tilt)); }
 .river-gauge.danger { border-color: #ff5a3c; animation: gauge-throb 0.3s steps(2) infinite; }
 .river-gauge.danger i { background: #ff5a3c; }
+.river-gauge.spent { border-style: dashed; }
 @keyframes gauge-throb { 50% { opacity: 0.55; } }
 .river-roll {
   --needle: 0; --window: 0.3; position: absolute; left: 0; top: 0; width: 180px; margin-left: -90px; pointer-events: none; text-align: center;
