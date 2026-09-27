@@ -781,11 +781,11 @@ export class Course {
     }
     // nothing runs on into the take-out: it's always the pool
     const next: Stretch = { kind, start: s, end: Math.min(this.finish - 60, s + Math.round(lo + r() * (hi - lo))), heat };
-    // now and then a rapid's big water, on the rivers that have wave trains at all, and at least
+    // now and then a rapid's big water (more often further down), on the rivers that have wave trains at all, and at least
     // once a run from halfway down (its own dice, so the rest of the river comes out as it always has)
     const dice = rng(this.seed * 7919 + n);
     const owedBig = s > pr.length * 0.5 && !this.stretches.some((x) => x.big);
-    if (kind === 'rapids' && n > 3 && pr.pieces.includes('waves') && (dice() < 0.3 + d * 0.2 || owedBig)) {
+    if (kind === 'rapids' && n > 3 && pr.pieces.includes('waves') && (dice() < 0.3 + d * 0.3 || owedBig)) {
       next.big = true;
       next.rocky = !!pr.boulders;
       next.end = Math.min(this.finish - 60, s + Math.round(220 + heat * 140 + dice() * 80));
@@ -1000,8 +1000,8 @@ export class Course {
       }
 
       // now and then down a straight, a wave train where the rocks' gap would be: a V of smooth
-      // water between two rocks, and the waves standing below it
-      // (and below a waterfall, for certain: the waves standing up in the water it's poured into)
+      // water between two rocks, and the waves standing below it (more often the hotter it gets:
+      // the wild water's for balancing in, not only for dodging)
       // (and below a waterfall, for certain: the waves standing up in the water it's poured into,
       // as near the foot as there's a straight for them)
       const owed = runout && !stretch.trained && s < stretch.runout! + 40;
@@ -1013,7 +1013,7 @@ export class Course {
           continue;
         }
       }
-      if (!owed && (white || stretch.kind === 'run') && s > this.lastTrain + 60 && r() < (stretch.kind === 'run' ? 0.18 : 0.32)) {
+      if (!owed && (white || stretch.kind === 'run') && s > this.lastTrain + 60 && r() < (stretch.kind === 'run' ? 0.18 : 0.32 + h * 0.12)) {
         const len = this.trainAt(s + 3, stretch, gap * half);
         if (len) {
           this.placedTo = s + 3 + len + 4;
@@ -1038,7 +1038,7 @@ export class Course {
       // not much more than the boat's width in the big stuff
       const gapHalf = Math.max(1.15, 2.6 - h * 1.45) / half;
 
-      const perRow = stretch.kind === 'rapids' ? 1 + Math.floor(r() * (1.3 + h * 2))
+      const perRow = stretch.kind === 'rapids' ? 1 + Math.floor(r() * (1.3 + h * 1.6))
         : stretch.kind === 'gorge' ? 1 + Math.floor(r() * (1.3 + h * 1.2))
           : stretch.kind === 'run' || stretch.kind === 'cascade' ? 1 + Math.floor(r() * (1.2 + h)) : 1;
       // (a wider river has room for more of them)
