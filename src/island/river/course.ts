@@ -1256,7 +1256,9 @@ export class Course {
     }
     const beats = kind === 'fork' || kind === 'funnel' ? 3 : kind === 'balls' ? 6 + Math.floor(r() * 3) : 3 + Math.floor(r() * (1.5 + h * 2.5));
     const wide = kind === 'slalom' || kind === 'strainers' ? 1.3 - h * 0.3 : 1; // (see the slalom's walls)
-    const len = B * (kind === 'weir' ? beats * 0.7 + 0.5 : kind === 'balls' ? beats * 0.55 + 0.8 : beats * wide + (kind === 'fork' ? 0.5 : 0));
+    // (the weir's rows: each one's gaps half a gap across from the last's, and time between them to get across)
+    const rowEvery = Math.max(0.7, ((3.6 - h * 0.3) * 0.5) / shift);
+    const len = B * (kind === 'weir' ? (beats - 1) * rowEvery + 1 : kind === 'balls' ? beats * 0.55 + 0.8 : beats * wide + (kind === 'fork' ? 0.5 : 0));
     while (this.length < s0 + len + 20) this.grow();
     // nothing near a lip, and nothing past the end of the stretch
     const ok = (s: number) => s < stretch.end - 8 && !this.ledges.some((l) => s > l.s - 8 && s < l.s + 10);
@@ -1341,7 +1343,7 @@ export class Course {
         const gap = 3.6 - h * 0.3; // (room enough between them even in the hardest water)
         const phase = r() * gap;
         for (let i = 0; i < beats; i++) {
-          const at = s0 + B * (0.5 + i * 0.7);
+          const at = s0 + B * (0.5 + i * rowEvery);
           if (!ok(at)) continue;
           const p = this.at(at);
           const half = p.width / 2;
@@ -1350,9 +1352,12 @@ export class Course {
           let bestD = Infinity;
           for (let u = -half - gap + (off % gap); u < half; u += gap) {
             if (Math.abs(u) < half - 0.25) rock(p, u, 0.28 + r() * 0.05, true);
-            const mid = u + gap / 2; // a gap: the one nearest the line is the line
-            if (Math.abs(mid) < half - 1 && Math.abs(mid - this.lane) < bestD) {
-              bestD = Math.abs(mid - this.lane);
+            // a gap: the one nearest the line is the line (and of two as near, the one nearer the
+            // middle, so it weaves down the weir rather than walking off towards a bank)
+            const mid = u + gap / 2;
+            const d = Math.abs(mid - this.lane) + Math.abs(mid) * 0.05;
+            if (Math.abs(mid) < half - 1 && d < bestD) {
+              bestD = d;
               best = mid;
             }
           }
