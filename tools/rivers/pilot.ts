@@ -462,9 +462,10 @@ export class Pilot {
       else if (toLip <= 0.32) i.left = i.right = 1;
       if (toLip < 1.2) i.tapLeft = i.tapRight = false;
     }
-    i.pitch = ledge && !falls && toLip < 1.2 ? -0.3 : falls && toLip < 2 ? 1 : 0.4;
-    // (over the lip the ledge is passed and gone from what's coming: ask the boat what it's off)
-    if (k.airborne) i.pitch = k.flying >= 3 ? 1 : -0.3;
+    i.pitch = ledge && !falls && toLip < 1.2 ? -0.3 : falls && toLip < 2 ? 0 : 0.4;
+    // (over the lip the ledge is passed and gone from what's coming: ask the boat what it's off.
+    // Off a waterfall, tuck as the needle falls into the gold)
+    if (k.airborne) i.pitch = k.flying >= 3 ? (k.fallMeter?.phase === 'tuck' && k.fallMeter.needle >= k.fallMeter.at - 0.03 ? 1 : 0) : -0.3;
 
     // balance: lean against the roll, and brace past the tipping point
     i.lean = Math.max(-1, Math.min(1, (-k.tilt * 1.6 - tiltV * 0.4) * S.balance));

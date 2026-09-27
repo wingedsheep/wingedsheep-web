@@ -61,9 +61,9 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     touch: 'A ledge! Paddle hard as the lip lights up gold',
   },
   falls: {
-    keys: 'A waterfall! The lip pulls you round: go over straight, leaning forward [↑]',
-    pad: 'A waterfall! The lip pulls you round: go over straight, stick forward',
-    touch: 'A waterfall! The lip pulls you round: go over it straight',
+    keys: 'A waterfall! Hold the needle in the green to go over straight, then lean forward [↑] as it falls into the gold',
+    pad: 'A waterfall! Hold the needle in the green to go over straight, then stick forward as it falls into the gold',
+    touch: 'A waterfall! Hold the needle in the green to go over it straight',
   },
   hole: {
     keys: 'In a hole! Lean forward [↑] and paddle hard',
@@ -183,7 +183,7 @@ export class River implements RoomInput {
     private island: THREE.Scene,
   ) {
     this.el = document.querySelector<HTMLElement>('[data-panel="river"]')!;
-    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'praise', 'flash', 'edge', 'sprint', 'sprint-go']) {
+    for (const name of ['metres', 'time', 'flow', 'score', 'balls', 'pace', 'banner', 'hint', 'gauge', 'roll', 'drop', 'praise', 'flash', 'edge', 'sprint', 'sprint-go']) {
       this.$[name] = this.el.querySelector<HTMLElement>(`[data-river-${name}]`)!;
     }
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-river-go]')) b.addEventListener('click', () => this.go());
@@ -764,6 +764,23 @@ export class River implements RoomInput {
       roll.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y - 70)}px)`;
       roll.style.setProperty('--needle', String(k.roll.needle));
       roll.style.setProperty('--window', String(k.roll.window));
+    }
+    // a waterfall: lining up to the lip (the needle's the bow, in the green is straight enough),
+    // then over it, how far down you are and the gold to tuck in
+    const drop = this.$.drop;
+    const m = game.state === 'running' && !rolling ? k.fallMeter : null;
+    drop.hidden = !m;
+    if (m) {
+      drop.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y - 70)}px)`;
+      drop.dataset.phase = m.phase;
+      drop.firstElementChild!.textContent = m.phase === 'line' ? 'Line up' : m.hit >= 0 ? 'Tucked' : 'Tuck!';
+      // (the bow's angle on screen: the kayak's right is the screen's left when it's pointing back at the camera)
+      const needle = m.phase === 'line' && game.facingCamera ? 1 - m.needle : m.needle;
+      drop.style.setProperty('--needle', needle.toFixed(3));
+      drop.style.setProperty('--at', String(m.at));
+      drop.style.setProperty('--window', m.window.toFixed(3));
+      drop.style.setProperty('--hit', String(m.hit));
+      drop.classList.toggle('good', m.phase === 'line' ? Math.abs(m.needle - 0.5) < m.window / 2 : Math.abs(m.needle - m.at) < m.window / 2);
     }
     // the sprint: a bar over the boat, draining while you dig in and filling as you get your breath back
     const running = game.state === 'running' && !game.paused;

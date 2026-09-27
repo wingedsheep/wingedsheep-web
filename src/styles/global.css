@@ -646,6 +646,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background-image: linear-gradient(90deg, transparent calc((0.5 - var(--window) / 2) * 100%), #6fd06a calc((0.5 - var(--window) / 2) * 100%) calc((0.5 + var(--window) / 2) * 100%), transparent calc((0.5 + var(--window) / 2) * 100%));
 }
 .river-roll b::after { content: ''; position: absolute; top: -3px; bottom: -3px; width: 4px; left: calc(var(--needle) * 100% - 2px); background: var(--paper); }
+.river-drop {
+  --needle: 0.5; --at: 0.5; --window: 0.3; --hit: -1; position: absolute; left: 0; top: 0; width: 180px; margin-left: -90px; pointer-events: none; text-align: center;
+  font: 700 22px/1 var(--ui); color: var(--paper); text-shadow: 2px 2px 0 var(--ink);
+}
+.river-drop b { position: relative; display: block; height: 16px; margin-top: 6px; background: rgba(29, 26, 44, 0.8); clip-path: var(--notch); }
+.river-drop b::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc((var(--at) - var(--window) / 2) * 100%); width: calc(var(--window) * 100%); background: #6fd06a; }
+.river-drop b::after { content: ''; position: absolute; top: -3px; bottom: -3px; width: 4px; left: calc(var(--needle) * 100% - 2px); background: var(--paper); }
+.river-drop i { position: absolute; top: 0; bottom: 0; width: 4px; left: calc(var(--hit) * 100% - 2px); background: var(--ink); }
+.river-drop[data-phase='tuck'] { color: var(--gold); }
+.river-drop[data-phase='tuck'] b::before { background: var(--gold); }
+.river-drop.good span { color: #6fd06a; }
+.river-drop[data-phase='tuck'].good span { color: #fff3c4; }
 .river-sprint {
   --charge: 1; position: absolute; left: 0; top: 0; width: 44px; height: 6px; margin-left: -22px; pointer-events: none;
   background: rgba(29, 26, 44, 0.75); box-shadow: 0 0 0 2px rgba(29, 26, 44, 0.75);

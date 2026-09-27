@@ -42,6 +42,20 @@ const BRACE_AGAIN = 2.5;
  * it turns the bow this hard and pushes you sideways this hard. Hold it straight.
  */
 const LIP_PULL = { from: 16, turn: 1.0, shove: 0.8 };
+/**
+ * Over a waterfall, the tuck: lean forward as the meter's needle (how far down the fall you are)
+ * crosses TUCK_AT, within a band TUCK_WINDOW wide, narrower by up to TUCK_SHRINK the bigger the
+ * fall. Coming up to the lip, the line-up needle reads the bow's angle to the drop out to LINE_RANGE
+ * (radians) either side.
+ */
+const TUCK_AT = 0.72;
+const TUCK_WINDOW = 0.36;
+const TUCK_SHRINK = 0.16;
+const LINE_RANGE = 0.5;
+/** How big a waterfall is, 0..1: a little one forgives more than a big one. */
+const bigness = (height: number) => Math.max(0, Math.min(1, (height - 3.5) / 3));
+/** How far off the drop's line (radians) the bow can be and still go over clean. */
+const lineTolerance = (big: number) => 0.05 + 0.15 * (0.5 - big * 0.3);
 /** A boof: the stroke has to catch this close (s) before the lip. */
 export const BOOF_WINDOW = 0.45;
 /** The lip: this far (m) above a ledge's arc length the river starts to pour over it. */
@@ -159,6 +173,15 @@ export class Kayak {
   /** The roll-up: where the needle is (0..1) and how wide the window (centred on 0.5). */
   roll = { needle: 0, window: 0.3, time: 0 };
   airborne = false;
+  /**
+   * The waterfall meter over the boat: coming up to the lip, how straight you're lined up ('line':
+   * the needle at 0.5 is dead straight, and the band is straight enough); going over, how far down
+   * you are ('tuck': the band is the moment to lean forward, and hit where you did, or -1).
+   */
+  fallMeter: { phase: 'line' | 'tuck'; needle: number; at: number; window: number; hit: number } | null = null;
+  /** Going over a waterfall: the height it left the lip at, and how far down it was when you tucked (-1: not yet). */
+  private fall: { from: number; hit: number } | null = null;
+  private tucked = false; // leaning forward last step
   /** How high (m, as built) the drop it's flying off right now is: 0 on the water, or off a wave. */
   get flying() {
     return this.airborne && !this.hopping ? this.dropHeight : 0;
@@ -278,6 +301,7 @@ export class Kayak {
     this.here = p;
     this.tilt = this.tiltV = this.slam = 0;
     this.braceReady = 1;
+    this.fall = this.fallMeter = null;
     this.balance = 'up';
     this.effort = 0;
     this.rolls = 0;
@@ -313,6 +337,7 @@ export class Kayak {
     this.heading = p.a;
     this.yawRate = this.tilt = this.tiltV = this.slam = this.vy = 0;
     this.braceReady = 1;
+    this.fall = this.fallMeter = null;
     this.airborne = false;
   }
 
@@ -514,11 +539,16 @@ export class Kayak {
     this.effort *= Math.exp(-dt * 0.8);
     this.leanNow += (i.lean - this.leanNow) * (1 - Math.exp(-dt * 10));
     this.pitchNow += (i.pitch - this.pitchNow) * (1 - Math.exp(-dt * 10));
+    // over a waterfall, the tuck: the first lean forward on the way down is the one that counts
+    const tucking = i.pitch > 0.5;
+    if (this.fall && this.fall.hit < 0 && tucking && !this.tucked) this.fall.hit = this.fallPhase();
+    this.tucked = tucking;
 
     // what's in the water here: holes, tongues, ledges, and the rest
     let hole: Hole | null = null;
     let tongue: Tongue | null = null;
     let pull = 0; // coming to a waterfall's lip
+    let ahead: Ledge | null = null; // (and which)
     const things = course.near(this.s - 14, this.s + 8); // (a big rock's eddy reaches a long way down)
     for (const t of things) {
       if (!('kind' in t)) {
@@ -537,6 +567,7 @@ export class Kayak {
           break;
         case 'ledge':
           this.lipCheck(t, running);
+          if (t.height >= 3 && !t.passed && t.s - this.s < LIP_PULL.from + 6) ahead = t;
           if (t.pull && !t.passed) {
             const k = THREE.MathUtils.smoothstep(LIP_PULL.from - (t.s - LIP_AT - this.s), 0, LIP_PULL.from);
             pull = t.pull * k * k;
@@ -716,6 +747,8 @@ export class Kayak {
     if (!this.airborne && (water < this.pos.y - 0.3 || away > 2)) {
       this.airborne = true;
       this.vy = this.boofing ? 2.8 : 0;
+      // off a waterfall: the fall's meter starts (already leaning forward, and that's too soon)
+      if (this.dropHeight >= 3) this.fall = { from: this.pos.y, hit: this.tucked ? 0 : -1 };
       if (this.boofing) this.vel.multiplyScalar(1.12);
     }
     if (this.airborne) {
@@ -725,6 +758,7 @@ export class Kayak {
     } else {
       this.pos.y = water;
     }
+    this.meter(ahead);
   }
 
   /**
@@ -947,6 +981,7 @@ export class Kayak {
 
   private capsize() {
     this.balance = 'rolling';
+    this.fall = this.fallMeter = null;
     this.tiltV = this.slam = 0;
     this.roll = { needle: 0, window: Math.max(0.12, 0.36 - this.rolls * 0.06 - this.difficulty * 0.08), time: 0 };
     this.vel.multiplyScalar(0.5);
@@ -983,12 +1018,29 @@ export class Kayak {
 
   // --- things in the water --------------------------------------------------------------------
 
+  /** How far down the fall you are, 0..1, as the time it's taken (it falls faster and faster). */
+  private fallPhase() {
+    return this.fall ? Math.sqrt(Math.max(0, Math.min(1, (this.fall.from - this.pos.y) / Math.max(1, this.dropHeight)))) : 0;
+  }
+
+  private meter(ahead: Ledge | null) {
+    const up = this.balance === 'up' || this.balance === 'over';
+    if (this.fall && this.airborne && up && !this.assisted) {
+      const big = bigness(this.dropHeight);
+      this.fallMeter = { phase: 'tuck', needle: this.fallPhase(), at: TUCK_AT, window: TUCK_WINDOW - big * TUCK_SHRINK, hit: this.fall.hit };
+    } else if (ahead && up && !this.airborne) {
+      const skew = (this.here ? angle(this.heading - this.here.a) : 0) + Math.max(-0.3, Math.min(0.3, this.yawRate * 0.3));
+      this.fallMeter = { phase: 'line', needle: 0.5 + Math.max(-1, Math.min(1, skew / LINE_RANGE)) / 2, at: 0.5, window: lineTolerance(bigness(ahead.height)) / LINE_RANGE, hit: -1 };
+    } else this.fallMeter = null;
+  }
+
   private lipCheck(l: Ledge, running: boolean) {
     if (l.passed || this.s < l.s - LIP_AT) return;
     l.passed = true;
     this.dropHeight = l.height;
     this.lipSpeed = this.speed;
-    this.lipSkew = this.here ? angle(this.heading - this.here.a) : 0;
+    // (still turning as you go over, you land more crooked than you left)
+    this.lipSkew = (this.here ? angle(this.heading - this.here.a) : 0) + Math.max(-0.3, Math.min(0.3, this.yawRate * 0.3));
     // a boof: a stroke catching right at the lip, not leaning forward (leaning back lifts the bow more)
     this.boofing = running && this.balance === 'up' && this.clock - this.lastCatch < BOOF_WINDOW && this.pitchNow < 0.3;
   }
@@ -1015,21 +1067,30 @@ export class Kayak {
     const upright = this.balance === 'up' || this.balance === 'over';
     const kick = (k: number) => (this.tiltV += (Math.random() < 0.5 ? -1 : 1) * k);
     if (height > 0.6 && upright && this.dropHeight >= 3) {
-      // a waterfall: tuck forward and knife in straight, or land flat or skewed and feel it. A
-      // little one forgives a half-hearted tuck and a line a bit off; a big one wants you right
-      // forward and pointing straight down it. (On a touch screen he tucks for himself.)
-      const big = Math.max(0, Math.min(1, (this.dropHeight - 3.5) / 3));
-      const tuck = this.assisted ? 1 : Math.max(0, Math.min(1, (this.pitchNow - 0.1) / (0.4 + big * 0.5)));
-      // (still turning as you go over, you land more crooked than you left)
-      const landSkew = this.here ? angle(this.heading - this.here.a) : 0;
-      if (Math.abs(landSkew) > Math.abs(this.lipSkew)) this.lipSkew = landSkew;
-      const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.04) / (0.42 - big * 0.24))
+      // a waterfall: go over it lined up straight, and tuck forward as you fall into the gold (see
+      // TUCK_AT), not before and not after; or land nose first, flat or skewed and feel it. A
+      // little one forgives a line a bit off and a tuck a bit out; a big one wants it just so.
+      // (On a touch screen he tucks for himself.)
+      const big = bigness(this.dropHeight);
+      const hit = this.fall ? this.fall.hit : -1;
+      this.fall = null;
+      const off = hit >= 0 ? hit - TUCK_AT : 1; // (never tucked: as late as can be)
+      const half = (TUCK_WINDOW - big * TUCK_SHRINK) / 2;
+      const tuck = this.assisted ? 1 : Math.max(0, 1 - Math.max(0, Math.abs(off) - half) / 0.15);
+      const early = !this.assisted && off < 0;
+      const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.05) / (0.5 - big * 0.3))
         * Math.max(0, 1 - Math.max(0, Math.abs(this.tilt) - 0.1) / (TIP - 0.1)); // (a wobble in the white water at the lip is forgiven)
       const miss = 1 - tuck * straight;
       this.pitch = 0.3 - miss * 0.4;
       this.vel.multiplyScalar(0.9 - miss * 0.4);
       if (miss < 0.35) this.jumpHole();
-      if (miss < 0.1) {
+      if (miss >= 0.15 && early && straight > tuck) {
+        // tucked too soon: in too steep, nose first and deep, and slow coming up out of it
+        this.pitch = 0.6;
+        this.vel.multiplyScalar(0.6);
+        kick(miss * (1.4 + this.dropHeight * 0.4));
+        this.events.ledge?.('pencil', height);
+      } else if (miss < 0.15) {
         // knifed in clean, but it's still a waterfall: you come up rocking in the white water at
         // its foot, and it's a lean (or a brace) that settles you
         const side = Math.random() < 0.5 ? -1 : 1;

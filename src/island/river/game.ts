@@ -953,8 +953,8 @@ export class RiverGame {
           this.controls.rumble(1, 1, 350);
           this.flash.amount = 0.4;
           this.flash.color.set('#ff5a3c');
-          this.broke(how === 'flat' ? 'Landed flat' : 'Landed sideways');
-        } else this.broke('Nose first');
+          this.broke(how === 'flat' ? 'Tucked too late: landed flat' : 'Landed sideways');
+        } else this.broke(height >= 2.5 ? 'Tucked too soon: nose first' : 'Nose first');
       },
       brace: (perfect) => {
         if (perfect) this.well(`Perfect brace! +${this.pay(BRACE)}`, 0.5, { flash: 0.25, sound: 'brace', rumble: 0.7, kick: 0.3 });
