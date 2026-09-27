@@ -37,6 +37,11 @@ const OVER = 1.45;
 const PERFECT = 1.0;
 /** After a brace it takes this long (s) before you've another in you: one saves you, not a string of them. */
 const BRACE_AGAIN = 2.5;
+/**
+ * A waterfall's lip slews you round as you come to it: this far (m) out it starts, and at the lip
+ * it turns the bow this hard and pushes you sideways this hard. Hold it straight.
+ */
+const LIP_PULL = { from: 16, turn: 1.0, shove: 0.8 };
 /** A boof: the stroke has to catch this close (s) before the lip. */
 export const BOOF_WINDOW = 0.45;
 /** The lip: this far (m) above a ledge's arc length the river starts to pour over it. */
@@ -513,6 +518,7 @@ export class Kayak {
     // what's in the water here: holes, tongues, ledges, and the rest
     let hole: Hole | null = null;
     let tongue: Tongue | null = null;
+    let pull = 0; // coming to a waterfall's lip
     const things = course.near(this.s - 14, this.s + 8); // (a big rock's eddy reaches a long way down)
     for (const t of things) {
       if (!('kind' in t)) {
@@ -531,6 +537,10 @@ export class Kayak {
           break;
         case 'ledge':
           this.lipCheck(t, running);
+          if (t.pull && !t.passed) {
+            const k = THREE.MathUtils.smoothstep(LIP_PULL.from - (t.s - LIP_AT - this.s), 0, LIP_PULL.from);
+            pull = t.pull * k * k;
+          }
           break;
       }
     }
@@ -586,6 +596,12 @@ export class Kayak {
       fz0 -= fz * wave.slope * WAVE_PULL;
     }
     if (hole) tau += Math.sin(this.clock * 2.7) * 2.4 * hole.strength;
+    // the lip of a waterfall slews the bow round and carries you sideways: steer against it
+    if (pull && up && !this.airborne) {
+      tau += pull * LIP_PULL.turn;
+      fx0 += rx * pull * LIP_PULL.shove;
+      fz0 += rz * pull * LIP_PULL.shove;
+    }
     // in a storm, the wind shoves you across the river (paddle into it, or ride it)
     if (up && running && !this.airborne) {
       fx0 += rx * this.gust;
@@ -1004,22 +1020,32 @@ export class Kayak {
       // forward and pointing straight down it. (On a touch screen he tucks for himself.)
       const big = Math.max(0, Math.min(1, (this.dropHeight - 3.5) / 3));
       const tuck = this.assisted ? 1 : Math.max(0, Math.min(1, (this.pitchNow - 0.1) / (0.4 + big * 0.5)));
-      const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.05) / (0.5 - big * 0.3))
+      // (still turning as you go over, you land more crooked than you left)
+      const landSkew = this.here ? angle(this.heading - this.here.a) : 0;
+      if (Math.abs(landSkew) > Math.abs(this.lipSkew)) this.lipSkew = landSkew;
+      const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.04) / (0.42 - big * 0.24))
         * Math.max(0, 1 - Math.max(0, Math.abs(this.tilt) - 0.1) / (TIP - 0.1)); // (a wobble in the white water at the lip is forgiven)
       const miss = 1 - tuck * straight;
       this.pitch = 0.3 - miss * 0.4;
       this.vel.multiplyScalar(0.9 - miss * 0.4);
       if (miss < 0.35) this.jumpHole();
-      if (miss < 0.15) {
+      if (miss < 0.1) {
+        // knifed in clean, but it's still a waterfall: you come up rocking in the white water at
+        // its foot, and it's a lean (or a brace) that settles you
+        const side = Math.random() < 0.5 ? -1 : 1;
+        this.tiltV += side * (0.8 + this.dropHeight * 0.3);
+        this.slam = side * (1 + this.dropHeight * 0.35);
         this.events.ledge?.('tuck', height);
       } else {
         // thrown over the way the bow was skewed, if it was, and the water keeps on rolling you
         // that way for a moment after: a brace alone won't do, lean against it too
         const skewed = straight <= tuck;
-        const k = miss * (skewed ? 2.4 + this.dropHeight * 1.0 : 1.6 + this.dropHeight * 0.75);
+        const k = miss * (2.4 + this.dropHeight * 1.0);
         const side = Math.abs(this.lipSkew) > 0.1 ? Math.sign(this.lipSkew) : Math.random() < 0.5 ? -1 : 1;
         this.tiltV += side * k;
-        this.slam = side * miss * (skewed ? 3 + this.dropHeight * 1.0 : 2 + this.dropHeight * 0.7);
+        this.slam = side * miss * (3 + this.dropHeight * 1.0);
+        // and a hard landing knocks the wind out of you: no brace in you for a moment, only the lean
+        if (miss > 0.4) this.braceReady = 0;
         this.events.ledge?.(skewed ? 'skew' : 'flat', height);
         if (skewed) {
           // sideways into the foot of it: the curtain slews the stern round, stops you dead, and

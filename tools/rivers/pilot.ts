@@ -431,8 +431,8 @@ export class Pilot {
       }
     }
     const escape = this.peel >= 0;
-    // over a waterfall: straight down it
-    if (falls && toLip < 1.6) want = k.here.a;
+    // over a waterfall: straight down it, lined up in good time (the lip pulls the bow round)
+    if (falls && toLip < 5) want = k.here.a;
     const err = angle(want - k.heading) - k.yawRate * S.damp; // + wants to turn right
 
     // the paddle

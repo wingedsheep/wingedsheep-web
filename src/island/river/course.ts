@@ -153,6 +153,11 @@ export interface Ledge {
   s: number; // the lip
   height: number;
   passed: boolean;
+  /**
+   * A waterfall's lip slews you round as you come to it (the water sliding off to one side along
+   * the horizon line): which way (the sign) and how hard (0..1). Nothing on a little ledge.
+   */
+  pull: number;
 }
 
 /**
@@ -809,7 +814,10 @@ export class Course {
     // the ledges: a staircase down a cascade, a big one in the middle of a falls, and now and
     // then one in the rapids or the gorge
     const ledge = (at: number, height: number) => {
-      const l: Ledge = { kind: 'ledge', s: Math.round(at), height, passed: false };
+      // (the pull comes from the lip itself, not the dice, so it leaves every other river as it was)
+      const hash = Math.sin(Math.round(at) * 78.233 + height * 12.9898) * 43758.5453;
+      const pull = height >= 3 ? (hash - Math.floor(hash) < 0.5 ? -1 : 1) * (0.6 + (Math.abs(hash) % 0.4)) : 0;
+      const l: Ledge = { kind: 'ledge', s: Math.round(at), height, passed: false, pull };
       this.ledges.push(l);
       this.lips.push(l);
       this.file(l);

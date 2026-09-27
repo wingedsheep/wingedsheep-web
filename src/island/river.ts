@@ -61,9 +61,9 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     touch: 'A ledge! Paddle hard as the lip lights up gold',
   },
   falls: {
-    keys: 'A waterfall! Go over straight, leaning forward [↑]',
-    pad: 'A waterfall! Go over straight, stick forward',
-    touch: 'A waterfall! Go over it straight',
+    keys: 'A waterfall! The lip pulls you round: go over straight, leaning forward [↑]',
+    pad: 'A waterfall! The lip pulls you round: go over straight, stick forward',
+    touch: 'A waterfall! The lip pulls you round: go over it straight',
   },
   hole: {
     keys: 'In a hole! Lean forward [↑] and paddle hard',
