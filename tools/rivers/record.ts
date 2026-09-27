@@ -7,6 +7,7 @@
  *   just record --river black --seed 3        just that one
  *   just record --size 1920x1080 --fps 60
  *   just record --river dawdle --seconds 20   a quick look
+ *   just record --river coffee --downriver 1500 --seconds 40   push off further down, for a look at the hard stuff
  *   just record --url http://localhost:4321   a dev server that's already running (else it starts one)
  *
  * It needs Google Chrome and ffmpeg. The paddler is pilot.ts's, the same as `just autopilot`'s.
@@ -24,6 +25,7 @@ const OUT = args.out ?? 'recordings';
 const [W, H] = (args.size ?? '1280x720').split('x').map(Number);
 const FPS = Number(args.fps ?? 30);
 const SEED = Number(args.seed ?? 1);
+const DOWNRIVER = Number(args.downriver ?? 0);
 const STEP = 1000 / 60; // the game's frame (ms of its clock); every 60/FPS-th one is filmed
 /** Once it's down (or swimming), this much more (s) of the take-out. */
 const TAIL = 5;
@@ -113,7 +115,7 @@ async function film(base: string, id: string, pilot: string) {
   await page.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   await page.send('Page.addScriptToEvaluateOnNewDocument', { source: CLOCK });
   await page.send('Page.addScriptToEvaluateOnNewDocument', { source: pilot });
-  await page.send('Page.navigate', { url: `${base}/?river=${id}&seed=${SEED}#river` });
+  await page.send('Page.navigate', { url: `${base}/?river=${id}&seed=${SEED}${DOWNRIVER ? `&downriver=${DOWNRIVER}` : ''}#river` });
 
   // the island loads, then the river (a frame at a time, and a moment of real time for the models to come in)
   process.stdout.write(`${id}: loading`);
@@ -125,7 +127,7 @@ async function film(base: string, id: string, pilot: string) {
   const { planned } = await js<{ planned: boolean }>('window.autopilot(window.river)');
   if (!planned) console.log(' (no line all the way down: paddling anyway)');
 
-  const file = join(OUT, `${id}-seed${SEED}.mp4`);
+  const file = join(OUT, `${id}-seed${SEED}${DOWNRIVER ? `-${DOWNRIVER}m` : ''}.mp4`);
   const ffmpeg = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
     '-c:v', 'libx264', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-crf', '26', '-movflags', '+faststart', file], { stdio: ['pipe', 'inherit', 'inherit'] });
   const per = Math.max(1, Math.round(60 / FPS));

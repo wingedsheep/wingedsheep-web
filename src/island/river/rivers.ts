@@ -135,6 +135,8 @@ export interface Profile {
   /** Whether it has ledges at all, and how many holes and fallen trees it has, against the default. */
   ledges: boolean;
   snags: number;
+  /** Whether its big water has boulders in it as well: balance and dodge at once. */
+  boulders?: boolean;
   /** What it's known for, and always has somewhere on it (a cascade, a waterfall). */
   signature: Kind[];
   /** Who you might be lucky enough to see on it (one of them, on some runs). */
@@ -218,7 +220,7 @@ export const RIVERS: RiverDef[] = [
     id: 'coffee', name: 'Hold My Coffee', grade: 5, lede: 'Grade 5, and a long way down. Beike’s staying on the bank.',
     goals: [{ kind: 'falls', text: 'Send the waterfall', points: 1000 }, { kind: 'flow', n: 4, text: 'Get your flow up to ×4', points: 1000 }, { kind: 'time', n: 270, text: 'Down in under 4:30', points: 1000 }],
     length: 2200, heat: [0.55, 1], cap: 1, cascades: 600, falls: 650, gorges: 1.5, stairs: 1,
-    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, key: 'wingedsheep:river:coffee',
+    speed: 1, pieces: ['slalom', 'strainers', 'doors', 'funnel', 'weir', 'fork', 'balls', 'waves'], ledges: true, snags: 1, boulders: true, key: 'wingedsheep:river:coffee',
     rare: { chance: 0.6, who: { wolves: 2.5, lynx: 2, bear: 1.5, yeti: 0.15 } }, signature: ['cascade', 'falls'], look: { water: { shallow: [0.4, 0.58, 0.6], mid: [0.1, 0.24, 0.3], deep: [0.02, 0.07, 0.12] }, pines: 0.9, birch: 0, meadow: 0, snow: 1, springs: 1.7,
       earth: ['#5a6662', 0.35], crags: 1, homely: 0, grim: 1, flutter: 0, dark: true, alpine: 1, jagged: 0.9, details: { mine: 1.4, bridgeOut: 1, skull: 1, avalanche: 1, ferrata: 1, icefall: 1, rockfall: 0.8 },
       mood: { air: ['#687280', 0.45], sight: 0.8, sun: 0.75, tint: ['#b0bcd8', 0.35], grade: [0.7, 1, 0.95], vignette: 0.9, mist: 0.6, night: 0.65 } },

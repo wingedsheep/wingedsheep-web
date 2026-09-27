@@ -2,9 +2,9 @@
  * Wild water: the kayak off the pier goes a lot further than round the island. Through the iris
  * like a room, but outdoors: a mountain river (src/island/river/), made up ahead of you, lit by the
  * island's own sun and weather, a km or two down to the take-out. Six of them, gentlest first
- * (river/rivers.ts): make it all the way down one and the next one opens. Distance times flow is
- * the score, less a bit for each capsize; make it down and every second under par, gate and ball
- * pays on top (and a little more down in the dark, or in a storm). Each river's best stays in this browser.
+ * (river/rivers.ts): make it all the way down one and the next one opens. Everything pays as it
+ * happens, times the flow you're on: distance, time gained on par, gates, balls, clean lines; less
+ * a bit for each capsize (and a little more at the take-out down in the dark, or in a storm). Each river's best stays in this browser.
  */
 import * as THREE from 'three';
 import type { IslandContext } from './content';
@@ -96,6 +96,11 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     keys: 'Big water! Point straight down it and keep paddling. Balance with [←] / [→], and [Space] braces',
     pad: 'Big water! Point straight down it and keep paddling. Balance with the stick, and [✕] braces',
     touch: 'Big water! Point straight down it and keep paddling. Tap low down on the side you tip to brace',
+  },
+  rocky: {
+    keys: 'Big water, and rocks in it! Balance with [←] / [→], [Space] braces, and steer round them between the waves',
+    pad: 'Big water, and rocks in it! Balance with the stick, [✕] braces, and steer round them between the waves',
+    touch: 'Big water, and rocks in it! Tap low down on the side you tip to brace, and steer round them between the waves',
   },
   peel: {
     keys: 'Eddy! Lean into the turn on the way out',
@@ -824,9 +829,10 @@ export class River implements RoomInput {
     set('[data-river-line]', t.finished ? FINISHES[this.finishes++ % FINISHES.length] : SWIMS[this.swims++ % SWIMS.length]);
     set('[data-over-metres]', t.finished ? 'All the way' : `${round(t.metres)} m`);
     set('[data-over-time]', clock(t.time));
-    set('[data-over-bonus]', t.finished ? `+${round(t.bonus.time)}` : '–');
-    set('[data-over-gates]', t.finished ? `${t.gates} · +${round(t.bonus.gates)}` : String(t.gates));
-    set('[data-over-balls]', t.finished ? `${t.balls} · +${round(t.bonus.balls)}` : String(t.balls));
+    set('[data-over-bonus]', t.bonus.time ? `+${round(t.bonus.time)}` : '–');
+    set('[data-over-gates]', t.gates ? `${t.gates} · +${round(t.bonus.gates)}` : '0');
+    set('[data-over-balls]', t.balls ? `${t.balls} · +${round(t.bonus.balls)}` : '0');
+    set('[data-over-sets]', t.sets ? `${t.sets} · +${round(t.setPoints)}` : '0');
     set('[data-over-sends]', t.sends ? `${t.sends} · +${round(t.sent)}` : '0');
     set('[data-over-hot]', t.flatOut ? `${Math.floor(t.longest)}s · +${round(t.flatOut)}` : '–');
     set('[data-over-flips]', t.flips ? `${t.flips} · −${round(t.flips * FLIP)}` : '0');

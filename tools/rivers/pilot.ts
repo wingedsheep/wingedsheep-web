@@ -549,8 +549,10 @@ export class Foresight {
     const k = copyKayak(this.k);
     const p = this.pilot.copy(k);
     p.move = move;
-    // (the river remembers what's been passed and taken: put that back afterwards)
-    const flags = this.course.near(this.k.s - 5, this.k.s + 40).map((t) => [t, { ...t }] as const);
+    // (the river remembers what's been passed and taken: put that back afterwards, as far down as
+    // the copy could get, or a lip it went over is gone before the boat itself gets there)
+    const reach = Math.max(1, this.k.speed) * 1.5 * S.horizon + 10;
+    const flags = this.course.near(this.k.s - 5, this.k.s + reach).map((t) => [t, { ...t }] as const);
     let hit = 0;
     let over = 0;
     let bad = 0;

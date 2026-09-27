@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { haloTexture } from '../scene/sky';
 import { RiverAssets } from './assets';
 import { Controls } from './controls';
-import { Course, type Split, type Stretch } from './course';
+import { Course, type Piece, type SetPiece, type Split, type Stretch } from './course';
 import { BOOF_WINDOW, Kayak, LIP_AT } from './kayak';
 import { Land, type Lamp, flicker, fogAt, highAt } from './land';
 import { type Goal, RARE, RIVERS, type Rare, type RiverDef } from './rivers';
@@ -13,23 +13,39 @@ import { type Cry, Wildlife } from './wildlife';
 
 const ELEVATION = THREE.MathUtils.degToRad(48);
 const DISTANCE = 140;
-const FLOW_MAX = 5;
 /** Speed pays: at or below SLOW m/s a metre's worth its flow, at FAST and over twice that. */
 const SLOW = 3;
 const FAST = 9;
 /**
  * Par for a run (s) is its length over this: drifting down gets you there in about that. Every
- * second under it at the finish is worth TICK points, times the flow you finish on.
+ * second you get ahead of it is worth TICK points as you gain it, times the flow you're on then
+ * (lose time and you've that to make up before it pays again).
  */
 const DRIFT = 4.5;
 const TICK = 25;
 /** Seconds of quiet between one teaching hint and the next, and before the first. */
 const QUIET = 10;
 const QUIET_START = 4;
-/** What each gate and each ball is worth at the take-out (only if you make it), and what a capsize costs. */
-export const GATE = 150;
-export const BALL_POINTS = 100;
+/**
+ * Everything done well pays as you do it, times the flow you're on (and builds the flow too). A
+ * gate and a ball; a set piece got through without touching a thing, SET a beat of it, more the
+ * hotter the water (the S of balls: every one of them); a stretch of white water without a knock,
+ * CLEAN a grade; the hero line round an island; a boof, BOOF a metre of drop (a send pays more,
+ * see SEND); a spin, SPIN a turn; a perfect brace. And what a capsize costs.
+ */
+const GATE = 50;
+const FETCH = 30;
+const SET = 40;
+const CLEAN = 50;
+const HERO = 150;
+const BOOF = 30;
+const SPIN = 100;
+const BRACE = 25;
 export const FLIP = 300;
+/** What getting through each kind of set piece clean is called (the fork's just picking a side). */
+const SETS: Partial<Record<Piece, string>> = {
+  slalom: 'Clean slalom!', strainers: 'Through the strainers!', doors: 'Every door!', funnel: 'Threaded the slot!', weir: 'Through the weir!', balls: 'Carved the S!',
+};
 /** Down to the take-out with a storm still blowing: this much on top of everything else. */
 export const STORM_BONUS = 0.15;
 /** Down to the take-out in the dark (by headlamp, or a full moon at best): a little on top too. */
@@ -66,9 +82,15 @@ export interface Tally {
   time: number;
   gates: number;
   flips: number;
-  /** Made it to the take-out (rather than swimming), and what that was worth: the clock, the gates, the balls. */
+  /**
+   * Made it to the take-out (rather than swimming); what getting ahead of par, the gates and the
+   * balls paid as they came; and at the take-out, what the storm and the dark added.
+   */
   finished: boolean;
   bonus: { time: number; gates: number; balls: number; storm: number; night: number };
+  /** Set pieces got through without touching a thing, and what they paid. */
+  sets: number;
+  setPoints: number;
   balls: number;
   /** Drops gone off flat out, and what they paid. */
   sends: number;
@@ -76,7 +98,7 @@ export interface Tally {
   /** The longest you held it flat out (s), and what going flat out paid. */
   longest: number;
   flatOut: number;
-  /** The multiplier: built by doing things well, lost on a knock or a swim. */
+  /** The multiplier on everything: built by doing things well (no ceiling), lost on a knock or a swim. */
   flow: number;
   bestFlow: number;
   score: number;
@@ -119,7 +141,7 @@ export interface Outside {
 }
 
 export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'plunge' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'growl' | 'spotted' | Cry;
-export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball' | 'waves' | 'big';
+export type Hint = 'paddle' | 'steer' | 'lean' | 'brace' | 'boof' | 'falls' | 'hole' | 'roll' | 'tongue' | 'eddy' | 'peel' | 'sprint' | 'ball' | 'waves' | 'big' | 'rocky';
 
 export interface GameEvents {
   /** Into a new stretch of river. */
@@ -152,10 +174,10 @@ export interface GameEvents {
 
 /**
  * The wild-water run: a mountain river made up ahead of you, a km or two down to the take-out, the
- * kayak, and a camera looking down the river from behind it. How far you get, times how well: the
- * flow builds with every boof, brace, gate and clean line, and a knock or a capsize breaks it (a
- * capsize costs points too). Make it to the take-out and it pays again: for every second under
- * par, every gate and every ball. Things
+ * kayak, and a camera looking down the river from behind it. The flow multiplies everything, for
+ * as long as you hold it: it builds with every boof, brace, gate and clean line, with no ceiling,
+ * and a knock or a capsize breaks it (a capsize costs points too). Distance pays, getting ahead of
+ * par pays, and so does everything done well, each as it happens, times the flow then. Things
  * done right get a moment: a word, a beat of stillness, a thump in the pad.
  */
 export class RiverGame {
@@ -257,6 +279,11 @@ export class RiverGame {
   /** A lip's lit up for the stroke. */
   private cued = false;
   private lastMetres = 0;
+  /** The most seconds ahead of par you've been, and paid for. */
+  private ahead = 0;
+  /** The set piece being paddled through, and whether it's been without a touch. */
+  private set: SetPiece | null = null;
+  private setClean = true;
   /** Rings on the water (from a stroke, a landing, a knock), drifting off on the current. */
   private ripples: { x: number; z: number; age: number; size: number }[] = [];
   /** Where the last eddy was caught: the next one has to be further down to count. */
@@ -372,6 +399,8 @@ export class RiverGame {
     this.split = null;
     this.overIn = 0;
     this.lastMetres = 0;
+    this.ahead = 0;
+    this.set = null;
     this.streak = this.streakFor = 0;
     this.squish = this.squishV = 0;
     this.ripples = [];
@@ -573,6 +602,14 @@ export class RiverGame {
       this.lastMetres = metres;
     }
     t.metres = metres;
+    // ahead of par: paid as you gain it, at the flow you're on
+    const ahead = metres / DRIFT - t.time;
+    if (ahead > this.ahead) {
+      const points = (ahead - this.ahead) * TICK * t.flow;
+      t.score += points;
+      t.bonus.time += points;
+      this.ahead = ahead;
+    }
     t.speed = k.speed;
     // eased, so the readout doesn't flicker with every stroke
     const pace = 1 + THREE.MathUtils.clamp((k.speed - SLOW) / (FAST - SLOW), 0, 1);
@@ -586,7 +623,8 @@ export class RiverGame {
       // out the bottom of white water without a knock or a swim: that's worth something
       if (was && white(was) && this.clean) {
         const grade = was.grade ?? 3;
-        this.well(`${was.name ?? 'The falls'} · clean!`, 0.3 + grade * 0.1, { flash: 0.45, sound: 'cleared', rumble: 0.6, kick: 0.5 });
+        const points = this.pay(CLEAN * grade);
+        this.well(`${was.name ?? 'The falls'} · clean! +${points}`, 0.3 + grade * 0.1, { flash: 0.45, sound: 'cleared', rumble: 0.6, kick: 0.5 });
       }
       // dropping into it: the water grabs you
       if (white(now) && (!was || !white(was))) {
@@ -597,6 +635,7 @@ export class RiverGame {
       this.clean = true;
     }
     this.round();
+    this.piece();
     this.camp();
     this.flatOut(dt);
     this.goals(false);
@@ -697,13 +736,11 @@ export class RiverGame {
     return points;
   }
 
-  /** Under the bridge: the clock stops, every second under par pays, and so does every gate and ball. */
+  /** Under the bridge: the clock stops, and a storm or the dark adds a little on top. */
   private finish() {
     const t = this.tally;
     t.finished = true;
-    t.bonus = { time: Math.round(Math.max(0, this.par - t.time) * TICK * t.flow), gates: t.gates * GATE, balls: t.balls * BALL_POINTS, storm: 0, night: 0 };
-    t.score += t.bonus.time + t.bonus.gates + t.bonus.balls;
-    // and all of it out in a storm, or in the dark (both on what you'd have had without either)
+    // all of it out in a storm, or in the dark (both on what you'd have had without either)
     const base = t.score;
     if (this.storm >= 0.5) t.score += t.bonus.storm = Math.round(base * STORM_BONUS);
     if (this.dark >= DARK) t.score += t.bonus.night = Math.round(base * NIGHT_BONUS);
@@ -738,7 +775,7 @@ export class RiverGame {
     if (!sp) return;
     if (k.here.isle > 1) this.took = Math.sign(k.side - k.here.isleU);
     if (k.s > sp.s1) {
-      if (this.took === sp.hero && this.splitClean) this.well('Hero line!', 0.4, { flash: 0.35, sound: 'cleared', rumble: 0.5, kick: 0.4 });
+      if (this.took === sp.hero && this.splitClean) this.well(`Hero line! +${this.pay(HERO)}`, 0.4, { flash: 0.35, sound: 'cleared', rumble: 0.5, kick: 0.4 });
       this.split = null;
     }
   }
@@ -748,7 +785,7 @@ export class RiverGame {
     if (this.state !== 'running') return;
     const t = this.tally;
     const was = Math.floor(t.flow);
-    t.flow = Math.min(FLOW_MAX, Math.round((t.flow + gain) * 100) / 100);
+    t.flow = Math.round((t.flow + gain) * 100) / 100;
     t.bestFlow = Math.max(t.bestFlow, t.flow);
     this.events.praise?.(text, gain >= 0.5);
     // one after another, each a note higher
@@ -797,6 +834,41 @@ export class RiverGame {
    * The first time each thing comes up, a word on how to deal with it: straight away if it's
    * happening now (tipping, a ledge coming up), otherwise only once it's been quiet a while.
    */
+  /**
+   * A set piece: into it, and out the bottom without touching a rock, a log or a post (for the S
+   * of balls, with every one of them): that pays, more the longer it was and the hotter the water.
+   */
+  private piece() {
+    const k = this.kayak;
+    if (!this.set) {
+      const next = this.course.sets.find((x) => SETS[x.kind] && k.s >= x.s0 && k.s < x.s1);
+      if (next) {
+        this.set = next;
+        this.setClean = true;
+      }
+      return;
+    }
+    const sp = this.set;
+    if (k.s < sp.s1) return;
+    this.set = null;
+    if (!this.setClean) return;
+    if (sp.kind === 'balls' && this.course.near(sp.s0, sp.s1).some((o) => 'kind' in o && o.kind === 'ball' && !o.taken)) return;
+    const t = this.tally;
+    const points = this.pay(SET * sp.beats * (1 + sp.heat));
+    t.sets++;
+    t.setPoints += points;
+    this.well(`${SETS[sp.kind]} +${points}`, 0.2 + sp.beats * 0.08, { flash: 0.35, sound: 'cleared', rumble: 0.5, kick: 0.4 });
+    this.wildlife.sparkle(k.pos, 16 + sp.beats * 3, undefined, 1);
+  }
+
+  /** Points on the spot, times the flow you're on (and none once it's over). Returns what it paid. */
+  private pay(base: number) {
+    if (this.state !== 'running') return 0;
+    const points = Math.round(base * this.tally.flow);
+    this.tally.score += points;
+    return points;
+  }
+
   private tell(h: Hint, now = false) {
     const t = this.tally.time;
     if (this.hinted.has(h) || (!now && t < this.quiet)) return;
@@ -820,14 +892,15 @@ export class RiverGame {
       if (o.kind === 'rock' && !o.scenery && o.s > k.s + 14 && t > 50) this.tell('eddy');
       if (o.kind === 'ball' && !o.taken && o.s > k.s + 12) this.tell('ball');
       // (after the word on big water, not straight on top of it)
-      if (o.kind === 'train' && o.s > k.s + 6 && o.s < k.s + 30) this.tell('waves', !this.hinted.has('big'));
+      if (o.kind === 'train' && o.s > k.s + 6 && o.s < k.s + 30) this.tell('waves', !this.hinted.has('big') && !this.hinted.has('rocky'));
     }
     // big water coming up: a word on how to ride it before you're in it, every time
     const ahead = this.course.stretchAt(k.s + 45);
     if (ahead.big && ahead.start > k.s + 15 && !this.warned.has(ahead.start)) {
       this.warned.add(ahead.start);
-      this.hinted.delete('big');
-      this.tell('big', true);
+      const h = ahead.rocky ? 'rocky' : 'big';
+      this.hinted.delete(h);
+      this.tell(h, true);
     }
   }
 
@@ -844,10 +917,12 @@ export class RiverGame {
         this.flash.amount = 0.35;
         this.flash.color.set('#ff5a3c');
         if (this.state === 'running') this.tally.knocks++;
+        this.setClean = false;
         this.broke('Knocked');
       },
       bump: (strength, at) => {
         if (strength < 0.6) return;
+        this.setClean = false;
         this.wildlife.spray(at, 5, 0.6);
         this.squash(Math.min(0.1, strength * 0.03));
         this.events.sound?.('bump', Math.min(1, strength / 3));
@@ -871,8 +946,8 @@ export class RiverGame {
         if (sent) {
           this.well(`Full send! +${sent}`, 0.9, { flash: 0.5, sound: 'boof', rumble: 1, kick: 1 });
           this.wildlife.sparkle(k.pos, 30, undefined, 1.2);
-        } else if (how === 'boof') this.well(height > 2 ? 'BOOF!' : 'Boof!', height > 2 ? 0.7 : 0.5, { flash: 0.35, sound: 'boof', rumble: 0.8, kick: 0.6 });
-        else if (how === 'tuck') this.well('Tucked it!', 0.8, { flash: 0.4, sound: 'boof', rumble: 1, kick: 0.8 });
+        } else if (how === 'boof') this.well(`${height > 2 ? 'BOOF!' : 'Boof!'} +${this.pay(BOOF * Math.max(1, height))}`, height > 2 ? 0.7 : 0.5, { flash: 0.35, sound: 'boof', rumble: 0.8, kick: 0.6 });
+        else if (how === 'tuck') this.well(`Tucked it! +${this.pay(BOOF * Math.max(1, height))}`, 0.8, { flash: 0.4, sound: 'boof', rumble: 1, kick: 0.8 });
         else if (how === 'flat' || how === 'skew') {
           this.shake = 1;
           this.controls.rumble(1, 1, 350);
@@ -882,7 +957,7 @@ export class RiverGame {
         } else this.broke('Nose first');
       },
       brace: (perfect) => {
-        if (perfect) this.well('Perfect brace!', 0.5, { flash: 0.25, sound: 'brace', rumble: 0.7, kick: 0.3 });
+        if (perfect) this.well(`Perfect brace! +${this.pay(BRACE)}`, 0.5, { flash: 0.25, sound: 'brace', rumble: 0.7, kick: 0.3 });
         else this.well('Brace', 0.2, { sound: 'brace', rumble: 0.4 });
       },
       tipping: () => {
@@ -894,6 +969,7 @@ export class RiverGame {
         this.wildlife.spray(k.pos, 30, 1.2);
         this.controls.rumble(1, 1, 400);
         if (this.state === 'running') this.tally.flips++;
+        this.setClean = false;
         this.broke('Upside down', FLIP);
         this.tell('roll', true);
       },
@@ -919,10 +995,10 @@ export class RiverGame {
       eddy: () => {
         if (k.s < this.eddyS + 12) return;
         this.eddyS = k.s;
-        this.well('Eddy!', 0.3, { sound: 'gate', rumble: 0.35 });
+        this.well('Eddy!', 0.15, { sound: 'gate', rumble: 0.35 });
         this.tell('peel', true);
       },
-      peel: () => this.well('Peeled out', 0.15, { sound: 'whoosh' }),
+      peel: () => this.well('Peeled out', 0.1, { sound: 'whoosh' }),
       sprint: () => {
         this.events.sound?.('whoosh', 1);
         this.controls.rumble(0.5, 0.8, 220);
@@ -965,7 +1041,7 @@ export class RiverGame {
         if (all) this.wildlife.sparkle(k.pos, 20, undefined, 1);
       },
       shave: () => this.well('Close!', 0.15, { sound: 'whoosh' }),
-      spin: (turns) => (this.state === 'running' && this.tally.spins++, this.well(`${turns * 360}!`, 0.6 + turns * 0.2, { flash: 0.3, sound: 'boof', rumble: 0.7, kick: 0.3 })),
+      spin: (turns) => (this.state === 'running' && this.tally.spins++, this.well(`${turns * 360}! +${this.pay(SPIN * turns)}`, 0.6 + turns * 0.2, { flash: 0.3, sound: 'boof', rumble: 0.7, kick: 0.3 })),
       stroke: (q, back, side) => {
         this.events.sound?.('stroke', 0.25 + q * 0.35);
         // a ring where the blade goes in
@@ -987,6 +1063,7 @@ export class RiverGame {
       pickup: () => {
         if (this.state !== 'running') return;
         this.tally.balls++;
+        this.tally.bonus.balls += this.pay(FETCH);
         this.events.sound?.('ball');
         this.events.ball?.();
         this.wildlife.sparkle(k.pos, 14, BALL);
@@ -999,7 +1076,9 @@ export class RiverGame {
           return;
         }
         this.tally.gates++;
-        this.well('Clean gate', 0.25, { sound: 'gate', rumble: 0.3 });
+        const points = this.pay(GATE);
+        this.tally.bonus.gates += points;
+        this.well(`Clean gate · +${points}`, 0.25, { sound: 'gate', rumble: 0.3 });
       },
     };
     this.wildlife.events = {
@@ -1468,7 +1547,7 @@ const ICE = new THREE.Color('#dce8ff');
 const MIST = new THREE.Color('#d8e0e2');
 
 function fresh(): Tally {
-  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0, storm: 0, night: 0 }, balls: 0, sends: 0, sent: 0, longest: 0, flatOut: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1, spotted: [], trains: 0, rode: 0,
+  return { metres: 0, time: 0, gates: 0, flips: 0, finished: false, bonus: { time: 0, gates: 0, balls: 0, storm: 0, night: 0 }, balls: 0, sends: 0, sent: 0, longest: 0, flatOut: 0, sets: 0, setPoints: 0, flow: 1, bestFlow: 1, score: 0, speed: 0, pace: 1, spotted: [], trains: 0, rode: 0,
     knocks: 0, missed: 0, boofs: 0, spins: 0, fallsSent: 0, pumpedTrains: 0, goals: [], goalPoints: 0 };
 }
 

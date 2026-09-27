@@ -8,7 +8,7 @@
  * ledges to boof, holes to punch, tongues of smooth fast water between the rocks, and tennis
  * balls. The chutes, and now and then a run or a rapid, are laid out instead as set pieces (see
  * piece()): a slalom, a row of doors, an old weir, a boulder to pick a side of. And now and then a
-rapid is big water: wave train after wave train and hardly a rock, to ride out. Everything comes
+ * rapid is big water: wave train after wave train with only a stray rock in it, to ride out. Everything comes
  * from one seed, so the same seed is the same river. How hard it gets, and what's allowed in it, is
  * the river's Profile (rivers.ts): the Dawdle never gets past grade 2; Hold My Coffee starts hot.
  *
@@ -276,10 +276,12 @@ export interface Stretch {
   /** …and whether its wave train's been laid yet. */
   trained?: boolean;
   /**
-   * Big water: a rapid squeezed straight and running hard, one wave train after another and hardly
-   * a rock in it. Not much to dodge; everything to balance.
+   * Big water: a rapid squeezed straight and running hard, one wave train after another and only
+   * a stray rock here and there in it. Not much to dodge; everything to balance.
    */
   big?: boolean;
+  /** …and on a river with boulders in its big water (Profile.boulders), rocks in the troughs to dodge as well. */
+  rocky?: boolean;
 }
 
 const BASE: Record<Kind, Character> = {
@@ -300,11 +302,22 @@ const RAPIDS = [
 ];
 /** Big water has its own names: it's the waves you remember. */
 const BIG = ['The Rollercoaster', 'Haystacks', 'The Big Bouncy', 'Moguls', 'The Humpback', 'Wave Goodbye'];
+/** …and big water with boulders in it. */
+const ROCKY = ['Rock and Roll', 'The Pinball', 'The Minefield', 'Skittles'];
 /** And so do the chutes: the first is always the Flume. */
 const CHUTES = ['The Luge', 'Greased Lightning', 'The Waterslide', 'Express Lane', 'The Bobsleigh', 'Slip Road', 'Hold Onto Your Hat'];
 
 /** The set pieces (see Course.piece). */
 export type Piece = 'slalom' | 'strainers' | 'doors' | 'funnel' | 'weir' | 'fork' | 'balls' | 'waves';
+
+/** A set piece as laid: what, where it runs from and to (m), how many beats of it, and how hot the water. */
+export interface SetPiece {
+  kind: Piece;
+  s0: number;
+  s1: number;
+  beats: number;
+  heat: number;
+}
 
 /** How fast a boat can ferry across the current (m/s): no piece asks the line to move faster. */
 const FERRY = 1.25;
@@ -377,6 +390,8 @@ export class Course {
   private lastPiece: Piece | null = null;
   /** The line the set pieces were laid round, beat by beat (for the tests to paddle). */
   readonly line: { s: number; u: number; piece: Piece | 'rest' }[] = [];
+  /** Every set piece laid so far, in order (the game rewards getting through one clean). */
+  readonly sets: SetPiece[] = [];
   /** The lips still to come, in order. */
   private lips: Ledge[] = [];
   /** The wave trains, and where the last one ended (and it itself, just laid). */
@@ -767,10 +782,13 @@ export class Course {
     const owedBig = s > pr.length * 0.5 && !this.stretches.some((x) => x.big);
     if (kind === 'rapids' && n > 3 && pr.pieces.includes('waves') && (dice() < 0.3 + d * 0.2 || owedBig)) {
       next.big = true;
+      next.rocky = !!pr.boulders;
       next.end = Math.min(this.finish - 60, s + Math.round(220 + heat * 140 + dice() * 80));
     }
     if (kind === 'rapids' || kind === 'gorge' || kind === 'cascade') {
-      next.name = next.big
+      next.name = next.rocky
+        ? ROCKY[(this.stretches.filter((x) => x.rocky).length + this.seed) % ROCKY.length]
+        : next.big
         ? BIG[(this.stretches.filter((x) => x.big).length + this.seed) % BIG.length]
         : this.names[this.stretches.filter((x) => x.name && x.kind !== 'chute' && !x.big).length % this.names.length];
       next.grade = Math.max(2, Math.min(5, 2 + Math.round((heat - 0.2) * 3.4 + (kind === 'cascade' ? 0.4 : 0))));
@@ -958,6 +976,8 @@ export class Course {
           const len = this.trainAt(s + 2, stretch, gap * half * 0.5, 10, 0.1, true);
           if (len) {
             gap = this.lastTrainAt!.u / half;
+            if (stretch.rocky) this.boulders(this.lastTrainAt!);
+            else this.strays(this.lastTrainAt!);
             this.placedTo = s + 2 + len + 3 + r() * 6;
             continue;
           }
@@ -1074,6 +1094,48 @@ export class Course {
       this.file({ kind: 'hole', s: foot.s, u: 0, half: foot.width / 2, strength: Math.min(1, 0.35 + l.height * 0.15) });
     }
   }
+  /**
+   * Boulders down a wave train in big water, for balancing and dodging at once: one in a trough
+   * every couple of waves, left of the middle and then right (now and then the same side twice),
+   * never so far out there's no way round it on the bank side, and never so close together
+   * that there's no time to get across between them.
+   */
+  private boulders(t: Train) {
+    const r = this.scatter;
+    const every = t.count >= 7 ? 2 : 3;
+    let side = r() < 0.5 ? -1 : 1;
+    for (let k = 1 + Math.floor(r() * 2); k < t.count; k += every) {
+      if (r() > 0.25) side = -side;
+      const R = 0.95 + r() * 0.35;
+      const c = side * (0.3 + r() * 0.25) * t.half;
+      this.troughRock(t, k, c, R);
+    }
+  }
+
+  /**
+   * A stray rock or two down a wave train in big water, or none at all: wherever they happen to
+   * lie, but never both in the same stretch of troughs, and never so far out there's no way round.
+   */
+  private strays(t: Train) {
+    const r = this.scatter;
+    const n = r() < 0.4 ? 0 : r() < 0.75 ? 1 : 2;
+    let last = -Infinity;
+    for (let i = 0; i < n; i++) {
+      const k = 1 + Math.floor(r() * (t.count - 1));
+      if (Math.abs(k - last) < 3) continue;
+      last = k;
+      this.troughRock(t, k, (r() * 2 - 1) * 0.6 * t.half, 0.6 + r() * 0.35);
+    }
+  }
+
+  /** A rock in the trough between crest k-1 and crest k of a wave train, c off its middle. */
+  private troughRock(t: Train, k: number, c: number, R: number) {
+    // (where the troughs cross this far off the middle)
+    const lean = (crest(t, k - 1).lean + crest(t, k).lean) / 2;
+    const p = this.at(t.s + k * t.length + lean * CREST_LEAN * c);
+    this.addObstacle({ kind: 'rock', ...this.across(p)(t.u + c), r: R, s: p.s, variant: Math.floor(this.scatter() * 5) });
+  }
+
   /**
    * A wave train from s0, round `u` across, if the river's straight and clear enough for one there
    * (no lip, no island, no bend worth the name, and room before the stretch ends). Returns how
@@ -1216,7 +1278,8 @@ export class Course {
       }
     };
     const ball = (p: Sample, u: number) => this.file({ kind: 'ball', ...this.across(p)(u), s: p.s, taken: false } satisfies Pickup);
-    const mark = (p: Sample, u: number) => this.line.push({ s: p.s, u, piece: kind });
+    let marks = 0;
+    const mark = (p: Sample, u: number) => (marks++, this.line.push({ s: p.s, u, piece: kind }));
 
     switch (kind) {
       case 'slalom':
@@ -1340,6 +1403,7 @@ export class Course {
         break;
       }
     }
+    if (marks) this.sets.push({ kind, s0, s1: s0 + len, beats: marks, heat: h });
     return len;
   }
 }
