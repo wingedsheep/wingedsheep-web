@@ -54,7 +54,7 @@ const HINTS: Record<Hint, Record<Device, string>> = {
     touch: 'Hold one side to turn away from it',
   },
   lean: { keys: 'She’s tipping: lean against it with [←] / [→]', pad: 'She’s tipping: lean against it with the stick', touch: '' },
-  brace: { keys: 'Going over! [Space] to brace', pad: 'Going over! [✕] to brace', touch: 'Going over! Tap low down on that side' },
+  brace: { keys: 'Going over! Lean back up and [Space] to brace', pad: 'Going over! Stick back up and [✕] to brace', touch: 'Going over! Tap low down on that side' },
   boof: {
     keys: 'A ledge! Stroke hard as the lip lights up gold',
     pad: 'A ledge! Stroke hard as the lip lights up gold',
