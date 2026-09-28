@@ -424,7 +424,7 @@ def bed_asleep(root, top: float, cell):
     m.box((0.5, 0.2, 0.2), (0, -0.08, -0.05), P.LAVENDER)                              # shoulders
     duvet(m, (0, top), 5, cell)
     m.box((0.3, 0.22, 0.05), (0.2, -0.5, 0.15), P.TILE_BLUE, rot=(0, 0, 0.3))         # the book, shut
-    m.box((0.28, 0.2, 0.04), (0.2, -0.5, 0.155), P.CANVAS, rot=(0, 0, 0.3))
+    m.box((0.28, 0.2, 0.05), (0.2, -0.5, 0.175), P.CANVAS, rot=(0, 0, 0.3))         # pages stand clear of the cover: no shared faces
     m.build(root)
     head(root, "companion_bed_asleep_head", (0, 0, 0.12), rot=(-math.pi / 2, -0.35, 0), cap=False)
 
