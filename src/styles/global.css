@@ -520,6 +520,30 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .exhibit-step button:hover { background: var(--paper-2); }
 .exhibit-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: var(--paper-2); clip-path: var(--notch); }
 .exhibit-close:hover { background: var(--gold); }
+/* the project list: every project by year, which can be put away without leaving */
+.project-list {
+  position: absolute; left: 16px; top: 84px; width: 210px; max-height: calc(100% - 180px); overflow-y: auto; pointer-events: auto;
+  padding: 10px 12px 12px; background: var(--paper); clip-path: var(--notch); animation: toast-in 0.3s ease-out;
+  box-shadow: inset 0 0 0 3px var(--paper-edge), inset 0 -5px 0 var(--paper-2);
+}
+.project-list[hidden] { display: none; }
+.project-list h3 { margin: 0 34px 4px 0; font: 700 17px/1.2 var(--ui); }
+.project-list h4 {
+  display: inline-block; margin: 10px 0 4px; padding: 2px 9px 1px; background: var(--gold); color: var(--ink); font: 700 14px/1.2 var(--ui);
+  letter-spacing: 0.08em; clip-path: var(--notch);
+}
+.project-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.project-list li button {
+  width: 100%; padding: 3px 8px 3px 14px; border: 0; text-align: left; background: #fdf8ec; font: 15px/1.3 var(--ui); clip-path: var(--notch);
+  box-shadow: inset 6px 0 0 var(--spine), inset 0 -2px 0 var(--paper-edge);
+}
+.project-list li button:hover, .project-list li button:focus-visible { background: var(--gold); }
+.project-list .panel-close { top: 8px; right: 8px; width: 28px; height: 28px; }
+.project-list-open { position: absolute; left: 16px; top: 84px; pointer-events: auto; animation: toast-in 0.25s ease-out; }
+.project-list-open[hidden] { display: none; }
+.workshop.dim .project-list, .workshop.dim .project-list-open { opacity: 0; pointer-events: none; }
+.workshop.dim .project-list *, .workshop.dim .project-list-open * { pointer-events: none; }
+
 /* a post about a project carries the workshop's plaque */
 .article-plaque {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 22px; padding: 10px 14px 10px 20px;
@@ -533,6 +557,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 760px) {
   .workshop-banner { top: 52px; padding: 6px 44px 6px 12px; }
   .workshop-banner p { display: none; }
+  .project-list, .project-list-open { top: auto; bottom: 64px; left: 8px; width: calc(100% - 16px); max-height: 46vh; }
+  .project-list-open { width: auto; }
   .exhibit-sign { font-size: 12px; padding: 1px 6px 3px; }
   .exhibit-card, .exhibit-card.beside, .exhibit-card.beside.to-left { position: fixed; left: 8px; right: 8px; top: auto; bottom: 64px; width: auto; max-height: 62vh; overflow-y: auto; transform: none; animation-name: sheet-in; }
 }

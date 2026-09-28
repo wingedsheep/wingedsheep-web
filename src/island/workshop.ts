@@ -33,6 +33,9 @@ export class Workshop implements RoomInput {
   private el = document.querySelector<HTMLElement>('[data-panel="workshop"]')!;
   private signs: Sign[] = [];
   private selected: Sign | null = null;
+  private list: HTMLElement;
+  private listOpen: HTMLElement;
+  private listHidden = false;
 
   constructor(
     private ctx: IslandContext,
@@ -58,12 +61,31 @@ export class Workshop implements RoomInput {
     for (const b of this.el.querySelectorAll('[data-deselect]')) b.addEventListener('click', () => this.select(null));
     for (const b of this.el.querySelectorAll<HTMLElement>('[data-step]')) b.addEventListener('click', () => this.step(Number(b.dataset.step)));
 
+    // the project list: pick from it, or put it away (like the library's catalogue) and stay in the room
+    this.list = this.el.querySelector('[data-list]')!;
+    this.listOpen = this.el.querySelector('[data-list-open]')!;
+    for (const b of this.list.querySelectorAll<HTMLElement>('[data-pick]')) {
+      b.addEventListener('click', () => {
+        this.select(b.dataset.pick!);
+        if (narrow()) this.showList(false); // on phones the card takes the room the list was using
+      });
+    }
+    this.list.querySelector('[data-list-close]')!.addEventListener('click', () => this.showList(false));
+    this.listOpen.addEventListener('click', () => this.showList(true));
+    // the banner's close puts the list away first, and only then leaves
+    this.el.addEventListener('click', (e) => {
+      if (!(e.target as Element).closest('.workshop-banner [data-close]') || this.listHidden) return;
+      e.stopPropagation();
+      this.showList(false);
+    }, true);
+
     // inside, Escape folds the card away first (and only then leaves); arrows walk the room
     window.addEventListener('keydown', (e) => {
       if (!this.inside || !this.want || (e.target as HTMLElement).closest('input, textarea') || this.el.hidden) return;
-      if (e.key === 'Escape' && this.selected) {
+      if (e.key === 'Escape' && (this.selected || !this.listHidden)) {
         e.stopImmediatePropagation();
-        this.select(null);
+        if (this.selected) this.select(null);
+        else this.showList(false);
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
         this.step(e.key === 'ArrowRight' ? 1 : -1);
@@ -84,6 +106,14 @@ export class Workshop implements RoomInput {
         now.textContent = disc ? `Now playing: ${disc.title}` : idle;
       };
     }
+  }
+
+  /** Show the project list, or put it away and leave a button to fetch it back. */
+  private showList(show: boolean, focus = true) {
+    this.listHidden = !show;
+    this.list.hidden = !show;
+    this.listOpen.hidden = show;
+    if (focus) (show ? this.list.querySelector<HTMLElement>('[data-pick]') : this.listOpen)?.focus({ preventScroll: true });
   }
 
   /** The next (or previous) exhibit along, wrapping round the room. */
@@ -119,6 +149,7 @@ export class Workshop implements RoomInput {
   /** Go in (or out). `instant` skips the iris closing, e.g. coming straight from another room. */
   enter(inside: boolean, instant = false) {
     if (inside) void this.load();
+    if (inside !== this.want) this.showList(!narrow(), false); // the list is out on each visit, unless the screen is tight
     if (!inside && this.want) this.select(null);
     this.want = inside;
     if (instant) this.fade = inside === this.inside ? 0 : 1;

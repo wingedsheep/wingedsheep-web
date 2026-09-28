@@ -64,6 +64,9 @@ const books: BookInfo[] = posts.map((p) => ({
 }));
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const minutes = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+const projectYears = [...new Set(projects.map((p) => p.year))]
+  .sort((a, b) => b - a)
+  .map((year) => ({ year, items: projects.filter((p) => p.year === year) }));
 const places = [
   { id: 'library', label: 'Library', hint: 'the blog' },
   { id: 'workshop', label: 'Workshop', hint: 'projects' },
@@ -211,6 +214,21 @@ const places = [
         </li>
       ))}
     </ul>
+    <aside class="project-list" data-list aria-label="All projects, by year">
+      <button class="panel-close" data-list-close aria-label="Put the list away"><PixelIcon name="close" /></button>
+      <h3>Every project</h3>
+      {projectYears.map((y) => (
+        <section>
+          <h4>{y.year}</h4>
+          <ul>
+            {y.items.map((p) => (
+              <li><button data-pick={p.id} style={`--spine:${p.color}`}>{p.name}</button></li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </aside>
+    <button class="hud-btn project-list-open" data-list-open hidden><PixelIcon name="book" />Project list</button>
   </section>
 
   <section class="panel" data-panel="campfire" hidden aria-labelledby="campfire-title">

@@ -2,6 +2,8 @@ export interface Project {
   /** Matches the exhibit in the workshop yard ("project_<id>" in tools/models/workshop.py). */
   id: string;
   name: string;
+  /** The year it was started, for the workshop's list. */
+  year: number;
   /** What the exhibit is, for the tooltip. */
   thing: string;
   href: string;
@@ -18,6 +20,7 @@ export const projects: Project[] = [
   {
     id: 'argentum',
     name: 'Argentum',
+    year: 2026,
     thing: 'a silver card engine',
     href: 'https://magic.wingedsheep.com/',
     source: gh('argentum-engine'),
@@ -29,6 +32,7 @@ export const projects: Project[] = [
   {
     id: 'talespinner',
     name: 'Talespinner',
+    year: 2023,
     thing: 'a quill that writes by itself',
     href: 'https://talespinner.io/',
     blurb: 'Stories spun together with AI: interactive tales that grow as you play.',
@@ -38,6 +42,7 @@ export const projects: Project[] = [
   {
     id: 'mana',
     name: 'Mana from the Machine',
+    year: 2025,
     thing: 'a printing press',
     href: '/blog/mana-from-the-machine/',
     source: gh('mtg-card-generator'),
@@ -49,6 +54,7 @@ export const projects: Project[] = [
   {
     id: 'carcassonne',
     name: 'Carcassonne',
+    year: 2020,
     thing: 'a game in progress',
     href: gh('carcassonne'),
     blurb: 'The board game Carcassonne in Python, built to be an environment for reinforcement learning. Later rebuilt in Kotlin.',
@@ -59,6 +65,7 @@ export const projects: Project[] = [
   {
     id: 'transformer',
     name: 'Transformer',
+    year: 2022,
     thing: 'a network of glass nodes',
     href: gh('transformer'),
     blurb: 'A text generation model built from scratch on the transformer architecture, one attention head at a time.',
@@ -69,6 +76,7 @@ export const projects: Project[] = [
   {
     id: 'music',
     name: 'Music Generation Toolbox',
+    year: 2021,
     thing: 'a gramophone',
     href: gh('music-generation-toolbox'),
     blurb: 'A toolbox for generating music with transformers. It helped write our song for the AI Song Contest 2021.',
@@ -79,6 +87,7 @@ export const projects: Project[] = [
   {
     id: 'lander',
     name: 'Lunar Lander',
+    year: 2017,
     thing: 'a lunar lander, still practising',
     href: '/blog/lunar-lander-dqn/',
     blurb: 'Teaching an agent to land softly on the moon with deep Q-learning, in the OpenAI Gym LunarLander environment.',
@@ -89,6 +98,7 @@ export const projects: Project[] = [
   {
     id: 'lazyhttp',
     name: 'lazyhttp',
+    year: 2026,
     thing: 'a terminal by the hammock',
     href: gh('lazyhttp'),
     blurb: 'A terminal UI for running .http test plans step by step, like lazygit for your HTTP requests.',
