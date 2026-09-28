@@ -392,6 +392,12 @@ export class Course {
   private lane = 0;
   /** Where the last row of rocks left its gap, across the river (-1..1), from one place() to the next. */
   private gap = 0;
+  /**
+   * The other ways round: past a big rock on the side away from the gap you can't see what's
+   * coming until you're committed, so that way stays open too, easing back towards the gap row by
+   * row until it's joined it (-1..1 across, like the gap).
+   */
+  private alts: number[] = [];
   private lastPiece: Piece | null = null;
   /** The line the set pieces were laid round, beat by beat (for the tests to paddle). */
   readonly line: { s: number; u: number; piece: Piece | 'rest' }[] = [];
@@ -928,11 +934,15 @@ export class Course {
   private place(to: number) {
     const r = this.scatter;
     let gap = this.gap;
+    let alts = this.alts;
     while (this.placedTo < to) {
       const s = this.placedTo;
       const p = this.at(s);
       const stretch = this.stretchAt(s);
       const h = p.heat;
+      // (the other ways round carry on only from one row of rocks to the next)
+      const was = alts;
+      alts = [];
       // a chute is set pieces all the way down, with a breather between each; a run or a rapid
       // might have one in it
       if (stretch.kind === 'chute' && s >= 120) {
@@ -1013,7 +1023,7 @@ export class Course {
           continue;
         }
       }
-      if (!owed && (white || stretch.kind === 'run') && s > this.lastTrain + 60 && r() < (stretch.kind === 'run' ? 0.18 : 0.32 + h * 0.12)) {
+      if (!owed && !was.length && (white || stretch.kind === 'run') && s > this.lastTrain + 60 && r() < (stretch.kind === 'run' ? 0.18 : 0.32 + h * 0.12)) {
         const len = this.trainAt(s + 3, stretch, gap * half);
         if (len) {
           this.placedTo = s + 3 + len + 4;
@@ -1037,6 +1047,14 @@ export class Course {
       // half the gap, in units of half the river's width: a boat-length and more to start with,
       // not much more than the boat's width in the big stuff
       const gapHalf = Math.max(1.15, 2.6 - h * 1.45) / half;
+      // the other ways round ease back towards the gap, no faster than a boat can ferry, and once
+      // they're in it they're gone
+      const altHalf = gapHalf * 0.85;
+      const ease = ((step / Math.max(p.speed, 2)) * 1.1) / half;
+      for (const v of was) {
+        const w = v + Math.max(-ease, Math.min(ease, gap - v));
+        if (Math.abs(w - gap) > gapHalf) alts.push(w);
+      }
 
       const perRow = stretch.kind === 'rapids' ? 1 + Math.floor(r() * (1.3 + h * 1.6))
         : stretch.kind === 'gorge' ? 1 + Math.floor(r() * (1.3 + h * 1.2))
@@ -1045,6 +1063,7 @@ export class Course {
       const inRow = r() < density * spacing * 1.6 ? Math.max(1, Math.round(perRow * Math.min(1.5, half / 5.5))) : 0;
       let left = false;
       let right = false;
+      const row: { u: number; rad: number }[] = [];
       for (let k = 0; k < inRow; k++) {
         let u = r() * 2 - 1;
         const rad = 0.55 + r() * (0.5 + p.rough * 0.5);
@@ -1052,10 +1071,28 @@ export class Course {
         const clear = gapHalf + (rad * 0.9) / half;
         if (Math.abs(u - gap) < clear) u = gap + Math.sign(u - gap || 1) * (clear + r() * 0.35);
         if (Math.abs(u) > 1.05) continue;
+        if (alts.some((v) => Math.abs(u - v) < altHalf + (rad * 0.9) / half)) continue;
         if (u < gap) left = true;
         else right = true;
         const at = across(u);
         this.addObstacle({ kind: 'rock', x: at.x, z: at.z, r: rad, s: s + (r() - 0.5) * 2, variant: Math.floor(r() * 5) });
+        row.push({ u, rad });
+      }
+      // past a big rock on the far side from the gap, if there's room for a boat there (up to the
+      // bank or the next rock out), is another way round it: one you'd only find out was a dead
+      // end once you'd picked it
+      for (const { u, rad } of row) {
+        if (rad < 1 || alts.length >= 2) continue;
+        const side = Math.sign(u - gap);
+        const inner = u * half + side * (rad * 0.9 + 0.36);
+        let outer = side * (half - 0.55);
+        for (const o of row) {
+          const edge = o.u * half - side * (o.rad * 0.9 + 0.36);
+          if ((o.u - u) * side > 0 && (outer - edge) * side > 0) outer = edge;
+        }
+        if ((outer - inner) * side < 0.3) continue;
+        const v = (inner + outer) / 2 / half;
+        if (Math.abs(v - gap) > gapHalf && !alts.some((a) => Math.abs(a - v) < altHalf * 2)) alts.push(v);
       }
       // rocks on both sides of the gap make a tongue
       if (left && right) {
@@ -1070,7 +1107,7 @@ export class Course {
       }
 
       // a fallen tree, reaching out from one bank but never past the gap
-      if ((stretch.kind === 'run' || stretch.kind === 'gorge') && r() < (0.12 + h * 0.08) * this.profile.snags && inRow === 0) {
+      if ((stretch.kind === 'run' || stretch.kind === 'gorge') && r() < (0.12 + h * 0.08) * this.profile.snags && inRow === 0 && !alts.length) {
         const side = gap > 0 ? -1 : 1;
         const tipU = side < 0 ? Math.min(gap - gapHalf - 0.1, 0.1) : Math.max(gap + gapHalf + 0.1, -0.1);
         const base = across(side * 1.25);
@@ -1094,6 +1131,7 @@ export class Course {
     }
     // (the game lays the river a little at a time as you go: the next row carries on from here)
     this.gap = gap;
+    this.alts = alts;
     // the hole at the foot of every ledge: all the way across, stronger the bigger the drop
     for (const l of this.ledges) {
       if ((l as Ledge & { holed?: boolean }).holed || l.s > to) continue;
