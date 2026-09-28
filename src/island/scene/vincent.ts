@@ -20,9 +20,10 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
  * on the grass by the beach, the climb up the mountain trail, the cats' bench or Beike's meadow
  * for a fuss (petting.ts), and on New Year's Day the sea (dive.ts); on a post day down the pier for
  * the parcel and up to the hut with it, on a windy Sunday the beach with a kite (errands.ts); the
- * rest are indoors, the workshop's bench mostly on a Saturday.
+ * rest are indoors: the guitar comes up to the hut's stove when it's wet out, and the workshop's
+ * bench is mostly a Saturday's.
  */
-export type Whereabouts = 'guitar' | 'kayak' | 'yoga' | 'climb' | 'podcast' | 'petting' | 'coding' | 'asleep' | 'dive' | 'post' | 'kite' | 'workshop';
+export type Whereabouts = 'guitar' | 'hut' | 'kayak' | 'yoga' | 'climb' | 'podcast' | 'petting' | 'coding' | 'asleep' | 'dive' | 'post' | 'kite' | 'workshop';
 /** The yoga poses he flows through (characters.py POSES), in order. */
 export const POSES = ['lotus', 'tree', 'dog'] as const;
 export type Pose = (typeof POSES)[number];
@@ -30,11 +31,13 @@ export type Pose = (typeof POSES)[number];
 const ROOMS: Partial<Record<Whereabouts, { room: Room; group: string }>> = {
   coding: { room: 'lighthouse', group: 'vincent_coding' },
   asleep: { room: 'hut', group: 'vincent_asleep' },
+  hut: { room: 'hut', group: 'vincent_guitar' },
   workshop: { room: 'workshop', group: 'vincent_workshop' },
 };
 /** Seconds he spends at each: longest by far with the guitar. */
 const STAY: Record<Whereabouts, [number, number]> = {
   guitar: [160, 340],
+  hut: [160, 340],
   kayak: [70, 150],
   yoga: [90, 180],
   climb: [1e9, 1e9], // until he's back down
@@ -86,7 +89,7 @@ export interface VincentWorld {
  * never gets up in the middle of a song. The kayak waits for daylight and fair weather.
  */
 export class Vincent {
-  static readonly SPOTS: Whereabouts[] = ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep'];
+  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep'];
   spot: Whereabouts = 'guitar';
   private next: Whereabouts | null = null;
   private stay = rand(...STAY.guitar);
@@ -153,6 +156,11 @@ export class Vincent {
     return this.spot === 'guitar';
   }
 
+  /** Whether he's playing up in the hut, by the stove, out of the rain. */
+  get inTheHut() {
+    return this.spot === 'hut';
+  }
+
   /** Straight to a spot (and, on his knees, who to pet), to stay: for previews. */
   put(spot: Whereabouts, pet?: Pet) {
     this.move(spot, pet);
@@ -207,7 +215,7 @@ export class Vincent {
     const errand = post.waiting && this.spot !== 'post' && allowed.includes('post');
     const due = !allowed.includes(this.spot) || this.stay < 0 || errand;
     if (errand) this.next = 'post';
-    if (!due || (this.spot === 'guitar' && w.playing && allowed.includes('guitar')) || (this.spot === 'dive' && this.diver.busy)
+    if (!due || ((this.spot === 'guitar' || this.spot === 'hut') && w.playing && allowed.includes(this.spot)) || (this.spot === 'dive' && this.diver.busy)
       || (this.spot === 'post' && this.errands.busy)) {
       this.waiting = 0;
       return;
@@ -219,7 +227,8 @@ export class Vincent {
     }
     this.waiting += dt;
     const forced = (this.next === 'asleep' && this.waiting > BEDTIME_WAIT)
-      || ((this.spot === 'kayak' || (w.rough ?? 0) > 0.4) && !allowed.includes(this.spot) && this.waiting > SQUALL_WAIT)
+      // in off the water, or in from the fire when it rains, even mid-song: nobody plays on in a downpour
+      || ((this.spot === 'kayak' || this.spot === 'guitar' || (w.rough ?? 0) > 0.4) && !allowed.includes(this.spot) && this.waiting > SQUALL_WAIT)
       // nobody misses the dive at noon, or the silence at eight on the fourth of May
       || ((this.next === 'dive' || silenceNear(w.time)) && this.waiting > SQUALL_WAIT)
       // nor leaves a parcel out on the pier for long
@@ -232,7 +241,7 @@ export class Vincent {
     if (this.diver.ready && diveAt(w.time) !== null) return ['dive'];
     if (silenceNear(w.time)) return ['guitar'];
     if (this.spot === 'post' && this.errands.busy) return ['post'];
-    if ((w.rough ?? 0) > 0.4) return ['coding'];
+    if ((w.rough ?? 0) > 0.4) return ['coding', 'hut'];
     const fair = w.night < 0.5 && w.rain < 0.1 && w.storm < 0.2 && w.wind < 11;
     const hour = hourOf(w.time);
     // the week's own: the post when it's come, a kite on a windy Sunday, the bench by day
@@ -246,21 +255,24 @@ export class Vincent {
     const pet = this.spot === 'petting' ? this.kneel.pet : null;
     const fuss = w.night < 0.5 && w.rain < 0.1 && (pet ? pets.includes(pet) : pets.length > 0);
     if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week];
-    return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['guitar', 'coding'] as Whereabouts[]), ...week]; // a podcast works in the dark
+    // a podcast works in the dark; in the wet the guitar comes in to the hut
+    return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), ...week];
   }
 
   /**
-   * Back to the guitar after anything else; from the guitar, off to the game more often than the
-   * water. Late in the evening the game has him: he's mostly at it, sometimes till bedtime.
+   * Back to the guitar after anything else (at the fire, or by the hut's stove when it's wet);
+   * from the guitar, off to the game more often than the water. Late in the evening the game has
+   * him: he's mostly at it, sometimes till bedtime.
    */
   private choose(from: Whereabouts, w: VincentWorld): Whereabouts {
     const allowed = this.allowed(w);
     if (allowed.length === 1) return allowed[0];
     if (allowed.includes('post') && from !== 'post') return 'post';
-    // Friday evening, it's drinks by the fire: nowhere else he'd rather be
-    if (fridayEvening(w.time) && allowed.includes('guitar')) return 'guitar';
-    if (late(w.time)) return from === 'coding' && Math.random() < 0.35 ? 'guitar' : 'coding';
-    if (from !== 'guitar') return 'guitar';
+    const guitar: Whereabouts = allowed.includes('hut') ? 'hut' : 'guitar';
+    // Friday evening, it's drinks by the fire (or the stove): nowhere else he'd rather be
+    if (fridayEvening(w.time) && allowed.includes(guitar)) return guitar;
+    if (late(w.time)) return from === 'coding' && Math.random() < 0.35 && allowed.includes(guitar) ? guitar : 'coding';
+    if (from !== guitar) return guitar;
     const saturday = occasions.has('saturday');
     const odds: [Whereabouts, number][] = [['coding', saturday ? 0.15 : 0.35], ['kayak', 0.2], ['yoga', 0.25], ['climb', 0.2], ['podcast', 0.25], ['petting', 0.2],
       ['kite', 1.1], ['workshop', saturday ? 1.4 : 0.06]];

@@ -143,6 +143,8 @@ export class Life {
   private chordIndex = 0;
   /** Where his fretting hand is along the neck, -1..1, easing towards the chord's place. */
   private fretPos = 0;
+  /** Other copies of him with the guitar (the hut's, by the stove) that strum along with the campfire's. */
+  readonly guitarists = new Set<THREE.Object3D>();
 
   constructor(
     private scene: THREE.Scene,
@@ -456,28 +458,29 @@ export class Life {
     const tap = Math.max(0, -Math.sin(swing)); // toes up in the second half of the beat, down on it
     // quick through the strings, lingering a moment at the top and bottom of each stroke
     const stroke = Math.sign(Math.sin(swing)) * Math.abs(Math.sin(swing)) ** 0.7;
-    const arm = this.island.part('vincent', 'arm_strum');
-    if (arm?.userData.swing) arm.quaternion.setFromAxisAngle(axis.fromArray(arm.userData.swing), stroke * SWING * g);
-
     // the fretting hand gets to each new chord a touch early, lifting off the strings to move
     const place = beat < 0 ? 0 : this.chordPlace(beat + 0.2) * g;
     this.fretPos = THREE.MathUtils.damp(this.fretPos, place, 14, dt);
-    const fret = this.island.part('vincent', 'arm_fret');
-    if (fret?.userData.slide) {
-      const rest = (fret.userData.rest ??= fret.position.clone()) as THREE.Vector3;
-      fret.position.copy(rest).addScaledVector(axis.fromArray(fret.userData.slide), this.fretPos * SLIDE);
-      fret.quaternion.setFromAxisAngle(axis.fromArray(fret.userData.lift), Math.min(1, Math.abs(place - this.fretPos) * 3) * LIFT);
-    }
-
-    const head = this.island.part('vincent', 'head');
-    if (head) {
-      head.rotation.x = nod * 0.12 * g - 0.05 * (1 - g);
-      head.rotation.z = Math.sin(t * 0.4) * 0.25 * (1 - g) + Math.sin(swing / 4) * 0.06 * g;
-    }
-    const foot = this.island.part('vincent', 'foot_tap');
     this.kick = Math.max(0, this.kick - dt / 0.6);
     const flick = Math.sin(this.kick * Math.PI); // toes up and through the ball, and back
-    if (foot) foot.rotation.x = -tap * 0.4 * g - flick * 0.9;
+    for (const me of [this.island.get('vincent'), ...this.guitarists]) {
+      if (!me) continue;
+      const arm = me.getObjectByName('arm_strum');
+      if (arm?.userData.swing) arm.quaternion.setFromAxisAngle(axis.fromArray(arm.userData.swing), stroke * SWING * g);
+      const fret = me.getObjectByName('arm_fret');
+      if (fret?.userData.slide) {
+        const rest = (fret.userData.rest ??= fret.position.clone()) as THREE.Vector3;
+        fret.position.copy(rest).addScaledVector(axis.fromArray(fret.userData.slide), this.fretPos * SLIDE);
+        fret.quaternion.setFromAxisAngle(axis.fromArray(fret.userData.lift), Math.min(1, Math.abs(place - this.fretPos) * 3) * LIFT);
+      }
+      const head = me.getObjectByName('head');
+      if (head) {
+        head.rotation.x = nod * 0.12 * g - 0.05 * (1 - g);
+        head.rotation.z = Math.sin(t * 0.4) * 0.25 * (1 - g) + Math.sin(swing / 4) * 0.06 * g;
+      }
+      const foot = me.getObjectByName('foot_tap');
+      if (foot) foot.rotation.x = -tap * 0.4 * g - flick * 0.9;
+    }
   }
 
   /**

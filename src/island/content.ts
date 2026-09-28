@@ -1348,6 +1348,15 @@ export const HUT_PLACES: Record<string, Place> = {
     activate: say('Sunday morning: a stack of pancakes, stroop and sugar. The first one always goes wrong, and Beike always gets it.'),
   },
   companion_baking: { label: 'Tea, while the pie bakes', activate: (ctx) => ctx.toast(waiting()) },
+  vincent_guitar: {
+    label: (ctx) => (ctx.sound.playing ? `Vincent · playing ${ctx.sound.playing.title}` : 'Vincent · ask for a song'),
+    activate(ctx) {
+      soundOn(ctx);
+      if (ctx.sound.playing) return;
+      ctx.sound.ask();
+      ctx.toast('He shuffles the stool an inch closer to the stove, counts in, and starts to play.');
+    },
+  },
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
   pie: { label: 'A pie in the oven', activate: (ctx) => ctx.toast('A cherry pie, baking. Twenty minutes to go, and the whole hut already smells of it.') },
   bed: {

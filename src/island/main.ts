@@ -330,7 +330,7 @@ export async function bootIsland(host: HTMLElement) {
     const show = params.get('show') as Show | null;
     life.companion.put(spot, show && SHOWS.includes(show) ? show : undefined, fuss);
   }
-  // or him: ?vincent=guitar|kayak|yoga|climb|podcast|petting|coding|asleep (and ?time=00:30 to see who's up)
+  // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep (and ?time=00:30 to see who's up)
   const where = params.get('vincent') as Whereabouts | null;
   if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where, fuss);
   // a bit of mischief, sooner: ?beike=fire (he brings his ball over mid-song), ?mischief (the
@@ -442,6 +442,7 @@ export async function bootIsland(host: HTMLElement) {
     const silence = life.days.remembrance.silence;
     sound.silence = silence;
     sound.guitarist = life.vincent.atTheFire && silence === 0;
+    sound.hutGuitarist = life.vincent.inTheHut;
     if (silence > 0 && !hushed) {
       hushed = true;
       ctx.toast('Eight o’clock. Two minutes’ silence.');
@@ -451,7 +452,8 @@ export async function bootIsland(host: HTMLElement) {
     if (sound.playing && (notes -= dt) < 0) {
       notes = 1.3;
       ctx.discover('guitar');
-      life.burst('notes', island.positionOf('vincent')!.add(new THREE.Vector3(0, 1.4, 0)));
+      if (hut.inside) hut.notes();
+      else life.burst('notes', island.positionOf('vincent')!.add(new THREE.Vector3(0, 1.4, 0)));
     }
     // one room at a time drives the iris; one that's being left finishes going first
     const leaving = rooms.find((r) => r.inside && !r.wanted);

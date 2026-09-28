@@ -6,7 +6,9 @@
  *    and asked him to (clicked him): he starts a random song from the top, then carries on
  *    through the setlist until you wander off. The recordings run through an "outdoors" chain:
  *    levelled to one loudness, the room boom and harsh top trimmed, a little ground bounce and
- *    open-air scatter added, and duller the further away you stand.
+ *    open-air scatter added, and duller the further away you stand. When it's wet out he plays
+ *    by the stove up in the hut instead, and there the same songs go through a small pine room:
+ *    warmer, closer, with the walls answering back.
  *  - piano: Vincent's own compositions, on the upright in the library. Indoors, so they get
  *    the opposite of the guitar's treatment: a small wooden room that rings a little. While
  *    you're inside, the sea and the weather are heard through the walls.
@@ -138,6 +140,9 @@ export class Sound {
   private roofGain?: GainNode;
   /** Where songs enter the outdoor chain, and the lowpass that dulls them with distance. */
   private songBus?: GainNode;
+  /** The song's two rooms: the open air by the fire, and the hut's pine room. */
+  private songOpen?: GainNode;
+  private songHut?: GainNode;
   private songAir?: BiquadFilterNode;
   private windGain?: GainNode;
   private cicadaGain?: GainNode;
@@ -205,6 +210,8 @@ export class Sound {
   indoors = false;
   /** Whether Vincent is at the campfire to play at all (he isn't when he's out in the kayak, or in bed). */
   guitarist = true;
+  /** Whether he's playing by the stove in the hut instead (in out of the rain). */
+  hutGuitarist = false;
   /** The two minutes' silence on the fourth of May, 0..1 (remembrance.ts): everything fades right away. */
   silence = 0;
   private hush?: GainNode;
@@ -1199,9 +1206,12 @@ export class Sound {
     }
     this.surface?.gain.setTargetAtTime(r && !r.stopping ? 0.05 : 0, t, r ? 0.3 : 0.6);
 
-    // the guitar only carries when you're zoomed right in on the fire
+    // the guitar only carries when you're zoomed right in on the fire; in the hut, it fills the room
     const close = Math.max(0, Math.min(1, (24 - view) / 10));
-    this.loudness = this.asked && this.guitarist ? near * close : 0;
+    const hut = this.room === 'hut' && this.hutGuitarist;
+    this.loudness = !this.asked ? 0 : hut ? 1 : this.guitarist ? near * close : 0;
+    this.songOpen?.gain.setTargetAtTime(hut ? 0 : 1, t, 0.3);
+    this.songHut?.gain.setTargetAtTime(hut ? 1 : 0, t, 0.3);
     if (this.loudness > 0.02 && !this.song) this.joinSong();
     if (this.song) this.song.gain.gain.setTargetAtTime(this.loudness * 0.9, t, 0.6);
     // air eats the highs first: muffled from the edge of earshot, clear up close
@@ -1237,7 +1247,7 @@ export class Sound {
     this.song = song;
   }
 
-  /** A trim that brings song `id` to the target loudness, feeding the outdoor chain. */
+  /** A trim that brings song `id` to the target loudness, feeding the song chains. */
   private songTrim(id: number) {
     const lufs = this.songs.find((s) => s.id === id)?.loudness ?? TARGET_LUFS;
     const trim = this.ctx!.createGain();
@@ -1617,6 +1627,9 @@ export class Sound {
    */
   private buildSongChain(ctx: AudioContext) {
     this.songBus = ctx.createGain();
+    this.songOpen = ctx.createGain();
+    this.songBus.connect(this.songOpen);
+    this.buildHutSongChain(ctx);
 
     // cut the low rumble and the boxy room build-up a close mic picks up
     const lows = ctx.createBiquadFilter();
@@ -1655,7 +1668,7 @@ export class Sound {
     this.songAir.frequency.value = 13500;
     this.songAir.Q.value = 0.5;
 
-    this.songBus
+    this.songOpen
       .connect(lows)
       .connect(box)
       .connect(body)
@@ -1685,6 +1698,63 @@ export class Sound {
     const scatterGain = ctx.createGain();
     scatterGain.gain.value = 0.1;
     this.songAir.connect(scatterTone).connect(scatter).connect(scatterGain).connect(this.master!);
+  }
+
+  /**
+   * The guitar as heard by the stove in the hut: a low pine room, so the opposite of the fire's
+   * chain. The body the close mic caught stays (the wood adds a little more), the top is
+   * softened by the timber, the first reflections come back off the walls a few milliseconds
+   * late, and a short, warm tail rings under it all. Rain drums on the roof over the top.
+   */
+  private buildHutSongChain(ctx: AudioContext) {
+    this.songHut = ctx.createGain();
+    this.songHut.gain.value = 0;
+    this.songBus!.connect(this.songHut);
+    const lows = ctx.createBiquadFilter();
+    lows.type = 'highpass';
+    lows.frequency.value = 60;
+    const wood = ctx.createBiquadFilter();
+    wood.type = 'peaking';
+    wood.frequency.value = 220;
+    wood.Q.value = 0.9;
+    wood.gain.value = 2.5;
+    const timber = ctx.createBiquadFilter();
+    timber.type = 'lowpass';
+    timber.frequency.value = 7500;
+    timber.Q.value = 0.5;
+    const level = ctx.createDynamicsCompressor();
+    level.threshold.value = -22;
+    level.knee.value = 10;
+    level.ratio.value = 2.5;
+    level.attack.value = 0.015;
+    level.release.value = 0.3;
+    const makeup = ctx.createGain();
+    makeup.gain.value = MAKEUP * 0.85; // the room adds its own
+    this.songHut.connect(lows).connect(wood).connect(timber).connect(level).connect(makeup).connect(this.master!);
+
+    // the walls, close all round: a few early reflections, darker each bounce, spread across the ears
+    for (const [delay, gain, pan, tone] of [[0.007, 0.28, -0.6, 4500], [0.011, 0.22, 0.7, 3800], [0.017, 0.16, -0.3, 3000], [0.023, 0.12, 0.4, 2500]]) {
+      const d = ctx.createDelay(0.1);
+      d.delayTime.value = delay;
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = tone;
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      const p = ctx.createStereoPanner();
+      p.pan.value = pan;
+      makeup.connect(d).connect(f).connect(g).connect(p).connect(this.master!);
+    }
+
+    // and a short, warm ring: a small room, not the library's
+    const room = ctx.createConvolver();
+    room.buffer = this.roomImpulse(ctx, 0.9);
+    const roomTone = ctx.createBiquadFilter();
+    roomTone.type = 'lowpass';
+    roomTone.frequency.value = 3200;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.3;
+    makeup.connect(room).connect(roomTone).connect(wet).connect(this.master!);
   }
 
   /**
@@ -1771,9 +1841,9 @@ export class Sound {
     soft.connect(room).connect(roomTone).connect(wet).connect(this.master!);
   }
 
-  /** A dense, smooth ~1.4s tail, a little different per ear: a room, not open air. */
-  private roomImpulse(ctx: AudioContext) {
-    const len = Math.floor(ctx.sampleRate * 1.4);
+  /** A dense, smooth tail (~1.4s by default), a little different per ear: a room, not open air. */
+  private roomImpulse(ctx: AudioContext, seconds = 1.4) {
+    const len = Math.floor(ctx.sampleRate * seconds);
     const ir = ctx.createBuffer(2, len, ctx.sampleRate);
     const pre = Math.floor(ctx.sampleRate * 0.012);
     for (let ch = 0; ch < 2; ch++) {

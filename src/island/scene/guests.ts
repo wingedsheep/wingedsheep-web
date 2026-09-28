@@ -88,6 +88,11 @@ export class Guests {
     for (let i = 0; i < 3; i++) this.floaters.add('heart', at, i);
   }
 
+  /** A few notes rising from `at`: him playing by the stove. */
+  notes(at: THREE.Vector3) {
+    for (let i = 0; i < 4; i++) this.floaters.add('note', at, i);
+  }
+
   /** Wake one just enough to lift its head (no hearts: nobody petted it). */
   stir(id: string) {
     const s = this.sleepers.get(id);

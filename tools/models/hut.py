@@ -38,6 +38,7 @@ CELL = ((BED_SIZE[0] - 0.02) / CHECKS[0], CHECKS[2] / CHECKS[1])
 SIDES = (-2 * CELL[0], 2 * CELL[0])  # where Vincent and she sleep: the middle of three checks each
 STOVE = (-1.3, Y1 - 0.5)
 TABLE = (2.0, -0.4)
+STOOL = (-0.95, 1.55)              # his stool by the stove, where he plays when it's wet out
 DOOR_Y = -2.5                      # the door out, in the west wall
 
 
@@ -633,12 +634,27 @@ def corner(root):
     w.build(root)
 
 
+def stool(root):
+    """A three-legged milking stool by the stove, his seat when he's in out of the rain with the
+    guitar (it stays when he isn't)."""
+    x, y = STOOL
+    m = Model("stool")
+    m.cyl(0.24, 0.07, (x, y, 0.44), P.WOOD_LIGHT, segs=8)
+    for k in range(3):
+        a = k * 2 * math.pi / 3 + 0.3
+        m.plank_line((x + math.cos(a) * 0.12, y + math.sin(a) * 0.12, 0.44),
+                     (x + math.cos(a) * 0.24, y + math.sin(a) * 0.24, 0), 0.05, 0.05, P.WOOD)
+    m.build(root)
+
+
 def guest(root):
     """The black cat off the pier, curled up at the foot of the bed out of the rain; her, baking at
-    the stove; and at night the two of them in bed: her reading, then both asleep (the runtime
-    shows each only while they're up here)."""
+    the stove; him on his stool with the guitar when it's wet out; and at night the two of them in
+    bed: her reading, then both asleep (the runtime shows each only while they're up here)."""
     bx, by = BED
     g = group("guests", parent=root, guests="hut")
+    # the same Vincent as at the campfire (characters.vincent), turned a little to the room
+    characters.vincent(group("vincent_guitar", (*STOOL, 0), rot_z=0.35, parent=g, id="vincent_guitar"))
     characters.cat(group("cat", (bx - 0.05, by - 0.78, 0.74), rot_z=0.25, parent=g))
     companion.at_the_hut(g, (TABLE[0] + 0.35, TABLE[1] + 1.0, 0), STOVE)            # on the north bench
     top = by - BED_SIZE[1] / 2 + 0.07 + CHECKS[2]                                       # where the duvet's turned back
@@ -661,5 +677,6 @@ def build():
     corner(root)
     post_shelf(root)
     pancakes(root)
+    stool(root)
     guest(root)
     return root

@@ -56,6 +56,8 @@ export class HutRoom {
   onSound?: (name: string, volume?: number) => void;
   /** Who's in out of the rain (shelter.ts): shown only while they're indoors. */
   readonly guests: Guests;
+  /** Him on his stool by the stove with the guitar (hut.py `vincent_guitar`), when it's wet out. */
+  readonly guitarist?: THREE.Object3D;
   /** Rain on the glass and lightning in the panes. */
   private windows: Windows;
   private timers = new Map<string, number>();
@@ -114,6 +116,7 @@ export class HutRoom {
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
     this.guests = new Guests(this.scene, guests);
+    this.guitarist = this.named.get('vincent_guitar');
     for (const a of this.guests.animals) this.named.set(a.userData.id, a);
     this.windows = new Windows(this.scene, panes, this.glass, this.bounds);
 

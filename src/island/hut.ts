@@ -8,6 +8,7 @@ import { type IslandContext, HUT_PLACES, labelFor } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import { HutRoom } from './scene/hut-room';
 import type { PixelRenderer } from './scene/pixel-renderer';
+import { indoors } from './scene/shelter';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
@@ -15,6 +16,8 @@ const NO_SHIFT = new THREE.Vector2();
 const BANNER = 'Nearly at the top. The stove\'s lit, the soup\'s on, and there\'s a bed made up in the corner.';
 /** When it's raining and the dock cat has come all the way up to get out of it. */
 const RAINY = 'Nearly at the top. Rain on the roof, the stove\'s lit, and someone has already taken the bed.';
+/** When it's wet out and Vincent has brought the guitar in (`roof`: what's coming down on it). */
+const PLAYING = (roof: string) => `Nearly at the top. ${roof} on the roof, the stove's lit, and Vincent has brought the guitar in.`;
 
 export class Hut implements RoomInput {
   /** Whether the room (rather than the island) is on screen. */
@@ -43,6 +46,7 @@ export class Hut implements RoomInput {
       .then((room) => {
         this.room = room;
         room.onSound = (name, volume) => this.inside && this.ctx.sound.here(name, volume);
+        if (room.guitarist) this.ctx.life.guitarists.add(room.guitarist); // strums along with the song
         this.resize();
         return room;
       })
@@ -59,6 +63,12 @@ export class Hut implements RoomInput {
     this.want = inside;
     if (instant) this.fade = inside === this.inside ? 0 : 1;
     this.ui.tooltip(null);
+  }
+
+  /** Notes rising from him on his stool, while he plays. */
+  notes() {
+    const me = this.room?.guitarist;
+    if (me?.visible) this.room!.guests.notes(me.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 1.5, 0)));
   }
 
   resize() {
@@ -131,7 +141,11 @@ export class Hut implements RoomInput {
     this.ctx.sound.door('hut');
     if (this.inside) {
       const banner = document.querySelector('[data-panel="hut"] .workshop-banner p');
-      if (banner) banner.textContent = this.room?.guests.anyone ? RAINY : BANNER;
+      const w = this.ctx.weather.now;
+      if (banner) {
+        banner.textContent = indoors.has('vincent_guitar') ? PLAYING(w.snow > w.rain + w.hail ? 'Snow' : w.hail > w.rain ? 'Hail' : 'Rain')
+          : this.room?.guests.anyone ? RAINY : BANNER;
+      }
       this.ctx.rig.room = this;
       this.room?.view.reset();
       this.resize();
