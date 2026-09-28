@@ -56,7 +56,6 @@ const CRICKETS = { spring: 0.35, summer: 1, autumn: 0.55, winter: 0 };
 const BIRDSONG = { spring: 1, summer: 0.75, autumn: 0.35, winter: 0.12 };
 /** …and how much leaf there is on the trees for the wind to rustle. */
 const LEAVES = { spring: 0.7, summer: 1, autumn: 0.8, winter: 0.1 };
-const pixelSizeFor =(w: number, h: number) => (w < 700 ? 2 : Math.max(3, Math.floor(h / 400)));
 /**
  * Device pixels per CSS pixel. The art is blown up nearest-neighbour, so past a laptop's worth of
  * device pixels (a 4K TV) a finer canvas shows nothing more; it only costs the GPU.
@@ -64,6 +63,13 @@ const pixelSizeFor =(w: number, h: number) => (w < 700 ? 2 : Math.max(3, Math.fl
 const pixelRatioFor = (w: number, h: number) => {
   const dpr = Math.min(devicePixelRatio, 2);
   return w * h * dpr * dpr > 6.5e6 ? 1 : dpr;
+};
+
+const pixelSizeFor = (w: number, h: number) => {
+  const size = w < 700 ? 2 : Math.max(2.5, Math.floor(h / 400));
+  // a half-size art pixel only stays square and crisp if it lands on whole device pixels
+  const dpr = pixelRatioFor(w, h);
+  return Math.max(1, Math.round(size * dpr)) / dpr;
 };
 
 export async function bootIsland(host: HTMLElement) {
