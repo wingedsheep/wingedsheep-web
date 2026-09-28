@@ -14,6 +14,7 @@ import type { Device, Nav } from './river/controls';
 import type { Stretch } from './river/course';
 import { FLIP, type Hint, type RiverGame, type Tally } from './river/game';
 import { TIP } from './river/kayak';
+import { tilt } from './river/tilt';
 import { RARE, RIVERS, type Rare, type RiverDef } from './river/rivers';
 import { darkness } from './scene/sun';
 import type { UI } from './ui';
@@ -65,7 +66,7 @@ const HINTS: Record<Hint, Record<Device, string>> = {
   falls: {
     keys: 'A waterfall! Hold the needle in the green to go over straight, then lean forward [↑] as it falls into the gold',
     pad: 'A waterfall! Hold the needle in the green to go over straight, then stick forward as it falls into the gold',
-    touch: 'A waterfall! Hold the needle in the green to go over it straight, then tap as it falls into the gold',
+    touch: 'A waterfall! Hold the needle in the green to go over it straight, then flick a thumb up the screen as it falls into the gold',
   },
   hole: {
     keys: 'In a hole! Lean forward [↑] and paddle hard',
@@ -111,10 +112,19 @@ const HINTS: Record<Hint, Record<Device, string>> = {
   },
 };
 
+/** …and on a touch screen, leaning by tilting the phone, the ones that change. */
+const TILT_HINTS: Partial<Record<Hint, string>> = {
+  lean: 'She’s tipping: tilt the phone against it',
+  waves: 'Waves! Tilt into each crest, and stroke down their backs',
+  big: 'Big water! Point straight down it and keep paddling. Balance by tilting the phone, and tap low down on the side you tip to brace',
+  rocky: 'Big water, and rocks in it! Balance by tilting, tap low down on the side you tip to brace, and steer round them between the waves',
+  peel: 'Eddy! Tilt into the turn on the way out',
+};
+
 /** The waterfall meter's word, and what to press for it: lining up to the lip, then tucking over it. */
 const DROP: Record<'line' | 'tuck' | 'tucked', Record<Device, string>> = {
   line: { keys: 'Line up [A] [D]', pad: 'Line up [L2] [R2]', touch: 'Line up' },
-  tuck: { keys: 'Tuck! [↑]', pad: 'Tuck! [stick ↑]', touch: 'Tuck! [tap]' },
+  tuck: { keys: 'Tuck! [↑]', pad: 'Tuck! [stick ↑]', touch: 'Tuck! [flick ↑]' },
   tucked: { keys: 'Tucked', pad: 'Tucked', touch: 'Tucked' },
 };
 
@@ -253,10 +263,30 @@ export class River implements RoomInput {
       } catch {}
       this.showCalm();
     });
+    const tilting = this.el.querySelector<HTMLElement>('[data-river-tilt]');
+    if (tilting) tilting.hidden = !tilt.possible;
+    tilting?.addEventListener('click', async () => {
+      const on = !tilt.wanted;
+      this.showTilt(on);
+      if (!(await tilt.want(on))) {
+        void tilt.want(false);
+        this.showTilt(false);
+        this.ctx.toast('The phone won’t share which way it’s tilted: leaning’s left to the paddler.');
+      }
+    });
     this.showBest();
     this.showPicks();
     this.showLog();
     this.showCalm();
+    this.showTilt(tilt.wanted);
+  }
+
+  /** The touch screen's switch on the start card: the paddler balances, or you do, tilting the phone. */
+  private showTilt(on: boolean) {
+    const b = this.el.querySelector<HTMLElement>('[data-river-tilt]');
+    if (!b) return;
+    b.setAttribute('aria-checked', String(on));
+    b.querySelector('span')!.textContent = on ? 'Tilt the phone' : 'The paddler balances';
   }
 
   /** The switch on the start card: out there as it is, or a clear day. */
@@ -438,6 +468,7 @@ export class River implements RoomInput {
     if (!game || !this.inside) return;
     if (game.state === 'over') this.again();
     if (game.state !== 'ready') return;
+    void tilt.ask(); // (an iPhone that wants tilting asks on the tap that pushes off)
     game.go();
     this.card(null);
     (document.activeElement as HTMLElement | null)?.blur?.();
@@ -448,7 +479,10 @@ export class River implements RoomInput {
     const game = this.game;
     if (!game || game.state !== 'running' || game.paused === on) return;
     game.paused = on;
-    if (!on) game.controls.releaseGo(); // "Carry on" with ✕ doesn't paddle off on the same press
+    if (!on) {
+      game.controls.releaseGo(); // "Carry on" with ✕ doesn't paddle off on the same press
+      game.controls.level(); // (the phone's likely held differently after a break)
+    }
     this.card(on ? 'paused' : null);
   }
 
@@ -618,7 +652,7 @@ export class River implements RoomInput {
         this.bounce(this.$.balls.parentElement!, 'pop');
         this.word('Fetch!', 'ball');
       },
-      hint: (kind) => this.hint(HINTS[kind][game.controls.device]),
+      hint: (kind) => this.hint((game.controls.tilting && TILT_HINTS[kind]) || HINTS[kind][game.controls.device]),
       goal: (_, i) => {
         const done = this.best.goals ?? [];
         if (done.includes(i)) return;

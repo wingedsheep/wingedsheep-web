@@ -207,8 +207,8 @@ export class Kayak {
   here!: Sample;
   /** 0..1: how deep in an eddy the boat is (its bow and stern together). */
   eddy = 0;
-  /** When on a touch screen, the paddler balances himself (mostly). */
-  assisted = false;
+  /** How much the paddler balances himself (on a touch screen: 1, or less when you tilt the phone). */
+  assist = 0;
   /** Digging in: quicker, harder strokes. */
   sprinting = false;
   /** 0..1: breath for sprinting, draining while you do and coming back when you stop. */
@@ -949,7 +949,7 @@ export class Kayak {
     torque -= this.yawRate * Math.max(0, this.speed - 3) * 0.25;
     // the paddler: leaning shifts his weight, and a boat being paddled sits steadier
     let lean = this.leanNow;
-    if (this.assisted) lean = Math.max(-1, Math.min(1, lean - this.tilt * 1.4 - this.tiltV * 0.35));
+    if (this.assist) lean = Math.max(-1, Math.min(1, lean - (this.tilt * 1.4 + this.tiltV * 0.35) * this.assist));
     torque += lean * 4.5;
     torque += this.slam;
     this.slam *= Math.exp(-dt * 1.5);

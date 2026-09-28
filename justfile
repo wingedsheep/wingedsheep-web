@@ -12,6 +12,13 @@ install:
 dev: models
     npm run dev
 
+# run it over https on the network, to try it on a phone (tilting needs a secure page; the
+# certificate's self-signed, so tap through the warning)
+phone: models
+    @test -f .cert/key.pem || (mkdir -p .cert && openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj "/CN=wingedsheep-dev" -keyout .cert/key.pem -out .cert/cert.pem 2>/dev/null)
+    @ipconfig getifaddr en0 | sed 's|.*|On the phone: https://&:4321|'
+    PHONE=1 npm run dev
+
 # rebuild the island models from the Blender scripts (headless)
 models:
     blender -b --factory-startup -P tools/models/build.py

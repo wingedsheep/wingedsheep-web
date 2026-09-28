@@ -10,5 +10,8 @@ __pycache__/
 config.yaml
 tools/sounds/raw/
 
+# the self-signed certificate for `just phone`
+.cert/
+
 # the autopilot's films (just record)
 recordings/

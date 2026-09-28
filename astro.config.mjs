@@ -18,9 +18,17 @@ const legacyRedirects = Object.fromEntries(
 const models = createHash('sha256');
 for (const f of readdirSync('./public/models').sort()) models.update(f).update(readFileSync(`./public/models/${f}`));
 
+// `just phone`: served over https on the network, since a phone only hands over its motion
+// sensors (tilting to lean on the river) to a secure page. The certificate's self-signed.
+const phone = process.env.PHONE === '1';
+
 export default defineConfig({
   site: 'https://wingedsheep.com',
-  vite: { define: { __MODELS__: JSON.stringify(models.digest('hex').slice(0, 12)) } },
+  server: phone ? { host: true } : {},
+  vite: {
+    define: { __MODELS__: JSON.stringify(models.digest('hex').slice(0, 12)) },
+    ...(phone && { server: { https: { key: readFileSync('.cert/key.pem'), cert: readFileSync('.cert/cert.pem') } } }),
+  },
   redirects: { ...legacyRedirects, '/rss': '/rss.xml' },
   markdown: {
     remarkPlugins: [[remarkMath, { singleDollarTextMath: false }]],

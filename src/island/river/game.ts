@@ -393,7 +393,7 @@ export class RiverGame {
       return this.land.underLeaves(at, this.sightDir) || this.sight.intersectObject(this.land.group, true).length > 0;
     };
     this.kayak.launch(this.course, this.start);
-    this.kayak.assisted = this.controls.assisted;
+    this.kayak.assist = this.controls.assist;
     this.tally = fresh();
     this.camps.clear();
     this.state = 'ready';
@@ -424,6 +424,7 @@ export class RiverGame {
   go() {
     if (this.state !== 'ready') return;
     this.state = 'running';
+    this.controls.level();
   }
 
   /** Whether the kayak is pointing back towards the camera (its left is then the screen's right). */
@@ -483,7 +484,8 @@ export class RiverGame {
     const dt = this.pace(realDt);
     this.clock += dt;
     const intent = this.controls.read();
-    this.kayak.assisted = this.controls.assisted;
+    this.kayak.assist = this.controls.assist;
+    this.controls.mirror = this.facingCamera;
     // paddling or steering at the top is as good as saying go
     if (this.state === 'ready' && (intent.left > 0.3 || intent.right > 0.3 || intent.tapLeft || intent.tapRight)) this.events.start?.();
     const running = this.state === 'running';
@@ -884,7 +886,7 @@ export class RiverGame {
   private coach() {
     const k = this.kayak;
     const t = this.tally.time;
-    if (Math.abs(k.tilt) > 0.45 && !this.controls.assisted) this.tell('lean', true);
+    if (Math.abs(k.tilt) > 0.45 && this.controls.assist < 1) this.tell('lean', true);
     // the basics, only if you've not found them yourself
     if (!this.paddled && t > 3) this.tell('paddle');
     if (!this.steered && t > 12) this.tell('steer');

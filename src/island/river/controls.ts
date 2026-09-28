@@ -24,7 +24,10 @@
  * have been seen part way: a pad whose triggers are only on or off would always be sprinting.)
  * touch      hold the left or right half of the screen to paddle on that side (both thumbs:
  *            straight on); low down, a reverse sweep (tap) or a planted blade (hold). On a touch
- *            screen the paddler leans for himself; over a waterfall, a fresh tap anywhere tucks.
+ *            screen the paddler leans for himself, or, with the start card's switch on, you do,
+ *            turning the phone like a steering wheel (see tilt.ts), and he only helps a little.
+ *            Over a waterfall, a thumb flicked up the screen tucks: forward, as ↑ is on the keys
+ *            (not a tap, which paddling makes all the time anyway).
  *
  * Both sides held, Vincent strokes left, right, left: straight on. One side only, he sweeps on
  * that side and you turn away from it. A reverse sweep brakes and swings you towards its side,
@@ -32,6 +35,8 @@
  * you're moving through the water. Both brakes held, he back-paddles: a hard stop, then slowly
  * backwards (in slow water; a fast current still carries you down). A bumper on the side you're falling to is a brace.
  */
+import { tilt } from './tilt';
+
 export type Device = 'keys' | 'pad' | 'touch';
 export type Nav = 'up' | 'down' | 'left' | 'right';
 
@@ -54,7 +59,7 @@ export interface Intent {
   tipBrace: boolean;
   /** Digging in for speed, held (Shift, □ / X or L3, the sprint button). */
   sprint: boolean;
-  /** A fresh touch anywhere on the screen, this frame: over a waterfall, that's the tuck. */
+  /** A thumb flicked up the screen, this frame: over a waterfall, that's the tuck. */
   tuck: boolean;
 }
 
@@ -66,6 +71,10 @@ const DEAD = 0.18;
 const NAV = 0.6; // how far over the stick goes to move round a menu
 const SQUEEZE = 0.92; // a trigger in this far is digging in
 const BACK_BAND = 0.78; // below this far down the screen, a finger is a reverse sweep
+const FLICK = 0.07; // a finger that goes this far up the screen (of its height)…
+const FLICK_MS = 280; // …this soon after it came down is a flick
+/** How much the paddler still balances for himself when you're leaning by tilting (1 on his own). */
+const TILT_HELP = 0.5;
 
 /** A key by where it sits for the letters (KeyW is W on QWERTY, Z on AZERTY), by what it is for the rest. */
 const key = (e: KeyboardEvent) => (/^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : e.key).toLowerCase();
@@ -89,7 +98,9 @@ export class Controls {
   private taps = { left: false, right: false, brace: false, tuck: false };
   /** The touch screen's sprint button, held. */
   private touchSprint = false;
-  private fingers = new Map<number, { side: -1 | 1; back: boolean }>();
+  private fingers = new Map<number, { side: -1 | 1; back: boolean; x: number; y: number; at: number; flicked: boolean }>();
+  /** The kayak's facing the camera, its left on the screen's right: tilting the phone goes by the screen. */
+  mirror = false;
   /** (Everything starts out held: a button only counts once it's been seen let go.) */
   private padWas = { go: true, pause: true, l1: true, r1: true, sprint: true, back: true, nav: 'held' as Nav | 'held' | null };
   /** A stick only counts once it's been seen at rest: a pad lying on a stick, or one that drifts, can't lean. */
@@ -134,12 +145,23 @@ export class Controls {
       const r = el.getBoundingClientRect();
       const side = e.clientX < r.left + r.width / 2 ? -1 : 1;
       const back = e.clientY > r.top + r.height * BACK_BAND;
-      this.fingers.set(e.pointerId, { side, back });
-      this.taps.tuck = true;
+      this.fingers.set(e.pointerId, { side, back, x: e.clientX, y: e.clientY, at: e.timeStamp, flicked: false });
       if (back) this.taps[side < 0 ? 'left' : 'right'] = true;
     });
+    el.addEventListener('pointermove', (e) => {
+      const f = this.fingers.get(e.pointerId);
+      if (!f || f.flicked || e.timeStamp - f.at > FLICK_MS) return;
+      const dy = f.y - e.clientY;
+      if (dy < Math.max(30, el.clientHeight * FLICK) || dy < Math.abs(e.clientX - f.x) * 1.5) return;
+      f.flicked = true;
+      this.taps.tuck = true;
+    });
     const up = (e: PointerEvent) => this.fingers.delete(e.pointerId);
-    el.addEventListener('pointerup', up);
+    el.addEventListener('pointerup', (e) => {
+      up(e);
+      // an iPhone only hands over its motion sensors on a tap: if tilting's wanted and not had yet
+      if (this.active && e.pointerType !== 'mouse') void tilt.ask();
+    });
     el.addEventListener('pointercancel', up);
   }
 
@@ -166,9 +188,22 @@ export class Controls {
     this.released[3] = false;
   }
 
-  /** On a touch screen the paddler balances himself: you do the paddling. */
-  get assisted() {
-    return this.device === 'touch';
+  /**
+   * How much the paddler balances for himself (0 not at all … 1 all of it): on a touch screen he
+   * does, since you're paddling, unless you're leaning by tilting the phone, when he helps a bit.
+   */
+  get assist() {
+    return this.device !== 'touch' ? 0 : this.tilting ? TILT_HELP : 1;
+  }
+
+  /** Leaning by tilting the phone, right now. */
+  get tilting() {
+    return this.device === 'touch' && tilt.live;
+  }
+
+  /** However the phone's held now is level (pushing off, carrying on). */
+  level() {
+    tilt.setLevel();
   }
 
   /** Read everything for this frame. */
@@ -192,6 +227,7 @@ export class Controls {
       sprint: k.has('shift') || this.touchSprint,
       tuck: taps.tuck,
     };
+    if (this.tilting) i.lean = tilt.lean() * (this.mirror ? -1 : 1);
     for (const f of this.fingers.values()) {
       if (f.back) {
         if (f.side < 0) i.backLeft = true;
