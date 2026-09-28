@@ -40,7 +40,8 @@ BRICK = "#7a4638"
 BRICK_DARK = "#633629"
 ROOF_TILE = "#4a4652"
 FRAME_WHITE = "#efe9df"
-PHP = "#8993be"
+PHP = "#6f82d4"
+PHP_EAR = "#5566b0"
 SAPLING = "#8a7a6a"
 
 RX, RY, CENTRE = 15.0, 10.0, (0.5, -0.5)
@@ -309,31 +310,31 @@ def zorgdigi(root):
         for y in (-0.45, 0.45):
             m.cyl(0.04, 0.92, (x, y, 0), P.IRON, segs=5)
     for y, s in ((0.95, 1), (-0.95, -1)):                                               # two chairs
-        m.box((0.55, 0.5, 0.06), (0.35 * s, y, 0.5), P.IRON)
-        m.box((0.55, 0.06, 0.6), (0.35 * s, y + 0.25 * s, 0.8), P.IRON)
+        m.box((0.55, 0.5, 0.06), (0.35, y, 0.5), P.IRON)
+        m.box((0.55, 0.06, 0.6), (0.35, y + 0.25 * s, 0.8), P.IRON)
         for dx in (-0.22, 0.22):
             for dy in (-0.2, 0.2):
-                m.cyl(0.025, 0.5, (0.35 * s + dx, y + dy, 0), P.IRON, segs=4)
+                m.cyl(0.025, 0.5, (0.35 + dx, y + dy, 0), P.IRON, segs=4)
     # a drawing tablet with a sketch on it
-    m.box((0.5, 0.36, 0.02), (0.3, 0.2, 1.0), P.INK, rot=(0, 0, 0.2))
-    m.box((0.42, 0.28, 0.01), (0.3, 0.2, 1.012), "#f4ead3", rot=(0, 0, 0.2))
+    m.box((0.5, 0.36, 0.02), (0.4, 0.3, 1.0), P.INK, rot=(0, 0, 0.2))
+    m.box((0.42, 0.28, 0.01), (0.4, 0.3, 1.012), "#f4ead3", rot=(0, 0, 0.2))
     for k in range(3):
-        m.box((0.2 - k * 0.04, 0.03, 0.005), (0.28 + k * 0.02, 0.14 + k * 0.06, 1.02), "#b5562d" if k else "#2f5d8c", rot=(0, 0, 0.5 + k))
+        m.box((0.2 - k * 0.04, 0.03, 0.005), (0.38 + k * 0.02, 0.24 + k * 0.06, 1.02), "#b5562d" if k else "#2f5d8c", rot=(0, 0, 0.5 + k))
     # Vincent's laptop, facing his empty chair (he's round the back, teaching)
-    m.box((0.62, 0.42, 0.03), (-0.35, -0.2, 0.99), "#3a3a44")
-    m.box((0.62, 0.03, 0.4), (-0.35, 0.03, 1.2), "#3a3a44", rot=(-0.25, 0, 0))
-    m.box((0.54, 0.01, 0.32), (-0.35, 0.005, 1.2), "#58c08a", glow=True, rot=(-0.25, 0, 0))
+    m.box((0.62, 0.42, 0.03), (0.35, -0.2, 0.99), "#3a3a44")
+    m.box((0.62, 0.03, 0.4), (0.35, 0.03, 1.2), "#3a3a44", rot=(-0.25, 0, 0))
+    m.box((0.54, 0.01, 0.32), (0.35, 0.005, 1.2), "#58c08a", glow=True, rot=(-0.25, 0, 0))
     m.build(g)
-    # the elePHPant, blue and plush
+    # the elePHPant, blue and plush, on its own end of the table
     e = Model("elephpant")
-    ex, ey, ez = -0.8, 0.15, 0.99
-    e.ball(0.15, (ex, ey, ez + 0.14), PHP, subdiv=1, scale=(1.3, 1.0, 1.0))
-    e.ball(0.11, (ex + 0.17, ey, ez + 0.24), PHP, subdiv=1)
-    e.plank_line((ex + 0.26, ey, ez + 0.22), (ex + 0.32, ey, ez + 0.06), 0.05, 0.05, PHP)
+    ex, ey, ez, k = -0.3, 0.1, 0.99, 1.6
+    e.ball(0.15 * k, (ex, ey, ez + 0.14 * k), PHP, subdiv=1, scale=(1.3, 1.0, 1.0))
+    e.ball(0.11 * k, (ex - 0.17 * k, ey, ez + 0.24 * k), PHP, subdiv=1)
+    e.plank_line((ex - 0.26 * k, ey, ez + 0.22 * k), (ex - 0.32 * k, ey, ez + 0.06 * k), 0.05 * k, 0.05 * k, PHP)
     for s in (-1, 1):
-        e.box((0.03, 0.12, 0.14), (ex + 0.13, ey + s * 0.1, ez + 0.26), "#7780ad", rot=(0, 0, s * 0.3))
+        e.box((0.03 * k, 0.12 * k, 0.14 * k), (ex - 0.13 * k, ey + s * 0.1 * k, ez + 0.26 * k), PHP_EAR, rot=(0, 0, -s * 0.3))
         for dx in (-0.08, 0.08):
-            e.cyl(0.045, 0.08, (ex + dx, ey + s * 0.07, ez), PHP, segs=5)
+            e.cyl(0.045 * k, 0.08 * k, (ex + dx * k, ey + s * 0.07 * k, ez), PHP, segs=5)
     e.build(g)
     person(g, "illustrator", (0.35, 0.95, 0.0), rot_z=0.0, look=Look(hair="#a8552a", top="#c9a23f", legs="#2e2a3a", long_hair=True),
            pose="sit", arms="forward", id="zorgdigi")

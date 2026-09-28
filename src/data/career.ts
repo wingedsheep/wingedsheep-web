@@ -51,20 +51,20 @@ export const chapters: Chapter[] = [
     years: '2007 – 2014',
     title: 'Artificial intelligence, before it was cool',
     where: 'Utrecht · Arnhem · Velp',
-    text: 'I studied in Utrecht, informatics and then computing science, with as much artificial intelligence as I could fit in, at a time when it wasn’t at all obvious that neural networks would ever be good for much. Right after I finished, DeepMind and OpenAI started showing what they could do. Alongside my studies I fixed computers all over Arnhem, built software for the care sector, and started a company.',
+    text: 'It started with garbage trucks. For a university project we had to plan their routes, and our team beat the best result of every year before us. Later came a scheduler for the university’s own exams. What hooked me was that you could hand a computer a problem far too tangled to work out by hand, and it would find a good answer by itself. So I filled my studies in Utrecht with as much artificial intelligence as would fit, back when few people expected much of neural networks. Soon after I graduated, DeepMind and OpenAI proved them wrong. Meanwhile I fixed computers all over Arnhem, built software for the care sector, and co-founded a company.',
     scene: true,
     roles: [
       {
         years: '2007 – 2011',
         role: 'Bachelor, Informatics',
         org: 'Utrecht University',
-        text: 'Mostly in the Minnaert building on the Uithof. Data mining, image processing, intelligent and computational systems, and a recommender system for music videos.',
+        text: 'Mostly in the Minnaert building on the Uithof. Databases, graphics and functional programming, then data mining, image processing, optimisation and the first taste of intelligent systems. For a project of my own, a recommender system for music videos.',
       },
       {
         years: '2011 – 2014',
         role: 'Master, Computing Science: advanced planning and decision making',
         org: 'Utrecht University',
-        text: 'Intelligent agents, multi-agent systems, evolutionary computing, probabilistic reasoning, scheduling and simulation. A thesis on vehicle routing with time-dependent travel times.',
+        text: 'Advanced planning and decision making: intelligent agents, multi-agent systems, evolutionary computing, probabilistic reasoning, scheduling and timetabling. An exam timetable for the whole university, and a thesis on routing vehicles when travel times change through the day.',
       },
       {
         years: '2010 – 2011',
@@ -76,13 +76,13 @@ export const chapters: Chapter[] = [
         years: '2011 – 2013',
         role: 'Web application developer',
         org: 'ZorgDigi · Velp',
-        text: 'PHP, jQuery and MySQL for the care sector: an intranet covering HR, rosters and billing, a system that supports people in care, and an online auction house for art made in care institutions.',
+        text: 'PHP, jQuery and MySQL for the care sector. ZWorks, the company’s intranet: rosters, wages with all their special rates, billing and summaries for the management. Also PPIB, which supports the people who accompany those in care, and Zorgveilinghuis, an online auction house for art made in care institutions.',
       },
       {
         years: '2013 – 2014',
         role: 'Co-founder, head of technology',
         org: 'uniQ Development · Velp',
-        text: 'A startup that built web and Android apps with a team of people on the autism spectrum, preparing them for the job market along the way. I led development and taught programming.',
+        text: 'A startup I co-founded, building web and Android apps with a team of people on the autism spectrum and getting them ready for the job market along the way. As head of technology I ran the development side.',
       },
     ],
     things: {
@@ -90,7 +90,8 @@ export const chapters: Chapter[] = [
         label: 'The Minnaert building · Utrecht',
         text: [
           'The Minnaert building on the Uithof: rust red, with ridges running across its walls like wind through grass. Most of my seven years in Utrecht happened in here: a bachelor’s in informatics, then a master’s in computing science.',
-          'Intelligent agents, multi-agent systems, evolutionary computing, probabilistic reasoning: the master’s was called advanced planning and decision making, and it was AI through and through.',
+          'It began with garbage trucks: a project to plan their routes, where our team beat the best result of every year before us. Leave a computer alone with a hard problem and it comes back with an answer better than yours. I was hooked.',
+          'After that, as much AI as would fit. Intelligent agents, multi-agent systems, evolutionary computing, probabilistic reasoning: the master’s was called advanced planning and decision making, and it was AI through and through.',
           'Side quests: a recommender system for music videos, and a scheduler for the university’s own exams. The thesis was about routing vehicles when travel times change through the day, and it led straight to Backbone.',
         ],
       },
@@ -119,8 +120,8 @@ export const chapters: Chapter[] = [
         text: 'Studentaanhuis: cycling all over Arnhem to fix people’s computers, and anything else with a plug that was misbehaving.',
       },
       zorgdigi: {
-        label: 'ZorgDigi · rosters and a blue elephant',
-        text: 'ZorgDigi: I built the back end in PHP (hence the elephant), next to an illustrator who made the WordPress sites. Among other things, a system for scheduling and paying the freelance carers, whose rota hangs by the door.',
+        label: 'ZorgDigi · Velp',
+        text: 'ZorgDigi: I built the back end in PHP, next to an illustrator who made the WordPress sites. Among other things, a system for scheduling and paying the freelance carers, whose rota hangs by the door.',
       },
       uniq: {
         label: 'uniQ Development · Velp',
