@@ -20,6 +20,15 @@ export function bindHud(ctx: IslandContext, turnable: () => boolean) {
     ctx.sound.setEnabled(!ctx.sound.enabled);
     el.setAttribute('aria-pressed', String(ctx.sound.enabled));
   });
+  // sound's on but the browser holds it back until the first click or key: the button glows till then
+  const waiting = () => {
+    for (const el of document.querySelectorAll<HTMLElement>('[data-action="sound"]')) {
+      el.toggleAttribute('data-waiting', ctx.sound.waiting);
+      el.title = ctx.sound.waiting ? 'Click anywhere to hear the island' : '';
+    }
+  };
+  ctx.sound.onWaiting = waiting;
+  waiting();
 
   renderJournal(ctx);
   // at Easter, a counter for the egg hunt, which asks Beike for a hint (scene/easter.ts)

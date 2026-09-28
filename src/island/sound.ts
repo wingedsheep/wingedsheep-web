@@ -127,6 +127,8 @@ const MAKEUP = 0.85;
 
 export class Sound {
   enabled = true;
+  /** Told whenever `waiting` may have changed (hud.ts shows it on the sound button). */
+  onWaiting?: () => void;
   private ctx?: AudioContext;
   private master?: GainNode;
   private seaGain?: GainNode;
@@ -293,10 +295,16 @@ export class Sound {
     return this.piano?.piece ?? null;
   }
 
+  /** On, but the browser won't let it play until you click or press a key (after a reload, say). */
+  get waiting() {
+    return this.enabled && this.ctx?.state !== 'running';
+  }
+
   /** Must be called from a user gesture. */
   setEnabled(on: boolean) {
     this.enabled = on;
     if (on) this.start();
+    this.onWaiting?.();
     if (!this.ctx || !this.master) return;
     this.master.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.3);
     if (!on) {
@@ -1251,6 +1259,7 @@ export class Sound {
     }
     const ctx = new AudioContext();
     this.ctx = ctx;
+    ctx.addEventListener('statechange', () => this.onWaiting?.());
     this.master = ctx.createGain();
     this.master.gain.value = 0;
     // a safety net at the end: when the falls, the river and a crash on a rock all land at once,
