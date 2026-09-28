@@ -66,6 +66,12 @@ const LINE_RANGE = 0.5;
 const bigness = (height: number) => Math.max(0, Math.min(1, (height - 3.5) / 3));
 /** How far off the drop's line (radians) the bow can be and still go over clean. */
 const lineTolerance = (big: number) => 0.05 + 0.15 * (0.5 - big * 0.3);
+/**
+ * Off the lip this far (radians) sideways, or more, you're going over whatever else you do: a
+ * waterfall (big: how big) or a ledge (height, m). The bigger the drop, the less it takes.
+ */
+const fallFlipSkew = (big: number) => 0.34 - big * 0.12;
+const ledgeFlipSkew = (height: number) => 0.7 - Math.min(2.5, height) * 0.1;
 /** A boof: the stroke has to catch this close (s) before the lip. */
 export const BOOF_WINDOW = 0.45;
 /** The lip: this far (m) above a ledge's arc length the river starts to pour over it. */
@@ -1106,6 +1112,16 @@ export class Kayak {
       const straight = Math.max(0, 1 - Math.max(0, Math.abs(this.lipSkew) - 0.05) / (0.5 - big * 0.3))
         * Math.max(0, 1 - Math.max(0, Math.abs(this.tilt) - 0.1) / (TIP - 0.1)); // (a wobble in the white water at the lip is forgiven)
       const miss = 1 - tuck * straight;
+      const skew = Math.abs(this.lipSkew);
+      if (skew > fallFlipSkew(big)) {
+        // broadside off the lip: the curtain takes the high edge and lays you straight over
+        this.fall = null;
+        this.flipOff(Math.sign(this.lipSkew), height);
+        this.dropHeight = 0;
+        this.events.splash?.(fall, this.pos.clone());
+        this.boofing = false;
+        return;
+      }
       this.pitch = 0.3 - miss * 0.4;
       this.vel.multiplyScalar(0.9 - miss * 0.4);
       if (miss < 0.35) this.jumpHole();
@@ -1138,13 +1154,25 @@ export class Kayak {
           // well off the line it lays you straight over on your side
           this.yawRate += side * miss * 2;
           this.vel.multiplyScalar(0.8);
-          if (miss > 0.75) {
+          if (miss > 0.55) {
             this.tilt = side * OVER;
             this.capsize();
           }
         }
       }
-    } else if (height > 0.6 && upright) {
+    } else if (height > 0.6 && upright && this.dropHeight > 0) {
+      // a ledge takes a skew too: a bit off and it throws you onto the edge the bow points to, too
+      // far off and you land on your side
+      const skew = Math.abs(this.lipSkew);
+      const limit = ledgeFlipSkew(this.dropHeight);
+      if (skew > limit) {
+        this.flipOff(Math.sign(this.lipSkew), height);
+        this.dropHeight = 0;
+        this.events.splash?.(fall, this.pos.clone());
+        this.boofing = false;
+        return;
+      }
+      if (skew > 0.2) this.tiltV += Math.sign(this.lipSkew) * ((skew - 0.2) / (limit - 0.2)) * (1.5 + height * 0.6);
       if (this.boofing) {
         // flat and fast: over the hole at the foot and away
         this.pitch = 0.08;
@@ -1161,6 +1189,16 @@ export class Kayak {
     this.dropHeight = 0;
     this.events.splash?.(fall, this.pos.clone());
     this.boofing = false;
+  }
+
+  /** Off a drop sideways: stopped dead in the foot of it, and over on the side the bow pointed. */
+  private flipOff(side: number, height: number) {
+    const s = side || (Math.random() < 0.5 ? -1 : 1);
+    this.vel.multiplyScalar(0.6);
+    this.yawRate += s;
+    this.events.ledge?.('skew', height);
+    this.tilt = s * OVER;
+    this.capsize();
   }
 
   /** After a boof, the hole at the foot of the ledge can't hold you. */
