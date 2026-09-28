@@ -1257,6 +1257,14 @@ class Ducks {
   private drake: Body;
   private young: Body[] = [];
   private trail: THREE.Vector3[] = [];
+  private paddle = Array.from({ length: 5 }, (_, i) => ({
+    at: V(),
+    h: 0,
+    gap: i ? rand(0.3, 0.42) : rand(0.5, 0.6),
+    keen: rand(2, 3.4), // how smartly it keeps up
+    phase: rand(0, Math.PI * 2),
+    drift: rand(0.5, 1.2), // how much it wanders off the line
+  }));
   private a = rand(0, Math.PI * 2);
   private hurry = 0;
   private upend = 0;
@@ -1298,16 +1306,29 @@ class Ducks {
     d.relax();
     d.root.position.copy(p).setY(Math.sin(this.clock * 2) * 0.02 - tip * 0.12);
     orient(d.root, headingOf(ahead.x - p.x, ahead.z - p.z), -tip * 1.25);
-    // the ducklings follow in a line, a little behind one another
+    // the ducklings follow in a line, each after the one ahead on its own, so a turn ripples down
+    // the line and they bunch and string out a little
+    let lead = p;
     this.young.forEach((b, i) => {
       if (!babies) return b.shown && b.hide();
-      const k = Math.min(this.trail.length - 1, Math.round((i + 1) * (18 - this.hurry * 2)));
-      const q = this.trail[k];
-      const r = this.trail[Math.max(0, k - 3)];
-      if (!b.shown) b.show(q);
+      const w = this.paddle[i];
+      if (!b.shown) {
+        b.show(this.trail[Math.min(this.trail.length - 1, (i + 1) * 18)]);
+        w.at.copy(b.root.position).setY(0);
+        w.h = headingOf(lead.x - w.at.x, lead.z - w.at.z);
+      }
+      const back = w.at.clone().sub(lead).setY(0);
+      back.divideScalar(back.length() || 1);
+      const wander = Math.sin(this.clock * w.drift + w.phase) * 0.08 + Math.sin(this.clock * 0.31 + w.phase * 2) * 0.05;
+      const target = lead.clone().addScaledVector(back, w.gap).add(V(-back.z * wander, 0, back.x * wander));
+      const step = target.sub(w.at).multiplyScalar(1 - Math.exp(-dt * w.keen * (1 + this.hurry * 0.4)));
+      w.at.add(step);
+      const moving = step.length() > dt * 0.05;
+      w.h = turnTo(w.h, moving ? headingOf(step.x, step.z) : headingOf(-back.x, -back.z), moving ? 6 : 2, dt);
       b.relax();
-      b.root.position.copy(q).setY(Math.sin(this.clock * 3 + i) * 0.015);
-      orient(b.root, headingOf(r.x - q.x, r.z - q.z));
+      b.root.position.copy(w.at).setY(Math.sin(this.clock * 3 + i) * 0.015);
+      orient(b.root, w.h);
+      lead = w.at;
       const head = b.part('head');
       if (head) head.rotation.y += Math.sin(this.clock * 2 + i * 1.7) * 0.4;
     });

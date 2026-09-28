@@ -559,16 +559,27 @@ export class Wildlife {
     const root = new THREE.Group();
     const mum = this.assets.clone('duck');
     root.add(mum);
-    const brood = Array.from({ length: 3 + Math.floor(Math.random() * 3) }, (_, i) => {
-      const d = this.assets.clone('duckling');
-      d.position.set(-0.5 - i * 0.38, 0, rand(-0.12, 0.12));
-      root.add(d);
-      return d;
-    });
     root.position.set(spot.x, spot.y, spot.z);
     const up = face(-Math.sin(spot.a), Math.cos(spot.a)); // paddling upstream
     root.rotation.y = up;
     this.group.add(root);
+    // Each duckling paddles after the one in front on its own (worked out on the water, beside the
+    // group rather than in it), so a turn ripples down the line instead of swinging it like a stick.
+    const brood = Array.from({ length: 3 + Math.floor(Math.random() * 3) }, (_, i) => {
+      const d = this.assets.clone('duckling');
+      root.add(d);
+      const back = 0.5 + i * 0.38;
+      return {
+        d,
+        x: spot.x - Math.cos(up) * back,
+        z: spot.z + Math.sin(up) * back,
+        h: up,
+        gap: i ? rand(0.32, 0.46) : rand(0.45, 0.55),
+        keen: rand(2.2, 3.6), // how smartly it keeps up
+        phase: rand(0, Math.PI * 2),
+        drift: rand(0.4, 0.9), // how much it wanders off the line
+      };
+    });
     let fled = false;
     const bank = V(Math.cos(spot.a) * spot.side, 0, Math.sin(spot.a) * spot.side);
     return {
@@ -577,7 +588,6 @@ export class Wildlife {
       update: (dt, kayak) => {
         const t = this.clock;
         mum.position.y = Math.sin(t * 2.2) * 0.02;
-        brood.forEach((d, i) => (d.position.y = Math.sin(t * 3 + i) * 0.015));
         if (!fled && root.position.distanceTo(kayak) < 9) {
           fled = true;
           this.events.quack?.();
@@ -588,6 +598,36 @@ export class Wildlife {
         } else {
           root.position.add(V(-Math.sin(spot.a) * dt * 0.25, 0, Math.cos(spot.a) * dt * 0.25));
         }
+        let lx = root.position.x;
+        let lz = root.position.z;
+        const c = Math.cos(root.rotation.y);
+        const s = Math.sin(root.rotation.y);
+        brood.forEach((b, i) => {
+          // keep a little way behind the one ahead, on whatever side it happens to be, wandering a bit
+          let dx = b.x - lx;
+          let dz = b.z - lz;
+          const far = Math.hypot(dx, dz) || 1;
+          dx /= far;
+          dz /= far;
+          const wander = Math.sin(t * b.drift * 1.3 + b.phase) * 0.09 + Math.sin(t * 0.37 + b.phase * 2) * 0.05;
+          const tx = lx + dx * b.gap - dz * wander;
+          const tz = lz + dz * b.gap + dx * wander;
+          const k = 1 - Math.exp(-dt * (fled ? b.keen * 1.6 : b.keen));
+          const mx = (tx - b.x) * k;
+          const mz = (tz - b.z) * k;
+          b.x += mx;
+          b.z += mz;
+          // face where it's going, or the one ahead when it's barely moving
+          const moving = Math.hypot(mx, mz) > dt * 0.05;
+          b.h = turn(b.h, moving ? face(mx, mz) : face(-dx, -dz), dt * (moving ? 6 : 2));
+          // back into the mother's frame
+          const ox = b.x - root.position.x;
+          const oz = b.z - root.position.z;
+          b.d.position.set(ox * c - oz * s, Math.sin(t * 3 + i) * 0.015, ox * s + oz * c);
+          b.d.rotation.y = b.h - root.rotation.y;
+          lx = b.x;
+          lz = b.z;
+        });
         return true;
       },
     };
