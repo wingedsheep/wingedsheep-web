@@ -37,6 +37,9 @@ const SPECIMENS = [
   ['supersheep', 'Super Sheep', 'A red cape and a rather hurried sketch.'],
   ['starlings', 'Starlings', 'One of thousands. Behind it, the rest, turning over the trees as one.'],
   ['seal', 'Harbour seal', 'Hauled out on the warm sand, and in no hurry to be anywhere else.'],
+  ['eagle', 'White-tailed eagle', 'A barn door of a bird on a dead branch, then low over the water, and away with a fish.'],
+  ['boar', 'Wild boar', 'All shoulders and snout, rooting up the bank. The piglets are striped like humbugs.'],
+  ['highland', 'Highland cow', 'Ginger, shaggy, horns like handlebars. Looking back at me through its fringe, I think.'],
 ] as const;
 /** The atlas is six sketches wide and seven deep; its thirty-sixth sketch is the feather, not an animal. */
 const FEATHER = 35;

@@ -381,6 +381,8 @@ export class RiverGame {
     // ?rare=bear to go and look for one
     const rare = new URLSearchParams(location.search).get('rare') as Rare | null;
     if (rare && RARE.some((r) => r.id === rare)) this.wildlife.force(rare);
+    // ?beike to have him run along with you from the start
+    if (new URLSearchParams(location.search).has('beike')) this.wildlife.forceBeike(this.start + 15);
     this.wildlife.ground = (x, z) => this.land.heightAt(x, z);
     const projected = new THREE.Vector3();
     this.wildlife.inView = (at, margin = 0.95) => {

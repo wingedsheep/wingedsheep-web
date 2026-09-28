@@ -9,6 +9,7 @@
  *   just record --river dawdle --seconds 20   a quick look
  *   just record --river coffee --downriver 1500 --seconds 40   push off further down, for a look at the hard stuff
  *   just record --url http://localhost:4321   a dev server that's already running (else it starts one)
+ *   just record --river dawdle --query rare=eagle   anything else for the page (?rare=, ?time=, ?season=…)
  *
  * It needs Google Chrome and ffmpeg. The paddler is pilot.ts's, the same as `just autopilot`'s.
  */
@@ -115,7 +116,7 @@ async function film(base: string, id: string, pilot: string) {
   await page.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   await page.send('Page.addScriptToEvaluateOnNewDocument', { source: CLOCK });
   await page.send('Page.addScriptToEvaluateOnNewDocument', { source: pilot });
-  await page.send('Page.navigate', { url: `${base}/?river=${id}&seed=${SEED}${DOWNRIVER ? `&downriver=${DOWNRIVER}` : ''}#river` });
+  await page.send('Page.navigate', { url: `${base}/?river=${id}&seed=${SEED}${DOWNRIVER ? `&downriver=${DOWNRIVER}` : ''}${args.query ? `&${args.query}` : ''}#river` });
 
   // the island loads, then the river (a frame at a time, and a moment of real time for the models to come in)
   process.stdout.write(`${id}: loading`);

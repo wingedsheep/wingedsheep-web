@@ -147,6 +147,9 @@ export const SOUNDS: Sfx[] = [
   { name: 'horn', seconds: 4, prompt: 'A passenger ferry sounding its horn once far out at sea, one long deep blast carrying over calm water, distant, fading away' },
   { name: 'murmur', seconds: 3, prompt: 'A huge flock of starlings wheeling overhead at dusk, a soft rushing whoosh of thousands of wings turning together, swelling and fading, faint chattering, no other birds' },
   { name: 'seal', seconds: 2, prompt: 'A harbour seal lying on a beach giving a low grumbling grunt and a snort, close, gentle surf behind' },
+  { name: 'eagle', seconds: 2.5, prompt: 'A white-tailed eagle calling over a quiet river, a series of high yelping kyik kyik kyik calls falling in pitch, a little distant, no other birds, no water' },
+  { name: 'boar', seconds: 2, prompt: 'A wild boar in a forest at the edge of a river, a sharp loud warning snort through the nose and then a low grunting grumble, close, no other animals, no music' },
+  { name: 'moo', seconds: 3, prompt: 'A Highland cow standing in a quiet river meadow gives one long, deep, lowing moo, calm and unhurried, a little distant, gentle river behind, no other animals, no music' },
   { name: 'raven', seconds: 2, prompt: 'A common raven calling high over a mountain valley, deep croaking cronk cronk, echoing, no other birds' },
   // the rooms' doors (door-*, bell, hatch) are made, not generated: tools/sounds/doors.py
   { name: 'bottle', seconds: 2.5, prompt: 'A cork pulled out of a glass bottle with a pop, then a rolled paper note shaken out and unrolled' },

@@ -22,7 +22,7 @@ const turn = (from: number, to: number, k: number) => from + Math.atan2(Math.sin
 /** A value eased towards another at `rate` per second, however long the frame. */
 const ease = (from: number, to: number, rate: number, dt: number) => from + (to - from) * (1 - Math.exp(-dt * rate));
 
-export type Cry = 'heron' | 'kingfisher' | 'otter' | 'grunt' | 'yeti' | 'raven' | 'lynx';
+export type Cry = 'heron' | 'kingfisher' | 'otter' | 'grunt' | 'yeti' | 'raven' | 'lynx' | 'eagle' | 'boar' | 'moo';
 
 export interface WildlifeEvents {
   /** Something happened worth a line on screen. */
@@ -197,6 +197,8 @@ class Fireflies {
 }
 
 const WHITE = new THREE.Color('#f2f7f6');
+/** Earth flicked up off a boar's snout. */
+const EARTH = new THREE.Color('#5a4432');
 const FOAM = new THREE.Color('#d6ecea');
 const DRIP = new THREE.Color('#a8d8e0');
 const GOLD = new THREE.Color('#ffd35a');
@@ -246,6 +248,8 @@ export class Wildlife {
   /** The storm's wind across the river right now (x, z; the kayak's gust), for the rain to ride. */
   readonly blow = new THREE.Vector2();
   private beikeDone = false;
+  /** ?beike: out he comes as soon as you're this far down, wherever that is. */
+  private beikeFrom = Infinity;
   private waiting = false; // Beike's waiting at the take-out
   /** The rare ones already in your log (the ones you haven't seen come up more often). */
   seen: ReadonlySet<Rare> = new Set();
@@ -271,6 +275,7 @@ export class Wildlife {
     this.ravensIn = rand(6, 14);
     this.storm = 0;
     this.beikeDone = false;
+    this.beikeFrom = Infinity;
     this.waiting = false;
     this.rare = undefined;
     const { chance, who } = course.profile.rare;
@@ -287,6 +292,11 @@ export class Wildlife {
   /** Whichever rare one's out this run (for ?rare=bear to go looking for one). */
   force(kind: Rare) {
     this.rare = { kind, from: 60 };
+  }
+
+  /** Beike, as soon as you're past `from` (for ?beike, to watch him run and go). */
+  forceBeike(from: number) {
+    this.beikeFrom = from;
   }
 
   /** A chunk of river came into view with places for animals. */
@@ -338,7 +348,7 @@ export class Wildlife {
     }
     // Beike, once a trip: somewhere open, a few hundred metres down
     const p = this.course.at(s);
-    if (!this.beikeDone && s > 200 && s < this.course.finish - 250 && p.clear > 0.6 && p.gorge < 0.3 && night < 0.5) {
+    if (!this.beikeDone && (s > this.beikeFrom || (s > 200 && s < this.course.finish - 250 && p.clear > 0.6 && p.gorge < 0.3 && night < 0.5))) {
       const beike = this.beike(s);
       if (beike) {
         this.beikeDone = true;
@@ -899,7 +909,8 @@ export class Wildlife {
 
   /**
    * Beike, running the bank alongside you with his ball in his mouth, barking now and then.
-   * After a while something smells more interesting, and he stops to sit and watch you go.
+   * After a while something smells more interesting, and he's off up the bank after it, out of
+   * sight (never just gone from where he stood).
    */
   private beike(s: number): Actor | null {
     const p = this.course.at(s + 10);
@@ -928,34 +939,50 @@ export class Wildlife {
       return q;
     };
     place(at, 0);
-    return {
+    // once he's had enough: off inland and a little downstream, until he's off the screen
+    let off: { x: number; z: number; dx: number; dz: number } | null = null;
+    let gone = 0;
+    const actor: Actor = {
       s,
       root,
       update: (dt, kayak) => {
         t += dt;
-        const running = t < run;
-        const q = this.course.along(at);
-        if (running) {
+        const g = Math.sin(t * 16);
+        legs.forEach((l, i) => l && (l.rotation.z = (i % 2 ? 1 : -1) * g * 0.8));
+        if (tail) tail.rotation.x = Math.sin(t * 12) * 0.3;
+        if (t < run) {
           // keep level with the kayak, a boat's length ahead
           const target = this.course.nearest(kayak.x, kayak.z).sample.s + 4;
           at += Math.max(0, Math.min(9, (target - at) * 2 + 3)) * dt;
-          const g = Math.sin(t * 16);
-          legs.forEach((l, i) => l && (l.rotation.z = (i % 2 ? 1 : -1) * g * 0.8));
+          actor.s = at; // (so he isn't tidied away behind you while he's still running)
+          const q = this.course.along(at);
           root.rotation.y = turn(root.rotation.y, face(Math.sin(q.a), -Math.cos(q.a)), dt * 8);
           if ((barkIn -= dt) < 0) {
             barkIn = rand(2.5, 5);
             this.events.bark?.();
           }
+          place(at, dt);
         } else {
-          legs.forEach((l) => l && (l.rotation.z = ease(l.rotation.z, 0, 6, dt)));
-          root.rotation.y = turn(root.rotation.y, face(-Math.cos(q.a) * side, -Math.sin(q.a) * side), dt * 3);
+          if (!off) {
+            const q = this.course.along(at);
+            const ax = Math.cos(q.a) * side;
+            const az = Math.sin(q.a) * side;
+            const n = Math.hypot(ax + Math.sin(q.a) * 0.6, az - Math.cos(q.a) * 0.6);
+            off = { x: root.position.x, z: root.position.z, dx: (ax + Math.sin(q.a) * 0.6) / n, dz: (az - Math.cos(q.a) * 0.6) / n };
+          }
+          const pace = Math.min(8, 3 + (t - run) * 4);
+          off.x += off.dx * pace * dt;
+          off.z += off.dz * pace * dt;
+          root.position.set(off.x, this.ground(off.x, off.z), off.z);
+          root.rotation.y = turn(root.rotation.y, face(off.dx, off.dz), dt * 6);
+          actor.s = this.course.nearest(kayak.x, kayak.z).sample.s;
+          gone = this.inView(root.position, 1.15) ? 0 : gone + dt;
         }
-        if (tail) tail.rotation.x = Math.sin(t * 12) * 0.3;
-        place(at, dt);
-        if (running) root.position.y += Math.abs(Math.sin(t * 16)) * 0.08;
-        return !running ? t < run + 20 : true;
+        root.position.y += Math.abs(g) * 0.08;
+        return gone < 0.5 && t < run + 15;
       },
     };
+    return actor;
   }
 
   /**
@@ -1030,6 +1057,10 @@ export class Wildlife {
       case 'bear': return q.gorge < 0.6 ? this.bear(at) : null;
       case 'wolves': return q.gorge < 0.45 ? this.wolves(at, night) : null;
       case 'lynx': return this.lynx(at);
+      // (by day, over open water calm enough to see a fish in)
+      case 'boar': return q.gorge < 0.45 ? this.boar(at) : null;
+      case 'highland': return q.speed < 5 && q.rough < 0.35 && q.gorge < 0.3 ? this.highland(at) : null;
+      case 'eagle': return night < 0.4 && q.rough < 0.45 && q.gorge < 0.5 ? this.eagle(at) : null;
       case 'yeti': return q.gorge < 0.7 ? this.yeti(at) : null;
     }
   }
@@ -1740,6 +1771,306 @@ export class Wildlife {
         // (front legs reaching out on the way up, the back ones kicking off)
         legs.forEach((k, i) => k && (k.rotation.z = (i < 2 ? 1 : -1) * g * 0.7));
         return off < 5;
+      },
+    };
+  }
+
+  /**
+   * A white-tailed eagle, sat on top of a dead tree at the water's edge, watching you come (a
+   * pale head turning to follow you). Seen, it calls, drops off the tree on wings like barn doors,
+   * glides down over the river ahead of you and takes a fish off the top of the water with a
+   * splash, then labours away low over the far bank with it, and up.
+   */
+  private eagle(at: number): Actor | null {
+    const spot0 = this.open(at, 0.4, 1.4, 6);
+    if (!spot0) return null;
+    const { q, side } = spot0;
+    at = spot0.s;
+    const root = new THREE.Group();
+    const snag = this.assets.clone('snag_0');
+    snag.position.set(spot0.x, spot0.y - 0.1, spot0.z);
+    snag.rotation.y = rand(0, Math.PI * 2);
+    const e = this.assets.clone('eagle');
+    e.scale.setScalar(1.8); // (a big bird, but still only a speck on top of a tree from up here at 1:1)
+    const fish = this.assets.clone('fish');
+    fish.scale.setScalar(1.6);
+    fish.position.set(0.08, 0.02, 0);
+    fish.visible = false;
+    e.add(fish);
+    root.add(snag, e);
+    this.group.add(root);
+    snag.updateMatrixWorld(true);
+    const x = this.assets.extras.get('snag_0') ?? {};
+    const perch = snag.localToWorld(V(x.top_x ?? 0, (x.top_z ?? 5) + 0.25, -(x.top_y ?? 0)));
+    e.position.copy(perch);
+    const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
+    const down = V(Math.sin(q.a), 0, -Math.cos(q.a));
+    e.rotation.y = face(toWater.x - down.x * 0.6, toWater.z - down.z * 0.6); // out over the water, and up it
+    const head = e.getObjectByName('eagle_head');
+    const wings = [e.getObjectByName('eagle_wing_l'), e.getObjectByName('eagle_wing_r')];
+    const legs = [e.getObjectByName('eagle_leg_l'), e.getObjectByName('eagle_leg_r')];
+    /** Wings folded along its back (1) or spread (0). */
+    const fold = (k: number, raise = 0) => wings.forEach((w, i) => {
+      if (!w) return;
+      const s = i ? -1 : 1;
+      w.rotation.set(-s * 0.15 * k + s * raise, s * 1.5 * k, 0);
+      w.scale.z = 1 - k * 0.5;
+    });
+    fold(1);
+    const spot = this.spotter('eagle');
+    let seenAt = -1;
+    let fly = -1; // how long since it dropped off the tree
+    let caught = false;
+    const from = V();
+    const bend = V();
+    const to = V();
+    const was = V();
+    let dive = 1.8; // how long the glide down takes (s)
+    let lastK = -1;
+    let pace = 0; // how fast you're coming down the river (m/s), to meet you rather than end up behind you
+    return {
+      s: at,
+      root,
+      update: (dt, kayak) => {
+        const t = this.clock;
+        if (spot(e.position, kayak)) {
+          seenAt = t;
+          this.events.cry?.('eagle');
+        }
+        const d = e.position.distanceTo(kayak);
+        if (fly < 0) {
+          const k = this.kayakS(kayak);
+          if (lastK >= 0 && dt > 0) pace = ease(pace, Math.max(0, (k - lastK) / dt), 4, dt);
+          lastK = k;
+          this.look(head, e, kayak, 1.4, dt);
+          // (and now and then a shrug of the wings, settling them)
+          const shrug = Math.max(0, Math.sin(t * 1.3 + at) - 0.93) * 6;
+          fold(1, shrug * 0.3);
+          if (!((seenAt >= 0 && t - seenAt > 1) || d < 9 || k > at)) return true;
+          // off it goes: down to the water a little ahead of you, on the tree's side of the river
+          fly = 0;
+          from.copy(e.position);
+          // (where you'll be by the time it's down, and a little on: the glide takes a second or two)
+          dive = 1.6;
+          const w = this.course.at(Math.max(k + 8 + pace * dive, at + 3));
+          const u = side * w.width * rand(0.05, 0.2);
+          to.set(w.x + Math.cos(w.a) * u, w.y + 0.1, w.z + Math.sin(w.a) * u);
+          bend.lerpVectors(from, to, 0.35).setY(to.y + 1.6);
+          dive = Math.max(1.2, Math.min(2, from.distanceTo(to) / 9));
+          if (seenAt < 0) this.events.cry?.('eagle');
+        }
+        fly += dt;
+        was.copy(e.position);
+        if (fly < dive) {
+          // the glide down: wings out in the first moment, then held, then up and back as the
+          // talons swing forward for the fish
+          const k = fly / dive;
+          const a = 1 - k;
+          e.position.set(0, 0, 0).addScaledVector(from, a * a).addScaledVector(bend, 2 * a * k).addScaledVector(to, k * k);
+          const late = Math.max(0, (k - 0.7) / 0.3);
+          fold(Math.max(0, 1 - fly / 0.35), 0.12 + late * 0.8);
+          legs.forEach((l) => l && (l.rotation.z = late * 1.1));
+          if (head) head.rotation.y = ease(head.rotation.y, 0, 6, dt);
+        } else {
+          if (!caught) {
+            caught = true;
+            fish.visible = true;
+            this.spray(to, 14, 0.9);
+          }
+          // and away with it: heavy beats, low over the water and the far bank, climbing
+          const c = fly - dive;
+          const beat = Math.sin(c * 7.5);
+          fold(0);
+          wings.forEach((w, i) => w && (w.rotation.x = (i ? -1 : 1) * beat * 0.85));
+          legs.forEach((l) => l && (l.rotation.z = ease(l.rotation.z, 0.2, 3, dt)));
+          const heading = V(toWater.x * 0.8 + down.x, 0, toWater.z * 0.8 + down.z).normalize(); // (across, and on down the river)
+          e.position.addScaledVector(heading, dt * Math.min(6, 2.5 + c * 1.5));
+          e.position.y += dt * (0.5 + Math.min(2, c * 0.6)) + beat * dt * 0.4;
+          if (c < 0.4 && Math.random() < dt * 20) this.specks.emit(e.position.clone(), V(rand(-0.5, 0.5), rand(-0.5, 0.2), rand(-0.5, 0.5)), WHITE, rand(0.4, 0.7)); // drips off the fish
+          if (c > 9) e.visible = false; // (the tree stays: it was only ever a tree)
+        }
+        // facing the way it's going, the nose down on the glide and up on the climb
+        const dx = e.position.x - was.x;
+        const dz = e.position.z - was.z;
+        const h = Math.hypot(dx, dz);
+        if (h > 1e-4) {
+          e.rotation.y = turn(e.rotation.y, face(dx, dz), dt * 8);
+          e.rotation.z = ease(e.rotation.z, Math.max(-0.6, Math.min(0.5, Math.atan2(e.position.y - was.y, h))), 6, dt);
+        }
+        return true;
+      },
+    };
+  }
+
+  /**
+   * Wild boar at the edge of the trees, rooting up the bank: in spring and summer a sow with her
+   * piglets (striped like humbugs, milling round her feet), the rest of the year two or three
+   * grown ones. Seen, the sow's head comes up and she snorts, and they all stand stock still; come
+   * any nearer and they're off into the trees at a trot, the piglets strung out behind.
+   */
+  private boar(at: number): Actor | null {
+    const spot0 = this.open(at, 0.8, 2.2, 1.2);
+    if (!spot0) return null;
+    const { q, side } = spot0;
+    at = spot0.s;
+    const root = new THREE.Group();
+    this.group.add(root);
+    const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
+    const up = V(-Math.sin(q.a), 0, Math.cos(q.a));
+    const young = season.name === 'spring' || season.name === 'summer';
+    // (at 1:1 they're lost in the grass, like the lynx)
+    const herd = Array.from({ length: young ? 1 + 3 + Math.floor(Math.random() * 4) : 2 + Math.floor(Math.random() * 2) }, (_, i) => {
+      const piglet = young && i > 0;
+      const o = this.assets.clone(piglet ? 'piglet' : 'boar');
+      o.scale.setScalar(piglet ? 1.7 : i ? rand(1.3, 1.5) : 1.6);
+      const along = i ? rand(-1.6, 1.6) : 0;
+      const back = i ? rand(-0.4, 0.8) : 0;
+      const x = spot0.x + up.x * along - toWater.x * back;
+      const z = spot0.z + up.z * along - toWater.z * back;
+      o.position.set(x, this.ground(x, z), z);
+      o.rotation.y = face(toWater.x + up.x * rand(-1.5, 1.5), toWater.z + up.z * rand(-1.5, 1.5));
+      root.add(o);
+      const name = piglet ? 'piglet' : 'boar';
+      return {
+        o,
+        piglet,
+        head: o.getObjectByName('boar_head'),
+        legs: ['fl', 'fr', 'bl', 'br'].map((k) => o.getObjectByName(`${name}_leg_${k}`)),
+        seed: rand(0, 10),
+        mill: rand(0, 2), // (a piglet's next scamper)
+        dir: V(),
+      };
+    });
+    const spot = this.spotter('boar');
+    const at3 = herd.map((h) => h.o.position);
+    let seenAt = -1;
+    let off = -1;
+    return {
+      s: at,
+      root,
+      update: (dt, kayak) => {
+        const t = this.clock;
+        if (spot(at3, kayak)) {
+          seenAt = t;
+          this.events.cry?.('boar');
+        }
+        const lead = herd[0];
+        const d = lead.o.position.distanceTo(kayak);
+        if (off < 0 && ((seenAt >= 0 && t - seenAt > 2.2) || d < 8 || this.kayakS(kayak) > at + 3)) off = 0;
+        if (off < 0) {
+          const still = seenAt >= 0;
+          for (const h of herd) {
+            if (h.head) {
+              // rooting: snout down and shoving, and a clod flicked up now and then; up, when you're seen
+              const want = still ? 0.15 : -0.55 + Math.sin(t * 7 + h.seed) * 0.12;
+              h.head.rotation.z = ease(h.head.rotation.z, want, still ? 8 : 5, dt);
+              if (still) this.look(h.head, h.o, kayak, 0.6, dt);
+              else if (Math.random() < dt * 1.5) {
+                const nose = h.head.localToWorld(V(0.45, -0.2, 0));
+                this.specks.emit(nose, V(rand(-0.4, 0.4), rand(0.8, 1.4), rand(-0.4, 0.4)), EARTH, rand(0.4, 0.7));
+              }
+            }
+            if (h.piglet && !still) {
+              // piglets never stand still for long: a scamper round her feet, and a stop
+              if ((h.mill -= dt) < 0) {
+                h.mill = rand(0.6, 1.8);
+                h.dir.set(lead.o.position.x - h.o.position.x + rand(-1.4, 1.4), 0, lead.o.position.z - h.o.position.z + rand(-1.4, 1.4));
+                if (Math.random() < 0.35) h.dir.set(0, 0, 0);
+              }
+              const moving = h.dir.lengthSq() > 0.01 && h.mill > 0.3;
+              if (moving) {
+                h.o.rotation.y = turn(h.o.rotation.y, face(h.dir.x, h.dir.z), dt * 8);
+                h.o.position.add(V(Math.cos(h.o.rotation.y) * dt * 1.2, 0, -Math.sin(h.o.rotation.y) * dt * 1.2));
+                h.o.position.y = this.ground(h.o.position.x, h.o.position.z);
+              }
+              const g = moving ? Math.sin(t * 22 + h.seed) : 0;
+              h.legs.forEach((l, i) => l && (l.rotation.z = (i === 0 || i === 3 ? 1 : -1) * g * 0.6));
+            } else h.legs.forEach((l) => l && (l.rotation.z = ease(l.rotation.z, 0, 10, dt)));
+          }
+          return true;
+        }
+        // off into the trees at a trot, the others following on
+        off += dt;
+        const away = V(-toWater.x + up.x * 0.3, 0, -toWater.z + up.z * 0.3);
+        herd.forEach((h, i) => {
+          const go = off > i * 0.12;
+          if (h.head) h.head.rotation.z = ease(h.head.rotation.z, 0.05, 6, dt);
+          if (!go) return;
+          const ahead = i ? herd[i - 1].o.position : null;
+          const dx = ahead ? ahead.x - h.o.position.x : away.x;
+          const dz = ahead ? ahead.z - h.o.position.z : away.z;
+          h.o.rotation.y = turn(h.o.rotation.y, face(dx, dz), dt * 6);
+          const speed = h.piglet ? 3.4 : 3;
+          h.o.position.add(V(Math.cos(h.o.rotation.y) * dt * speed, 0, -Math.sin(h.o.rotation.y) * dt * speed));
+          const g = Math.sin(off * (h.piglet ? 24 : 14) + h.seed);
+          h.o.position.y = this.ground(h.o.position.x, h.o.position.z) + Math.abs(g) * (h.piglet ? 0.05 : 0.07);
+          h.legs.forEach((l, k) => l && (l.rotation.z = (k === 0 || k === 3 ? 1 : -1) * g * 0.55));
+        });
+        return off < 7;
+      },
+    };
+  }
+
+  /**
+   * A Highland cow, ginger and shaggy: grazing the bank, or in the warm months stood knee-deep
+   * in the river to cool off. It lifts its head as you come by, has a long look at you through
+   * its fringe, and moos; then goes back to what it was doing. It isn't going anywhere.
+   */
+  private highland(at: number): Actor | null {
+    const wading = (season.name === 'summer' || season.name === 'spring') && Math.random() < 0.6;
+    const spot0 = wading ? this.shallows(at, 1.6, 1.8) : this.open(at, 0.4, 1.6, 1.8);
+    if (!spot0) return null;
+    const { q, side } = spot0;
+    at = spot0.s;
+    const c = this.assets.clone('highland');
+    c.scale.setScalar(1.35);
+    const y0 = wading ? q.y - 0.45 : this.ground(spot0.x, spot0.z);
+    c.position.set(spot0.x, y0, spot0.z);
+    // side on to the river, more or less, whichever way
+    const along = V(-Math.sin(q.a), 0, Math.cos(q.a)).multiplyScalar(Math.random() < 0.5 ? -1 : 1);
+    const toWater = V(-Math.cos(q.a) * side, 0, -Math.sin(q.a) * side);
+    c.rotation.y = face(along.x + toWater.x * 0.4, along.z + toWater.z * 0.4);
+    this.group.add(c);
+    const head = c.getObjectByName('highland_head');
+    const tail = c.getObjectByName('highland_tail');
+    const spot = this.spotter('highland');
+    let lookAt = -1; // when it lifted its head to you
+    let chew = 0;
+    const seed = rand(0, 10);
+    const nose = V();
+    return {
+      s: at,
+      root: c,
+      update: (dt, kayak) => {
+        const t = this.clock;
+        spot(c.position, kayak);
+        const d = c.position.distanceTo(kayak);
+        if (lookAt < 0 && d < 17) {
+          lookAt = t;
+          this.events.cry?.('moo');
+        }
+        // tail going all the while, for the flies
+        if (tail) tail.rotation.x = Math.sin(t * 2.3 + seed) * 0.35 + Math.sin(t * 5.1) * 0.08;
+        if (!head) return true;
+        const looking = lookAt >= 0 && t - lookAt < 7;
+        if (looking) {
+          head.rotation.z = ease(head.rotation.z, 0.1, 3, dt);
+          this.look(head, c, kayak, 0.9, dt * 0.6);
+          // chewing on it, slowly
+          chew += dt;
+          head.rotation.x = Math.sin(chew * 4) * 0.04;
+        } else {
+          // head down to the grass (or the water), a mouthful at a time
+          head.rotation.y = ease(head.rotation.y, 0, 2, dt);
+          const bite = Math.sin(t * 0.9 + seed) > -0.6;
+          head.rotation.z = ease(head.rotation.z, bite ? (wading ? -0.75 : -0.95) : -0.2, 2, dt);
+          head.rotation.x = ease(head.rotation.x, 0, 4, dt);
+          if (wading && !bite && head.rotation.z < -0.5 && Math.random() < dt * 20) {
+            head.localToWorld(nose.set(0.5, -0.2, 0));
+            this.drip(nose);
+          }
+        }
+        return true;
       },
     };
   }

@@ -84,7 +84,7 @@ const SFX = {
   telly: { 'tv-murder': 1, 'tv-location': 1, 'tv-bnb': 1, 'tv-rail': 1 },
   // only on the special days that need them (scene/calendar.ts)
   festive: { fireworks: 1, 'fw-launch': 2, 'fw-burst': 3, 'fw-crackle': 2, 'steam-whistle': 1 },
-  river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
+  river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1, eagle: 1, boar: 1, moo: 1 },
 };
 type SfxSet = keyof typeof SFX;
 /**
@@ -104,7 +104,7 @@ const LEVEL: Record<string, number> = {
   cheers: 0.5, cowbells: 0.45, transformer: 0.4,
   stroke: 0.3, hit: 0.85, bump: 0.5, splash: 0.7, capsize: 0.8, roll: 0.55, brace: 0.55, boof: 0.7, dropin: 0.55,
   hole: 0.6, slap: 0.65, howl: 0.6, growl: 0.7, croak: 0.4, whoosh: 0.35, kingfisher: 0.4, otter: 0.4, grunt: 0.65,
-  yeti: 0.6,
+  yeti: 0.6, eagle: 0.5, boar: 0.55, moo: 0.6,
   'fw-launch': 0.3, 'fw-burst': 0.75, 'fw-crackle': 0.35, 'steam-whistle': 0.65,
 };
 /**
@@ -958,6 +958,21 @@ export class Sound {
         this.hiss(t + 0.05, 0.45, 1100, 0.18 * volume);
         this.tone(t + 0.3, 'sawtooth', [[0, 200], [0.25, 320], [0.7, 290], [1, 180]], 0.09 * volume, 1.05, 900);
         this.tone(t + 0.3, 'sine', [[0, 400], [0.25, 640], [0.7, 580], [1, 360]], 0.04 * volume, 1.05);
+        break;
+      case 'eagle': // a white-tailed eagle: a run of high, yelping kyik-kyik-kyiks, falling away
+        for (let i = 0; i < 7; i++) {
+          const f = 1500 - i * 70;
+          this.tone(t + i * 0.13, 'triangle', [[0, f * 0.8], [0.03, f], [0.09, f * 0.85]], 0.06 * volume * (1 - i * 0.08), 0.1, 3200);
+        }
+        break;
+      case 'boar': // a wild boar: a sharp warning snort through the nose, and a low grumble
+        this.hiss(t, 0.25, 700, 0.35 * volume);
+        this.tone(t + 0.05, 'sawtooth', [[0, 95], [0.2, 70]], 0.12 * volume, 0.25, 400);
+        this.tone(t + 0.45, 'sawtooth', [[0, 80], [0.5, 65]], 0.1 * volume, 0.6, 300);
+        break;
+      case 'moo': // a Highland cow: one long, deep, unbothered moo
+        this.tone(t, 'sawtooth', [[0, 110], [0.3, 140], [1.4, 130], [1.9, 95]], 0.12 * volume, 2, 600);
+        this.tone(t, 'sine', [[0, 220], [0.3, 280], [1.4, 260], [1.9, 190]], 0.05 * volume, 2);
         break;
       case 'spotted': // something rare: a soft, wondering phrase, up and up
         [523, 659, 880, 1047].forEach((f, i) => this.tone(t + i * 0.14, 'sine', [[0, f]], 0.07 * volume, 0.6));

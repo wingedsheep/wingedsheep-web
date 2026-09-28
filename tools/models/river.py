@@ -988,11 +988,12 @@ def snags():
     """Dead trees: silver-grey and bare, a broken top, a few crooked limbs. For the banks of the
     rivers where the storms come through. About 6 m and 8 m."""
     for i in range(2):
-        root = _root(f"snag_{i}", height=6.0 + i * 2)
-        m = Model(f"snag_{i}", seed=530 + i)
         rng = random.Random(530 + i)
         h = 5.0 + i * 2.2
         lean = (rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3))
+        # (where the top is, for something to perch on: the eagle)
+        root = _root(f"snag_{i}", height=6.0 + i * 2, top_x=lean[0], top_y=lean[1], top_z=h)
+        m = Model(f"snag_{i}", seed=530 + i)
         top = (lean[0], lean[1], h)
         _pole(m, (0, 0, 0), top, 0.3 + i * 0.06, DEAD_BARK[i], r_end=0.1)
         m.cyl(0.5, 0.5, (0, 0, 0), DEAD_BARK[2], segs=6, r_top=0.3)
@@ -2205,6 +2206,174 @@ def lynx():
     h.build(body, loc=(0.32, 0, 0.12))
 
 
+EAGLE = "#5e4632"
+EAGLE_DARK = "#3e2e24"
+EAGLE_COVERT = "#8a6c4c"
+EAGLE_HEAD = "#e2d6b8"
+EAGLE_TAIL = "#f4f0e6"
+EAGLE_BILL = "#f0c030"
+
+
+def eagle():
+    """A white-tailed eagle: big and brown, a pale head, a heavy yellow bill, a short white wedge
+    of a tail, and wings like barn doors with the ends split into fingers. The wings pivot at the
+    shoulders (they flap about x, and fold back about z), the head turns, and the legs swing
+    forward, talons out, to take a fish off the water."""
+    root = _root("eagle")
+    b = Model("eagle_body", seed=680)
+    b.ball(0.2, (0, 0, 0), EAGLE, subdiv=2, scale=(1.7, 0.85, 0.85))
+    b.ball(0.13, (0.2, 0, 0.04), EAGLE_HEAD, subdiv=1, scale=(1.0, 0.9, 0.95))              # the pale neck
+    b.ball(0.14, (0.06, 0, -0.06), EAGLE_DARK, subdiv=1, scale=(1.8, 0.75, 0.6))
+    b.prism([(-0.26, 0.0), (-0.52, 0.12), (-0.52, -0.12)], 0.035, (0, 0, 0.02), EAGLE_TAIL, rot=(math.pi / 2, 0, 0))
+    body = b.build(root, loc=(0, 0, 0.52))
+    h = Model("eagle_head", seed=681)
+    h.ball(0.11, (0.02, 0, 0.02), EAGLE_HEAD, subdiv=1, scale=(1.2, 0.9, 0.9))
+    h.box((0.1, 0.07, 0.08), (0.14, 0, 0.0), EAGLE_BILL, taper=0.6)                        # the heavy bill
+    h.box((0.04, 0.05, 0.05), (0.19, 0, -0.03), EAGLE_BILL, rot=(0, 0.6, 0))               # and its hook
+    fauna._eyes(h, 0.09, 0.05, 0.04, 0.026, color="#d8b020")
+    h.box((0.07, 0.13, 0.025), (0.08, 0, 0.065), EAGLE_HEAD)                               # the brow
+    h.build(body, loc=(0.3, 0, 0.1))
+    for tag, s in (("l", 1), ("r", -1)):
+        w = Model(f"eagle_wing_{tag}", seed=682 + s)
+        w.box((0.48, 0.5, 0.035), (-0.04, s * 0.25, 0), EAGLE_DARK)                     # broad as a door
+        w.box((0.2, 0.52, 0.045), (0.08, s * 0.27, 0.005), EAGLE_COVERT)                     # the paler coverts
+        w.box((0.42, 0.3, 0.03), (-0.04, s * 0.65, 0), EAGLE_DARK)
+        w.box((0.16, 0.3, 0.04), (0.06, s * 0.64, 0.005), EAGLE)
+        for k in range(6):                                                               # the fingers, spread
+            w.box((0.055, 0.28, 0.02), (0.13 - k * 0.07, s * (0.9 - k * 0.02), 0), EAGLE_DARK, rot=(0, 0, s * (0.22 - k * 0.1)))
+        w.build(body, loc=(0.02, s * 0.12, 0.08))
+        g = Model(f"eagle_leg_{tag}", seed=684 + s)
+        fauna._limb(g, (0, 0, 0), (0.02, 0, -0.22), 0.065, 0.04, EAGLE_DARK)             # the feathered trousers
+        fauna._limb(g, (0.02, 0, -0.22), (0.03, 0, -0.33), 0.025, 0.02, EAGLE_BILL)
+        for a in (-0.5, 0, 0.5):
+            g.box((0.1, 0.02, 0.02), (0.08, math.sin(a) * 0.04, -0.34), EAGLE_BILL, rot=(0, 0, a))
+            g.box((0.03, 0.02, 0.025), (0.13 + math.cos(a) * 0.01, math.sin(a) * 0.06, -0.35), P.INK, rot=(0, 0.6, a))
+        g.build(body, loc=(-0.02, s * 0.08, -0.1))
+
+
+BOAR = "#4a3e36"
+BOAR_GRIZZLE = "#6e6254"
+BOAR_DARK = "#2e2622"
+BOAR_SNOUT = "#b09088"
+TUSK = "#ece4cc"
+PIGLET = "#8a6a48"
+PIGLET_STRIPE = "#dcc89c"
+PIGLET_DARK = "#4e3a2a"
+
+
+def boar():
+    """A wild boar: all shoulders and snout, grizzled dark grey-brown, a bristling crest down the
+    back, small upright ears, a flat pink-grey disc of a nose and a pair of little tusks, on legs
+    that look too thin for it. The head pivots at the neck, to root and to lift and stare."""
+    root = _root("boar")
+    b = Model("boar_body", seed=690)
+    b.ball(0.34, (0.22, 0, 0.06), BOAR, subdiv=2, scale=(1.05, 0.85, 1.15), jitter=0.03)   # the big shoulders
+    b.ball(0.3, (-0.12, 0, 0.0), BOAR, subdiv=2, scale=(1.3, 0.85, 1.0), jitter=0.03)
+    b.ball(0.26, (-0.4, 0, -0.02), BOAR_DARK, subdiv=1, scale=(0.9, 0.85, 0.9))           # the rump
+    for i in range(9):                                                                   # the crest
+        x = 0.42 - i * 0.09
+        b.box((0.08, 0.05, 0.14 - i * 0.008), (x, 0, 0.4 - i * 0.02 + (0.03 if i < 4 else 0)), BOAR_DARK if i % 2 else BOAR_GRIZZLE, rot=(0, -0.3, 0))
+    for i in range(18):                                                                  # grizzle in the coat
+        a = b.rng.uniform(0.3, math.pi - 0.3) * (1 if i % 2 else -1)
+        x = b.rng.uniform(-0.4, 0.35)
+        b.ball(0.05, (x, math.sin(a) * 0.25, math.cos(a) * 0.26 + 0.02), BOAR_GRIZZLE, subdiv=0)
+    b.cyl(0.018, 0.26, (-0.62, 0, -0.18), BOAR_DARK, segs=4, rot=(0, -0.25, 0))           # the tail, and its tuft
+    b.ball(0.035, (-0.66, 0, -0.2), BOAR_DARK, subdiv=0, scale=(0.8, 0.8, 1.6))
+    body = b.build(root, loc=(0, 0, 0.6))
+    fauna._legs(body, "boar", ((0.3, 0.13, -0.25), (0.3, -0.13, -0.25), (-0.42, 0.12, -0.2), (-0.42, -0.12, -0.2)),
+             0.36, 0.055, BOAR_DARK, hoof=P.INK)
+    h = Model("boar_head", seed=691)
+    fauna._limb(h, (-0.02, 0, 0.02), (0.44, 0, -0.2), 0.2, 0.085, BOAR, segs=6)             # the long wedge of a face
+    h.ball(0.17, (0.1, 0, -0.07), BOAR_GRIZZLE, subdiv=1, scale=(1.0, 1.2, 1.0), jitter=0.03)  # grizzled cheeks, a beard
+    h.cyl(0.09, 0.05, (0.44, 0, -0.2), BOAR_SNOUT, segs=8, rot=(0, math.pi / 2 + 0.4, 0))   # the disc of a nose
+    for s in (1, -1):
+        h.box((0.02, 0.02, 0.03), (0.48, s * 0.03, -0.22), P.INK)                         # nostrils
+        h.box((0.035, 0.03, 0.13), (0.34, s * 0.1, -0.15), TUSK, rot=(s * -0.55, -0.35, 0), taper=0.25)   # the tusks, curling up
+        h.ball(0.075, (-0.02, s * 0.12, 0.17), BOAR_DARK, subdiv=1, scale=(0.45, 0.9, 1.5), rot=(s * -0.35, -0.2, 0))  # ears
+    fauna._eyes(h, 0.2, 0.1, 0.06, 0.028)
+    h.build(body, loc=(0.52, 0, 0.1))
+
+
+def piglet():
+    """A boar's piglet, the size of a loaf: brown, and striped along its length in cream like a
+    humbug, with a snout already much too long for it."""
+    root = _root("piglet")
+    b = Model("piglet_body", seed=695)
+    b.ball(0.12, (0, 0, 0), PIGLET, subdiv=2, scale=(1.7, 0.85, 0.95))
+    for k, z in enumerate((0.1, 0.05, 0.0, -0.05)):                                     # the stripes
+        for s in (1, -1):
+            y = s * 0.1 * math.sqrt(max(0.1, 1 - (z / 0.115) ** 2))
+            b.box((0.3, 0.012, 0.022), (0, y, z), PIGLET_STRIPE if k % 2 == 0 else PIGLET_DARK)
+    b.box((0.3, 0.03, 0.02), (0, 0, 0.113), PIGLET_DARK)
+    b.ball(0.07, (0.2, 0, 0.02), PIGLET, subdiv=1, scale=(1.0, 0.9, 0.9))
+    b.box((0.12, 0.06, 0.06), (0.29, 0, -0.01), PIGLET, taper=0.7)
+    b.box((0.02, 0.05, 0.045), (0.35, 0, -0.01), BOAR_SNOUT)
+    fauna._eyes(b, 0.25, 0.045, 0.04, 0.018)
+    for s in (1, -1):
+        b.prism([(-0.02, 0.0), (0.02, 0.0), (0.0, 0.06)], 0.012, (0.17, s * 0.05, 0.07), PIGLET_DARK)
+    body = b.build(root, loc=(0, 0, 0.2))
+    fauna._legs(body, "piglet", ((0.1, 0.05, -0.08), (0.1, -0.05, -0.08), (-0.1, 0.05, -0.08), (-0.1, -0.05, -0.08)),
+             0.12, 0.022, PIGLET_DARK)
+
+
+HIGHLAND = ["#b8622a", "#c8743a", "#a8562a"]
+HIGHLAND_LIGHT = "#dc9656"
+HIGHLAND_DARK = "#8a4420"
+HORN = "#e8dcc0"
+HORN_TIP = "#5a4a3a"
+
+
+def highland():
+    """A Highland cow, as they graze the river meadows here: ginger and shaggy, low and square,
+    her long coat hanging in a fringe under her belly, a mop over her eyes and a pair of wide horns
+    sweeping out and up. The head pivots at the neck (to graze, to look, to chew) and the tail
+    swings, for the flies."""
+    root = _root("highland")
+    b = Model("highland_body", seed=700)
+    b.ball(0.5, (0, 0, 0), HIGHLAND[0], subdiv=2, scale=(1.75, 0.9, 0.85), jitter=0.04)
+    b.ball(0.42, (0.5, 0, 0.08), HIGHLAND[1], subdiv=1, scale=(0.9, 0.95, 1.0), jitter=0.04)  # the shoulders
+    for i in range(46):                                                                  # shaggy all over
+        a = b.rng.uniform(0.25, math.pi - 0.2) * (1 if i % 2 else -1)
+        x = b.rng.uniform(-0.8, 0.8)
+        r = 0.44 * math.sqrt(max(0.15, 1 - (x / 0.95) ** 2))
+        b.ball(b.rng.uniform(0.1, 0.15), (x, math.sin(a) * r * 1.02, math.cos(a) * r * 0.9), HIGHLAND[i % 3], subdiv=1,
+               scale=(1.1, 0.8, 0.85 + abs(math.sin(a)) * 0.5))  # (hanging longer down the sides)
+    for i in range(16):                                                                  # the long skirt of a coat, uneven
+        x = -0.72 + i * 0.1 + b.rng.uniform(-0.03, 0.03)
+        for s in (1, -1):
+            long = b.rng.uniform(0.16, 0.34)
+            b.box((b.rng.uniform(0.09, 0.15), 0.05, long), (x, s * b.rng.uniform(0.33, 0.39), -0.26 - long / 2),
+                  b.rng.choice(HIGHLAND + [HIGHLAND_DARK]), rot=(s * b.rng.uniform(0.05, 0.25), b.rng.uniform(-0.25, 0.25), 0), taper=0.35)
+    body = b.build(root, loc=(0, 0, 0.85))
+    for tag, (x, y) in zip(("fl", "fr", "bl", "br"), ((0.55, 0.24), (0.55, -0.24), (-0.6, 0.24), (-0.6, -0.24))):
+        g = Model(f"highland_leg_{tag}", seed=702)
+        fauna._limb(g, (0, 0, 0), (0, 0, -0.52), 0.13, 0.09, HIGHLAND_DARK)
+        g.ball(0.14, (0, 0, -0.12), HIGHLAND[2], subdiv=1, scale=(1, 1, 1.5))              # hairy to the knee
+        g.box((0.14, 0.13, 0.08), (0.02, 0, -0.54), P.INK)
+        g.build(body, loc=(x, y, -0.3))
+    t = Model("highland_tail", seed=703)
+    fauna._limb(t, (0, 0, 0), (-0.06, 0, -0.6), 0.04, 0.03, HIGHLAND_DARK)
+    t.ball(0.07, (-0.07, 0, -0.66), HIGHLAND_DARK, subdiv=0, scale=(0.8, 0.8, 1.8))
+    t.build(body, loc=(-0.86, 0, 0.18))
+    h = Model("highland_head", seed=704)
+    h.ball(0.24, (0.12, 0, -0.06), HIGHLAND[1], subdiv=1, scale=(1.3, 0.85, 1.0), jitter=0.03)
+    h.box((0.18, 0.24, 0.18), (0.38, 0, -0.18), HIGHLAND_DARK, taper=0.85)               # the muzzle
+    h.box((0.06, 0.2, 0.12), (0.47, 0, -0.2), "#4a2e26")                                 # the wet nose
+    for s in (1, -1):
+        h.box((0.02, 0.03, 0.03), (0.5, s * 0.05, -0.18), P.INK)
+    fauna._eyes(h, 0.26, 0.13, 0.0, 0.03)
+    for i in range(9):                                                                   # the fringe, over its eyes
+        y = -0.2 + i * 0.05
+        h.box((0.06, 0.07, 0.24), (0.3 + abs(y) * 0.15, y, 0.02), HIGHLAND_LIGHT if i % 2 else HIGHLAND[1], rot=(y * 0.8, -0.4, 0), taper=0.4)
+    for s in (1, -1):
+        h.box((0.08, 0.16, 0.12), (0.02, s * 0.24, -0.02), HIGHLAND[2], rot=(s * 0.4, 0, 0), taper=0.6)   # ears, sideways
+        # the horns: out sideways, then sweeping up and a little forward
+        fauna._limb(h, (0.06, s * 0.14, 0.14), (0.1, s * 0.46, 0.18), 0.06, 0.045, HORN)
+        fauna._limb(h, (0.1, s * 0.46, 0.18), (0.16, s * 0.64, 0.4), 0.045, 0.028, HORN)
+        fauna._limb(h, (0.16, s * 0.64, 0.4), (0.18, s * 0.66, 0.5), 0.028, 0.008, HORN_TIP)
+    h.build(body, loc=(0.9, 0, 0.1))
+
+
 def salmon():
     """A salmon going up, for the bear to catch: bigger than the other fish, and red-flanked."""
     root = _root("salmon")
@@ -2267,6 +2436,10 @@ def rare():
     bear()
     wolf()
     lynx()
+    eagle()
+    boar()
+    piglet()
+    highland()
     salmon()
 
 
