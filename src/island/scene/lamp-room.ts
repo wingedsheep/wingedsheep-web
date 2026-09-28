@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { toonIndoors } from './interior';
+import { faceRoom, toonIndoors } from './interior';
 import { Picker } from './picking';
 import { RoomCamera } from './room-camera';
 import { haloTexture } from './sky';
@@ -45,6 +45,7 @@ export class LampRoom {
   private beams: THREE.MeshBasicMaterial;
   private beamGroup = new THREE.Group();
   private clock = 0;
+  private painting?: THREE.MeshBasicMaterial;
 
   static async load(base = '/models/'): Promise<LampRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}lamproom.glb?v=${__MODELS__}`);
@@ -58,6 +59,7 @@ export class LampRoom {
 
     const halo = haloTexture();
     const beam = root.getObjectByName('beam')?.getWorldPosition(V());
+    let canvas: THREE.Mesh | undefined;
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
@@ -71,6 +73,7 @@ export class LampRoom {
         const src = mesh.material as THREE.MeshStandardMaterial;
         const glass = o.name.startsWith('window_glass') || o.parent?.name.startsWith('window_glass');
         const glow = src.name.startsWith('glow_');
+        if (o.name.startsWith('painting_canvas') || o.parent?.name.startsWith('painting_canvas')) canvas = mesh;
         mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
         if (glow && (o.name.startsWith('lamp_core') || o.parent?.name.startsWith('lamp_core'))) {
           // its own material, so dimming it by day leaves every other lantern alone
@@ -83,6 +86,7 @@ export class LampRoom {
     });
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
+    if (canvas) this.hang(canvas, '/drawings/painting.png');
 
     // two beams, out of opposite bullseyes, turning with the lens; each fades to nothing as it
     // leaves the glass (additive, so a black tail is no tail)
@@ -125,6 +129,20 @@ export class LampRoom {
     this.view.frame(width, height, free);
   }
 
+  /**
+   * Hang the painting on its easel's canvas. It shows its own colours rather than being lit by
+   * the room (the warm lamps turned its blues grey and its moon beige), so it looks like the same
+   * painting you see up close; it only dims a little at night.
+   */
+  private hang(mesh: THREE.Mesh, src: string) {
+    const texture = new THREE.TextureLoader().load(src);
+    texture.magFilter = THREE.NearestFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    faceRoom(mesh, 'north');
+    this.painting = new THREE.MeshBasicMaterial({ map: texture });
+    mesh.material = this.painting;
+  }
+
   /** Nothing up here slides out when pointed at (the quarters' books do). */
   setHot(_id: string | null) {}
 
@@ -148,6 +166,7 @@ export class LampRoom {
     this.beamGroup.visible = night > 0.05;
 
     this.glass.color.copy(SKY_NIGHT).lerp(SKY_DAY, day);
+    this.painting?.color.setScalar(0.8 + day * 0.2);
     this.hemi.intensity = 0.9 + day * 0.5;
     this.key.intensity = 0.35 + day * 0.75;
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');

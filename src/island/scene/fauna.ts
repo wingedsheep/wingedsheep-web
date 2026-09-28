@@ -34,7 +34,7 @@ const dark = (e: Env) => e.night > 0.55;
 const daylit = (e: Env) => e.night < 0.35;
 
 /** Sounds the animals make (the island plays them; silent while sound is off). */
-export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap'
+export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap' | 'sip' | 'grind' | 'brew' | 'crunch'
   | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
   | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'

@@ -7,7 +7,8 @@ const ease = THREE.MathUtils.smootherstep;
 
 const GO_IN = 0.1; // rain (0..1) that sends them indoors…
 const COME_OUT = 0.04; // …and how far it has to ease off before they come back out
-const HOP = 0.55; // seconds to jump down off the bench (or back up)
+const HOP = 1.05; // seconds to jump down off the bench (or back up): a crouch, the jump itself, and the landing
+const step = (a: number, b: number, x: number) => THREE.MathUtils.smootherstep(x, a, b);
 const TURN = 8;
 
 /** Who's indoors right now, by id ("charlie", "george", "cat", "beike"): the rooms show them there. */
@@ -21,6 +22,15 @@ export const flatOut = new Set<string>();
  * and then he's on Vincent's back, claws and all. `on` while he's up there.
  */
 export const ambush = { on: false };
+
+/** Vincent's coffee at his desk (quarters.ts): full, drunk, or on its way back from the machine. */
+export const coffee = {
+  at: 'table' as 'table' | 'full' | 'empty',
+  /** What he's up to: at the desk, off for a refill, at the machine, or back with it. */
+  trip: 'desk' as 'desk' | 'go' | 'brew' | 'back',
+  /** Mid-sip. */
+  sip: false,
+};
 
 /** A point on the way indoors (tools/models/layout.py SHELTER); `fixed` ones are up on the pier or a plinth. */
 export interface Waypoint {
@@ -156,6 +166,13 @@ class Cat {
   private cool: THREE.Vector3 | null = null;
   private restPos: THREE.Vector3;
   private restScale: THREE.Vector3;
+  private baseScale: THREE.Vector3;
+  /** How a jump looks, 0..1 each: gathered to spring, stretched in the air, squashed on landing, and how much of its size it has (it grows out of the curled-up cat). */
+  private crouch = 0;
+  private air = 0;
+  private land = 0;
+  private morph = 1;
+  private wiggle = 0;
 
   constructor(
     private spec: CatSpec,
@@ -181,6 +198,7 @@ class Cat {
     }
     this.restPos = sleeper.position.clone();
     this.restScale = sleeper.scale.clone();
+    this.baseScale = walker.scale.clone();
     for (let i = 1; i < this.points.length; i++) {
       const a = this.points[i - 1].at;
       const b = this.points[i].at;
@@ -238,6 +256,8 @@ class Cat {
   update(dt: number, wantIn: boolean, hot = 0) {
     const end = this.lengths[this.lengths.length - 1];
     let moving = false;
+    this.crouch = this.air = this.land = 0;
+    this.morph = 1;
     if (this.phase === 'asleep' && !wantIn) {
       const want = this.sprawled ? hot > COOLER : hot > HOT;
       if (want !== this.sprawled) {
@@ -258,8 +278,7 @@ class Cat {
         this.t += dt / HOP;
         const [from, to] = this.phase === 'cool' ? [this.seat, this.cool!] : [this.cool!, this.seat];
         const k = Math.min(1, this.t);
-        const p = this.walker.position.lerpVectors(from, to, ease(k, 0, 1));
-        p.y += Math.sin(k * Math.PI) * 0.25;
+        this.leap(k, from, to, 0.25, this.phase === 'cool');
         this.turn(this.headingTo(this.seat, this.cool!), dt);
         if (k < 1) break;
         this.walker.visible = false;
@@ -306,8 +325,7 @@ class Cat {
         const down = this.phase === 'down';
         const [from, to] = down ? [this.seat, this.points[0].at] : [this.points[0].at, this.seat];
         const k = Math.min(1, this.t);
-        const p = this.walker.position.lerpVectors(from, to, ease(k, 0, 1));
-        p.y += Math.sin(k * Math.PI) * (0.3 + Math.max(0, to.y - from.y) * 0.6);
+        this.leap(k, from, to, 0.3 + Math.max(0, to.y - from.y) * 0.6, down);
         this.turn(this.headingTo(from, to), dt);
         if (k < 1) break;
         if (down) {
@@ -345,6 +363,7 @@ class Cat {
       }
     }
     this.walker.rotation.set(0, this.heading, 0);
+    this.walker.scale.copy(this.baseScale).multiplyScalar(this.morph);
     this.pose(moving);
   }
 
@@ -381,6 +400,24 @@ class Cat {
     this.heading += d * (1 - Math.exp(-TURN * dt));
   }
 
+  /**
+   * A jump, `t` (0..1) through it, from `from` to `to`: it gathers itself for a moment (down low,
+   * tail wiggling), springs, stretches out in the air, lands with a squash and straightens up.
+   * `leaving`: it has just got up from curled-up asleep, so it grows into its full size as it
+   * gathers; landing back on the bench it shrinks down again, ready to curl up.
+   */
+  private leap(t: number, from: THREE.Vector3, to: THREE.Vector3, height: number, leaving: boolean) {
+    const flight = THREE.MathUtils.clamp((t - 0.22) / 0.56, 0, 1);
+    this.crouch = step(0, 0.16, t) * (1 - step(0.19, 0.24, t));
+    this.air = Math.sin(flight * Math.PI);
+    this.land = t > 0.78 ? 1 - step(0.78, 1, t) : 0;
+    if (leaving) this.morph = 0.62 + 0.38 * step(0, 0.2, t);
+    else this.morph = 1 - 0.38 * step(0.8, 1, t);
+    const along = flight * 0.85 + step(0, 1, flight) * 0.15; // nearly steady across, easing a little at each end
+    const p = this.walker.position.lerpVectors(from, to, along);
+    p.y = THREE.MathUtils.lerp(from.y, to.y, along) + this.air * height;
+  }
+
   // --- body language ---------------------------------------------------------------
 
   private pose(moving: boolean) {
@@ -388,8 +425,8 @@ class Cat {
     for (const [o, r] of this.rest) o.rotation.copy(r);
     if (!body) return;
     const s = this.stride;
-    const jumping = this.phase === 'down' || this.phase === 'up' || this.phase === 'cool' || this.phase === 'warm';
-    const air = jumping ? Math.sin(Math.min(1, this.t) * Math.PI) : 0;
+    const { air, crouch, land } = this;
+    this.wiggle += crouch > 0 ? 0.5 : 0;
     // a trot: diagonal pairs swing together; in the air, front paws reach and back legs push off
     legs.forEach((leg, i) => {
       const front = i < 2;
@@ -397,10 +434,12 @@ class Cat {
       leg.rotation.z += moving ? Math.sin(s + phase) * 0.5 : 0;
       leg.rotation.z += air * (front ? 0.7 : -0.6);
     });
-    body.position.y = this.bodyY + (moving ? Math.abs(Math.sin(s)) * 0.025 : 0);
-    body.rotation.z = air * (this.phase === 'down' || this.phase === 'cool' ? -0.25 : 0.25); // nose down off the bench, up onto it
-    if (head) head.rotation.z += moving ? Math.sin(s * 2) * 0.05 : 0;
-    if (tail) tail.rotation.x += Math.sin(s * 0.5) * 0.15; // tail up, the tip bobbing side to side
+    body.position.y = this.bodyY + (moving ? Math.abs(Math.sin(s)) * 0.025 : 0) - 0.09 * crouch - 0.08 * land;
+    const off = this.phase === 'down' || this.phase === 'cool';
+    body.rotation.z = air * (off ? -0.25 : 0.25) + (off ? 0.08 : -0.08) * crouch + 0.1 * land; // nose down off the bench, up onto it; up a little to look at where it's going
+    body.scale.set(1 + 0.1 * air + 0.04 * land, 1 - 0.07 * land - 0.05 * crouch, 1); // stretched in the air, squashed down low
+    if (head) head.rotation.z += (moving ? Math.sin(s * 2) * 0.05 : 0) + 0.25 * crouch; // eyes on the landing
+    if (tail) tail.rotation.x += Math.sin(s * 0.5) * 0.15 + crouch * Math.sin(this.wiggle) * 0.4; // tail up, the tip bobbing side to side (and a wiggle before a jump)
   }
 }
 
@@ -416,6 +455,8 @@ export class Shelter {
   private cats: Cat[] = [];
   private wantIn = false;
   private settling = false;
+  /** Now and then, dry days too, Charlie and George spend a while in the lighthouse (and Beike stays out). */
+  private visit = { on: false, wait: 60 + Math.random() * 90 };
 
   /** `hour`: the time of day on the island when you arrive, for where the cats have gone to sleep. */
   constructor(
@@ -450,16 +491,27 @@ export class Shelter {
     this.settling = true;
   }
 
+  /** Both cats in the lighthouse, for as long as you like (a preview: ?cats=in). */
+  visitNow() {
+    this.visit = { on: true, wait: 1e9 };
+  }
+
   /** `rain` and `hot` are 0..1; `instant` skips the walking (reduced motion). */
   update(dt: number, rain: number, instant = false, hot = 0) {
     const was = this.wantIn;
     this.wantIn = rain > GO_IN || (this.wantIn && rain > COME_OUT);
+    const v = this.visit;
+    if (!this.wantIn && !instant && !this.settling && (v.wait -= dt) <= 0) {
+      v.on = !v.on;
+      v.wait = v.on ? 150 + Math.random() * 150 : 150 + Math.random() * 210;
+    }
+    const catsIn = this.wantIn || v.on;
     if (this.settling || (instant && was !== this.wantIn)) {
-      this.cats.forEach((c) => c.snap(this.wantIn, hot));
+      this.cats.forEach((c) => c.snap(catsIn, hot));
       this.beike.snap(this.wantIn);
       this.settling = false;
     } else if (!instant) {
-      this.cats.forEach((c) => c.update(dt, this.wantIn, hot));
+      this.cats.forEach((c) => c.update(dt, catsIn, hot));
       this.beike.sheltering = this.wantIn;
     }
     for (const [id, inside] of [...this.cats.map((c) => [c.id, c.inside] as const), ['beike', this.beike.inside] as const]) {

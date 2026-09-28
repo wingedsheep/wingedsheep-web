@@ -45,7 +45,7 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True):
     h = Model(name)
     hz = 1.45                                                                            # built where it sits on him
     h.box((0.42, 0.4, 0.44), (0, 0.0, 1.68 - hz), P.SKIN)
-    h.box((0.44, 0.41, 0.15), (0, 0.0, 1.535 - hz), P.BEARD)
+    h.box((0.44, 0.225, 0.15), (0, -0.0925, 1.535 - hz), P.BEARD)                        # jaw and sideburns, no further back than the ears
     h.box((0.14, 0.03, 0.06), (0, -0.2, 1.485 - hz), P.BEARD_GREY)
     h.box((0.22, 0.03, 0.035), (0, -0.203, 1.62 - hz), P.BEARD)                          # moustache
     h.box((0.14, 0.03, 0.035), (0, -0.207, 1.575 - hz), P.TEETH)                         # smile
@@ -56,7 +56,7 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True):
     for x in (-0.22, 0.22):
         h.box((0.04, 0.1, 0.12), (x, 0.02, 1.68 - hz), P.SKIN)                           # ears
         h.box((0.03, 0.34, 0.14), (x * 0.99, 0.02, 1.83 - hz), P.HAIR)                   # short sides
-    h.box((0.4, 0.04, 0.2), (0, 0.205, 1.76 - hz), P.HAIR)                               # back of the head
+    h.box((0.4, 0.04, 0.3), (0, 0.205, 1.71 - hz), P.HAIR)                               # back of the head, down to the nape
     if cap:
         # cap on backwards: brim over the neck, snapback strap over the forehead
         h.box((0.46, 0.44, 0.14), (0, 0.0, 1.93 - hz), P.CAP)

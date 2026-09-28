@@ -71,7 +71,7 @@ type Clip = keyof typeof CLIPS;
  * the first time you step into one, and the telly's the first time she has it on while you're in.
  */
 const SFX = {
-  island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
+  island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 1,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
     flurry: 1, stroke: 3, burner: 1, horn: 1, murmur: 1, seal: 1,
@@ -96,7 +96,7 @@ type SfxSet = keyof typeof SFX;
  */
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
-  purr: 0.55, mew: 0.4, tap: 0.3, thunder: 0.9, boom: 0.7, firework: 0.55,
+  purr: 0.55, mew: 0.4, tap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, raven: 0.45, burner: 0.4, horn: 0.55, murmur: 0.5, seal: 0.45,
@@ -503,6 +503,26 @@ export class Sound {
       case 'tap': // the kitchen tap, running for a moment
         hiss(0, 2.2, 2600, 0.08);
         hiss(0.05, 2.1, 900, 0.05);
+        break;
+      case 'grind': // the machine's grinder: a whirr and the crunch of beans
+        tone('sawtooth', 0, [[0, 95], [3.4, 105]], 0.06, 3.6, 500);
+        hiss(0, 3.6, 1400, 0.05);
+        for (let i = 0; i < 14; i++) hiss(i * 0.25, 0.08, r(2500, 4000), 0.05);
+        break;
+      case 'brew': // the pump, the hot water and the coffee running into the cup
+        tone('triangle', 0, [[0, 115], [10, 110]], 0.05, 10.5, 400);
+        hiss(0, 10.5, 2800, 0.03);
+        hiss(2, 8, 1200, 0.035);
+        break;
+      case 'crunch': // a cat at its bowl: a burst of quick crunches and the odd clink of biscuits
+        for (let i = 0; i < 9; i++) hiss(i * 0.26 + r(0, 0.05), 0.07, r(2200, 3800), 0.05);
+        tone('triangle', 0.7, [[0, 2400], [0.03, 1800]], 0.03, 0.05);
+        break;
+      case 'sip': // Vincent's coffee: a quiet slurp, a swallow and a breath out
+        hiss(0, 0.5, 1900, 0.035);
+        hiss(0.08, 0.4, 900, 0.03);
+        tone('sine', 0.62, [[0, 190], [0.09, 120]], 0.1, 0.14);
+        hiss(0.85, 0.5, 2400, 0.02);
         break;
       case 'mew': // Charlie's one small warning, before the claws
         tone('triangle', 0, [[0, 780], [0.09, 1150], [0.3, 640]], 0.1, 0.34, 1300);

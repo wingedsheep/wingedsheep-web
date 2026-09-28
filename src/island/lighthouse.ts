@@ -23,6 +23,9 @@ const BANNER = {
 /** The quarters when it's raining and the animals have come in. */
 const RAINY = 'The keeper\'s quarters. Rain on the windows, the cats on the sofa, a damp dog on the rug.';
 
+/** The quarters when the cats are only in for a visit, and it's dry out. */
+const VISIT = 'The keeper\'s quarters. The cats are in for a visit, and keeping an eye on the bowls.';
+
 export type Floor = keyof typeof BANNER;
 type Room = QuartersRoom | LampRoom;
 
@@ -74,7 +77,12 @@ export class Lighthouse implements RoomInput {
     this.loading[floor] ??= (floor === 'lamp' ? LampRoom.load() : QuartersRoom.load())
       .then((room) => {
         (this.rooms as Record<Floor, Room>)[floor] = room;
-        if (room instanceof QuartersRoom) room.onMew = () => this.ctx.sound.call('mew');
+        if (room instanceof QuartersRoom) {
+          room.onMew = () => this.ctx.sound.call('mew');
+          room.onSip = () => this.ctx.sound.call('sip');
+          room.onMachine = (what) => this.ctx.sound.call(what);
+          room.onCrunch = () => this.ctx.sound.call('crunch');
+        }
         this.resize();
         return room;
       })
@@ -181,7 +189,9 @@ export class Lighthouse implements RoomInput {
       this.floor = this.wantFloor;
       const banner = document.querySelector('[data-panel="lighthouse"] .workshop-banner p');
       const rainy = this.room instanceof QuartersRoom && this.room.guests.anyone;
-      if (banner) banner.textContent = rainy ? RAINY : BANNER[this.floor];
+      const w = this.ctx.weather.now;
+      const wet = w.rain + w.hail + w.snow > 0.1;
+      if (banner) banner.textContent = rainy ? (wet ? RAINY : VISIT) : BANNER[this.floor];
       if (this.floor === 'quarters') void this.load('lamp'); // the next thing anyone does is climb
       this.ctx.rig.room = this;
       this.room?.view.reset();

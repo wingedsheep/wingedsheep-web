@@ -8,7 +8,8 @@ floor at z = 0. In the north-west corner the tower's spiral stair winds up towar
 The runtime (src/island/scene/quarters.ts) fills the bookcase with what Vincent has read: every
 `shelf` marker is one row (row 0 at the top). Other parts it drives:
   tv_screen     shows the game on the console          window_glass  the sky outside
-  steam         rises from the coffee                  painting_canvas  Vincent's painting, as a texture
+  steam         rises from the coffee
+  coffee_black  the coffee in the mug, drunk down      vincent_fetching  him on his feet, off for a refill
   the rest      things you can click (ids)
 """
 from __future__ import annotations
@@ -347,10 +348,16 @@ def table(root):
 
     g = group("coffee", parent=root, id="coffee")
     c = Model("mug")
-    c.cyl(0.08, 0.16, (tx + 0.3, ty - 0.25, top), P.TILE_BLUE, segs=8)
-    c.cyl(0.065, 0.01, (tx + 0.3, ty - 0.25, top + 0.15), P.COFFEE, segs=8)           # black
+    mx, my = tx + 0.3, ty - 0.25
+    c.cyl(0.08, 0.03, (mx, my, top), P.TILE_BLUE, segs=8)                             # a hollow mug: the floor of it,
+    for i in range(8):                                                                 # and eight staves round it, so the coffee has somewhere to sink to
+        a = i * math.tau / 8
+        c.box((0.066, 0.022, 0.16), (mx + 0.07 * math.cos(a), my + 0.07 * math.sin(a), top + 0.08), P.TILE_BLUE, rot=(0, 0, a + math.pi / 2))
     c.plank_line((tx + 0.38, ty - 0.25, top + 0.12), (tx + 0.44, ty - 0.25, top + 0.05), 0.03, 0.03, P.TILE_BLUE)
     c.build(g)
+    k = Model("coffee_black")                                                          # its own mesh: he drinks it (quarters.ts)
+    k.cyl(0.062, 0.01, (tx + 0.3, ty - 0.25, top + 0.14), P.COFFEE, segs=8)
+    k.build(g)
     emitter(root, (tx + 0.3, ty - 0.25, top + 0.2), "steam")
 
     g = group("sketchbook", parent=root, id="sketchbook")
@@ -411,28 +418,6 @@ def gear(root):
     plant.build(root)
 
 
-def easel(root):
-    """Vincent's painting, a figure alone before a pale moon, on an easel in the open corner of the
-    room, turned towards whoever is looking in. The runtime hangs public/drawings/painting.png on
-    the canvas; its face is the canvas model's -y side, so it can be turned like any model."""
-    g = group("painting", parent=root, id="painting")
-    ex, ey, turn = 4.1, -1.7, 0.38                                                    # facing the camera, more or less
-    w, h, bottom = 1.25, 1.0, 0.95                                                     # 160 × 128, like the canvas
-    e = Model("easel")
-    for side in (-1, 1):                                                               # two front legs and one behind
-        e.plank_line((side * 0.5, -0.12, 0), (side * 0.12, 0.02, 2.3), 0.07, 0.05, P.WOOD_LIGHT)
-    e.plank_line((0, 0.75, 0), (0, 0.08, 2.1), 0.06, 0.05, P.WOOD_LIGHT)
-    e.box((w + 0.2, 0.2, 0.05), (0, -0.12, bottom - 0.03), P.WOOD_LIGHT)                # the ledge it stands on
-    e.box((0.2, 0.08, 0.1), (0, 0.0, bottom + h + 0.02), P.WOOD_LIGHT)                 # the clamp on top
-    for k, c in enumerate((P.RED, P.TILE_BLUE, P.GOLD)):                               # paint on the ledge
-        e.cyl(0.03, 0.12, (-0.45 + k * 0.08, -0.14, bottom - 0.005), c, segs=5, rot=(0, math.pi / 2 - 0.2, 0.3))
-    e.build(g, loc=(ex, ey, 0), rot_z=turn)
-    c = Model("painting_canvas")
-    c.box((w, 0.05, h), (0, -0.06, bottom + h / 2), "#2c3a8c")                          # the blue of its sky
-    c.build(g, loc=(ex, ey, 0), rot_z=turn)
-    light(root, (ex - 0.6, ey - 1.4, 2.4), P.WARM_LIGHT, 3.5, 0.5, halo=False)
-
-
 def details(root):
     """Two cat bowls, the keeper's oilskins by the door, a life ring, and the door out."""
     g = group("bowls", parent=root, id="bowls")
@@ -476,19 +461,27 @@ def details(root):
 
 
 def guests(root):
-    """Out of the rain (the runtime shows them only while it rains on the island): Charlie and
+    """Out of the rain, or in for a visit (the runtime shows them only while they're in): Charlie and
     George asleep on the sofa, Beike stretched out on the rug in front of it. She is in here
     whenever she's watching the telly (src/island/scene/companion.ts), and Vincent whenever he's
     at his desk making a game (src/island/scene/vincent.ts)."""
     g = group("guests", parent=root, guests="lighthouse")
     sx, cy = -1.95, TV_Y - 0.3
-    cats.charlie(group("charlie", (sx, cy - 0.5, 0.59), rot_z=-math.pi / 2, parent=g))
-    cats.george(group("george", (sx, cy + 0.38, 0.6), rot_z=-math.pi / 2, parent=g))
+    # (the bench they sleep on outside is wider than the sofa's cushions: a little smaller in here)
+    for cat, name, y, z in ((cats.charlie, "charlie", cy - 0.5, 0.59), (cats.george, "george", cy + 0.38, 0.6)):
+        c = group(name, (sx, y, z), rot_z=-math.pi / 2, parent=g)
+        c.scale = (0.72, 0.72, 0.72)
+        cat(c)
     beike.asleep(group("beike", (-3.3, 0.5, 0), rot_z=-math.pi / 2 - 0.4, parent=g))
     # and her, whenever she's in watching the telly (rain or not): on Charlie's end of the sofa,
     # so when the cats are in too, Charlie moves onto her lap (quarters.ts)
     companion.on_the_sofa(g, (sx + 0.08, cy - 0.45, 0), rot_z=-math.pi / 2)
     coding(group("vincent_coding", (*DESK, 0), parent=g, id="vincent_coding"))
+    # on their feet, parked out of sight: the runtime walks whichever cat is in over to the bowls
+    # for a bite now and then (`charlie_eat`, `george_eat`; quarters.ts), in place of its sleeping one
+    white = dict(coat=cats.P.CAT_WHITE, patch=cats.P.GINGER, cap=cats.P.GINGER, tail=cats.P.GINGER, socks=cats.P.CAT_WHITE)
+    cats.walker(group("charlie_eat", (0, 0, -20), parent=root), "charlie", size=0.9, **white)
+    cats.walker(group("george_eat", (0, 0, -20), parent=root), "george", size=1.1, eyes="#c9b560", **white)
 
 
 def desk(root):
@@ -541,6 +534,8 @@ def coding(g):
     there: his code on the left, and the game on the right, a little hero (`desk_hero`, which
     the runtime makes run and jump) in a level of grass and floating platforms."""
     characters.vincent_coding(group("vincent_at_desk", (-0.1, -0.75, 0), rot_z=math.pi, parent=g))
+    # and on his feet, for the walk to the coffee machine when the mug's empty (quarters.ts moves him)
+    characters.vincent_standing(group("vincent_fetching", (-0.1, -0.75, 0), parent=g), "fetch")
     mx, my, mz = MONITOR
     w, h = SCREEN
     y = my - 0.033
@@ -580,7 +575,6 @@ def build():
     lounge(root)
     table(root)
     gear(root)
-    easel(root)
     desk(root)
     details(root)
     guests(root)

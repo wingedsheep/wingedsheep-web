@@ -16,7 +16,7 @@ import { hourOf } from './scene/bedtime';
 import { occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
 import { FRIDAY_13 } from './scene/fauna';
-import { ambush, beds, flatOut, indoors, type Nook } from './scene/shelter';
+import { ambush, beds, coffee, flatOut, indoors, type Nook } from './scene/shelter';
 import { boatStage, shelf } from './scene/almanac';
 import type { Forecast, WeatherKind } from './forecast';
 import type { Journal } from './journal';
@@ -1113,14 +1113,19 @@ const PROGRAMMES: Record<Show, { label: string; text: string; play: string; stay
 /** Vincent's desk in the quarters, and him at it when he's making his game (src/island/scene/vincent.ts). */
 const DESK: Place = {
   label: () => (!indoors.has('vincent_coding') ? 'Vincent’s desk · a game in the making'
-    : ambush.on ? 'Vincent · wearing Charlie' : 'Vincent · making a game'),
+    : ambush.on ? 'Vincent · wearing Charlie'
+    : coffee.trip === 'go' ? 'Vincent · off for a refill'
+    : coffee.trip === 'brew' ? 'Vincent · making coffee'
+    : coffee.trip === 'back' ? 'Vincent · back with a fresh coffee'
+    : coffee.sip ? 'Vincent · having a coffee'
+    : 'Vincent · making a game'),
   activate: (() => {
     const busy = inTurn([
       'He doesn’t look round. “Nearly got the jump right. Two minutes.” It has been two minutes for an hour.',
       'The little hero jumps, misses the platform, and falls through the floor. He writes something on a sticky note.',
       'He turns the screen so you can see: a level, a coin, a winged sheep somewhere up in the clouds. “Don’t tell anyone yet.”',
       'His phone lights up: “you’re still coming, right?” He types “omw!!” and goes back to the jump. On his way, in the loosest possible sense.',
-      'He holds his empty mug out without looking round. He’d love a coffee. He always would.',
+      'He reaches for his coffee without looking round and finds the mug empty again. He seems surprised, every time.',
     ]);
     // small hours: he said he'd stop at eleven
     const small = inTurn([
@@ -1134,11 +1139,31 @@ const DESK: Place = {
       '“He’s helping,” says Vincent, through his teeth. He can no longer lean back in his chair.',
       'Charlie is on his shoulders, surveying the code. He does not approve of the indentation.',
     ]);
+    const errand = {
+      go: inTurn([
+        'He’s off to the machine with an empty mug and a look of great purpose.',
+        'The mug is empty, so the game will have to wait. Coffee comes first: those are the rules.',
+      ]),
+      brew: inTurn([
+        'The machine grinds, then hums. He stands very still while it brews, as if moving might upset it.',
+        'He watches the cup fill like someone who has thought about this a lot.',
+      ]),
+      back: inTurn([
+        'A fresh coffee, carried back very carefully. Not a drop spilled, yet.',
+        'Coffee in hand, he’s heading back to the game, already thinking about the jump.',
+      ]),
+      sip: inTurn([
+        'He takes a slow sip, eyes still on the screen. The jump can wait a moment.',
+        'A long sip, a small sigh, and back to the code.',
+      ]),
+    };
     return (ctx: IslandContext) => {
       if (!indoors.has('vincent_coding')) {
         return ctx.toast('The screen’s asleep. On the paper by the keyboard, a level sketched in pencil, and in the margin: “level 1?”');
       }
       if (ambush.on) return ctx.toast(clawed());
+      if (coffee.trip !== 'desk') return ctx.toast(errand[coffee.trip]());
+      if (coffee.sip) return ctx.toast(errand.sip());
       const hour = hourOf(ctx.sky.time);
       if (hour >= 0.5 && hour < 5) {
         const clock = `${Math.floor(hour)}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`;
@@ -1186,9 +1211,13 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   },
   coffee: {
     label: 'A mug of coffee',
-    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
-      ? 'Black, and stone cold. Someone said they’d be right there. About three hours ago.'
-      : 'Black, no sugar, still hot. Someone said they’d be right there.'),
+    activate: (ctx) => ctx.toast(indoors.has('vincent_coding')
+      ? (coffee.at === 'empty'
+        ? 'Empty, down to the last drop. He’s off to the machine for the next one.'
+        : 'Black, no sugar, and hot. He’s taking his time with it, as one should.')
+      : ctx.sky.lamps > 0.6
+        ? 'Black, and stone cold. Someone said they’d be right there. About three hours ago.'
+        : 'Black, no sugar, still hot. Someone said they’d be right there.'),
   },
   coffee_machine: { label: 'The coffee machine', activate: (ctx) => ctx.toast(coffeeLine()) },
   tap: {
@@ -1205,10 +1234,6 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   sketchbook: {
     label: 'A sketchbook',
     activate: (ctx) => ctx.showDrawing('/drawings/bird.png', 'A pencil drawing of a bird on a branch, signed Vincent.'),
-  },
-  painting: {
-    label: 'A painting · a figure before a pale moon',
-    activate: (ctx) => ctx.showDrawing('/drawings/painting.png', 'An acrylic painting by Vincent: a lone figure on red rock, facing a huge pale moon in a deep blue sky.'),
   },
   logbook: {
     label: 'The keeper’s log',
@@ -1471,6 +1496,10 @@ export const HUT_PLACES: Record<string, Place> = {
 
 /** Things in the lamp room, at the top of the lighthouse. */
 export const LAMP_PLACES: Record<string, Place> = {
+  painting: {
+    label: 'A painting · a figure before a pale moon',
+    activate: (ctx) => ctx.showDrawing('/drawings/painting.png', 'An acrylic painting by Vincent: a lone figure on red rock, facing a huge pale moon in a deep blue sky.'),
+  },
   stairs: { label: 'The stairs · down to the quarters' },
   lens: {
     label: 'The lens',

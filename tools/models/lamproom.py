@@ -11,7 +11,8 @@ x = east, y = north, z = up, the floor at z = 0.
 
 The runtime (src/island/scene/lamp-room.ts) drives:
   window_glass  the sky outside              lens_turn  turns, with the beams, round the lamp
-  beam          where the light comes from   the rest   things you can click (ids)
+  beam          where the light comes from   painting_canvas  Vincent's painting, as a texture
+  the rest      things you can click (ids)
 """
 from __future__ import annotations
 
@@ -362,6 +363,28 @@ def upkeep(root):
     c.build(g)
 
 
+def easel(root):
+    """Vincent's painting, a figure alone before a pale moon, on an easel up here in the lamp room's
+    north-east, turned towards whoever is looking in. The runtime hangs public/drawings/painting.png on
+    the canvas; its face is the canvas model's -y side, so it can be turned like any model."""
+    g = group("painting", parent=root, id="painting")
+    ex, ey, turn = 2.4, 2.3, 0.38                                                     # facing the camera
+    w, h, bottom = 1.25, 1.0, 0.95                                                     # 160 × 128, like the canvas
+    e = Model("easel")
+    for side in (-1, 1):                                                               # two front legs and one behind
+        e.plank_line((side * 0.5, -0.12, 0), (side * 0.12, 0.02, 2.3), 0.07, 0.05, P.WOOD_LIGHT)
+    e.plank_line((0, 0.75, 0), (0, 0.08, 2.1), 0.06, 0.05, P.WOOD_LIGHT)
+    e.box((w + 0.2, 0.2, 0.05), (0, -0.12, bottom - 0.03), P.WOOD_LIGHT)                # the ledge it stands on
+    e.box((0.2, 0.08, 0.1), (0, 0.0, bottom + h + 0.02), P.WOOD_LIGHT)                 # the clamp on top
+    for k, c in enumerate((P.RED, P.TILE_BLUE, P.GOLD)):                               # paint on the ledge
+        e.cyl(0.03, 0.12, (-0.45 + k * 0.08, -0.14, bottom - 0.005), c, segs=5, rot=(0, math.pi / 2 - 0.2, 0.3))
+    e.build(g, loc=(ex, ey, 0), rot_z=turn)
+    c = Model("painting_canvas")
+    c.box((w, 0.05, h), (0, -0.06, bottom + h / 2), "#2c3a8c")                          # the blue of its sky
+    c.build(g, loc=(ex, ey, 0), rot_z=turn)
+    light(root, (ex - 0.6, ey - 1.4, 2.4), P.WARM_LIGHT, 3.5, 0.5, halo=False)
+
+
 def build():
     root = group("lamp_room")
     shell(root)
@@ -372,4 +395,5 @@ def build():
     desk(root)
     telescope(root)
     upkeep(root)
+    easel(root)
     return root

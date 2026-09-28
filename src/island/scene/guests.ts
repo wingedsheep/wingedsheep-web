@@ -88,6 +88,11 @@ export class Guests {
     for (let i = 0; i < 3; i++) this.floaters.add('heart', at, i);
   }
 
+  /** A red exclamation mark over `at`: a shock. */
+  alert(at: THREE.Vector3) {
+    this.floaters.pop('alert', at);
+  }
+
   /** A few notes rising from `at`: him playing by the stove. */
   notes(at: THREE.Vector3) {
     for (let i = 0; i < 4; i++) this.floaters.add('note', at, i);

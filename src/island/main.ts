@@ -339,6 +339,10 @@ export async function bootIsland(host: HTMLElement) {
   // ?beike=round (once round the island), or at one of his other spots: ?beike=well|pier|lighthouse
   const off = params.get('beike');
   if (off === 'round' || (off && off in HANGOUTS)) life.beikeOff(off as Hangout | 'round');
+  // ?cats=in: Charlie and George in the lighthouse (they visit now and then, dry days too)
+  // (?cats=go: they hop down off the bench and go in, rather than being in already)
+  if (params.get('cats') === 'in') { life.shelter.visitNow(); life.shelter.settle(); }
+  if (params.get('cats') === 'go') life.shelter.visitNow();
   if (params.has('mischief')) life.mischief.soon();
   if (params.has('bottle')) life.bottle.ashore();
   if (params.has('revel')) life.revel.soon();

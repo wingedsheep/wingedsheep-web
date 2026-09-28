@@ -43,7 +43,7 @@ const STAY: Record<Whereabouts, [number, number]> = {
   climb: [1e9, 1e9], // until he's back down
   podcast: [90, 200], // an episode, or the first half of one: they're three hours long
   petting: [60, 150],
-  coding: [90, 200],
+  coding: [240, 420], // long enough for a coffee, or two: drinking one, and making the next, take minutes
   asleep: [60, 60], // he gets up when it's morning, not before
   dive: [60, 60], // till half past twelve, when he's dressed again
   post: [1e9, 1e9], // until it's up at the hut

@@ -21,6 +21,7 @@ export const ICONS = {
   heart: icon(['.#.#.', '#####', '#####', '.###.', '..#..'], '#e46f5a'),
   note: icon(['...##', '...#.', '...#.', '...#.', '.###.', '####.', '.##..'], '#fff3c4'),
   zzz: icon(['###', '..#', '.#.', '#..', '###'], '#cdc6cf'),
+  alert: icon(['.#.', '.#.', '.#.', '.#.', '...', '.#.'], '#e4463a'),
 };
 
 interface Floater {
@@ -28,6 +29,8 @@ interface Floater {
   velocity: THREE.Vector3;
   age: number;
   life: number;
+  /** Set on a pop: its full size, which it springs up to. */
+  pop?: THREE.Vector3;
 }
 
 /**
@@ -55,11 +58,27 @@ export class Floaters {
     this.all.push({ sprite, velocity: V(rand(-0.3, 0.3) * k, rand(0.7, 1.1) * k, 0), age: -i * 0.15, life: 2 });
   }
 
+  /** One icon springing up over `at` and staying put a moment: a shock (the room's `!`). */
+  pop(name: keyof typeof ICONS, at: THREE.Vector3, life = 1.6) {
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: ICONS[name], transparent: true, depthWrite: false, fog: false }));
+    const img = ICONS[name].image as HTMLCanvasElement;
+    sprite.scale.set(img.width * this.scale * 2.4, img.height * this.scale * 2.4, 1);
+    sprite.position.copy(at);
+    sprite.renderOrder = 5;
+    sprite.raycast = () => {};
+    this.scene.add(sprite);
+    this.all.push({ sprite, velocity: V(), age: 0, life, pop: sprite.scale.clone() });
+  }
+
   update(dt: number) {
     this.all = this.all.filter((f) => {
       f.age += dt;
       if (f.age < 0) return true;
       f.sprite.position.addScaledVector(f.velocity, dt);
+      if (f.pop) {
+        const spring = THREE.MathUtils.lerp(0.2, 1, Math.min(1, f.age / 0.12)) + Math.sin(Math.min(1, f.age / 0.3) * Math.PI) * 0.25;
+        f.sprite.scale.copy(f.pop).multiplyScalar(spring); // pops up, overshoots, settles
+      }
       f.sprite.material.opacity = 1 - Math.max(0, f.age / f.life - 0.6) / 0.4;
       if (f.age < f.life) return true;
       this.scene.remove(f.sprite);

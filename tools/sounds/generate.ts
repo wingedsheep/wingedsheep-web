@@ -62,6 +62,10 @@ export const SOUNDS: Sfx[] = [
   { name: 'robot-snore', seconds: 3, prompt: 'A tiny robot asleep and charging, a soft electronic snore, a low buzzing hum rising and falling, cute' },
   { name: 'robot-clank', seconds: 1.5, prompt: 'A small tin robot falling flat on its face on a wooden floor, a clattering metallic clank' },
   { name: 'robot-beep', seconds: 1, prompt: 'A cute little robot beeping a happy greeting, three short cheerful bleeps' },
+  { name: 'crunch', seconds: 4, prompt: 'Close-up recording of a cat eating dry kibble from a ceramic bowl: fast crisp crunching, soft wet lip smacking, little biscuits scraping and clicking against the bowl, a tiny pause and then more crunching, no purring, no meowing, no voices, no music' },
+  { name: 'grind', seconds: 4, prompt: 'An automatic espresso machine grinding coffee beans, a loud whirring grinder crunching through beans, close up, no voices, no music' },
+  { name: 'brew', seconds: 11, prompt: 'An espresso machine brewing a coffee, a pump humming, hot water and coffee running steadily into a ceramic cup with a little steam hiss, close up, no voices, no music' },
+  { name: 'sip', seconds: 2, prompt: 'Someone slowly sipping hot coffee from a ceramic mug, a quiet slurp, a small swallow and a soft satisfied breath out, close up, no voices, no music' },
   { name: 'ding', seconds: 1.5, prompt: 'A mechanical kitchen oven timer ringing once, a single bright ding' },
   { name: 'snore', seconds: 3, prompt: 'Someone gently snoring in their sleep, one soft slow breath in and a quiet snore out, close, peaceful' },
   // the career dioramas: one place each, and the things in them (career.ts `sound`)
