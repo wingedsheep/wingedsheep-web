@@ -172,9 +172,8 @@ const inTurn = (lines: string[]) => {
 function withHer(label: string, line: (ctx: IslandContext) => string): Place {
   return {
     label,
-    activate(ctx, at) {
+    activate(ctx) {
       ctx.life.companion.notice();
-      ctx.life.burst('hearts', at);
       ctx.toast(line(ctx));
     },
   };
