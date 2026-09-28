@@ -193,6 +193,7 @@ def scatter(t: Terrain, seed=11):
     for x, y in L.CAIRNS:                   # nothing in front of the cairns, so they're easy to spot
         kept.append((x, y, 4.0))
     kept.append((*L.HUT, 4.5))
+    kept.append((*L.WORKOUT, 2.2))            # her exercise mat, with room for the jumping jacks
 
     def free(x, y, r, levels=(-1, 0, 1)):
         ix = int(round((x - L.EXTENT[0]) / L.CELL))
