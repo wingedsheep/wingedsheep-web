@@ -160,7 +160,7 @@ export const chapters: Chapter[] = [
       ampsen: {
         label: 'Kasteel Ampsen · Lochem',
         sound: 'castle-clock',
-        text: 'Ampsen, near Lochem: “the castle”. Some weeks we worked from here, a short drive from Eijgenhuijsen in Ruurlo. Not a bad place to have your laptop open.',
+        text: 'Ampsen, near Lochem: “the castle”. Some days we worked from there, on the first floor of the left wing, a short drive from Eijgenhuijsen in Ruurlo. Not a bad place to have your laptop open.',
       },
       eijgenhuijsen: {
         label: 'Eijgenhuijsen · Ruurlo',

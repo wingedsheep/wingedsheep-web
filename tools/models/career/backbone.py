@@ -25,12 +25,16 @@ import math
 import palette as P
 from kit import FPS, Model, animate, group, light
 
-from career.base import Look, bush, clouds, person, plinth, tree
+from career.base import GLYPHS, Look, bush, clouds, letters, person, plinth, tree
 
 BRICK = "#6e5352"
 BRICK_DARK = "#56403f"
 CREAM = "#eadfb4"
 BAY = "#e8dc9e"
+BAY_LIGHT = "#f3eac0"
+STONE = "#ddd6c6"
+CHIMNEY = "#9a8781"
+LIT = "#ffd98a"
 SLATE = "#4a4a5a"
 SLATE_DARK = "#3b3a4a"
 GLASS = "#2f3440"
@@ -59,8 +63,8 @@ CLADDING = "#d5d8d4"
 TOWER = "#b9bcc4"
 
 RX, RY, CENTRE = 16.0, 11.0, (0.5, -0.5)
-FACADE = 3.6            # the castle's middle; its wings stand forward of it
-WINGS = FACADE - 0.3
+FACADE = 3.5            # the castle's middle; its wings stand well forward of it
+AMPSEN = 0.42           # the castle's scale, units a metre
 SCALE = 0.75            # people and furniture, against the buildings
 BACKBONE_VINCENT = Look(hair=P.HAIR, top="#3f5f8a", legs="#3a4a6e", beard=P.BEARD)
 
@@ -103,14 +107,15 @@ def truck_s(t: float) -> float:
     return TRUCK_START + LOOP_LEN * t / BUS_LAP
 
 
-def drive(obj, clip: str, where, ahead: float, wheelbase: float):
+def drive(obj, clip: str, where, ahead: float, wheelbase: float, steer=()):
     """Keyframe a rigid body along the loop: its origin (at `ahead` behind where(t)) on the road,
-    turned to face the point `wheelbase` further ahead than its back wheels."""
-    locs, rots, prev = [], [], None
+    turned to face the point `wheelbase` further ahead than its back wheels. The `steer` wheels
+    turn to follow the road under the origin, however far that is from where the body points."""
+    locs, rots, turns, prev = [], [], [], None
     for f in range(0, round(BUS_LAP * FPS) + 1, 3):
         t = f / FPS
         s = where(t) - ahead
-        (fx, fy), _ = loop_point(s)
+        (fx, fy), road = loop_point(s)
         (bx, by), _ = loop_point(s - wheelbase)
         h = math.atan2(fy - by, fx - bx)
         if prev is not None:
@@ -118,6 +123,9 @@ def drive(obj, clip: str, where, ahead: float, wheelbase: float):
         prev = h
         locs.append((t, (fx, fy, 0.0)))
         rots.append((t, (0.0, 0.0, h)))
+        turns.append((t, (0.0, 0.0, math.remainder(road - h, math.tau))))
+    for wheel in steer:
+        animate(wheel, clip, "rotation_euler", turns, rest=(0, 0, 0))
     obj.location, obj.rotation_euler = locs[0][1], rots[0][1]
     animate(obj, clip, "location", locs, rest=(0, 0, 0))
     animate(obj, clip, "rotation_euler", rots, rest=(0, 0, 0))
@@ -132,128 +140,235 @@ def hip(m: Model, x0, x1, y0, y1, z, h, color, ridge: float):
     m.slab([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], z, z + h, color, top=top)
 
 
-def window(m: Model, x, y, z, w, h, face="-y"):
-    """A tall sash window, white-framed with a cross of glazing bars, set in a wall facing `face`."""
-    if face == "-y":
-        m.box((w + 0.12, 0.06, h + 0.12), (x, y - 0.02, z), FRAME)
-        m.box((w, 0.07, h), (x, y - 0.03, z), GLASS)
-        m.box((0.035, 0.08, h), (x, y - 0.035, z), FRAME)
-        m.box((w, 0.08, 0.035), (x, y - 0.035, z + h * 0.18), FRAME)
-    else:
-        m.box((0.06, w + 0.12, h + 0.12), (x + 0.02, y, z), FRAME)
-        m.box((0.07, w, h), (x + 0.03, y, z), GLASS)
-        m.box((0.08, 0.035, h), (x + 0.035, y, z), FRAME)
-        m.box((0.08, w, 0.035), (x + 0.035, y, z + h * 0.18), FRAME)
+def hip_ns(m: Model, x0, x1, y0, y1, z, h, color):
+    """A hipped roof over a rectangle deeper than it's wide, its ridge running north-south, the
+    front slope as steep as the sides."""
+    xc, e = (x0 + x1) / 2, 0.04
+    inset = (x1 - x0) / 2
+    top = [(xc - e, y0 + inset), (xc + e, y0 + inset), (xc + e, y1 - inset), (xc - e, y1 - inset)]
+    m.slab([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], z, z + h, color, top=top)
 
 
-def dormer(m: Model, x, y, z, w=0.55):
-    m.box((w, 0.7, 0.6), (x, y + 0.2, z), SLATE_DARK)
-    m.box((w + 0.08, 0.06, 0.64), (x, y - 0.15, z), CREAM)
-    m.box((w - 0.2, 0.07, 0.36), (x, y - 0.16, z - 0.02), GLASS)
-    m.gable((0.8, w + 0.14, 0.26), (x, y + 0.2, z + 0.3), SLATE, rot=(0, 0, math.pi / 2), thick=0.08)
+def window(m: Model, x, y, z, w, h, face="-y", lit=False, blind=False):
+    """A tall sash window of small panes, white-framed on a stone sill, set in a wall facing
+    `face` ("-y", "+y", "+x" or "-x"). Lit: warm light behind the glass, brighter at night.
+    Blind: just the frame round a panel of brick, for the symmetry."""
+    out = {"-y": (0, -1), "+y": (0, 1), "+x": (1, 0), "-x": (-1, 0)}[face]
+
+    def put(width, depth, height, o, color, dz=0.0, dx=0.0, glow=False):
+        if out[0] == 0:
+            m.box((width, depth, height), (x + dx, y + out[1] * o, z + dz), color, glow=glow)
+        else:
+            m.box((depth, width, height), (x + out[0] * o, y + dx, z + dz), color, glow=glow)
+
+    put(w + 0.12, 0.06, h + 0.12, 0.02, FRAME)
+    if blind:
+        put(w, 0.07, h, 0.03, BRICK_DARK)
+        return
+    put(w, 0.07, h, 0.03, LIT if lit else GLASS, glow=lit)
+    put(0.03, 0.08, h, 0.035, FRAME)                                                # glazing bars
+    for dz in (-h / 6, h / 6):
+        put(w, 0.08, 0.03, 0.035, FRAME, dz=dz)
+    put(w + 0.2, 0.12, 0.05, 0.05, STONE, dz=-h / 2 - 0.07)                          # the sill
+
+
+def dormer(m: Model, x, y, z, w=0.55, back=False):
+    """A dormer window in a roof, looking south (or north, `back`)."""
+    b = -1 if back else 1
+    m.box((w, 0.7, 0.6), (x, y + b * 0.2, z), SLATE_DARK)
+    m.box((w + 0.08, 0.06, 0.64), (x, y - b * 0.15, z), FRAME)
+    m.box((w - 0.2, 0.07, 0.36), (x, y - b * 0.16, z - 0.02), GLASS)
+    m.box((0.03, 0.08, 0.36), (x, y - b * 0.17, z - 0.02), FRAME)
+    m.gable((0.8, w + 0.14, 0.26), (x, y + b * 0.2, z + 0.3), SLATE, rot=(0, 0, math.pi / 2), thick=0.08)
+
+
+def chimney(m: Model, x, y, top, w=0.36):
+    """Brick with a pale band and a dark cap, rising out of the roof from well inside it."""
+    m.box((w, w, top - 3.0), (x, y, (top + 3.0) / 2), CHIMNEY)
+    m.box((w + 0.08, w + 0.08, 0.08), (x, y, top), CREAM)
+    m.box((w - 0.12, w - 0.12, 0.1), (x, y, top + 0.09), SLATE_DARK)
 
 
 def ampsen(root):
+    """Measured: the plan is the Kadaster's (BAG pand 0262100000001085) at AMPSEN units a metre,
+    the heights are read off a photo square to the front. A U seen from above: a middle block
+    15.2 m across and two wings standing forward of it, the left 7.5 m wide and 6.7 m out, the
+    right 8.8 m wide and 7.9 m out with the tower at its side. Two storeys over a half-sunk
+    cellar, each part under its own hipped roof. We worked on the first floor of the left wing:
+    those two windows are lit, and someone is at one with a laptop."""
     g = group("ampsen", parent=root, id="ampsen")
     m = Model("ampsen_walls", seed=101)
-    F, W = FACADE, WINGS
-    # the middle block and the two wings, on a darker plinth of brick
-    m.box((8.4, 3.0, 2.8), (0, F + 1.5, 1.4), BRICK)
-    for s in (-1, 1):
-        m.box((3.0, 3.6, 3.1), (s * 5.7, W + 1.8, 1.55), BRICK)
-        m.box((3.1, 3.7, 0.3), (s * 5.7, W + 1.8, 0.15), BRICK_DARK)
-        m.box((3.16, 3.76, 0.14), (s * 5.7, W + 1.8, 3.1), CREAM)                        # cornice
-    m.box((8.5, 3.1, 0.3), (0, F + 1.5, 0.15), BRICK_DARK)
-    m.box((8.5, 3.12, 0.12), (0, F + 1.5, 2.8), CREAM)
-    # the pale yellow middle bay, its curly gable with the clock and the door up a few steps
-    m.box((2.4, 0.2, 2.8), (0, F - 0.08, 1.4), BAY)
-    gable = [(-1.2, 2.8), (1.2, 2.8), (1.2, 3.05), (0.95, 3.15), (0.8, 3.5), (0.5, 3.8), (0, 3.92),
-             (-0.5, 3.8), (-0.8, 3.5), (-0.95, 3.15), (-1.2, 3.05)]
-    m.prism(gable, 0.22, (0, F - 0.07, 0), BAY)
-    m.prism([(-1.24, 2.78), (1.24, 2.78), (1.24, 2.9), (-1.24, 2.9)], 0.3, (0, F - 0.08, 0), CREAM)
-    m.cyl(0.22, 0.04, (0, F - 0.17, 3.42), FRAME, segs=12, rot=(math.pi / 2, 0, 0))     # the clock
-    m.cyl(0.18, 0.02, (0, F - 0.2, 3.42), P.WHITE, segs=12, rot=(math.pi / 2, 0, 0))
-    m.box((0.025, 0.02, 0.14), (0, F - 0.23, 3.48), P.INK)
-    m.box((0.11, 0.02, 0.025), (0.05, F - 0.23, 3.42), P.INK)
-    for x in (-0.12, 0.12):                                                              # coats of arms
-        m.box((0.16, 0.04, 0.2), (x, F - 0.19, 3.0), FRAME)
-    m.box((0.1, 0.05, 0.12), (-0.12, F - 0.2, 2.99), "#b5562d")
-    m.box((0.1, 0.05, 0.12), (0.12, F - 0.2, 2.99), P.GOLD)
-    m.box((0.7, 0.08, 1.15), (0, F - 0.2, 0.9), FRAME)                                   # the door
-    m.box((0.5, 0.09, 0.45), (0, F - 0.21, 1.1), GLASS)
-    for k, (w, d) in enumerate(((1.7, 0.75), (1.5, 0.55), (1.3, 0.35))):
-        m.box((w, d, 0.11), (0, F - 0.2 - d / 2, 0.055 + k * 0.11), SLATE_DARK)
-    window(m, 0, F - 0.18, 2.15, 0.5, 0.8)
-    for x in (-0.82, 0.82):
-        window(m, x, F - 0.18, 1.0, 0.24, 1.0)
-        window(m, x, F - 0.18, 2.15, 0.24, 0.8)
-    # rows of tall windows, and little cellar windows under them
-    for x in (-3.5, -2.45, -1.6, 1.6, 2.45, 3.5):
-        w = 0.3 if abs(x) < 2 else 0.52
-        window(m, x, F, 1.1, w, 1.0)
-        window(m, x, F, 2.2, w, 0.8)
-        m.box((w, 0.06, 0.14), (x, F - 0.02, 0.18), FRAME)
-    for s in (-1, 1):
-        for x in (4.95, 6.45):
-            window(m, s * x, W, 1.15, 0.58, 1.1)
-            window(m, s * x, W, 2.45, 0.58, 0.95)
-            m.box((0.58, 0.06, 0.14), (s * x, W - 0.02, 0.18), FRAME)
-    for y in (W + 1.0, W + 2.5):                                                         # round the east side
-        window(m, 7.2, y, 1.15, 0.58, 1.1, face="+x")
-        window(m, 7.2, y, 2.45, 0.58, 0.95, face="+x")
-    # roofs: a long hip over the middle, steep ones over the wings, dormers and chimneys
-    hip(m, -4.3, 4.3, F - 0.12, F + 3.12, 2.86, 1.8, SLATE, ridge=5.2)
-    for s in (-1, 1):
-        x0, x1 = sorted((s * 4.05, s * 7.35))
-        hip(m, x0, x1, W - 0.15, W + 3.75, 3.17, 2.2, SLATE, ridge=0.4)
-        dormer(m, s * 5.7, W + 0.55, 3.95)
-        dormer(m, s * 2.8, F + 0.55, 3.35)
-        for x, y, h in ((s * 3.1, F + 1.3, 2.3), (s * 1.2, F + 1.9, 2.1), (s * 5.2, W + 2.4, 3.2), (s * 6.3, W + 1.6, 2.9)):
-            m.box((0.36, 0.36, h), (x, y, 2.9 + h / 2), BRICK_DARK)
-            m.box((0.44, 0.44, 0.08), (x, y, 2.9 + h), CREAM)
-    # the little tower at the back corner, with its pointed hat and a weathervane
-    m.cyl(0.72, 3.4, (7.7, W + 3.4, 0), BRICK, segs=10)
-    m.cyl(0.76, 0.12, (7.7, W + 3.4, 3.35), CREAM, segs=10)
-    m.cyl(0.84, 2.1, (7.7, W + 3.4, 3.45), SLATE, segs=10, r_top=0.04)
-    m.cyl(0.025, 0.6, (7.7, W + 3.4, 5.5), P.IRON, segs=4)
-    m.box((0.3, 0.02, 0.12), (7.78, W + 3.4, 5.95), P.IRON)
-    window(m, 7.7 + 0.72, W + 3.2, 2.0, 0.3, 0.7, face="+x")
+    F, K = FACADE, AMPSEN
+    MX = 7.6 * K                                                                         # the middle's half width
+    LX, RX_ = -15.06 * K, 16.44 * K                                                      # the wings' outer walls
+    back = F + 10.5 * K
+    wings = ((-1, LX, F - 6.73 * K, back, (1.94, 4.63)), (1, RX_, F - 7.91 * K, back + 3.49 * K, (2.39, 5.57)))
+    MC, WC = 3.28, 3.9                                                                   # cornices, middle and wings
+    # the middle block, on a darker plinth of brick under a white cornice
+    m.box((2 * MX + 0.2, back - F, MC), (0, (F + back) / 2, MC / 2), BRICK)
+    m.box((2 * MX + 0.3, back - F + 0.1, 0.3), (0, (F + back) / 2, 0.15), BRICK_DARK)
+    m.box((2 * MX + 0.3, back - F + 0.12, 0.12), (0, (F + back) / 2, MC), FRAME)
+    for s, outer, front, rear, _ in wings:
+        x0, x1 = sorted((s * MX, outer))
+        xc, d = (x0 + x1) / 2, rear - front
+        m.box((x1 - x0, d, WC), (xc, (front + rear) / 2, WC / 2), BRICK)
+        m.box((x1 - x0 + 0.1, d + 0.1, 0.3), (xc, (front + rear) / 2, 0.15), BRICK_DARK)
+        m.box((x1 - x0 + 0.16, d + 0.16, 0.14), (xc, (front + rear) / 2, WC), FRAME)
+    # the pale yellow middle bay: pilasters, a ledge between the floors, the curly gable with
+    # the two coats of arms and the clock, and the door up a few steps
+    m.box((2.1, 0.2, MC), (0, F - 0.08, MC / 2), BAY)
+    for x in (-0.98, -0.42, 0.42, 0.98):
+        m.box((0.14, 0.26, MC - 0.1), (x, F - 0.1, MC / 2), BAY_LIGHT)
+    m.box((2.2, 0.28, 0.1), (0, F - 0.12, 1.98), BAY_LIGHT)
+    gable = [(-1.05, 0), (1.05, 0), (1.05, 0.26), (0.84, 0.36), (0.7, 0.66), (0.42, 0.96), (0, 1.05),
+             (-0.42, 0.96), (-0.7, 0.66), (-0.84, 0.36), (-1.05, 0.26)]
+    m.prism([(x, MC + z) for x, z in gable], 0.22, (0, F - 0.07, 0), BAY)
+    m.prism([(-1.09, MC - 0.02), (1.09, MC - 0.02), (1.09, MC + 0.1), (-1.09, MC + 0.1)], 0.3, (0, F - 0.08, 0), FRAME)
+    m.cyl(0.19, 0.04, (0, F - 0.17, 4.03), FRAME, segs=12, rot=(math.pi / 2, 0, 0))      # the clock
+    m.cyl(0.15, 0.02, (0, F - 0.2, 4.03), P.WHITE, segs=12, rot=(math.pi / 2, 0, 0))
+    m.box((0.025, 0.02, 0.11), (0, F - 0.23, 4.08), P.INK)
+    m.box((0.09, 0.02, 0.025), (0.04, F - 0.23, 4.03), P.INK)
+    m.box((0.56, 0.04, 0.22), (0, F - 0.19, 3.62), BAY_LIGHT)                            # coats of arms
+    m.box((0.13, 0.05, 0.16), (-0.09, F - 0.21, 3.6), "#b5562d")
+    m.box((0.13, 0.05, 0.16), (0.09, F - 0.21, 3.6), P.GOLD)
+    m.box((0.6, 0.08, 1.35), (0, F - 0.2, 1.08), FRAME)                                  # the door
+    m.box((0.02, 0.09, 0.9), (0, F - 0.21, 0.88), "#d8d0bc")
+    m.box((0.44, 0.09, 0.3), (0, F - 0.21, 1.55), GLASS)
+    m.box((0.8, 0.2, 0.08), (0, F - 0.22, 1.8), FRAME)
+    for k, (w, d) in enumerate(((1.6, 0.8), (1.4, 0.6), (1.2, 0.4))):
+        m.box((w, d, 0.14), (0, F - 0.2 - d / 2, 0.07 + k * 0.14), SLATE_DARK)
+    window(m, 0, F - 0.18, 2.7, 0.57, 0.85)
+    for x in (-0.68, 0.68):
+        window(m, x, F - 0.18, 1.27, 0.25, 1.08)
+        window(m, x, F - 0.18, 2.7, 0.25, 0.85)
+    # two windows either side, and little cellar windows under them
+    for x in (-2.42, -1.47, 1.47, 2.42):
+        window(m, x, F, 1.27, 0.6, 1.08)
+        window(m, x, F, 2.7, 0.6, 0.85)
+        m.box((0.6, 0.06, 0.16), (x, F - 0.02, 0.2), FRAME)
+    for s, outer, front, rear, bays in wings:
+        # two narrow windows in each wing's side, facing the forecourt
+        for y in (front + 0.92, front + 2.02):
+            window(m, s * MX, y, 1.43, 0.25, 1.18, face="+x" if s < 0 else "-x")
+            window(m, s * MX, y, 3.02, 0.25, 1.05, face="+x" if s < 0 else "-x")
+        # and two in its front, towards the outside
+        for b in bays:
+            x = outer - s * b * K
+            window(m, x, front, 1.43, 0.6, 1.18)
+            window(m, x, front, 3.02, 0.6, 1.05, lit=s < 0)                             # our office
+            m.box((0.6, 0.06, 0.16), (x, front - 0.02, 0.2), FRAME)
+    rw = wings[1]
+    for y in (4.2, 5.7, 7.2, 8.7):                                                       # round the east side
+        window(m, RX_, y, 1.43, 0.6, 1.18, face="+x")
+        window(m, RX_, y, 3.02, 0.6, 1.05, face="+x")
+    # round the back: the stair tower with its pale baroque front and curly gable, the garden
+    # door beside it, and windows in pairs; blind ones where a window wouldn't fit inside
+    ax0, ax1, ay = -0.86, 1.44, back + 2.05 * K
+    axc = (ax0 + ax1) / 2
+    m.box((ax1 - ax0, ay - back + 0.1, MC), (axc, (back + ay) / 2, MC / 2), BRICK)
+    m.box((ax1 - ax0 + 0.1, 0.12, MC), (axc, ay, MC / 2), BAY_LIGHT)
+    for x in (ax0 + 0.12, ax1 - 0.12):
+        m.box((0.16, 0.18, MC), (x, ay + 0.03, MC / 2), CREAM)
+    curls = [(-1.2, 0), (1.2, 0), (1.2, 0.2), (0.8, 0.3), (0.72, 0.62), (0.45, 0.85), (0.3, 1.2),
+             (0.12, 1.3), (-0.12, 1.3), (-0.3, 1.2), (-0.45, 0.85), (-0.72, 0.62), (-0.8, 0.3), (-1.2, 0.2)]
+    m.prism([(axc + x, MC + z) for x, z in curls], 0.2, (0, ay, 0), BAY_LIGHT)
+    m.prism([(axc - 1.24, MC - 0.02), (axc + 1.24, MC - 0.02), (axc + 1.24, MC + 0.1), (axc - 1.24, MC + 0.1)],
+            0.3, (0, ay, 0), FRAME)
+    m.cyl(0.05, 0.3, (axc, ay, MC + 1.3), BAY_LIGHT, segs=6)                              # a finial
+    m.ball(0.08, (axc, ay, MC + 1.66), BAY_LIGHT, subdiv=1)
+    window(m, axc, ay + 0.06, 1.27, 0.44, 1.08, face="+y")
+    window(m, axc, ay + 0.06, 2.7, 0.44, 0.85, face="+y")
+    window(m, axc, ay + 0.06, 3.75, 0.3, 0.4, face="+y")
+    for sx in (-1, 1):                                                                   # steps up both sides
+        m.box((0.5, 0.5, 0.2), (axc + sx * 0.85, ay + 0.3, 0.1), SLATE_DARK)
+        m.box((0.4, 0.3, 0.2), (axc + sx * 0.85, ay + 0.2, 0.3), SLATE_DARK)
+    m.box((0.5, 0.08, 1.05), (1.95, back + 0.02, 0.92), SLATE_DARK)                      # the garden door
+    m.box((0.64, 0.06, 1.15), (1.95, back + 0.01, 0.95), CREAM)
+    for k, w in enumerate((1.0, 0.8)):
+        m.box((w, 0.3 - k * 0.1, 0.14), (1.95, back + 0.15 - k * 0.05, 0.07 + k * 0.14), SLATE_DARK)
+    for x, lo, hi in ((-5.49, 1.43, 3.02), (-4.48, 1.43, 3.02), (-2.8, 1.27, 2.7), (-1.79, 1.27, 2.7), (2.8, 1.27, 2.7)):
+        window(m, x, back, lo, 0.6, 1.08, face="+y")
+        window(m, x, back, hi, 0.6, 0.9, face="+y")
+        m.box((0.6, 0.06, 0.16), (x, back + 0.02, 0.2), FRAME)
+    rear = wings[1][3]
+    for x, blind in ((RX_ - 0.76, False), (RX_ - 1.51, False), (RX_ - 2.69, True)):
+        window(m, x, rear, 1.43, 0.6, 1.18, face="+y", blind=blind)
+        window(m, x, rear, 3.02, 0.6, 1.05, face="+y", blind=blind)
+    window(m, MX, (back + rear) / 2, 1.43, 0.5, 1.18, face="-x", blind=True)
+    window(m, MX, (back + rear) / 2, 3.02, 0.5, 1.05, face="-x", blind=True)
+    for y in (back - 0.97, back - 4.12, back - 6.51):                                    # the left wing's outer side
+        window(m, LX, y, 1.43, 0.6, 1.18, face="-x")
+        window(m, LX, y, 3.02, 0.6, 1.05, face="-x")
+    # roofs: the wings' run front to back, the middle's runs across and into them
+    hip(m, -MX - 0.9, MX + 0.9, F - 0.12, back + 0.12, MC + 0.06, 1.55, SLATE, ridge=2 * MX + 1.8)
+    for s, outer, front, rear, _ in wings:
+        x0, x1 = sorted((s * (MX - 0.15), outer + s * 0.15))
+        hip_ns(m, x0, x1, front - 0.15, rear + 0.15, WC + 0.07, 1.5, SLATE)
+        dormer(m, (x0 + x1) / 2, front + 0.45, 4.35)
+        dormer(m, s * 1.93, F + 0.5, 4.1)
+    for x in (-2.6, -1.6, 2.5):
+        dormer(m, x, back - 0.5, 4.1, back=True)
+    dormer(m, RX_ - 1.1, wings[1][3] - 0.45, 4.35, back=True)
+    hip_ns(m, ax0 - 0.05, ax1 + 0.05, back - 0.4, ay, MC, 1.1, SLATE)                    # over the stair tower
+    for x, y, top in ((LX + 1.89, 1.9, 5.6), (LX + 2.23, 3.3, 5.1), (RX_ - 2.31, 2.0, 5.75),
+                      (-1.18, F + 2.2, 5.33), (1.18, F + 2.2, 5.33), (2.7, F + 2.9, 5.2)):
+        chimney(m, x, y, top, w=0.3 if top < 5.3 else 0.36)
+    # the tower at the right wing's side, with its pointed hat and a weathervane
+    tx, ty = RX_ + 0.3, rw[2] + 5.3 * K
+    m.cyl(0.8, WC, (tx, ty, 0), BRICK, segs=10)
+    m.cyl(0.84, 0.12, (tx, ty, WC - 0.05), FRAME, segs=10)
+    m.cyl(0.92, 2.0, (tx, ty, WC + 0.05), SLATE, segs=10, r_top=0.04)
+    m.cyl(0.025, 0.6, (tx, ty, WC + 2.0), P.IRON, segs=4)
+    m.box((0.3, 0.02, 0.12), (tx + 0.08, ty, WC + 2.45), P.IRON)
+    window(m, tx + 0.8, ty, 2.4, 0.3, 0.8, face="+x")
     m.build(g)
 
+    # at work behind our window: head and shoulders, lit by a laptop
+    us = Model("ampsen_office")
+    x, y = LX + 4.63 * K, wings[0][2] - 0.085
+    us.box((0.32, 0.02, 0.16), (x + 0.03, y, 2.66), BACKBONE_VINCENT.top)
+    us.box((0.13, 0.02, 0.14), (x + 0.03, y, 2.8), P.SKIN)
+    us.box((0.15, 0.02, 0.06), (x + 0.03, y, 2.89), BACKBONE_VINCENT.hair)
+    us.box((0.26, 0.02, 0.1), (x - 0.03, y - 0.015, 2.6), "#c9ccd2")                      # the laptop's lid
+    us.build(g)
+
     lamps = Model("ampsen_lanterns")
-    for x in (-0.5, 0.5):
-        lamps.box((0.14, 0.14, 0.24), (x, F - 0.32, 1.3), P.LANTERN, glow=True)
-        lamps.box((0.18, 0.18, 0.05), (x, F - 0.32, 1.45), P.IRON)
-        light(g, (x, F - 0.5, 1.3), P.WARM_LIGHT, 2.5, 0.7, halo=False)
+    for x in (-0.45, 0.45):
+        lamps.box((0.14, 0.14, 0.24), (x, F - 0.32, 1.5), P.LANTERN, glow=True)
+        lamps.box((0.18, 0.18, 0.05), (x, F - 0.32, 1.65), P.IRON)
+        light(g, (x, F - 0.5, 1.5), P.WARM_LIGHT, 2.5, 0.7, halo=False)
     lamps.build(g)
 
 
 def ampsen_grounds(root):
-    """Gravel in front of the castle, two lawns with a cobbled path between them down to the
-    road, boulders along the edges, urns of flowers, clipped balls by the door, tall hedges."""
+    """Gravel round the castle, two lawns in the forecourt with a cobbled path between them
+    down to the road, boulders along the edges, urns of flowers, clipped balls by the door,
+    tall hedges."""
     m = Model("ampsen_grounds", seed=102)
-    m.box((16.0, 4.0, 0.04), (0, 1.5, 0.02), GRAVEL)
+    m.box((15.0, FACADE + 0.6, 0.04), (0, (FACADE - 0.6) / 2, 0.02), GRAVEL)
     for s in (-1, 1):
-        x0, x1 = sorted((s * 0.55, s * 5.4))
-        m.box((x1 - x0, 2.6, 0.08), ((x0 + x1) / 2, 1.3, 0.04), LAWN)
-        for x in (x0 + 0.25, (x0 + x1) / 2, x1 - 0.25):
-            m.ball(0.2, (x, -0.1, 0.08), BOULDER, subdiv=1, scale=(1.2, 1, 0.6), jitter=0.02)
-        for y in (0.5, 2.1):
+        x0, x1 = sorted((s * 0.55, s * 2.95))
+        y0, y1 = -0.3, FACADE - 0.95
+        m.box((x1 - x0, y1 - y0, 0.08), ((x0 + x1) / 2, (y0 + y1) / 2, 0.04), LAWN)
+        for y in (0.4, 1.4, 2.4):
             m.ball(0.17, (s * 0.72, y, 0.08), BOULDER, subdiv=1, scale=(1.2, 1, 0.6), jitter=0.02)
-        # urns with pink flowers
-        ux = s * 6.1
-        m.cyl(0.18, 0.5, (ux, 1.0, 0), CREAM, segs=6, r_top=0.12)
-        m.cyl(0.26, 0.25, (ux, 1.0, 0.5), CREAM, segs=6, r_top=0.3)
-        m.ball(0.34, (ux, 1.0, 0.9), "#d98fb0", subdiv=1, jitter=0.04, scale=(1, 1, 0.8))
-        m.ball(0.2, (ux + 0.12, 1.05, 1.02), P.LEAF[2], subdiv=1, jitter=0.03)
+        # boulders along the front of the house
+        for x in (1.9, 2.8):
+            m.ball(0.15, (s * x, FACADE - 0.6, 0.06), BOULDER, subdiv=1, scale=(1.2, 1, 0.6), jitter=0.02)
+        # urns with pink flowers, in front of the wings
+        ux, uy = s * 4.9, -0.2
+        m.cyl(0.18, 0.5, (ux, uy, 0), CREAM, segs=6, r_top=0.12)
+        m.cyl(0.26, 0.25, (ux, uy, 0.5), CREAM, segs=6, r_top=0.3)
+        m.ball(0.34, (ux, uy, 0.9), "#d98fb0", subdiv=1, jitter=0.04, scale=(1, 1, 0.8))
+        m.ball(0.2, (ux + 0.12, uy + 0.05, 1.02), P.LEAF[2], subdiv=1, jitter=0.03)
         # clipped balls on stems either side of the steps
-        m.cyl(0.14, 0.3, (s * 1.45, FACADE - 0.55, 0), SLATE_DARK, segs=6)
-        m.cyl(0.03, 0.4, (s * 1.45, FACADE - 0.55, 0.3), P.BARK, segs=4)
-        m.ball(0.3, (s * 1.45, FACADE - 0.55, 0.9), P.LEAF[1], subdiv=1, jitter=0.02)
+        m.cyl(0.14, 0.3, (s * 1.15, FACADE - 0.55, 0), SLATE_DARK, segs=6)
+        m.cyl(0.03, 0.4, (s * 1.15, FACADE - 0.55, 0.3), P.BARK, segs=4)
+        m.ball(0.28, (s * 1.15, FACADE - 0.55, 0.88), P.LEAF[1], subdiv=1, jitter=0.02)
         # the tall hedges either side of the house
-        m.box((1.0, 3.0, 1.9), (s * 8.4, WINGS + 0.9, 0.95), HEDGE)
+        m.box((1.0, 3.0, 1.9), (-7.0, 2.5, 0.95) if s < 0 else (7.7, 6.0, 0.95), HEDGE)
     m.box((0.9, FACADE + 1.2, 0.07), (0, (FACADE - 1.2) / 2, 0.035), COBBLE)
-    for k in range(9):                                                                   # the cobbles
+    for k in range(int((FACADE + 0.9) / 0.5)):                                           # the cobbles
         m.box((0.8, 0.04, 0.075), (0, -0.9 + k * 0.5, 0.04), "#8a8177")
     m.build(root)
 
@@ -310,6 +425,58 @@ def wheels(m: Model, xs, half: float, r: float, hub="#c9c6c0"):
             m.cyl(r * 0.55, 0.03, (x, side * (half + 0.2), r), hub, segs=8, rot=(-side * math.pi / 2, 0, 0))
 
 
+def steered(parent, name: str, x: float, half: float, r: float):
+    """The two front wheels at `x`, each its own part turning about its own middle."""
+    parts = []
+    for side in (-1, 1):
+        w = Model(f"{name}_{'right' if side < 0 else 'left'}")
+        pivot = (x, side * (half + 0.1))
+        w.cyl(r, 0.2, (0, side * half - pivot[1], 0), P.INK, segs=10, rot=(-side * math.pi / 2, 0, 0))
+        w.cyl(r * 0.55, 0.03, (0, side * (half + 0.2) - pivot[1], 0), "#c9c6c0", segs=8, rot=(-side * math.pi / 2, 0, 0))
+        parts.append(w.build(parent, loc=(pivot[0], pivot[1], r)))
+    return parts
+
+
+DOORS = (0.45, -2.2)
+
+
+class Lettering:
+    """Takes down the boxes `letters` draws, to share them out between the body and the doors."""
+
+    def __init__(self):
+        self.boxes = []
+
+    def box(self, size, loc, color):
+        self.boxes.append((size, loc, color))
+
+    def cut(self, x0: float, x1: float, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0):
+        """The parts of the boxes between x0 and x1, moved by (dx, dy, dz)."""
+        for (w, d, h), (x, y, z), color in self.boxes:
+            a, b = max(x - w / 2, x0), min(x + w / 2, x1)
+            if b - a > 0.004:
+                yield (b - a, d, h), ((a + b) / 2 + dx, y + dy, z + dz), color
+
+
+def doors(g, lettering: Lettering):
+    """Two plug doors, two glass leaves each, that push out and slide apart while the bus waits
+    at its stop (BUS_DRIVE to BUS_LAP), and close again before it pulls away. The lettering that
+    crosses a door is on its glass, and goes with it."""
+    shut, out, apart = (0.0, 0.0, 0.0), 0.05, 0.33
+    for k, x in enumerate(DOORS):
+        for side in (-1, 1):
+            leaf = Model(f"bus_door_{k}_{'rear' if side < 0 else 'front'}")
+            leaf.box((0.37, 0.04, 1.3), (0, 0, 0), TINT)
+            leaf.box((0.03, 0.05, 1.3), (-side * 0.17, 0, 0), BUS_GREY)
+            lx = x + side * 0.1875
+            for size, loc, color in lettering.cut(min(x, x + side * 0.375), max(x, x + side * 0.375), -lx, 0.69, -0.82):
+                leaf.box(size, loc, color)
+            obj = leaf.build(g, loc=(lx, -0.69, 0.82))
+            keys = [(0.0, shut), (BUS_DRIVE + 0.2, shut), (BUS_DRIVE + 0.45, (0, -out, 0)),
+                    (BUS_DRIVE + 0.9, (side * apart, -out, 0)), (BUS_LAP - 0.8, (side * apart, -out, 0)),
+                    (BUS_LAP - 0.35, (0, -out, 0)), (BUS_LAP - 0.15, shut), (BUS_LAP, shut)]
+            animate(obj, "bus_idle", "location", keys, rest=obj.location[:])
+
+
 def bus(root):
     """A VDL Citea in streekBuzz colours: the front and a band round the top Qbuzz green, the
     sides grey, a white roof with the air conditioning and the antenna that told the office
@@ -331,23 +498,37 @@ def bus(root):
     for y in (-0.45, 0.45):
         m.box((0.05, 0.22, 0.1), (1.08, y, 0.5), P.LANTERN, glow=True)
     m.box((0.04, 0.42, 0.11), (1.09, 0, 0.36), PLATE)
-    for x in (0.45, -2.2):                                                               # doors, on the kerb side
-        m.box((0.75, 0.04, 1.3), (x, -0.69, 0.82), TINT)
-        m.box((0.03, 0.05, 1.3), (x, -0.7, 0.82), BUS_GREY)
-    m.box((1.6, 0.02, 0.3), (-2.6, -0.69, 0.55), P.WHITE)                                # "streek"
-    m.box((0.9, 0.02, 0.4), (-1.35, -0.69, 0.55), QBUZZ_GREEN)                           # "Buzz"
-    m.box((1.6, 0.02, 0.3), (-2.6, 0.69, 0.55), P.WHITE)
-    m.box((0.9, 0.02, 0.4), (-3.85, 0.69, 0.55), QBUZZ_GREEN)
+    for x in DOORS:                                                                      # doorways, on the kerb side
+        m.box((0.75, 0.02, 1.3), (x, -0.68, 0.82), "#15181d")
     for y in (-0.72, 0.72):                                                              # mirrors, on their arms
         m.plank_line((1.0, y * 0.95, 1.55), (1.25, y * 1.1, 1.35), 0.05, 0.05, P.INK)
         m.box((0.06, 0.12, 0.26), (1.27, y * 1.12, 1.2), P.INK)
-    wheels(m, (0.0, -3.3), 0.58, 0.3)
+    wheels(m, (-3.3,), 0.58, 0.3)
     m.build(g)
+    front = steered(g, "bus_wheel", 0.0, 0.58, 0.3)
+    # "streekBuzz" across the side windows, on both sides, reading from the back to the front
+    cell = 0.055
+    name = Lettering()
+    streek = letters(name, "streek", (0, -0.725, 0.98), cell, 0.02, P.WHITE)
+    width = streek + cell + letters(name, "Buzz", (streek + cell, -0.725, 0.98), cell, 0.02, QBUZZ_GREEN)
+    road = Model("bus_name_road")
+    for size, loc, color in name.boxes:
+        road.box(size, loc, color)
+    road.build(g, loc=(-1.9 + width / 2, 0, 0), rot_z=math.pi)
+    # on the kerb side, the doors take their share of it
+    name.boxes = list(name.cut(-math.inf, math.inf, dx=-1.9 - width / 2))
+    kerb = Model("bus_name_kerb")
+    edges = [-math.inf] + [e for x in DOORS for e in (x - 0.375, x + 0.375)] + [math.inf]
+    for a, b in zip(edges[::2], edges[1::2]):
+        for size, loc, color in name.cut(a, b):
+            kerb.box(size, loc, color)
+    kerb.build(g)
+    doors(g, name)
     # the destination sign above the windscreen, drawn by the runtime
     sign = Model("screen_route")
     sign.box((1.0, 0.01, 0.17), (0, 0, 0), "#ffb020", glow=True)
     sign.build(g, loc=(1.09, 0, 1.63), rot_z=math.pi / 2)
-    drive(g, "bus_idle", bus_s, 0.0, 3.3)
+    drive(g, "bus_idle", bus_s, 0.0, 3.3, steer=front)
 
 
 def halte(root):
@@ -398,29 +579,35 @@ def truck(root):
         m.box((0.06, 0.1, 0.3), (0.65, s * 0.75, 1.65), P.INK)                           # mirrors
     m.box((2.4, 0.8, 0.25), (-0.75, 0, 0.45), "#2b2a30")                                 # chassis
     m.box((0.6, 0.7, 0.06), (-1.4, 0, 0.6), P.INK)                                       # fifth wheel
-    wheels(m, (0.0, -1.5), 0.55, 0.3)
+    wheels(m, (-1.5,), 0.55, 0.3)
     m.build(t)
-    drive(t, "truck_idle", truck_s, 0.0, 1.5)
+    front = steered(t, "tractor_wheel", 0.0, 0.55, 0.3)
+    drive(t, "truck_idle", truck_s, 0.0, 1.5, steer=front)
 
     tr = group("eij_trailer", parent=root, id="eijgenhuijsen")
     b = Model("trailer_body", seed=107)
-    b.box((5.05, 1.34, 1.75), (-2.175, 0, 1.5), TRUCK_WHITE)
+    b.box((5.6, 1.34, 1.75), (-2.45, 0, 1.5), TRUCK_WHITE)
     for s in (-1, 1):
         y = s * 0.68
         stripes(b, -0.5, y, 1.5, 1.6)
         b.box((0.3, 0.02, 0.26), (-1.05, y, 1.95), EIJ_PURPLE)
         b.box((0.3, 0.02, 0.26), (-1.05, y, 1.2), EIJ_PURPLE)
         b.box((0.26, 0.02, 0.26), (-0.8, y, 1.6), EIJ_GOLD)
-        b.box((1.9, 0.02, 0.2), (-2.6, y, 1.85), P.INK)                                  # eijgenhuijsen bv
-        b.box((0.9, 0.02, 0.08), (-3.5, y, 1.62), P.INK)                                 # precisievervoer
-        b.box((1.6, 0.02, 0.05), (-2.45, y, 2.2), P.INK)
-    b.box((2.2, 1.1, 0.3), (-2.0, 0, 0.55), "#8d8a93")                                   # side skirts
+    b.box((2.5, 1.1, 0.3), (-2.2, 0, 0.55), "#8d8a93")                                   # side skirts
     b.plank_line((-0.6, 0.4, 0.0), (-0.6, 0.4, 0.62), 0.06, 0.06, "#8d8a93")              # landing legs
     b.plank_line((-0.6, -0.4, 0.0), (-0.6, -0.4, 0.62), 0.06, 0.06, "#8d8a93")
-    b.box((0.06, 1.2, 0.12), (-4.72, 0, 0.72), P.RED)                                    # rear lights
-    wheels(b, (-3.6, -4.25), 0.55, 0.3)
+    b.box((0.06, 1.2, 0.12), (-5.27, 0, 0.72), P.RED)                                    # rear lights
+    wheels(b, (-4.1, -4.75), 0.55, 0.3)
     b.build(tr)
-    drive(tr, "truck_idle", truck_s, 1.4, 4.1)
+    # the name along the box, on both sides, and what they do under it, as on the real ones
+    for k, side in enumerate(("right", "left")):
+        name = Model(f"trailer_name_{side}")
+        width = letters(name, "eijgenhuijsen.nl", (0, -0.69, 1.72), 0.044, 0.02, P.INK)
+        small = 0.03
+        tag = sum(len(GLYPHS[c][0]) + 1 for c in "precisievervoer") * small - small
+        letters(name, "precisievervoer", (width - tag - 0.3, -0.69, 1.3), small, 0.02, P.INK)
+        name.build(tr, loc=(-3.1 - width / 2, 0, 0) if k == 0 else (-3.1 + width / 2, 0, 0), rot_z=k * math.pi)
+    drive(tr, "truck_idle", truck_s, 1.4, 4.45)
 
 
 def warehouse(root):
@@ -519,7 +706,7 @@ def going_dutch(root):
         m.box((5.1, 0.03, 0.02), (-11.95, -2.5 + k * 0.55, 0.055), "#6a5d5a")
     # the ivy, grown over a wooden fence along the west side
     m.box((0.2, 3.2, 1.5), (-14.6, -1.1, 0.75), P.WOOD_DARK)
-    for k in range(9):
+    for k in range(11):
         y = -2.6 + k * 0.38
         m.ball(0.34, (-14.5, y, 0.35 + (k % 3) * 0.45), P.LEAF[1 + k % 3], subdiv=1, jitter=0.05, scale=(0.6, 1, 1))
         m.ball(0.3, (-14.45, y + 0.15, 1.2 - (k % 2) * 0.3), P.LEAF[2 - k % 2], subdiv=1, jitter=0.05, scale=(0.6, 1, 1))
@@ -581,13 +768,13 @@ def berlin(root):
     g = group("berlin", parent=root, id="berlin")
     bx, by = -11.8, 5.6
     m = Model("fernsehturm", seed=113)
-    m.cyl(0.9, 0.35, (bx, by, 0), "#8d8a93", segs=8)
-    m.cyl(0.26, 4.3, (bx, by, 0.35), P.WHITE, segs=8, r_top=0.17)
-    m.ball(0.62, (bx, by, 4.85), TOWER, subdiv=2)
-    m.cyl(0.64, 0.14, (bx, by, 4.78), "#3a3f4a", segs=12)
-    m.cyl(0.12, 0.7, (bx, by, 5.4), P.WHITE, segs=6, r_top=0.08)
+    m.cyl(1.0, 0.4, (bx, by, 0), "#8d8a93", segs=8)
+    m.cyl(0.32, 6.9, (bx, by, 0.4), P.WHITE, segs=8, r_top=0.2)
+    m.ball(0.82, (bx, by, 7.8), TOWER, subdiv=2)
+    m.cyl(0.84, 0.18, (bx, by, 7.72), "#3a3f4a", segs=12)
+    m.cyl(0.15, 1.0, (bx, by, 8.55), P.WHITE, segs=6, r_top=0.1)
     for k in range(4):
-        m.cyl(0.05, 0.3, (bx, by, 6.1 + k * 0.3), P.RED if k % 2 == 0 else P.WHITE, segs=5)
+        m.cyl(0.06, 0.45, (bx, by, 9.55 + k * 0.45), P.RED if k % 2 == 0 else P.WHITE, segs=5)
     # the parcels, and the Rainmaking Loft's sign
     for k, (x, y, z, s) in enumerate(((-10.5, 4.3, 0, 0.5), (-10.0, 4.1, 0, 0.4), (-10.4, 4.25, 0.5, 0.36),
                                       (-11.0, 3.9, 0, 0.3))):
@@ -604,7 +791,7 @@ def berlin(root):
 
 def greenery(root):
     f = Model("greenery", seed=114)
-    for x, y, s in ((-8.0, 8.0, 1.2), (-5.6, 8.2, 1.1), (-1.5, 8.6, 1.0), (3.2, 8.4, 1.15), (10.3, 5.6, 1.1),
+    for x, y, s in ((-8.0, 8.0, 1.2), (-5.4, 9.2, 1.1), (-1.5, 9.6, 1.0), (2.0, 9.8, 1.15), (10.3, 5.6, 1.1),
                     (-6.3, -4.8, 0.85), (12.6, -6.4, 0.9), (14.6, -1.8, 0.7), (-12.6, -5.6, 0.9)):
         tree(f, (x, y, 0), s)
     for x, y, s in ((-4.0, -10.3, 0.8), (5.8, -10.1, 0.8), (-9.4, -8.2, 0.7), (8.6, -8.6, 0.7), (-15.0, 2.8, 0.7),
