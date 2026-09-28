@@ -10,11 +10,17 @@ import * as THREE from 'three';
  *
  * `uFade` closes an ordered-dither iris over the picture (0 = open, 1 = shut), for walking
  * through doors.
+ *
+ * The outlines, grade and dither are worked out once per texel, into a second small target; only
+ * the blow-up runs at the canvas's full resolution, where a texel covers a few dozen device pixels.
  */
 export class PixelRenderer {
   readonly target: THREE.WebGLRenderTarget;
+  /** The finished picture, one texel an art pixel, ready to be blown up. */
+  private readonly graded: THREE.WebGLRenderTarget;
   private readonly quad: THREE.Mesh;
   private readonly post: THREE.ShaderMaterial;
+  private readonly blit: THREE.ShaderMaterial;
   private readonly postScene = new THREE.Scene();
   private readonly postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   width = 1; // render target size in texels (without margin)
@@ -29,12 +35,15 @@ export class PixelRenderer {
       magFilter: THREE.NearestFilter,
       depthTexture: new THREE.DepthTexture(1, 1, THREE.UnsignedIntType),
     });
+    this.graded = new THREE.WebGLRenderTarget(1, 1, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      depthBuffer: false,
+    });
     this.post = new THREE.ShaderMaterial({
       uniforms: {
         tColor: { value: this.target.texture },
         tDepth: { value: this.target.depthTexture },
-        uOffset: { value: new THREE.Vector2() },
-        uPixel: { value: pixelSize * renderer.getPixelRatio() },
         uNear: { value: 1 },
         uFar: { value: 400 },
         uOutline: { value: new THREE.Color(0x1d1a2c) },
@@ -57,8 +66,6 @@ export class PixelRenderer {
         precision highp float;
         uniform sampler2D tColor;
         uniform sampler2D tDepth;
-        uniform vec2 uOffset;
-        uniform float uPixel;
         uniform float uNear;
         uniform float uFar;
         uniform vec3 uOutline;
@@ -82,9 +89,7 @@ export class PixelRenderer {
         }
 
         void main() {
-          // +1 for the margin, then shift by the camera's sub-texel remainder
-          vec2 t = gl_FragCoord.xy / uPixel + vec2(1.0) + uOffset;
-          ivec2 p = ivec2(floor(t));
+          ivec2 p = ivec2(gl_FragCoord.xy); // one fragment a texel, margin and all
           // heat shimmer: rows of texels wavering a pixel left and right
           if (uHeat > 0.0) {
             float w = sin(float(p.y) * 0.8 + uTime * 6.0) * sin(float(p.y) * 0.17 - uTime * 1.7 + float(p.x) * 0.02);
@@ -144,8 +149,31 @@ export class PixelRenderer {
             float d = length(vec2(p) - mid) / length(mid);
             if (bayer < uFade * 1.5 - (1.0 - d) * 0.5) col = uFadeColor;
           }
-          gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
-          #include <colorspace_fragment>
+          // encoded for the screen here, so the 8-bit target keeps its darks
+          gl_FragColor = sRGBTransferOETF(vec4(clamp(col, 0.0, 1.0), 1.0));
+        }
+      `,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.blit = new THREE.ShaderMaterial({
+      uniforms: {
+        tGraded: { value: this.graded.texture },
+        uOffset: { value: new THREE.Vector2() },
+        uPixel: { value: pixelSize * renderer.getPixelRatio() },
+      },
+      vertexShader: /* glsl */ `
+        void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
+      `,
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        uniform sampler2D tGraded;
+        uniform vec2 uOffset;
+        uniform float uPixel;
+        void main() {
+          // +1 for the margin, then shift by the camera's sub-texel remainder
+          vec2 t = gl_FragCoord.xy / uPixel + vec2(1.0) + uOffset;
+          gl_FragColor = texelFetch(tGraded, ivec2(floor(t)), 0);
         }
       `,
       depthTest: false,
@@ -165,15 +193,20 @@ export class PixelRenderer {
     this.width = Math.ceil(cssWidth / this.pixelSize);
     this.height = Math.ceil(cssHeight / this.pixelSize);
     this.target.setSize(this.width + 2, this.height + 2);
-    this.post.uniforms.uPixel.value = this.pixelSize * this.renderer.getPixelRatio();
+    this.graded.setSize(this.width + 2, this.height + 2);
+    this.blit.uniforms.uPixel.value = this.pixelSize * this.renderer.getPixelRatio();
   }
 
   render(scene: THREE.Scene, camera: THREE.OrthographicCamera, subTexel: THREE.Vector2) {
     this.post.uniforms.uNear.value = camera.near;
     this.post.uniforms.uFar.value = camera.far;
-    this.post.uniforms.uOffset.value.copy(subTexel);
+    this.blit.uniforms.uOffset.value.copy(subTexel);
     this.renderer.setRenderTarget(this.target);
     this.renderer.render(scene, camera);
+    this.quad.material = this.post;
+    this.renderer.setRenderTarget(this.graded);
+    this.renderer.render(this.postScene, this.postCamera);
+    this.quad.material = this.blit;
     this.renderer.setRenderTarget(null);
     this.renderer.render(this.postScene, this.postCamera);
   }
