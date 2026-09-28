@@ -589,6 +589,15 @@ def serpent(root):
     t.build(root, loc=(-(SERPENT_SEGS + 0.6) * SERPENT_STEP, 0, 0))
 
 
+def _river(kind: str):
+    """One of the river's animals (tools/models/river.py), for its rare visits to the island.
+    (Imported late: river.py imports this module.)"""
+    def build(root):
+        import river
+        getattr(river, kind)(root)
+    return build
+
+
 ALL = {
     "gull": (gull, 1.4), "songbird": (songbird, 1.7), "goose": (goose, 1.4), "owl": (owl, 1.5),
     "heron": (heron, 1.2), "duck": (duck, 1.3), "duckling": (duckling, 1.3), "bat": (bat, 1.8),
@@ -599,6 +608,9 @@ ALL = {
     "wanderer": (wanderer, 1.3), "rocky": (rocky, 1.6), "gandalf": (gandalf, 1.15),
     "fish": (fish, 1.6), "dolphin": (dolphin, 1.0), "whale": (whale, 1.0),
     "serpent": (serpent, 1.9),
+    # over from the river, now and then
+    "boar": (_river("boar"), 1.2), "piglet": (_river("piglet"), 1.4), "highland": (_river("highland"), 1.05),
+    "eagle": (_river("eagle"), 1.4),  # a big one: 1.7 times a herring gull across the wings
     **fae.ALL,  # the fair folk, and their ring
     **sightings.ALL,  # the balloon, the seal, the ships and the fisherman
 }
@@ -615,7 +627,7 @@ def lineup(spacing=2.4):
     x = 0.0
     roots = []
     for species, (build, scale) in ALL.items():
-        big = {"fairyring": 3.2, "serpent": 16, "whale": 6, "dolphin": 2.4, "heron": 1.4, "deer": 1.8, "stag": 1.8, "balloon": 3, "ferry": 5, "container": 7, "tallship": 5, "seal": 1.4}.get(species, 1.0)
+        big = {"fairyring": 3.2, "serpent": 16, "whale": 6, "dolphin": 2.4, "heron": 1.4, "deer": 1.8, "stag": 1.8, "highland": 2, "eagle": 2.4, "balloon": 3, "ferry": 5, "container": 7, "tallship": 5, "seal": 1.4}.get(species, 1.0)
         x += spacing * big / 2
         root = group(f"fauna_{species}", (x, 0, 0), fauna=species)
         root.scale = (scale,) * 3

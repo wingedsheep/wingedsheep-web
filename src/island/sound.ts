@@ -74,7 +74,8 @@ const SFX = {
   island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 1,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
-    flurry: 1, stroke: 3, burner: 1, horn: 1, murmur: 1, seal: 1 },
+    flurry: 1, stroke: 3, burner: 1, horn: 1, murmur: 1, seal: 1,
+    eagle: 1, boar: 1, moo: 1 }, // (the river's too, but they turn up here now and then)
   rooms: {
     simmer: 1, typing: 1, clockwork: 1, workshop: 1, press: 1, engine: 1, quill: 1, page: 1, zap: 1, 'robot-servo': 1,
     'robot-tinker': 1, 'robot-snore': 1, 'robot-clank': 1, 'robot-beep': 1, ding: 1, snore: 1,
@@ -86,7 +87,7 @@ const SFX = {
   telly: { 'tv-murder': 1, 'tv-location': 1, 'tv-bnb': 1, 'tv-rail': 1 },
   // only on the special days that need them (scene/calendar.ts)
   festive: { fireworks: 1, 'fw-launch': 2, 'fw-burst': 3, 'fw-crackle': 2, 'steam-whistle': 1 },
-  river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1, eagle: 1, boar: 1, moo: 1 },
+  river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
 /**
@@ -484,6 +485,10 @@ export class Sound {
     const hiss = (at: number, length: number, freq: number, peak: number) => this.hiss(t + at, length, freq, peak * volume);
     const r = (a: number, b: number) => a + Math.random() * (b - a);
     switch (kind) {
+      case 'eagle':
+      case 'boar':
+      case 'moo':
+        return this.river(kind, volume);
       case 'chirp':
         for (let i = 0; i < 4; i++) tone('sine', i * 0.13 + r(0, 0.04), [[0, r(3200, 4200)], [0.07, r(2200, 5200)]], 0.08, 0.09);
         break;

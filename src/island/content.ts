@@ -100,6 +100,9 @@ export const SECRETS = {
   fox: { title: 'The fox', hint: 'On some nights, something red hunts mice in the meadows.' },
   deer: { title: 'Red deer', hint: 'At dawn and dusk, the woods come out to graze.' },
   stag: { title: 'The stag', hint: 'Now and then the deer bring someone wearing a crown.' },
+  boar: { title: 'Wild boar', hint: 'Some evenings, something is digging up the edge of the eastern woods.' },
+  highland: { title: 'Highland cow', hint: 'On some days, the grass by the lighthouse path has a ginger visitor.' },
+  eagle: { title: 'The eagle', hint: 'On a fine day, look up. Higher than the gulls.' },
   dolphins: { title: 'Dolphins', hint: 'Sometimes a pod passes the south of the island.' },
   whale: { title: 'The whale', hint: 'Watch the sea for a while. A long while.' },
   serpent: { title: 'Here be dragons', hint: 'The old sailors swore the deep only shows itself in foul weather.' },
@@ -407,6 +410,19 @@ const WILDLIFE: Record<string, Place> = {
     'A flash of pale rump between the trunks, and the woods are quiet again.',
   ], 'deer'),
   stag: animal('stag', 'A red deer stag', ['A stag, antlers and all. He holds your gaze a moment, then turns and walks, unhurried, back into the woods.'], 'stag'),
+  boar: animal('boar', (ctx) => (ctx.journal.has('boar') ? 'Wild boar' : 'Something rooting about'), [
+    'Wild boar! A snort, heads up, and the whole family trots off into the trees in single file.',
+    'Nose down in the earth, the boar has turned over half the grass looking for acorns. It snorts at you, and goes.',
+  ], 'boar'),
+  highland: animal('highland', (ctx) => (ctx.journal.has('highland') ? 'The Highland cow' : 'A shaggy ginger cow'), [
+    'A Highland cow. She lifts her head, looks at you for a long while through her fringe, chewing, and moos.',
+    'She isn’t going anywhere. You get the feeling she was here first.',
+    'Horns like handlebars, and a coat for every weather. She goes back to the grass.',
+  ], 'highland'),
+  eagle: animal('eagle', (ctx) => (ctx.journal.has('eagle') ? 'The white-tailed eagle' : 'A very big bird'), [
+    'A white-tailed eagle, circling on wings like barn doors. It gives a yelping call, and eyes the sea.',
+    'Up there, the gulls look small. The eagle doesn’t even seem to flap.',
+  ], 'eagle'),
   badger: animal('badger', (ctx) => (ctx.journal.has('badger') ? 'The badger · out foraging' : 'Something striped, snuffling about'), [
     'A badger! It stops, sniffs the air in your direction, decides you are not a worm, and goes back to digging.',
     'The badger ignores you completely. It has worms to find and all night to find them.',

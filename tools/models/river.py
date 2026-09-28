@@ -2214,12 +2214,12 @@ EAGLE_TAIL = "#f4f0e6"
 EAGLE_BILL = "#f0c030"
 
 
-def eagle():
+def eagle(root=None):
     """A white-tailed eagle: big and brown, a pale head, a heavy yellow bill, a short white wedge
     of a tail, and wings like barn doors with the ends split into fingers. The wings pivot at the
     shoulders (they flap about x, and fold back about z), the head turns, and the legs swing
     forward, talons out, to take a fish off the water."""
-    root = _root("eagle")
+    root = _root("eagle") if root is None else root  # (the island borrows it: fauna.py)
     b = Model("eagle_body", seed=680)
     b.ball(0.2, (0, 0, 0), EAGLE, subdiv=2, scale=(1.7, 0.85, 0.85))
     b.ball(0.13, (0.2, 0, 0.04), EAGLE_HEAD, subdiv=1, scale=(1.0, 0.9, 0.95))              # the pale neck
@@ -2261,11 +2261,11 @@ PIGLET_STRIPE = "#dcc89c"
 PIGLET_DARK = "#4e3a2a"
 
 
-def boar():
+def boar(root=None):
     """A wild boar: all shoulders and snout, grizzled dark grey-brown, a bristling crest down the
     back, small upright ears, a flat pink-grey disc of a nose and a pair of little tusks, on legs
     that look too thin for it. The head pivots at the neck, to root and to lift and stare."""
-    root = _root("boar")
+    root = _root("boar") if root is None else root  # (the island borrows it: fauna.py)
     b = Model("boar_body", seed=690)
     b.ball(0.34, (0.22, 0, 0.06), BOAR, subdiv=2, scale=(1.05, 0.85, 1.15), jitter=0.03)   # the big shoulders
     b.ball(0.3, (-0.12, 0, 0.0), BOAR, subdiv=2, scale=(1.3, 0.85, 1.0), jitter=0.03)
@@ -2294,10 +2294,10 @@ def boar():
     h.build(body, loc=(0.52, 0, 0.1))
 
 
-def piglet():
+def piglet(root=None):
     """A boar's piglet, the size of a loaf: brown, and striped along its length in cream like a
     humbug, with a snout already much too long for it."""
-    root = _root("piglet")
+    root = _root("piglet") if root is None else root  # (the island borrows it: fauna.py)
     b = Model("piglet_body", seed=695)
     b.ball(0.12, (0, 0, 0), PIGLET, subdiv=2, scale=(1.7, 0.85, 0.95))
     for k, z in enumerate((0.1, 0.05, 0.0, -0.05)):                                     # the stripes
@@ -2323,12 +2323,12 @@ HORN = "#e8dcc0"
 HORN_TIP = "#5a4a3a"
 
 
-def highland():
+def highland(root=None):
     """A Highland cow, as they graze the river meadows here: ginger and shaggy, low and square,
     her long coat hanging in a fringe under her belly, a mop over her eyes and a pair of wide horns
     sweeping out and up. The head pivots at the neck (to graze, to look, to chew) and the tail
     swings, for the flies."""
-    root = _root("highland")
+    root = _root("highland") if root is None else root  # (the island borrows it: fauna.py)
     b = Model("highland_body", seed=700)
     b.ball(0.5, (0, 0, 0), HIGHLAND[0], subdiv=2, scale=(1.75, 0.9, 0.85), jitter=0.04)
     b.ball(0.42, (0.5, 0, 0.08), HIGHLAND[1], subdiv=1, scale=(0.9, 0.95, 1.0), jitter=0.04)  # the shoulders

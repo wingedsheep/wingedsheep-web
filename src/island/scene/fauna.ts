@@ -4,6 +4,7 @@ import type { Beike } from './beike';
 import type { Island } from './island';
 import type { Particles } from './particles';
 import { visitDate } from './calendar';
+import { season } from './season';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -16,6 +17,8 @@ const B = (x: number, y: number) => V(x, 0, -y);
 const PARKED = V(0, -80, 0);
 const DECK = 0.78; // the top of the dock's planks
 const SKY = B(2, -5); // the middle of the Super Sheep's playground
+const BOAR_HOME = B(16, -9.5); // the grass below the eastern woods, between the workshop and the well
+const BOAR_DEN = B(21.5, -8); // back in among the trees
 
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 
@@ -36,6 +39,8 @@ export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
   | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'
   | 'burner' | 'horn' | 'murmur' | 'seal'
+  // over from the river now and then: the eagle, the boar, the Highland cow
+  | 'eagle' | 'boar' | 'moo'
   // the week (week.ts): the post boat's horn, the church bell over the water, Beike joining in with the siren
   | 'toot' | 'toll' | 'toll-low' | 'aroo';
 
@@ -55,6 +60,12 @@ const LUCK = (() => {
     fox: want('fox') || chance(0.55),
     deerByDay: want('deer') || chance(0.3),
     wanderer: want('wanderer') || chance(1 / 14),
+    // over from the river now and then (?animal=boar wakes them at any hour)
+    boar: want('boar') || chance(1 / 7),
+    boarByDay: want('boar') || chance(0.3),
+    highland: want('highland') || chance(1 / 6),
+    eagle: want('eagle') || chance(1 / 8),
+    eagleSoon: want('eagle'),
     // the very rare ones
     starsheep: want('starsheep') || chance(1 / 20),
     rocky: want('rocky') || chance(1 / 25),
@@ -528,6 +539,96 @@ class Deer extends Walker {
   }
 }
 
+/**
+ * Wild boar, now and then, out of the eastern woods to root up the edge of the grass: in spring
+ * and summer a sow with her striped piglets milling round her feet, the rest of the year two or
+ * three grown ones. Startled, the lot of them trot back into the trees.
+ */
+class Boar extends Walker {
+  private dug = 0;
+  herd: Walker[] = [];
+
+  protected next() {
+    if (chance(0.45)) this.state = { kind: 'act', name: 'root', t: 0, length: rand(3, 7) };
+    else super.next();
+  }
+
+  startle(from: THREE.Vector3) {
+    for (const w of this.herd) if (w !== this) setTimeout(() => (w instanceof Boar ? w.bolt(from) : w.startle(from)), rand(100, 400));
+    this.bolt(from);
+  }
+
+  private bolt(from: THREE.Vector3) {
+    super.startle(from);
+  }
+
+  update(dt: number, e: Env, particles?: Particles) {
+    super.update(dt, e);
+    const s = this.state;
+    if (s.kind === 'act' && particles && (this.dug -= dt) < 0) {
+      this.dug = rand(0.2, 0.6);
+      const nose = V(Math.cos(this.heading) * 0.75, 0.05, -Math.sin(this.heading) * 0.75).add(this.pos);
+      particles.emit({ position: nose, velocity: V(rand(-0.5, 0.5), rand(0.8, 1.6), rand(-0.5, 0.5)), color: pick(['#6a4a30', '#8a6440', '#4a3424']), life: 0.6, gravity: -7, size: 1 });
+    }
+  }
+
+  protected pose(dt: number) {
+    super.pose(dt);
+    const s = this.state;
+    const head = this.body.part('head');
+    if (s.kind === 'act' && head) head.rotation.z -= Math.min(1, s.t * 3) * (0.55 - Math.sin(this.clock * 7 + this.seed) * 0.12); // snout in, shoving
+  }
+}
+
+/** A piglet: never still for long, scampering round its mother's feet, and off after her. */
+class Piglet extends Walker {
+  sow?: Walker;
+
+  protected next() {
+    const sow = this.sow?.body.shown ? this.sow.pos : undefined;
+    const to = sow ? this.somewhere(sow, 1.6) : null;
+    this.state = to && chance(0.8)
+      ? { kind: 'walk', to, run: false }
+      : { kind: 'idle', until: this.clock + rand(0.4, 1.5), graze: chance(this.spec.graze) };
+  }
+}
+
+/**
+ * A Highland cow, on some days, grazing the grass by the lighthouse path, rain or shine (in
+ * that coat, the weather makes no odds to her). She isn't going anywhere: clicked, she lifts her
+ * head, has a long look at you through her fringe, chewing, and moos.
+ */
+class Highland extends Walker {
+  private looking = 0;
+  private from = V();
+
+  poke(from: THREE.Vector3) {
+    this.looking = 6;
+    this.from.copy(from);
+    if (this.state.kind === 'walk') this.state = { kind: 'idle', until: this.clock + 6, graze: false };
+    else if (this.state.kind === 'idle') this.state.graze = false;
+  }
+
+  startle() {} // (she doesn't)
+
+  protected pose(dt: number) {
+    this.looking = Math.max(0, this.looking - dt);
+    super.pose(dt);
+    const t = this.clock;
+    const tail = this.body.part('tail');
+    if (tail) tail.rotation.x += Math.sin(t * 2.3 + this.seed) * 0.35 + Math.sin(t * 5.1) * 0.08; // for the flies
+    const head = this.body.part('head');
+    if (head && this.looking > 0) {
+      let d = headingOf(this.from.x - this.pos.x, this.from.z - this.pos.z) - this.heading;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      const k = Math.min(1, this.looking, (6 - this.looking) * 2);
+      head.rotation.y = clamp(d, -0.9, 0.9) * k;
+      head.rotation.z += 0.1 * k;
+      head.rotation.x += Math.sin(t * 4) * 0.04 * k; // chewing on it, slowly
+    }
+  }
+}
+
 class Crab extends Walker {
   protected pose(dt: number) {
     const t = this.clock;
@@ -847,6 +948,160 @@ class Skein {
       this.t = -1;
       this.next = rand(150, 400);
     }
+  }
+}
+
+/**
+ * A white-tailed eagle, rarely, on a fair day: it comes in high off the sea and circles the
+ * island on wings like barn doors, hardly moving them. Then it drops to the sea off the south
+ * shore, takes a fish off the top of the water with a splash, and labours away with it, low, and up.
+ */
+class Eagle {
+  readonly body: Body;
+  private fish?: THREE.Object3D;
+  private t = -1;
+  private wait = LUCK.eagleSoon ? 3 : rand(40, 240);
+  private phase: 'circle' | 'stoop' | 'away' = 'circle';
+  private a = 0;
+  private spin = 1;
+  private circleFor = 0;
+  private cried = false;
+  private centre = B(3, 1);
+  private from = V();
+  private bend = V();
+  private to = V();
+  private away = V();
+  private was = V();
+  private dive = 2.5;
+  private k = 0;
+  onCry?: (at: THREE.Vector3) => void;
+  onSplash?: (at: THREE.Vector3) => void;
+
+  constructor(template: THREE.Object3D, fish: THREE.Object3D | undefined, scene: THREE.Scene, private sea: (x: number, z: number) => boolean, private particles: Particles) {
+    this.body = new Body('eagle', template, scene);
+    if (fish) {
+      this.fish = fish.clone(true);
+      this.fish.position.set(0.08, 0.02, 0);
+      this.fish.visible = false;
+      this.body.root.add(this.fish);
+    }
+  }
+
+  /** Clicked: it calls, and goes for its fish. */
+  poke() {
+    if (this.t < 0) return;
+    this.onCry?.(this.body.root.position.clone());
+    if (this.phase === 'circle') this.circleFor = Math.min(this.circleFor, this.t + 1.2);
+  }
+
+  update(dt: number, e: Env) {
+    const b = this.body;
+    if (this.t < 0) {
+      this.wait -= dt;
+      const fair = daylit(e) && e.wet < 0.25 && e.storm < 0.05;
+      if (this.wait > 0 || !(fair || LUCK.eagleSoon)) return;
+      this.t = 0;
+      this.phase = 'circle';
+      this.a = rand(0, Math.PI * 2);
+      this.spin = chance(0.5) ? 1 : -1;
+      this.circleFor = rand(28, 42);
+      this.cried = false;
+      if (this.fish) this.fish.visible = false;
+      b.show(this.centre);
+      this.at(0, this.was);
+    }
+    this.t += dt;
+    const p = V();
+    let flap = 0;
+    let fold = 0;
+    let raise = 0.08; // soaring: wings held flat, tips a touch up
+    let talons = 0;
+    if (this.phase === 'circle') {
+      this.at(dt, p);
+      if (!this.cried && this.t > 9) {
+        this.cried = true;
+        this.onCry?.(p.clone());
+      }
+      // a few slow beats now and then, and otherwise not a feather moved
+      if (Math.sin(this.t * 0.45) > 0.85) flap = Math.sin(this.t * 5) * 0.4;
+      if (this.t > this.circleFor) this.stoop(p);
+    } else if (this.phase === 'stoop') {
+      this.k += dt / this.dive;
+      const k = Math.min(1, this.k);
+      const a = 1 - k;
+      p.set(0, 0, 0).addScaledVector(this.from, a * a).addScaledVector(this.bend, 2 * a * k).addScaledVector(this.to, k * k);
+      const late = Math.max(0, (k - 0.75) / 0.25);
+      fold = Math.sin(Math.min(1, k / 0.75) * Math.PI) * 0.5;
+      raise = 0.1 + late * 0.8;
+      talons = late * 1.1;
+      if (k >= 1) {
+        splash(this.particles, this.to, 1.4);
+        this.onSplash?.(this.to.clone());
+        if (this.fish) this.fish.visible = true;
+        this.phase = 'away';
+        this.k = 0;
+      }
+    } else {
+      // heavy beats, low over the water with it, then climbing away
+      this.k += dt;
+      const k = this.k;
+      p.copy(this.to).addScaledVector(this.away, k * (4 + k * 0.4)).setY(0.3 + Math.max(0, k - 1.2) ** 1.5 * 0.9);
+      flap = Math.sin(k * 7) * 0.7;
+      talons = Math.max(0, 1 - k) * 1.1;
+      if (k > 16) {
+        b.hide();
+        this.t = -1;
+        this.wait = rand(500, 1100);
+        return;
+      }
+    }
+    b.relax();
+    b.root.position.copy(p);
+    const v = p.clone().sub(this.was);
+    const run = Math.hypot(v.x, v.z);
+    if (run > 1e-4) {
+      const roll = this.phase === 'circle' ? this.spin * 0.35 : 0;
+      orient(b.root, headingOf(v.x, v.z), clamp(Math.atan2(v.y, run), -0.8, 0.5), roll);
+    }
+    this.was.copy(p);
+    const wingsOut = [b.part('wing_l'), b.part('wing_r')];
+    wingsOut.forEach((w, i) => {
+      if (!w) return;
+      const s = i ? -1 : 1;
+      w.rotation.x += s * (raise + flap - fold * 0.15);
+      w.rotation.y += s * 1.5 * fold;
+      w.scale.z *= 1 - fold * 0.5;
+    });
+    b.parts('leg_l', 'leg_r').forEach((l) => (l.rotation.z += talons));
+    const head = b.part('head');
+    if (head && this.phase === 'circle') head.rotation.y += Math.sin(this.t * 0.6) * 0.5; // looking down, round
+  }
+
+  /** Where it is on its circle: spiralling in from far out, and down. */
+  private at(dt: number, out: THREE.Vector3) {
+    const k = THREE.MathUtils.smoothstep(this.t, 0, 14);
+    const r = THREE.MathUtils.lerp(80, 12, k);
+    this.a += (this.spin * 6.5 / r) * dt;
+    return out.copy(this.centre).add(V(Math.cos(this.a) * r, THREE.MathUtils.lerp(24, 12, k) + Math.sin(this.t * 0.2) * 0.8, Math.sin(this.a) * r));
+  }
+
+  /** Down to the sea off the south shore for a fish: somewhere ahead of it, clear of the pier. */
+  private stoop(from: THREE.Vector3) {
+    for (let i = 0; i < 20; i++) {
+      const x = clamp(from.x + rand(-8, 8), -26, 26);
+      const z = rand(21, 27);
+      if (Math.abs(x) < 4 || !this.sea(x, z)) continue;
+      this.to.set(x, 0.1, z);
+      this.from.copy(from);
+      this.bend.lerpVectors(from, this.to, 0.35).setY(this.to.y + 3);
+      this.dive = clamp(from.distanceTo(this.to) / 8, 2, 3.5);
+      this.away.set(Math.sign(x - this.centre.x) || 1, 0, 0.45).normalize(); // off along the coast with it, not at you
+      this.phase = 'stoop';
+      this.k = 0;
+      this.onCry?.(from.clone());
+      return;
+    }
+    this.circleFor += 5; // (nowhere good: another lap)
   }
 }
 
@@ -1792,7 +2047,8 @@ export interface Critter {
  * The island's wildlife. Common: gulls, robins, rabbits, crabs, sheep, jumping fish, ducks.
  * Around at the right time of day: deer at dusk, bats, the owl, the hedgehog, the badger
  * and its sett, the fox. Rare: dolphins passing, a whale, geese in a V in autumn and spring,
- * the stag, the black sheep, and one very small, very occasional visitor. Very rare: a sheep
+ * the stag, the black sheep, and one very small, very occasional visitor; and over from the
+ * river, wild boar, a Highland cow and a white-tailed eagle. Very rare: a sheep
  * with a star on its back, Rocky from Project Hail Mary, a Super Sheep, Gandalf, and (likelier in
  * a storm) the sea serpent.
  */
@@ -1812,6 +2068,7 @@ export class Fauna {
   private wanderer?: Wanderer;
   private gandalf?: Gandalf;
   private superSheep?: SuperSheep;
+  private eagle?: Eagle;
   private clock = 0;
   private ground: Ground;
   /** Every clone, so clicks can find the nearest of a species. */
@@ -1913,6 +2170,33 @@ export class Fauna {
     // very rarely, an engineer from 40 Eridani pops out of the workshop to look round
     const rocky = LUCK.rocky ? walker(Rocky, 'rocky', { home: B(15, -12), roam: 3, den: B(11.5, -7.6), speed: 0.7, run: 1.6, gait: 'legs', band: grass, graze: 0.5, present: () => true, shy: [40, 80] }) : undefined;
     if (rocky) rocky.onTap = () => this.onCall?.('tink', rocky.pos.clone(), true);
+    // on some visits, wild boar out of the eastern woods, mostly from dusk; a sow and her
+    // piglets in spring and summer, two or three grown ones the rest of the year
+    if (LUCK.boar) {
+      const boarTime = (e: Env) => (e.night > 0.2 || (LUCK.boarByDay && e.wet < 0.6)) && e.storm < 0.5;
+      const young = season.name === 'spring' || season.name === 'summer';
+      const spec = { home: BOAR_HOME, roam: 3, den: BOAR_DEN, speed: 0.45, run: 3.2, gait: 'legs', band: grass, graze: 0.6, present: boarTime, shy: [60, 120] } satisfies WalkSpec;
+      const herd: Walker[] = [];
+      const sows = young ? 1 : 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < sows; i++) {
+        const b = walker(Boar, 'boar', spec);
+        if (b) herd.push(b);
+      }
+      const sow = herd[0];
+      if (sow && young) {
+        for (let i = 0, n = 3 + Math.floor(Math.random() * 3); i < n; i++) {
+          const pig = walker(Piglet, 'piglet', { ...spec, speed: 0.9, run: 3.6, roam: 1.6, graze: 0.4, shy: [1, 4], present: (e) => boarTime(e) && sow.body.shown && sow.state.kind !== 'leave' });
+          if (!pig) continue;
+          pig.sow = sow;
+          pig.body.root.userData.id = 'boar';
+          this.all.at(-1)!.species = 'boar';
+          herd.push(pig);
+        }
+      }
+      herd.forEach((b) => b instanceof Boar && (b.herd = herd));
+    }
+    // on some days, a Highland cow grazing by the lighthouse path, whatever the weather
+    if (LUCK.highland) walker(Highland, 'highland', { home: B(-21.5, -7.5), roam: 2.5, den: B(-19, 3), speed: 0.3, run: 1, gait: 'legs', band: [0.45, 3], graze: 0.9, present: (e) => e.night < 0.45 && e.storm < 0.7, shy: [30, 60] });
     const sq = walker(Squirrel, 'squirrel', { home: B(27, 4), roam: 6, speed: 1.4, run: 4, gait: 'hop', band: grass, graze: 0.5, present: daylit, shy: [20, 40] });
     sq?.setTrees(forest);
 
@@ -1993,6 +2277,16 @@ export class Fauna {
       this.gandalf.onCall = (call, at, ambient) => this.onCall?.(call, at, ambient);
       this.all.push({ species: 'gandalf', body: this.gandalf.body });
     }
+    const eagle = T('eagle');
+    if (eagle && LUCK.eagle) {
+      this.eagle = new Eagle(eagle, T('fish'), scene, (x, z) => {
+        const h = this.ground.at(x, z);
+        return Number.isNaN(h) || h < -0.9;
+      }, particles);
+      this.eagle.onCry = (at) => this.onCall?.('eagle', at, true);
+      this.eagle.onSplash = (at) => this.onCall?.('plop', at, true, 2);
+      this.all.push({ species: 'eagle', body: this.eagle.body });
+    }
     const supersheep = T('supersheep');
     if (supersheep && LUCK.supersheep) {
       this.superSheep = new SuperSheep(supersheep, scene, this.ground, B(12, 16), particles);
@@ -2033,6 +2327,14 @@ export class Fauna {
       w.poke();
       this.onCall?.('chord', at);
     }
+    else if (w instanceof Highland) {
+      w.poke(from);
+      this.onCall?.('moo', at);
+    }
+    else if (w instanceof Boar || w instanceof Piglet) {
+      w.startle(from);
+      this.onCall?.('boar', at);
+    }
     else if (w instanceof Squirrel) {
       w.startle(from);
       this.onCall?.('chatter', at);
@@ -2055,6 +2357,7 @@ export class Fauna {
     }
     if (species === 'heron' && this.heron?.poke()) this.onCall?.('heron', at);
     if (species === 'serpent') this.serpent?.poke();
+    if (species === 'eagle') this.eagle?.poke();
     if (species === 'wanderer') this.wanderer?.dash();
     if (species === 'gandalf') this.gandalf?.firework();
     if (species === 'supersheep') this.superSheep?.boom();
@@ -2099,7 +2402,7 @@ export class Fauna {
     this.clock += dt;
     const t = this.clock;
     for (const w of this.walkers) {
-      if (w instanceof Badger) w.update(dt, e, this.particles);
+      if (w instanceof Badger || w instanceof Boar) w.update(dt, e, this.particles);
       else w.update(dt, e);
     }
     this.gulls.forEach((g) => g.update(dt, t, e.night < 0.8));
@@ -2117,6 +2420,7 @@ export class Fauna {
     this.heron?.update(dt, e);
     this.wanderer?.update(dt, e.night < 0.9);
     this.gandalf?.update(dt, true);
+    this.eagle?.update(dt, e);
     this.superSheep?.update(dt, (e.night < 0.6 && e.wet < 0.7) || LUCK.supersheepSoon);
     this.voices(e);
   }
@@ -2124,7 +2428,7 @@ export class Fauna {
   /**
    * Now and then someone calls out on their own, if they're about: the robins singing, a gull over
    * the shore, the owl after dark, the ducks, the hedgehog snuffling, a squirrel scolding, and on
-   * some nights the fox's scream. In autumn the stag bellows. The island only plays the ones in view.
+   * some nights the fox's scream. In autumn the stag bellows. A boar grunts; the Highland cow moos. The island only plays the ones in view.
    */
   private voices(e: Env) {
     const shown = (bodies: (Body | undefined)[]) => {
@@ -2143,6 +2447,8 @@ export class Fauna {
     this.voice('chatter', [40, 100], () => walking('squirrel'));
     this.voice('fox', [70, 180], () => (quiet ? undefined : walking('fox')));
     this.voice('dolphin', [5, 12], () => shown(this.pod?.bodies ?? []));
+    this.voice('boar', [60, 150], () => walking('boar'));
+    this.voice('moo', [50, 140], () => walking('highland'));
     this.voice('bellow', [35, 90], () => (e.season === 'autumn' ? walking('stag') : undefined));
   }
 
