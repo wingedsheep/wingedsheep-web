@@ -518,7 +518,7 @@ def bus(root):
     # on the kerb side, the doors take their share of it
     name.boxes = list(name.cut(-math.inf, math.inf, dx=-1.9 - width / 2))
     kerb = Model("bus_name_kerb")
-    edges = [-math.inf] + [e for x in DOORS for e in (x - 0.375, x + 0.375)] + [math.inf]
+    edges = [-math.inf] + [e for x in sorted(DOORS) for e in (x - 0.375, x + 0.375)] + [math.inf]
     for a, b in zip(edges[::2], edges[1::2]):
         for size, loc, color in name.cut(a, b):
             kerb.box(size, loc, color)
