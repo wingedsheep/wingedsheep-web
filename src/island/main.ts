@@ -25,6 +25,7 @@ import { Icicles } from './scene/icicles';
 import { Island } from './scene/island';
 import type { Call } from './scene/fauna';
 import { Life, type Rhythm } from './scene/life';
+import { HANGOUTS, type Hangout } from './scene/beike';
 import { Picker } from './scene/picking';
 import { PixelRenderer } from './scene/pixel-renderer';
 import { dressIsland, season } from './scene/season';
@@ -329,6 +330,9 @@ export async function bootIsland(host: HTMLElement) {
   // a bit of mischief, sooner: ?beike=fire (he brings his ball over mid-song), ?mischief (the
   // gull goes for the wrap), ?bottle (one's already washed up), ?revel (the fair folk, at any hour)
   if (params.get('beike') === 'fire') life.beikeToTheFire();
+  // ?beike=round (once round the island), or at one of his other spots: ?beike=well|pier|lighthouse
+  const off = params.get('beike');
+  if (off === 'round' || (off && off in HANGOUTS)) life.beikeOff(off as Hangout | 'round');
   if (params.has('mischief')) life.mischief.soon();
   if (params.has('bottle')) life.bottle.ashore();
   if (params.has('revel')) life.revel.soon();

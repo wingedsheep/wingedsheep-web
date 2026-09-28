@@ -16,6 +16,29 @@ const GREET = 4.2; // seconds: two jumps at you, flop, roll right over, bounce b
 const ROAM = 3; // m he wanders from his spot when nobody's playing
 const CIRCLE = 1.1; // seconds: round once on the spot before he lies down
 
+/**
+ * Where else he sometimes spends a while (Blender x, y), and the way there from his meadow; the
+ * last point is where he potters about. In the shade by the well, at the foot of the pier
+ * watching the water, or lying by the lighthouse door.
+ */
+export const HANGOUTS = {
+  well: [[-8.5, -10.5], [-3, -9.8], [3.6, -10.2], [9, -11], [14.5, -11.6], [17.3, -11.8]],
+  pier: [[-7, -13.4], [-1, -13.4], [1.8, -15]],
+  lighthouse: [[-16, -13.4], [-20.5, -12.2], [-23.5, -9.5], [-25.6, -6.8], [-27, -5.4]],
+} satisfies Record<string, [number, number][]>;
+export type Hangout = keyof typeof HANGOUTS;
+
+/**
+ * His round of the island, flat out, from his meadow and back to it: east along the beach, up
+ * past the cove to the fire, back along the path, then out west to the lighthouse and round.
+ */
+const ROUND: [number, number][] = [
+  [-7, -13.4], [-1, -13.4], [5, -14.8], [10.5, -15.4], [13, -16], [16.5, -16], [22, -16.3], [25.8, -14.9],
+  [27.6, -12.2], [27.4, -9], [26.8, -6.2], [25, -4.5], [23.6, -2.4], [21, -6], [15, -10.5], [9, -11],
+  [3.6, -10.2], [-3, -9.8], [-8.5, -10.5], [-11, -10.6], [-14.8, -9.9], [-18.5, -9.9], [-21.8, -7.6],
+  [-25.2, -5.2], [-26.8, -6.8], [-23.5, -9.5], [-20.5, -12.2], [-16, -13.4],
+];
+
 type Mood =
   | { kind: 'idle'; until: number }
   | { kind: 'wander'; to: THREE.Vector3 }
@@ -24,8 +47,9 @@ type Mood =
   | { kind: 'chase' }
   | { kind: 'pickup'; t: number }
   | { kind: 'return' }
-  // in out of the rain, or back out; over to the campfire with his ball (`fire`), or back home from it (`home`)
-  | { kind: 'trip'; path: Waypoint[]; leg: number; indoors: boolean; fire?: boolean; home?: boolean }
+  // in out of the rain, or back out; over to the campfire with his ball (`fire`), or back home from it (`home`);
+  // off to one of his other spots and back (`errand`), or once round the island
+  | { kind: 'trip'; path: Waypoint[]; leg: number; indoors: boolean; fire?: boolean; home?: boolean; errand?: 'out' | 'back' | 'round' }
   | { kind: 'inside' }
   // by the fire once Vincent's done kicking: a few mad laps round it, then a turn on the spot and down
   | { kind: 'zoomies'; path: THREE.Vector3[]; leg: number }
@@ -37,7 +61,7 @@ type Mood =
   // Easter: nose down, off after an egg he's smelt (easter.ts), and a good sniff at it when he's there
   | { kind: 'hunt'; to: THREE.Vector3; t: number; found?: () => void };
 
-export type Poke = 'greet' | 'offer' | 'throw' | 'fussed' | 'busy';
+export type Poke = 'greet' | 'offer' | 'throw' | 'fussed' | 'round' | 'busy';
 
 /** Heights straight off the terrain grid's vertices, bilinearly blended between them. */
 export class Ground {
@@ -95,6 +119,10 @@ export class Beike {
   private fire?: THREE.Vector3;
 
   private home = V();
+  /** His patch of meadow; `home` is somewhere else while he's off at one of his other spots. */
+  private meadow = V();
+  /** Away from the meadow a while (HANGOUTS): the way back to it, and when he'll set off. */
+  private outing: { back: Waypoint[]; until: number } | null = null;
   private heading = 0;
   private stride = 0;
   private speed = 0;
@@ -148,6 +176,7 @@ export class Beike {
     if (!root) return;
     this.root = root;
     this.home.copy(root.position);
+    this.meadow.copy(root.position);
     // read the heading off the direction he faces: a turn past 90° comes out of the glTF as
     // Euler (π, π − θ, π), and keeping those two flips would have him running backwards
     const ahead = V(1, 0, 0).applyQuaternion(root.quaternion);
@@ -224,7 +253,7 @@ export class Beike {
    */
   hunt(to: THREE.Vector3, found: () => void) {
     const kind = this.mood.kind;
-    if (!this.root || this.sheltering || this.away || !this.inMouth || (kind !== 'idle' && kind !== 'wander')) return false;
+    if (!this.root || this.sheltering || this.away || this.outing || !this.inMouth || (kind !== 'idle' && kind !== 'wander')) return false;
     this.mood = { kind: 'hunt', to: to.clone(), t: -1, found };
     return true;
   }
@@ -244,13 +273,86 @@ export class Beike {
     return !!this.away || (this.mood.kind === 'trip' && !!this.mood.home);
   }
 
+  /** Pottering about in his own meadow with his ball, and nobody wanting him for anything. */
+  get free() {
+    const kind = this.mood.kind;
+    return !!this.root && !this.sheltering && !this.away && !this.outing && !this.lap && this.inMouth && (kind === 'idle' || kind === 'wander');
+  }
+
+  /** Whether he's in his meadow (not off somewhere, or on his way). */
+  get inMeadow() {
+    return !this.outing && !(this.mood.kind === 'trip' && this.mood.errand);
+  }
+
+  private waypoints(points: [number, number][]): Waypoint[] {
+    return points.map(([x, y]) => ({ at: V(x, this.ground.at(x, -y), -y), fixed: false }));
+  }
+
+  /**
+   * Off to one of his other spots for a few minutes, then home again. `now`: he's already there
+   * (when you arrive). Only if he's free.
+   */
+  hangAbout(where: Hangout, now = false) {
+    if (!this.free || !this.root) return false;
+    const way = this.waypoints(HANGOUTS[where]);
+    const spot = way[way.length - 1].at;
+    const back = [...way.slice(0, -1).reverse(), { at: this.meadow.clone(), fixed: false }];
+    this.outing = { back, until: this.clock + rand(90, 300) };
+    this.home.copy(spot);
+    if (now) {
+      this.root.position.copy(spot);
+      this.heading = rand(-Math.PI, Math.PI);
+      this.mood = { kind: 'idle', until: this.clock + rand(2, 6) };
+    } else {
+      const here: Waypoint = { at: this.root.position.clone(), fixed: false };
+      this.mood = { kind: 'trip', path: [here, ...way], leg: 1, indoors: false, errand: 'out' };
+    }
+    return true;
+  }
+
+  /** Once round the island, flat out, and back to his meadow. Only if he's free. */
+  roundTheIsland() {
+    if (!this.free || !this.root) return false;
+    const here: Waypoint = { at: this.root.position.clone(), fixed: false };
+    const path = [here, ...this.waypoints(ROUND), { at: this.meadow.clone(), fixed: false }];
+    this.mood = { kind: 'trip', path, leg: 1, indoors: false, errand: 'round' };
+    this.joy = 1;
+    return true;
+  }
+
+  /** Back from one of his other spots to the meadow. */
+  private comeHome() {
+    if (!this.root || !this.outing) return;
+    const here: Waypoint = { at: this.root.position.clone(), fixed: false };
+    this.mood = { kind: 'trip', path: [here, ...this.outing.back], leg: 1, indoors: false, errand: 'back' };
+    this.outing = null;
+    this.home.copy(this.meadow);
+  }
+
+  /**
+   * His way indoors from out on the island: back towards the meadow along `back`, but only until
+   * the way in to the lighthouse is nearer, and from there on in.
+   */
+  private wayIn(back: Waypoint[]) {
+    const route = this.shelterRoute ?? [];
+    if (!back.length) return route;
+    const all = [...back, ...route];
+    let from = back.length;
+    let nearest = Infinity;
+    all.forEach((w, i) => {
+      const d = this.flatDistance(w.at);
+      if (d < nearest) [nearest, from] = [d, i];
+    });
+    return all.slice(from);
+  }
+
   /**
    * Off to the campfire with his ball, along `route` (from his meadow), to drop it at Vincent's
    * feet (`spot`) and wait. Only if he's pottering about with his ball, and it isn't raining.
    */
   visit(route: Waypoint[], spot: THREE.Vector3, vincent: THREE.Vector3) {
     const kind = this.mood.kind;
-    if (!this.root || this.sheltering || !this.inMouth || (kind !== 'idle' && kind !== 'wander')) return false;
+    if (!this.root || this.sheltering || this.outing || !this.inMouth || (kind !== 'idle' && kind !== 'wander')) return false;
     const here: Waypoint = { at: this.root.position.clone(), fixed: false };
     const at: Waypoint = { at: spot.clone(), fixed: false };
     this.away = {
@@ -312,6 +414,10 @@ export class Beike {
   snap(inside: boolean) {
     if (!this.root || !this.shelterRoute) return;
     if (!this.inMouth) this.pickUp();
+    if (inside) {
+      this.outing = null;
+      this.home.copy(this.meadow);
+    }
     this.root.position.copy(inside ? this.shelterRoute[this.shelterRoute.length - 1].at : this.home);
     this.root.visible = !inside;
     this.sheltering = inside;
@@ -349,6 +455,7 @@ export class Beike {
       return 'throw';
     }
     if (kind === 'fussed') return 'fussed';
+    if (this.mood.kind === 'trip' && this.mood.errand === 'round') return 'round';
     if (kind !== 'idle' && kind !== 'wander' && kind !== 'shade') return 'busy'; // not too hot to say hello
     // stand in front of him, a step towards whoever's watching
     const toward = V(visitor.x - this.root.position.x, 0, visitor.z - this.root.position.z).normalize();
@@ -370,7 +477,7 @@ export class Beike {
     this.weather();
     this.join(dt);
     const kind = this.mood.kind;
-    if (this.lap && (kind === 'idle' || kind === 'wander') && this.inMouth && !this.away) this.mood = { kind: 'fussed', t: 0, down: false };
+    if (this.lap && (kind === 'idle' || kind === 'wander') && this.inMouth && !this.away && !this.outing) this.mood = { kind: 'fussed', t: 0, down: false };
     if (!this.lap && kind === 'fussed') this.mood = { kind: 'idle', until: this.clock + rand(2, 5) };
     const m = this.mood;
     let target: THREE.Vector3 | null = null;
@@ -378,7 +485,8 @@ export class Beike {
 
     switch (m.kind) {
       case 'idle':
-        if (this.hot > 0.5 && this.shadeTree && this.inMouth && !this.away) {
+        if (this.outing && this.clock > this.outing.until && this.inMouth && !this.lap) this.comeHome();
+        else if (this.hot > 0.5 && this.shadeTree && this.inMouth && !this.away && !this.outing) {
           // under the canopy on the side the sun's shadow falls, but in front of the trunk, where you can see him
           const s = this.sun;
           const len = Math.hypot(s.x, s.z) || 1;
@@ -442,7 +550,7 @@ export class Beike {
         break;
       case 'trip': {
         target = m.path[m.leg].at;
-        pace = RUN * 0.7;
+        pace = m.errand === 'round' ? RUN * 0.85 : m.errand ? TROT * 1.4 : RUN * 0.7;
         if (this.flatDistance(target) > 0.3) break;
         if (m.leg < m.path.length - 1) m.leg++;
         else if (m.fire && this.away) {
@@ -453,6 +561,8 @@ export class Beike {
         } else if (m.indoors) {
           this.mood = { kind: 'inside' };
           this.root.visible = false;
+          this.outing = null; // and when it's dry, out to his meadow
+          this.home.copy(this.meadow);
         } else this.mood = { kind: 'idle', until: this.clock + rand(2, 5) };
         break;
       }
@@ -555,10 +665,19 @@ export class Beike {
         this.away = null;
         return;
       }
-      if (m.kind === 'trip') this.mood = turnRound(m);
+      if (m.kind === 'trip' && m.errand) {
+        // caught out away from the meadow: in the nearest way, and if it clears up before he's
+        // there, back where he was and home from there
+        const ahead = m.path.slice(m.leg);
+        const behind = m.path.slice(0, m.leg).reverse();
+        const back = m.errand === 'back' || (m.errand === 'round' && ahead.length < behind.length) ? ahead : behind;
+        this.outing = { back, until: this.clock };
+        this.home.copy(here.at);
+        this.mood = { kind: 'trip', path: [here, ...this.wayIn(back)], leg: 1, indoors: true };
+      } else if (m.kind === 'trip') this.mood = turnRound(m);
       else if (!this.inMouth) {
         if (m.kind !== 'chase' && m.kind !== 'pickup') this.mood = { kind: 'chase' }; // not without his ball
-      } else if (m.kind !== 'pickup') this.mood = { kind: 'trip', path: [here, ...route], leg: 1, indoors: true };
+      } else if (m.kind !== 'pickup') this.mood = { kind: 'trip', path: [here, ...this.wayIn(this.outing?.back ?? [])], leg: 1, indoors: true };
     } else if (m.kind === 'inside') {
       this.root.visible = true;
       this.mood = { kind: 'trip', path: [...route].reverse().concat({ at: this.home.clone(), fixed: false }), leg: 1, indoors: false };

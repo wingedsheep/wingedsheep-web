@@ -16,7 +16,7 @@ import { hourOf } from './scene/bedtime';
 import { occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
 import { FRIDAY_13 } from './scene/fauna';
-import { ambush, flatOut, indoors } from './scene/shelter';
+import { ambush, beds, flatOut, indoors, type Nook } from './scene/shelter';
 import { boatStage, shelf } from './scene/almanac';
 import type { Forecast, WeatherKind } from './forecast';
 import type { Journal } from './journal';
@@ -123,6 +123,30 @@ export const SECRETS = {
 } as const;
 
 let logPage = -1;
+/** Charlie and George, asleep somewhere other than the bench today (shelter.ts): where, and a line each. */
+const NOOKS: Record<Exclude<Nook, 'bench'>, { at: string; george: string; charlie: string }> = {
+  library: {
+    at: 'on the library step',
+    george: 'George has the library’s front step. Anyone after a book can step over him.',
+    charlie: 'Charlie is curled up on the library step, keeping the books company.',
+  },
+  cards: {
+    at: 'on the Magic cards',
+    george: 'George is asleep across the game of Magic. Whoever’s turn it was, it’s his now.',
+    charlie: 'Charlie has curled up on the cards mid-game. He is, technically, blocking.',
+  },
+  fire: {
+    at: 'by the fire',
+    george: 'George has the warmest spot by the fire, and isn’t sharing it.',
+    charlie: 'Charlie is a tight ball by the fire, toasting one side at a time.',
+  },
+  doorstep: {
+    at: 'on the lighthouse doorstep',
+    george: 'George is asleep across the lighthouse doorstep. Nobody gets in or out without saying hello.',
+    charlie: 'Charlie is curled up on the lighthouse doorstep, first in line for when the door opens.',
+  },
+};
+const nook = (cat: 'charlie' | 'george') => (beds[cat] === 'bench' ? null : NOOKS[beds[cat] as Exclude<Nook, 'bench'>]);
 const say = (text: string) => (ctx: IslandContext) => ctx.toast(text);
 /**
  * The same line every click, except that on the nth click (counting from 1) the thing has had
@@ -646,26 +670,38 @@ export const PLACES: Record<string, Place> = {
     },
   },
   george: {
-    label: (ctx) => (flatOut.has('george') ? 'George · flat out on the cool stones' : ctx.journal.has('cats') ? 'George · taking up most of the bench' : 'A big cat, sprawled out'),
+    label: (ctx) => {
+      if (!ctx.journal.has('cats')) return 'A big cat, sprawled out';
+      const away = nook('george');
+      if (away) return `George · ${flatOut.has('george') ? 'flat out ' : ''}${away.at}`;
+      return flatOut.has('george') ? 'George · flat out on the cool stones' : 'George · taking up most of the bench';
+    },
     activate(ctx, at) {
       ctx.life.pet('george');
       ctx.sound.purr();
       ctx.life.burst('hearts', at);
-      ctx.toast(flatOut.has('george')
+      ctx.toast(nook('george')?.george ?? (flatOut.has('george')
         ? 'George has poured himself onto the cool flagstones under the bench. One ear moves. That’s all you’re getting in this heat.'
-        : 'George stretches one paw even further across the bench, clearly not moving for anyone.');
+        : 'George stretches one paw even further across the bench, clearly not moving for anyone.'));
       ctx.discover('cats');
     },
   },
   charlie: {
-    label: (ctx) => (flatOut.has('charlie') ? 'Charlie · stretched out in the shade' : ctx.journal.has('cats') ? 'Charlie · curled up tight' : 'A cat, curled into a ball'),
+    label: (ctx) => {
+      if (!ctx.journal.has('cats')) return 'A cat, curled into a ball';
+      const away = nook('charlie');
+      if (away) return `Charlie · ${flatOut.has('charlie') ? 'stretched out' : 'curled up'} ${away.at}`;
+      return flatOut.has('charlie') ? 'Charlie · stretched out in the shade' : 'Charlie · curled up tight';
+    },
     activate(ctx, at) {
       ctx.life.pet('charlie');
       ctx.sound.purr();
       ctx.life.burst('hearts', at);
-      ctx.toast(flatOut.has('charlie')
+      ctx.toast(nook('charlie')?.charlie ?? (flatOut.has('charlie')
         ? 'Charlie is stretched out as long as a cat can go, belly to the stone. Too hot to purr. He purrs anyway.'
-        : 'Charlie opens one eye, checks that George is still there, and goes back to sleep.');
+        : beds.george === 'bench'
+          ? 'Charlie opens one eye, checks that George is still there, and goes back to sleep.'
+          : 'Charlie opens one eye, finds he has the whole bench for once, and goes back to sleep.'));
       ctx.discover('cats');
       setTimeout(() => ctx.life.burst('zzz', at), 4000);
     },
@@ -715,6 +751,10 @@ export const PLACES: Record<string, Place> = {
         case 'fussed':
           ctx.life.burst('hearts', at);
           ctx.toast('Beike’s tail thumps twice to say hello. He’s not getting up, though. He’s busy.');
+          break;
+        case 'round':
+          ctx.toast('Beike is doing his round of the island, ears flying. He’ll be back. He always comes back.');
+          ctx.discover('beike');
           break;
         case 'throw': {
           const said: Record<number, string> = {

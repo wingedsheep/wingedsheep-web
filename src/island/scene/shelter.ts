@@ -53,6 +53,79 @@ interface CatSpec {
   front?: number; // jumps down this far in front of where it sleeps (off the bench)
 }
 
+/**
+ * Where Charlie or George now and then sleeps instead of the bench (Blender x, y): the library's
+ * front step, across the game of Magic, in the warm by the fire of an evening, or on the
+ * lighthouse doorstep. `on` is what they're lying on (a named thing, or an object by name);
+ * `way` the path from there to the bench's route in, which it joins at `join`. Its first point
+ * is where they land jumping down, unless they sleep on the floor they walk on (`hop: false`).
+ */
+export type Nook = 'bench' | 'library' | 'cards' | 'fire' | 'doorstep';
+interface NookSpec {
+  at: [number, number];
+  on: string;
+  yaw: number;
+  hop: boolean;
+  way: [number, number][];
+  join: number;
+  evening?: boolean; // only of an evening, when the fire's worth sitting by
+}
+const NOOKS: Record<Exclude<Nook, 'bench'>, NookSpec> = {
+  library: { at: [-11.2, -8.1], on: 'library', yaw: 0.2, hop: true, way: [[-11.2, -9.3], [-14.8, -9.9]], join: 1 },
+  cards: {
+    at: [6.3, -9.1], on: 'card_table', yaw: 0.5, hop: true,
+    way: [[6.3, -10.3], [3.6, -10.2], [-3, -9.8], [-8.5, -10.5], [-14.8, -9.9]], join: 1,
+  },
+  fire: {
+    at: [26.4, -2.6], on: 'terrain', yaw: 0.4, hop: false, evening: true,
+    way: [[24.8, -4.3], [21, -6], [15, -10.5], [9, -11], [3.6, -10.2], [-3, -9.8], [-8.5, -10.5], [-14.8, -9.9]], join: 1,
+  },
+  doorstep: { at: [-30.9, -4.3], on: 'lighthouse', yaw: -0.2, hop: false, way: [], join: 6 },
+};
+
+/** Where Charlie and George are asleep on this visit (content.ts says so when you click them). */
+export const beds: Record<'charlie' | 'george', Nook> = { charlie: 'bench', george: 'bench' };
+
+/**
+ * Mostly the bench. Now and then one of them (once in a while both) has found somewhere else to
+ * sleep today. To preview: ?charlie=cards, ?george=fire (any Nook).
+ */
+function chooseBeds(hour: number) {
+  const q = new URLSearchParams(location.search);
+  const open = (Object.keys(NOOKS) as Exclude<Nook, 'bench'>[]).filter((n) => !NOOKS[n].evening || hour >= 18);
+  const pick = () => open.splice(Math.floor(Math.random() * open.length), 1)[0];
+  const cats = (['charlie', 'george'] as const).slice();
+  if (Math.random() < 0.3) {
+    if (Math.random() < 0.5) cats.reverse();
+    beds[cats[0]] = pick();
+    if (Math.random() < 0.3) beds[cats[1]] = pick();
+  }
+  for (const id of cats) {
+    const n = q.get(id) as Nook | null;
+    if (n && (n === 'bench' || n in NOOKS)) beds[id] = n;
+  }
+}
+
+/**
+ * Put `sleeper` down in its nook, on top of whatever's there, and give back its way in from
+ * there as far as the bench route (null if the nook isn't on this island).
+ */
+function tuckIn(island: Island, sleeper: THREE.Object3D, n: NookSpec, ground: Ground): Waypoint[] | null {
+  const [x, y] = n.at;
+  const spot = new THREE.Vector3(x, 0, -y);
+  const on = island.get(n.on) ?? island.root.getObjectByName(n.on);
+  if (!on || !sleeper.parent) return null;
+  on.updateWorldMatrix(true, true);
+  // down from not far above the ground, so as to land on the step and not the eaves over it
+  const from = spot.clone().setY(ground.at(spot.x, spot.z) + 1.5);
+  const hit = new THREE.Raycaster(from, new THREE.Vector3(0, -1, 0)).intersectObject(on, true)[0];
+  if (!hit) return null;
+  sleeper.position.copy(sleeper.parent.worldToLocal(hit.point.clone()));
+  sleeper.rotation.set(0, n.yaw, 0);
+  const way = n.way.map(([x, y]) => ({ at: new THREE.Vector3(x, ground.at(x, -y), -y), fixed: false }));
+  return n.hop ? way : [{ at: hit.point.clone(), fixed: true }, ...way];
+}
+
 const CATS: CatSpec[] = [
   { id: 'charlie', route: 'bench', speed: 1.7, delay: 0.6, front: 0.8 }, // first to notice
   { id: 'george', route: 'bench', speed: 1.35, delay: 2.4, front: 0.8 }, // not in a hurry, ever
@@ -90,10 +163,14 @@ class Cat {
     private walker: THREE.Object3D,
     route: Waypoint[],
     private ground: Ground,
+    /** Whether it's asleep on the bench, rather than somewhere else today. */
+    readonly onBench = true,
+    /** Whether it jumps down from where it sleeps (and back up): not if that's floor it walks on. */
+    private hop = true,
   ) {
     this.seat = sleeper.getWorldPosition(new THREE.Vector3());
     this.points = [...route];
-    if (spec.front) {
+    if (spec.front && onBench) {
       // the cat's frame faces -y in Blender, which is +z here
       const ahead = new THREE.Vector3(0, 0, 1).applyQuaternion(sleeper.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
       const at = this.seat.clone().addScaledVector(ahead, spec.front);
@@ -206,6 +283,11 @@ class Cat {
           this.s = 0;
           this.walker.position.copy(this.cool);
           this.heading = this.headingTo(this.cool, this.points[0].at);
+        } else if (this.phase === 'asleep' && !this.hop) {
+          this.sprawl(false);
+          this.phase = 'in';
+          this.s = 0;
+          this.heading = this.headingAlong(0, 1);
         } else if (this.phase === 'asleep') {
           this.sprawl(false);
           this.phase = 'down';
@@ -251,9 +333,13 @@ class Cat {
         if (dir > 0 && this.s >= end) {
           this.phase = 'inside';
           this.walker.visible = false;
-        } else if (dir < 0 && this.s <= 0) {
+        } else if (dir < 0 && this.s <= 0 && this.hop) {
           this.phase = 'up';
           this.t = 0;
+        } else if (dir < 0 && this.s <= 0) {
+          this.phase = 'asleep';
+          this.walker.visible = false;
+          this.sleeper.visible = true;
         }
         break;
       }
@@ -323,21 +409,32 @@ class Cat {
  * trot home to the lighthouse, Beike runs after them (with his ball), and the black cat on the
  * pier heads all the way up the trail to the hut, to sleep on Vincent's bed. They come back out
  * once it's dry, and the rooms (quarters.ts, hut-room.ts) show them asleep inside meanwhile.
+ * Charlie and George aren't always on the bench to start with, though (chooseBeds()): from
+ * anywhere else they make their way to the bench's route first.
  */
 export class Shelter {
   private cats: Cat[] = [];
   private wantIn = false;
   private settling = false;
 
+  /** `hour`: the time of day on the island when you arrive, for where the cats have gone to sleep. */
   constructor(
     island: Island,
     private beike: Beike,
+    hour: number,
   ) {
+    chooseBeds(hour);
     for (const spec of CATS) {
       const sleeper = island.get(spec.id);
       const walker = island.root.getObjectByName(`${spec.id}_walk`);
-      const route = island.routes.get(spec.route);
-      if (sleeper && walker && route?.length) this.cats.push(new Cat(spec, sleeper, walker, route, beike.ground));
+      let route = island.routes.get(spec.route);
+      if (!sleeper || !walker || !route?.length) continue;
+      const bed = spec.id in beds ? beds[spec.id as keyof typeof beds] : 'bench';
+      const nook = bed === 'bench' ? null : NOOKS[bed];
+      const way = nook && tuckIn(island, sleeper, nook, beike.ground);
+      if (way) route = [...way, ...route.slice(nook.join)];
+      else if (spec.id in beds) beds[spec.id as keyof typeof beds] = 'bench';
+      this.cats.push(new Cat(spec, sleeper, walker, route, beike.ground, !way, !way || nook!.hop));
     }
     const route = island.routes.get('beike');
     if (route?.length) beike.shelterRoute = route;
@@ -345,7 +442,7 @@ export class Shelter {
 
   /** Whether Charlie and George are both asleep on their bench. */
   get onTheBench() {
-    return this.cats.filter((c) => c.id !== 'cat').every((c) => c.asleep);
+    return this.cats.filter((c) => c.id !== 'cat').every((c) => c.asleep && c.onBench);
   }
 
   /** Whatever the weather is on the next update, they're already where it would have put them. */

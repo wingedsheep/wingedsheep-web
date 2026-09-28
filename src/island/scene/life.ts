@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Beike } from './beike';
+import { Beike, HANGOUTS, type Hangout } from './beike';
 import { Bottle } from './bottle';
 import { Companion } from './companion';
 import { Days } from './days';
@@ -41,6 +41,10 @@ const TO_THE_FIRE: [number, number][] = [[-8.5, -10.5], [-3, -9.8], [3.6, -9.5],
 const FACING = new THREE.Vector3();
 const LOCAL = new THREE.Vector3();
 const PARENT = new THREE.Quaternion();
+const anyHangout = () => {
+  const all = Object.keys(HANGOUTS) as Hangout[];
+  return all[Math.floor(Math.random() * all.length)];
+};
 
 /** The yaw (rotation.y) that turns `o`'s local +x along the world direction (x, z), whatever its parent's turned to. */
 function yawAlong(o: THREE.Object3D, x: number, z: number) {
@@ -153,7 +157,8 @@ export class Life {
     if (this.ufo) this.ufo.visible = false;
     this.beike = new Beike(island);
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
-    this.shelter = new Shelter(island, this.beike);
+    this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours());
+    if (Math.random() < 0.2) this.beike.hangAbout(anyHangout(), true); // not in his meadow when you arrive
     this.companion = new Companion(island);
     this.vincent = new Vincent(island, this.beike.ground);
     this.mischief = new Mischief(scene, island, this.fauna.template('gull'));
@@ -289,6 +294,7 @@ export class Life {
     this.fuss(dt);
     this.beike.update(dt);
     this.fetchAtTheFire(dt);
+    this.outAndAbout(dt);
     this.week.update(dt, {
       time: this.sky.time, night, rain: this.rain, wind: this.wind, windDir: windDir.value,
       flyer: this.vincent.spot === 'kite' ? (this.vincent.errands.body ?? null) : null,
@@ -394,9 +400,29 @@ export class Life {
    */
   private fuss(dt: number) {
     petting.there.cats = this.shelter.onTheBench;
-    petting.there.beike = !this.beike.sheltering && !this.beike.inside;
+    petting.there.beike = !this.beike.sheltering && !this.beike.inside && this.beike.inMeadow;
     this.beike.lap = petting.by.beike ? (this.lap ?? null) : null;
     if (petting.by.cats && this.every('george:fuss', 9, dt)) this.pet('george');
+  }
+
+  /**
+   * Now and then, with nothing better to do, Beike takes himself off to one of his other spots
+   * for a few minutes, or, in daylight when it isn't too hot, tears once round the whole island.
+   */
+  private outAndAbout(dt: number) {
+    const beike = this.beike;
+    if (!beike.free || !this.every('beike:off', 60, dt)) return;
+    const r = Math.random();
+    if (r < 0.1 && this.sky.lamps < 0.5 && this.heat < 0.5) beike.roundTheIsland();
+    else if (r < 0.2) beike.hangAbout(anyHangout());
+  }
+
+  /** Beike off round the island (`round`), or at one of his other spots, as soon as he can: for previews (?beike=round|well|pier|lighthouse). */
+  beikeOff(where: Hangout | 'round') {
+    const go = () => {
+      if (!(where === 'round' ? this.beike.roundTheIsland() : this.beike.hangAbout(where, true))) setTimeout(go, 500);
+    };
+    setTimeout(go, 2000);
   }
 
   /** Beike, over to the fire with his ball as soon as he can: for previews (?beike=fire). */
