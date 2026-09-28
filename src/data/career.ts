@@ -175,11 +175,11 @@ export const chapters: Chapter[] = [
         sound: 'bus-doors',
         text: [
           'For Qbuzz I worked on what’s inside the bus: the displays the passengers read, and the systems on board that drive them.',
-          'All of it had to be updated and tracked remotely, across the whole fleet, so I built a system for that. What the buses report then feeds the planning and the real-time verkeersleiding.',
+          'All of it had to be updated and tracked remotely, across the whole fleet, so I built a system for that. What the buses report then feeds the planning and real-time traffic control.',
         ],
       },
       verkeersleiding: {
-        label: 'The verkeersleiding',
+        label: 'Traffic control',
         text: 'Where the whole fleet comes together: every vehicle on the map, where it is right now. Watch the dots go round with the bus and the truck.',
         zoom: 4,
       },
@@ -189,7 +189,7 @@ export const chapters: Chapter[] = [
         text: 'Going Dutch: shared cars you open with your OV-chipkaart or your phone, and that we could follow wherever they went. I built the apps and the servers behind them.',
       },
       vincent: {
-        label: 'Vincent, solutions architect',
+        label: 'Vincent, at Backbone',
         text: 'Explaining, again, what all the little dots mean. It started with a thesis on planning routes and turned into seven years of things that drive around.',
       },
       berlin: {
