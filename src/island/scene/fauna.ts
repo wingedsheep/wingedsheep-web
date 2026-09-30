@@ -559,6 +559,7 @@ class Fox extends Walker {
 class Deer extends Walker {
   private alert = 0;
   herd: Deer[] = [];
+  room: [number, number] = [0.85, 0.32];
 
   startle(from: THREE.Vector3) {
     for (const d of this.herd) if (d !== this) setTimeout(() => d.bolt(from), rand(150, 500));
