@@ -206,6 +206,10 @@ class Walker {
   protected seed = Math.random() * 100;
   /** Sunk below the ground, 0 … 1 (burrowing animals). */
   protected sunk = 1;
+  /** The others out with it (a herd), which it keeps from walking through. */
+  herd: Walker[] = [];
+  /** How much ground it takes up: half its length, and half its width. */
+  room: [number, number] = [0, 0];
 
   constructor(
     species: string,
@@ -233,9 +237,47 @@ class Walker {
       const a = rand(0, Math.PI * 2);
       const d = radius * Math.sqrt(Math.random());
       const p = around.clone().add(V(Math.cos(a) * d, 0, Math.sin(a) * d));
-      if (this.walkable(p)) return p;
+      if (this.walkable(p) && !this.taken(p)) return p;
     }
     return null;
+  }
+
+  /** How far it reaches from its middle towards a point (an ellipse, long along its heading). */
+  private reach(dx: number, dz: number) {
+    const [a, b] = this.room;
+    const off = headingOf(dx, dz) - this.heading;
+    return (a * b) / Math.hypot(b * Math.cos(off), a * Math.sin(off)) || 0;
+  }
+
+  private out(o: Walker) {
+    return o !== this && o.body.shown && o.state.kind !== 'away';
+  }
+
+  /** Whether one of the herd is standing on a spot, or on its way to it. */
+  private taken(p: THREE.Vector3) {
+    const r = this.room[0] + this.room[1];
+    return this.herd.some((o) => {
+      if (!this.out(o)) return false;
+      const to = o.state.kind === 'walk' ? o.state.to : o.pos;
+      const near = r + o.room[0] + o.room[1];
+      return Math.hypot(o.pos.x - p.x, o.pos.z - p.z) < near || Math.hypot(to.x - p.x, to.z - p.z) < near;
+    });
+  }
+
+  /** Shoulder to shoulder, not through each other: ease apart from any of the herd it overlaps. */
+  private makeRoom(dt: number) {
+    for (const o of this.herd) {
+      if (!this.out(o)) continue;
+      const dx = this.pos.x - o.pos.x;
+      const dz = this.pos.z - o.pos.z;
+      const d = Math.hypot(dx, dz);
+      const need = this.reach(-dx, -dz) + o.reach(dx, dz);
+      if (d >= need) continue;
+      const [ux, uz] = d > 1e-3 ? [dx / d, dz / d] : [Math.cos(this.seed), Math.sin(this.seed)];
+      const push = (need - d) * 0.5 * (1 - Math.exp(-8 * dt));
+      const to = V(this.pos.x + ux * push, this.pos.y, this.pos.z + uz * push);
+      if (!Number.isNaN(this.ground.at(to.x, to.z))) this.pos.copy(to);
+    }
   }
 
   /** Clicked: bolt from where the visitor is looking. */
@@ -283,7 +325,9 @@ class Walker {
       case 'walk': {
         target = s.to;
         pace = s.run ? this.spec.run : this.spec.speed;
-        if (Math.hypot(s.to.x - this.pos.x, s.to.z - this.pos.z) < 0.15) {
+        const left = Math.hypot(s.to.x - this.pos.x, s.to.z - this.pos.z);
+        // (near enough, when one of the herd is standing where it meant to go)
+        if (left < 0.15 || (left < 2 * (this.room[0] + this.room[1]) && s.then !== 'hide' && s.then !== 'leave' && this.taken(s.to))) {
           if (s.then === 'leave' || s.then === 'hide') this.state = { kind: 'leave', t: 0 };
           else this.state = { kind: 'idle', until: this.clock + rand(2, 7), graze: chance(this.spec.graze) };
         }
@@ -319,6 +363,7 @@ class Walker {
       this.pos.z -= Math.sin(dir) * step;
       this.stride += step;
     }
+    if (this.herd.length) this.makeRoom(dt);
     const h = this.ground.at(this.pos.x, this.pos.z);
     if (!Number.isNaN(h)) this.pos.y = h;
     const still = this.state.kind === 'idle' && this.state.graze;
@@ -546,7 +591,7 @@ class Deer extends Walker {
  */
 class Boar extends Walker {
   private dug = 0;
-  herd: Walker[] = [];
+  room: [number, number] = [0.95, 0.42];
 
   protected next() {
     if (chance(0.45)) this.state = { kind: 'act', name: 'root', t: 0, length: rand(3, 7) };
@@ -583,6 +628,7 @@ class Boar extends Walker {
 /** A piglet: never still for long, scampering round its mother's feet, and off after her. */
 class Piglet extends Walker {
   sow?: Walker;
+  room: [number, number] = [0.36, 0.16];
 
   protected next() {
     const sow = this.sow?.body.shown ? this.sow.pos : undefined;
@@ -2193,7 +2239,7 @@ export class Fauna {
           herd.push(pig);
         }
       }
-      herd.forEach((b) => b instanceof Boar && (b.herd = herd));
+      herd.forEach((b) => (b.herd = herd));
     }
     // on some days, a Highland cow grazing by the lighthouse path, whatever the weather
     if (LUCK.highland) walker(Highland, 'highland', { home: B(-21.5, -7.5), roam: 2.5, den: B(-19, 3), speed: 0.3, run: 1, gait: 'legs', band: [0.45, 3], graze: 0.9, present: (e) => e.night < 0.45 && e.storm < 0.7, shy: [30, 60] });
