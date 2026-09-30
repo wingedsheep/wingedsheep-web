@@ -446,6 +446,7 @@ class Rabbit extends Walker {
 
 class Sheep extends Walker {
   private looking = 0;
+  room: [number, number] = [0.65, 0.4];
   poke() {
     this.looking = 3;
     if (this.state.kind === 'walk' && !this.state.run) this.state = { kind: 'idle', until: this.clock + 3, graze: false };
@@ -2174,6 +2175,7 @@ export class Fauna {
     // sheep up on the high meadow round the peak, day and night; sometimes one of them is black,
     // and very rarely one has a star on its back
     const flock = ['sheep', 'sheep', 'sheep', 'sheep', ...(LUCK.blacksheep ? ['blacksheep'] : []), ...(LUCK.starsheep ? ['starsheep'] : [])];
+    const sheep: Sheep[] = [];
     flock.forEach((species, i) => {
       const home = i % 2 ? B(-3, 15) : B(12, 16);
       const s = walker(Sheep, species, { home, roam: 2.5, speed: 0.35, run: 1.5, gait: 'legs', band: [6, 7.2], graze: 0.8, present: () => true });
@@ -2181,7 +2183,9 @@ export class Fauna {
       s.state = { kind: 'away', until: 0 };
       // clicked as "ewe": "sheep" is the winged one's id
       if (species === 'sheep') s.body.root.userData.id = 'ewe';
+      sheep.push(s);
     });
+    sheep.forEach((s) => (s.herd = sheep));
     // rabbits in the meadows, by day and at dusk
     const rabbitTime = (e: Env) => e.night < 0.75 && e.wet < 0.6 && e.season !== 'winter' || (e.season === 'winter' && daylit(e) && e.wet < 0.3);
     for (const [home, n] of [[B(-22, -8), 3], [B(13, -14), 2], [B(-25, -5), 1]] as const) {
