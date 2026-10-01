@@ -15,8 +15,13 @@ import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
 const NO_SHIFT = new THREE.Vector2();
-/** Tails of Power, the cat fantasy trailer, on the telly. */
-const FILM = 'https://www.youtube-nocookie.com/embed/nbV7pH5wCPI?autoplay=1&rel=0&playsinline=1';
+/**
+ * Tails of Power, the cat fantasy trailer, on the telly: no controls (a click on the screen, or
+ * space, pauses it), and the API on so it can say when it's paused or finished.
+ */
+const FILM_ORIGIN = 'https://www.youtube-nocookie.com';
+const FILM = `${FILM_ORIGIN}/embed/nbV7pH5wCPI?autoplay=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&rel=0&playsinline=1&enablejsapi=1`;
+const FILM_ASPECT = 16 / 9;
 const BANNER = {
   quarters: 'The keeper\'s quarters. The coffee\'s on and the console\'s plugged in.',
   lamp: 'The lamp room, at the top of the tower. Mind the lens.',
@@ -44,6 +49,8 @@ export class Lighthouse implements RoomInput {
   /** The film's player (IslandShell.astro), laid over the telly's screen while it's on. */
   private film = document.querySelector<HTMLElement>('[data-film]');
   private screen?: NonNullable<QuartersRoom['tellyScreen']>;
+  /** The film's player state, as YouTube last reported it (2 paused, 0 ended). */
+  private playerState = -1;
 
   constructor(
     private ctx: IslandContext,
@@ -53,12 +60,30 @@ export class Lighthouse implements RoomInput {
     private reducedMotion: boolean,
   ) {
     this.film?.querySelector('[data-film-off]')?.addEventListener('click', () => this.switchOff());
-    // Escape turns the telly off first, and only then leaves
+    this.film?.querySelector('[data-film-screen]')?.addEventListener('click', () => this.pause());
+    // Escape turns the telly off first, and only then leaves; space pauses
     window.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape' || !telly.film) return;
+      if (!telly.film || (e.key !== 'Escape' && e.key !== ' ')) return;
       e.stopImmediatePropagation();
-      this.switchOff();
+      e.preventDefault();
+      if (e.key === ' ') this.pause();
+      else this.switchOff();
     }, true);
+    // the player says how it's getting on; when the film's over, the telly goes off by itself
+    window.addEventListener('message', (e) => {
+      if (e.origin !== FILM_ORIGIN || !telly.film || typeof e.data !== 'string') return;
+      let msg: { event?: string; info?: unknown };
+      try {
+        msg = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      const state = msg.event === 'onStateChange' ? msg.info
+        : msg.event === 'infoDelivery' ? (msg.info as { playerState?: number } | null)?.playerState : undefined;
+      if (typeof state !== 'number') return;
+      this.playerState = state;
+      if (state === 0) this.switchOff();
+    });
   }
 
   /** Whether the pointer should drive the room rather than the island. */
@@ -90,13 +115,18 @@ export class Lighthouse implements RoomInput {
     this.screen = screen;
     telly.film = room.film = true;
     const size = new THREE.Vector2(screen.tl.distanceTo(screen.tr), screen.tl.distanceTo(screen.bl));
-    room.view.sit(screen.middle, screen.normal, size, this.reducedMotion);
+    // aimed a little above the screen's middle: the telly's top shows more than its knobs do
+    const aim = screen.middle.clone().addScaledVector(screen.tl.clone().sub(screen.bl), 0.2);
+    room.view.sit(aim, screen.normal, size, this.reducedMotion);
     const player = document.createElement('iframe');
     player.src = FILM;
     player.title = 'Tails of Power';
     player.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
     player.allowFullscreen = true;
     player.referrerPolicy = 'strict-origin-when-cross-origin';
+    player.tabIndex = -1;
+    this.playerState = -1;
+    player.addEventListener('load', () => this.tellPlayer({ event: 'listening' }));
     el.querySelector('[data-film-screen]')!.replaceChildren(player);
     el.hidden = false;
     this.pinFilm();
@@ -121,6 +151,15 @@ export class Lighthouse implements RoomInput {
     this.ctx.sound.film = false;
   }
 
+  /** Pause the film, or carry on with it. */
+  private pause() {
+    this.tellPlayer({ event: 'command', func: this.playerState === 2 ? 'playVideo' : 'pauseVideo', args: [] });
+  }
+
+  private tellPlayer(msg: object) {
+    this.film?.querySelector('iframe')?.contentWindow?.postMessage(JSON.stringify(msg), FILM_ORIGIN);
+  }
+
   /** Keep the player on the telly's screen: its corners, wherever they are on the canvas. */
   private pinFilm() {
     const room = this.rooms.quarters;
@@ -133,9 +172,23 @@ export class Lighthouse implements RoomInput {
     const bl = room.project(this.screen.bl, w, h);
     const across = Math.max(1, Math.hypot(tr.x - tl.x, tr.y - tl.y));
     const down = Math.max(1, Math.hypot(bl.x - tl.x, bl.y - tl.y));
-    // sized in real pixels (so the player's controls stay readable), then turned and sheared onto the screen
+    // sized in real pixels, then turned and sheared onto the screen
     el.style.width = `${across}px`;
     el.style.height = `${down}px`;
+    // the picture fills the whole screen (a little off the sides, like an old telly), and the
+    // player stands taller than it, so its title and logo are clipped off above and below
+    const player = el.querySelector('iframe');
+    if (player) {
+      const w = Math.max(across, down * FILM_ASPECT);
+      const h = w / FILM_ASPECT;
+      const spare = 80 + h * 0.15;
+      Object.assign(player.style, {
+        width: `${w}px`,
+        height: `${h + 2 * spare}px`,
+        left: `${(across - w) / 2}px`,
+        top: `${(down - h) / 2 - spare}px`,
+      });
+    }
     const m = [(tr.x - tl.x) / across, (tr.y - tl.y) / across, (bl.x - tl.x) / down, (bl.y - tl.y) / down, tl.x, tl.y];
     el.style.transform = `matrix(${m.map((v) => v.toFixed(4)).join(',')})`;
   }

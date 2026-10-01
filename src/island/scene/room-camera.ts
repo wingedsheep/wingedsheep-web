@@ -7,7 +7,7 @@ const MAX_ZOOM = 4;
 const GLIDE = 3.5; // how quickly a focus() glides in
 const SIT = 0.9; // seconds to turn round to face something square on (sit())
 const SEAT_TILT = THREE.MathUtils.degToRad(22); // from behind the sofa, over the heads of whoever is on it
-const SEAT_SHARE = 0.36; // how much of the canvas the thing you're sat in front of fills
+const SEAT_SHARE = 0.5; // how much of the canvas the thing you're sat in front of fills
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
