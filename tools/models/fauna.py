@@ -416,7 +416,8 @@ def wanderer(root):
 def gandalf(root):
     """Gandalf the Grey: long grey robe, a tall hat with a wide, floppy brim, a beard to his belt,
     a gnarled staff in his right hand (-y) and a long pipe. He arrives precisely when he means to.
-    The runtime swings the staff (`staff`, pivoting in his hand) and nods the head."""
+    The runtime swings the staff (`staff`, pivoting in his hand) and nods the head; to sit him on a
+    log it lowers the body into the grass and shows his `lap`, the robe over his knees."""
     b = Model("gandalf_body", seed=3)
     b.cyl(0.36, 1.05, (0, 0, 0.0), P.WIZARD, segs=8, r_top=0.22)                          # robe
     b.cyl(0.37, 0.08, (0, 0, 0.0), P.WIZARD_DARK, segs=8, r_top=0.36)                     # muddy hem
@@ -457,6 +458,13 @@ def gandalf(root):
         a = i * 1.4
         st.ball(0.06, (math.cos(a) * 0.05, math.sin(a) * 0.05, 0.62 + i * 0.05), P.STAFF, jitter=0.01)
     st.build(body, loc=(0.27, -0.33, 0.98))
+    lap = Model("gandalf_lap")  # sat on a log 0.56 high: the robe over his knees, falling to his boots
+    lap.box((0.46, 0.5, 0.2), (0.3, 0, 0.6), P.WIZARD)
+    lap.box((0.14, 0.5, 0.56), (0.5, 0, 0.3), P.WIZARD)
+    lap.box((0.15, 0.52, 0.07), (0.51, 0, 0.035), P.WIZARD_DARK)
+    for s in (1, -1):
+        lap.box((0.16, 0.13, 0.07), (0.62, s * 0.12, 0.035), P.INK)
+    lap.build(root)
 
 
 def rocky(root):

@@ -1797,15 +1797,22 @@ class Wanderer {
 }
 
 /**
- * Gandalf the Grey. Very rarely he comes up from the dock, staff tapping, to stand by the fire and
- * blow smoke rings for a while. He is never late, nor is he early: he steps onto the dock exactly
- * on the minute, by the visitor's own clock. Clicked, he sends a firework up from his staff.
+ * Gandalf's seat: the east log by the fire, along from her, turned half to the fire and half to
+ * the view (from the south); and how far he settles down onto it.
+ */
+const FIRESIDE = headingOf(-1, 0.75);
+const SINK = 0.38;
+
+/**
+ * Gandalf the Grey. Very rarely he comes up from the dock, staff tapping, to sit on a log by the
+ * fire and blow smoke rings for a while. He is never late, nor is he early: he steps onto the dock
+ * exactly on the minute, by the visitor's own clock. Clicked, he sends a firework up from his staff.
  */
 class Gandalf {
   readonly body: Body;
   private route: THREE.Vector3[];
   private t = 0;
-  private phase: 'waiting' | 'in' | 'stand' | 'out' | 'gone' = 'waiting';
+  private phase: 'waiting' | 'in' | 'sit' | 'out' | 'gone' = 'waiting';
   private wait = LUCK.gandalfSoon ? 0 : rand(40, 160);
   private pos = V();
   private heading = Math.PI / 2;
@@ -1813,6 +1820,8 @@ class Gandalf {
   private puff = 3;
   private rocket = -1; // seconds since a firework went up, or -1
   private due = 0;
+  private seated = 0; // 0 standing … 1 sat on the log
+  private chaser = 0; // seconds till a little ring follows the last, or 0
   onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
   constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, route: THREE.Vector3[], private particles: Particles) {
@@ -1828,8 +1837,32 @@ class Gandalf {
   }
 
   private get pipe() {
-    const h = this.phase === 'stand' ? headingOf(3.4, -2.4) : this.heading;
-    return this.body.root.position.clone().add(V(Math.cos(h) * 0.52, 1.6, -Math.sin(h) * 0.52));
+    const h = this.phase === 'sit' ? FIRESIDE : this.heading;
+    return this.body.root.position.clone().add(V(Math.cos(h) * 0.52, 1.6 - this.seated * SINK, -Math.sin(h) * 0.52));
+  }
+
+  /**
+   * A smoke ring: a level circle that keeps its shape, widening as it floats up and a little
+   * towards the fire. A small one (`size` < 1) is quicker, to catch up with the last and slip
+   * through it.
+   */
+  private ring(size: number) {
+    const at = this.pipe.add(V(0, 0.15, 0));
+    const drift = V(Math.cos(FIRESIDE) * 0.18, 0.6 + (1 - size) * 0.7, -Math.sin(FIRESIDE) * 0.18);
+    const n = Math.round(12 + 10 * size);
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2;
+      const out = V(Math.cos(a), 0, Math.sin(a));
+      this.particles.emit({
+        position: at.clone().addScaledVector(out, 0.06),
+        velocity: drift.clone().addScaledVector(out, 0.4 * size),
+        color: '#dcd8d0',
+        life: 4.5,
+        drag: 0.7,
+        gravity: 0.12, // warm smoke keeps rising as the puff slows
+        fadeIn: 0.05,
+      });
+    }
   }
 
   update(dt: number, enabled: boolean) {
@@ -1857,7 +1890,7 @@ class Gandalf {
       }
       if (i >= path.length - 1) {
         if (this.phase === 'in') {
-          this.phase = 'stand';
+          this.phase = 'sit';
           this.wait = rand(100, 180);
         } else {
           this.phase = 'gone';
@@ -1870,7 +1903,7 @@ class Gandalf {
         this.pos.lerpVectors(a, c, d / a.distanceTo(c));
         this.heading = turnTo(this.heading, headingOf(c.x - a.x, c.z - a.z), 4, dt);
       }
-    } else if (this.phase === 'stand' && (this.wait -= dt) < 0 && this.rocket < 0) {
+    } else if (this.phase === 'sit' && (this.wait -= dt) < 0 && this.rocket < 0) {
       this.phase = 'out';
       this.t = 0;
     }
@@ -1878,34 +1911,34 @@ class Gandalf {
     b.relax();
     const onDock = this.pos.z > 16.8 && Math.abs(this.pos.x) < 1.2;
     b.root.position.copy(this.pos).setY(onDock || Number.isNaN(h) ? Math.max(DECK, h || 0) : h);
-    orient(b.root, this.phase === 'stand' ? headingOf(3.4, -2.4) : this.heading); // facing the fire
+    orient(b.root, this.phase === 'sit' ? FIRESIDE : this.heading);
+    this.seated += ((this.phase === 'sit' ? 1 : 0) - this.seated) * (1 - Math.exp(-4 * dt));
     const trunk = b.part('body');
     const head = b.part('head');
     const staff = b.part('staff');
+    if (trunk) trunk.position.y -= this.seated * SINK; // sitting down on the log…
+    b.part('lap')?.scale.setScalar(this.seated > 0.5 ? 1 : 0); // …with his knees up
     if (walk) {
       // an old man's unhurried stride, planting the staff every other step
       if (trunk) trunk.position.y += Math.abs(Math.sin(this.clock * 5)) * 0.03;
       if (staff) staff.rotation.z += Math.sin(this.clock * 2.5) * 0.25;
       if (Math.sin((this.clock - dt) * 2.5) > 0 && Math.sin(this.clock * 2.5) <= 0) this.onCall?.('staff', this.pos, true); // tock
     }
-    if (this.phase === 'stand') {
+    if (this.phase === 'sit') {
       if (head) head.rotation.z += Math.sin(this.clock * 0.7) * 0.05;
-      // now and then, a smoke ring
+      // now and then, a smoke ring; and sometimes a little one after it, up through the middle
       if ((this.puff -= dt) < 0 && this.rocket < 0) {
-        this.puff = rand(5, 9);
-        const at = this.pipe.add(V(0, 0.15, 0));
-        for (let k = 0; k < 14; k++) {
-          const a = (k / 14) * Math.PI * 2;
-          const out = V(Math.cos(a), Math.sin(a) * 0.5, Math.sin(a) * 0.8).multiplyScalar(0.08);
-          this.particles.emit({ position: at.clone().add(out), velocity: out.clone().multiplyScalar(2.5).add(V(0, 0.45, 0)), color: '#d8d4cc', life: 3.2, wobble: 0.05 });
-        }
+        this.puff = rand(6, 10);
+        this.ring(1);
+        if (chance(0.4)) this.chaser = 0.7;
       }
+      if (this.chaser > 0 && (this.chaser -= dt) <= 0) this.ring(0.5);
     }
     if (this.rocket >= 0) {
       const r = this.rocket;
       this.rocket += dt;
       if (staff) staff.position.y += 0.25 * Math.min(1, r * 6) * (r < 2 ? 1 : Math.max(0, 1 - (r - 2) * 3));
-      const top = b.root.position.clone().add(V(0, 1.85, 0));
+      const top = b.root.position.clone().add(V(0, 1.85 - this.seated * SINK, 0));
       const up = 7;
       if (r < 0.7) {
         // the rocket climbs, trailing sparks
@@ -2323,7 +2356,7 @@ export class Fauna {
     }
     const gandalf = T('gandalf');
     if (gandalf && dock && LUCK.gandalf) {
-      const route = [B(-0.5, -26.5), B(-0.3, -17), B(0, -12.5), B(3.6, -9.5), B(9, -11), B(15, -10.5), B(21, -6), B(23.6, -3.4)]; // ends by the fire, west of it
+      const route = [B(-0.5, -26.5), B(-0.3, -17), B(0, -12.5), B(3.6, -9.5), B(9, -11), B(15, -10.5), B(21, -6), B(24.5, -4.6), B(28, -4), B(28.7, -2.8), B(29.4, -2.55)]; // round the near side of the fire, to the east log
       this.gandalf = new Gandalf(gandalf, scene, this.ground, route, particles);
       this.gandalf.onCall = (call, at, ambient) => this.onCall?.(call, at, ambient);
       this.all.push({ species: 'gandalf', body: this.gandalf.body });
