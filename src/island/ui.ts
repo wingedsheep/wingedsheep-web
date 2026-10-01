@@ -158,13 +158,13 @@ export class UI {
     this.tip.style.transform = `translate(${Math.round(x + 14)}px, ${Math.round(y + 12)}px)`;
   }
 
-  toast(text: string, kind: 'note' | 'secret' = 'note') {
+  toast(text: string, kind: 'note' | 'secret' = 'note', duration?: number) {
     const el = document.createElement('div');
     el.className = `toast toast-${kind}`;
     el.textContent = text;
     this.toasts.append(el);
     // longer notes stay up long enough to read
-    const stay = Math.max(kind === 'secret' ? 4200 : 3400, text.length * 55);
+    const stay = duration ?? Math.max(kind === 'secret' ? 4200 : 3400, text.length * 55);
     setTimeout(() => el.classList.add('out'), stay);
     setTimeout(() => el.remove(), stay + 600);
   }

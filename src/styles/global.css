@@ -515,13 +515,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .exhibit-player button[aria-pressed='true'] { background: var(--paper); }
 .exhibit-now { margin: 6px 0 0 !important; font: italic 14px/1.35 var(--serif); color: var(--paper-2); }
-/* the Walkman in the hut: its keys, while you've got it in your hands */
+/* the carried Walkman: its keys, while you've got it in your hands */
 .walkman {
-  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); width: min(300px, calc(100vw - 32px));
+  position: absolute; z-index: 21; left: 50%; bottom: 44px; transform: translateX(-50%); width: min(300px, calc(100vw - 32px));
   padding: 10px 12px 12px; pointer-events: auto; color: #f4ead3; background: #3f5fa8; clip-path: var(--notch);
   box-shadow: inset 0 10px 0 #c9c6c0, inset 0 12px 0 #2b4580, inset 0 -4px 0 #2b4580;
   animation: card-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
+/* Leave room for the tape and its keys below every notification, including discoveries. */
+body:has(.walkman:not([hidden])) .toasts { bottom: 220px; }
 .walkman-tape {
   display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 12px; background: #1b1820; clip-path: var(--notch);
 }
@@ -540,7 +542,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .walkman-now { display: flex; justify-content: space-between; gap: 8px; margin: 8px 2px; font: 14px/1.2 var(--ui); }
 .walkman-now span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .walkman-now span:last-child { font-variant-numeric: tabular-nums; color: #cfe0e8; }
-.walkman-keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.walkman-keys { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 6px; }
 .walkman-keys button {
   height: 34px; border: 0; padding: 0; font: 15px var(--ui); color: #1d1a24; background: #c9c6c0; clip-path: var(--notch);
   box-shadow: inset 0 -4px 0 #8f8b84; cursor: pointer;
@@ -548,6 +550,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .walkman-keys button:hover, .walkman-keys button:focus-visible { background: #e8e4dc; }
 .walkman-keys button:active, .walkman-keys button[aria-pressed='true'] { box-shadow: inset 0 2px 0 #8f8b84; translate: 0 2px; }
 .walkman-keys [data-key='play'][aria-pressed='true'] { background: #f07a1a; }
+.walkman-keys [data-key='eject'] { padding: 0 8px; background: var(--paper); color: var(--ink); box-shadow: inset 0 -3px 0 var(--paper-edge); }
+.walkman-keys [data-key='eject']:hover, .walkman-keys [data-key='eject']:focus-visible { background: #fff6e2; }
 .exhibit-step { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 0 !important; padding-top: 6px; border-top: 2px dashed var(--paper-edge); font: 13px var(--ui); color: var(--wood); }
 .exhibit-step button { width: 30px; height: 24px; border: 0; background: transparent; font: 16px var(--ui); color: var(--ink); clip-path: var(--notch); }
 .exhibit-step button:hover { background: var(--paper-2); }
@@ -591,6 +595,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .workshop-banner { top: 52px; padding: 6px 44px 6px 12px; }
   .workshop-banner p { display: none; }
   .walkman { bottom: 64px; }
+  body:has(.walkman:not([hidden])) .toasts { bottom: 240px; }
   .project-list, .project-list-open { top: auto; bottom: 64px; left: 8px; width: calc(100% - 16px); max-height: 46vh; }
   .project-list-open { width: auto; }
   .exhibit-sign { font-size: 12px; padding: 1px 6px 3px; }

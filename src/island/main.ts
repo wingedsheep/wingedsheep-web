@@ -245,7 +245,7 @@ export async function bootIsland(host: HTMLElement) {
       trail.go(index);
       ui.openPanel('trail');
     },
-    toast: (text) => ui.toast(text),
+    toast: (text, duration) => ui.toast(text, 'note', duration),
     showDrawing: (src, alt) => ui.showDrawing(src, alt),
     ask: (text, choices) => ui.ask(text, choices),
     discover(id) {
@@ -454,6 +454,7 @@ export async function bootIsland(host: HTMLElement) {
     }
     const near = 1 - rig.target.distanceTo(campfire.clone().setY(1)) / 14;
     sound.update(near, rig.view, dt);
+    hut.showTape();
     if (sound.playing && (notes -= dt) < 0) {
       notes = 1.3;
       ctx.discover('guitar');

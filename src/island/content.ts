@@ -54,7 +54,7 @@ export interface IslandContext {
   openArticle(slug: string): void;
   /** Close whatever is open (from the library: step back outside). */
   close(): void;
-  toast(text: string): void;
+  toast(text: string, duration?: number): void;
   /** Hold a drawing up to the screen. */
   showDrawing(src: string, alt: string): void;
   /** A toast with buttons; picking one dismisses it. */
@@ -1405,10 +1405,10 @@ export const HUT_PLACES: Record<string, Place> = {
       return t ? `A Walkman · playing Echo Lane, ${t.title}` : 'A Walkman · with a tape still in it';
     },
     activate(ctx) {
-      // the hut opens its keys (hut.ts); the first time, the story of the tape
+      // the hut opens its keys (hut.ts); keep the first introduction brief
       soundOn(ctx);
       if (ctx.journal.has('echolane')) return;
-      ctx.toast('Echo Lane, Beyond the Known: an album Vincent made with AI in 2024. A language model he fine-tuned wrote the lyrics, and every song grew thirty seconds at a time, forwards or backwards from where it began.');
+      ctx.toast('Beyond the Known · an album Vincent made with AI in 2024.', 6000);
       ctx.discover('echolane');
     },
   },

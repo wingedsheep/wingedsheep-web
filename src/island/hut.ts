@@ -59,7 +59,7 @@ export class Hut implements RoomInput {
     const sound = this.ctx.sound;
     if (key === 'play') {
       if (sound.albumPlaying) return;
-      if (sound.playing) return this.ctx.toast('He’s mid-song by the stove. The tape can wait.');
+      if (sound.playing) return this.ctx.toast('A song’s already playing. The tape can wait.');
       sound.playAlbum();
     } else if (key === 'stop') {
       sound.stopAlbum();
@@ -68,12 +68,13 @@ export class Hut implements RoomInput {
     } else if (key === 'eject') {
       sound.stopAlbum();
       if (this.deck) this.deck.hidden = true;
+      document.querySelector<HTMLElement>('[data-action="sound"]')?.focus({ preventScroll: true });
     }
     this.showTape();
   }
 
-  /** What the Walkman's showing: the track, the time, and whether the reels are turning. */
-  private showTape() {
+  /** Update the carried Walkman, both in the hut and out on the island. */
+  showTape() {
     const deck = this.deck;
     const tape = this.ctx.sound.albumTape;
     if (!deck || deck.hidden || !tape) return;
@@ -173,7 +174,6 @@ export class Hut implements RoomInput {
       this.room.chalk(this.ctx.forecast);
       this.room.time = this.ctx.sky.time;
       this.room.playing = this.ctx.sound.albumPlaying !== null;
-      if (this.room.playing) this.showTape();
       this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
     }
   }
@@ -203,8 +203,6 @@ export class Hut implements RoomInput {
       this.resize();
     } else {
       if (this.ctx.rig.room === this) this.ctx.rig.room = null;
-      this.ctx.sound.stopAlbum(); // the Walkman stays in the hut
-      if (this.deck) this.deck.hidden = true;
     }
   }
 }
