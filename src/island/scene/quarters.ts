@@ -16,9 +16,15 @@ import { type Outside, Windows } from './windows';
 
 /** One cat's trip to the bowls: hop down, walk over, eat for a while, walk back, hop up. */
 interface Diner {
-  state: 'idle' | 'down' | 'go' | 'eat' | 'back' | 'up' | 'stalk' | 'sit' | 'mew' | 'jump' | 'perch' | 'drop';
-  /** What it does after hopping down from the sofa: off to the bowl, or (Charlie) round to Vincent's chair. */
-  then: 'go' | 'stalk';
+  state: 'idle' | 'down' | 'go' | 'eat' | 'back' | 'up' | 'stalk' | 'sit' | 'mew' | 'jump' | 'perch' | 'drop' | 'dash' | 'spring' | 'lap' | 'hop';
+  /** What it does after hopping down from the sofa: off to the bowl, (Charlie) round to Vincent's chair, or a run for the tap. */
+  then: 'go' | 'stalk' | 'dash';
+  /** Off the sofa in a hurry (the tap's on): no stretch. */
+  hurry: boolean;
+  /** At the tap (drink()): where it stands on the counter, the floor below it, and how far it's into drinking (1) or sitting waiting its turn (-1). */
+  spot: THREE.Vector3;
+  foot: THREE.Vector3;
+  sip: number;
   route: THREE.Vector3[];
   leg: number;
   hop: THREE.Vector3;
@@ -43,6 +49,12 @@ interface Diner {
 /** Where each stands to eat (the bowls are at x = 1.1 and 1.5, z = -3.1, against the north wall; they stand a little apart so they don't overlap), and how fast it walks. */
 const BOWLS: Record<string, { x: number; z: number }> = { charlie: { x: 1.03, z: -2.68 }, george: { x: 1.58, z: -2.58 } };
 const TROT = 0.9;
+/** How fast they run when they hear the tap, and how long it runs (sound.ts makes it as long). */
+const DASH = 2.2;
+const TAP_RUNS = 14;
+/** From where a cat sleeps on the sofa (it faces the telly, west): the top of its back, and the floor behind it, which is the way they go. */
+const RIDGE = new THREE.Vector3(0.4, 0.26, 0);
+const BEHIND = 0.85;
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -138,9 +150,10 @@ export class QuartersRoom {
   private desk?: Record<'him' | 'left' | 'right' | 'head' | 'hero', THREE.Object3D | undefined>;
   /** Charlie's ambush (pounce()): what he's up to, how long he's been at it, and how long it lasts. */
   private stalk = { phase: 'wait' as Ambush, t: 0, next: rand(20, 45), stay: 0, flinch: 0 };
-  /** Seconds left of the cats drinking from the tap (tap()), and where they stand on the counter. */
+  /** Seconds left of the tap running (tap()); where the water comes out and lands, where each cat stands on the counter, and whose turn it is at the stream. */
   private drinking = 0;
-  private sink?: { charlie: THREE.Vector3; george: THREE.Vector3; home: THREE.Vector3 };
+  private sink?: { spout: THREE.Vector3; basin: number; spots: Record<string, THREE.Vector3> };
+  private queue = { who: '', t: 0 };
   /** Charlie gives his one small warning (lighthouse.ts makes the sound). */
   onMew?: () => void;
   /** Vincent takes a sip of his coffee (lighthouse.ts makes the sound). */
@@ -592,11 +605,11 @@ export class QuartersRoom {
     const chair = this.mug?.seated?.getWorldPosition(V());
     if (!sleeper || !chair) return;
     sleeper.getWorldPosition(d.from);
-    d.start.copy(d.from).setY(0).add(V(0.75, 0, 0));
+    d.start.copy(d.from).setY(0).add(V(BEHIND, 0, 0));
     // round the east end of the desk: along, down to the chair's row, and in beside it
     d.route = [V(1.05, 0, d.start.z), V(1.05, 0, chair.z + 0.05), V(chair.x + 0.7, 0, chair.z + 0.05)];
     d.land = V(1.0, 0, chair.z + 0.15);
-    Object.assign(d, { state: 'down', then: 'stalk', leg: 0, t: 0 });
+    Object.assign(d, { state: 'down', then: 'stalk', hurry: false, leg: 0, t: 0 });
     a.phase = 'walk';
   }
 
@@ -617,7 +630,7 @@ export class QuartersRoom {
         const rest = new Map<THREE.Object3D, THREE.Euler>();
         for (const o of [...legs, part('head'), part('tail')]) if (o) rest.set(o, o.rotation.clone());
         d = {
-          state: 'idle', then: 'go', route: [], leg: 0, hop: V(), land: V(), t: 0, wait: rand(15, 40), dur: 0, heading: Math.PI / 2, stride: 0,
+          state: 'idle', then: 'go', hurry: false, spot: V(), foot: V(), sip: 0, route: [], leg: 0, hop: V(), land: V(), t: 0, wait: rand(15, 40), dur: 0, heading: Math.PI / 2, stride: 0,
           from: V(), start: V(), goal: V(bowl.x, 0, bowl.z), pos: V(), legs, head: part('head'), tail: part('tail'), body: part('body'), bodyY: part('body')?.position.y ?? 0, burst: -1, rest,
         };
         this.diners.set(id, d);
@@ -634,8 +647,8 @@ export class QuartersRoom {
         walker.visible = false;
         if ((d.wait -= dt) > 0 || home || this.drinking > 0) continue;
         sleeper.getWorldPosition(d.from);
-        d.start.copy(d.from).setY(0).add(V(0.75, 0, 0));
-        Object.assign(d, { state: 'down', then: 'go', t: 0 });
+        d.start.copy(d.from).setY(0).add(V(BEHIND, 0, 0));
+        Object.assign(d, { state: 'down', then: 'go', hurry: false, t: 0 });
       }
       walker.visible = true;
       sleeper.visible = false; // (it's the standing one now)
@@ -652,23 +665,167 @@ export class QuartersRoom {
       let air = 0;
       let perch = 0;
       let nod = 0;
+      // hopping on and off the sofa: crouched, nose up or down, legs reaching forward and back, the head, the rump's wiggle
+      let crouch = 0;
+      let pitch = 0;
+      let fore = 0;
+      let hind = 0;
+      let peer = 0;
+      let sway = 0;
+      /** A spring from a to b: straight across, and a parabola up and down (h is how far it bows above the straight line). */
+      const leap = (a: THREE.Vector3, b: THREE.Vector3, k: number, h: number) => {
+        d.pos.lerpVectors(a, b, k).y = a.y + (b.y - a.y) * k + 4 * h * k * (1 - k);
+      };
       // across Vincent's shoulders, behind his neck (he sits facing north)
       const shoulders = () => (this.scene.getObjectByName('code_head')?.getWorldPosition(V()) ?? d.pos.clone()).add(V(0, -0.34, 0.24));
       switch (d.state) {
-        case 'down':
-        case 'up': {
-          const k = Math.min(1, d.t / 0.5);
-          const [a, b] = d.state === 'down' ? [d.from, d.start] : [d.start, d.from];
-          d.pos.lerpVectors(a, b, k).y = THREE.MathUtils.lerp(a.y, b.y, k) + Math.sin(k * Math.PI) * 0.22;
-          turn(face(d.start, d.then === 'stalk' ? d.route[0] : d.goal));
-          if (k >= 1) {
-            if (d.state === 'down') Object.assign(d, { state: d.then, t: 0 });
-            else {
-              walker.visible = false;
-              sleeper.visible = true;
-              Object.assign(d, { state: 'idle', wait: rand(45, 110) });
-            }
+        case 'down': { // up from a nap: a long stretch, a spring onto the back of the sofa, a look over, and down
+          const t = d.hurry ? (d.t < 0.4 ? d.t * 1.5 : d.t + 1.4) : d.t; // (in a hurry, it skips the stretch)
+          const ridge = d.from.clone().add(RIDGE);
+          d.pos.copy(d.from);
+          if (t < 0.6) d.heading = 0; // (the sofa's back is east)
+          crouch = 1 - ease(0, 0.6, t); // gets up
+          const bow = ease(0.6, 1.0, t) * (1 - ease(1.4, 1.8, t)); // front paws out, chest down, rump up
+          fore += bow * 0.9;
+          hind += bow * 0.3;
+          pitch -= bow * 0.3;
+          crouch += ease(1.8, 2.1, t) * (1 - ease(2.15, 2.2, t)) * 0.7; // gathers itself, eyes on the top
+          peer += ease(1.8, 2.0, t) * (1 - ease(2.2, 2.4, t)) * 0.35;
+          if (t >= 2.2 && t < 2.55) {
+            const k = (t - 2.2) / 0.35;
+            leap(d.from, ridge, k, 0.3);
+            pitch += 0.5 * (1 - k) - 0.15 * ease(0.7, 1, k);
+            fore += 1.1 * (1 - k) + 0.2;
+            hind -= 0.9 * ease(0, 0.3, k) * (1 - ease(0.6, 1, k));
+          } else if (t >= 2.55 && t < 3.2) {
+            d.pos.copy(ridge);
+            crouch += 0.5 * (1 - ease(2.55, 2.85, t)); // lands, and steadies
+            peer -= 0.5 * ease(2.75, 3.0, t); // and has a look over
+            pitch -= 0.15 * ease(2.75, 3.0, t);
+          } else if (t >= 3.2 && t < 3.62) {
+            const k = (t - 3.2) / 0.42;
+            leap(ridge, d.start, k, 0.24);
+            pitch -= 0.15 + 0.35 * ease(0, 0.7, k); // nose first, front paws reaching for the floor
+            fore += 0.6;
+            hind -= 0.5 * (1 - ease(0.7, 1, k));
+            peer -= 0.3;
+          } else if (t >= 3.62) {
+            d.pos.copy(d.start);
+            pitch -= 0.3 * (1 - ease(3.62, 3.87, t)); // front paws down first, then the back ones
+            crouch += 0.6 * (1 - ease(3.62, 3.95, t));
           }
+          if (t >= 3.62) turn(face(d.start, d.then === 'go' ? d.goal : d.route[0]));
+          if (t >= 3.95) Object.assign(d, { state: d.then, t: 0 });
+          break;
+        }
+        case 'up': { // back from the bowl: sizes up the sofa, a wiggle, a spring, down onto the cushion, round once and settles
+          const t = d.t;
+          const ridge = d.from.clone().add(RIDGE);
+          d.pos.copy(d.start);
+          turn(Math.PI);
+          peer += ease(0, 0.4, t) * (1 - ease(1.3, 1.5, t)) * 0.4;
+          crouch += ease(0.5, 0.8, t) * (1 - ease(1.25, 1.3, t)) * 0.8;
+          sway = Math.sin((t - 0.5) * 22) * 0.1 * ease(0.7, 0.85, t) * (1 - ease(1.15, 1.3, t)); // the wiggle
+          if (t >= 1.3 && t < 1.68) {
+            const k = (t - 1.3) / 0.38;
+            leap(d.start, ridge, k, 0.32);
+            pitch += 0.6 * (1 - k) - 0.1 * ease(0.7, 1, k);
+            fore += 1.2 * (1 - k) + 0.3;
+            hind -= 1.0 * ease(0, 0.25, k) * (1 - ease(0.6, 1, k));
+          } else if (t >= 1.68 && t < 2.3) {
+            d.pos.copy(ridge);
+            crouch += 0.6 * (1 - ease(1.68, 1.95, t));
+            peer -= 0.4 * ease(1.9, 2.1, t);
+          } else if (t >= 2.3 && t < 2.6) {
+            const k = (t - 2.3) / 0.3;
+            leap(ridge, d.from, k, 0.06);
+            pitch -= 0.3 * Math.sin(k * Math.PI);
+            fore += 0.4;
+            peer -= 0.4 * (1 - k);
+          } else if (t >= 2.6) {
+            d.pos.copy(d.from);
+            crouch += 0.4 * (1 - ease(2.6, 2.85, t));
+            if (t >= 2.85 && t < 4.25) { // round once, treading the cushion
+              d.heading = Math.PI + Math.PI * 2 * ease(2.85, 4.25, t);
+              moving = true;
+              d.stride += dt * 9;
+            }
+            crouch += 2 * ease(4.25, 5.0, t); // and down, paws tucked
+          }
+          if (t >= 5.0) {
+            walker.visible = false;
+            sleeper.visible = true;
+            Object.assign(d, { state: 'idle', wait: rand(45, 110) });
+          }
+          break;
+        }
+        case 'dash': { // the tap's on: a run for the counter
+          const step = d.foot.clone().sub(d.pos).setY(0);
+          const left = step.length();
+          moving = true;
+          turn(face(d.pos, d.foot));
+          d.pos.y = 0;
+          const pace = DASH * (id === 'george' ? 0.88 : 1); // George is the bigger one
+          if (left <= pace * dt) {
+            d.pos.copy(d.foot);
+            Object.assign(d, { state: 'spring', t: 0 });
+          } else d.pos.addScaledVector(step, (pace * dt) / left);
+          d.stride += dt * 15;
+          break;
+        }
+        case 'spring': { // a crouch at the foot of the counter, eyes on the top, and up
+          const t = d.t;
+          d.pos.copy(d.foot);
+          turn(face(d.foot, d.spot));
+          crouch += ease(0, 0.2, t) * (1 - ease(0.3, 0.35, t)) * 0.8;
+          peer += ease(0, 0.2, t) * (1 - ease(0.35, 0.6, t)) * 0.4;
+          if (t >= 0.35 && t < 0.73) {
+            const k = (t - 0.35) / 0.38;
+            leap(d.foot, d.spot, k, 0.3);
+            pitch += 0.6 * (1 - k) - 0.1 * ease(0.7, 1, k);
+            fore += 1.2 * (1 - k) + 0.3;
+            hind -= 1.0 * ease(0, 0.25, k) * (1 - ease(0.6, 1, k));
+          } else if (t >= 0.73) {
+            d.pos.copy(d.spot);
+            crouch += 0.5 * (1 - ease(0.73, 0.95, t));
+          }
+          if (t >= 0.95) Object.assign(d, { state: 'lap', t: 0, wait: rand(0.4, 1.4), sip: 0 });
+          break;
+        }
+        case 'lap': { // at the tap: lapping from the stream, or sitting beside it waiting its turn
+          d.pos.copy(d.spot);
+          const running = this.drinking > 0;
+          turn(face(d.spot, this.sink?.spout ?? d.spot));
+          const want = !running ? 0 : this.queue.who === id ? 1 : -1;
+          d.sip += (want - d.sip) * Math.min(1, dt * 4);
+          const drinking = Math.max(0, d.sip);
+          sit = Math.max(0, -d.sip);
+          bite = drinking * (0.5 + Math.sin(this.clock * 14) * 0.07); // head into the stream, tongue going
+          nod -= sit * 0.25; // and the one waiting watches the water
+          if (!running) {
+            peer += 0.3 * ease(0, 0.4, d.t); // a look up at the tap: is that it?
+            if ((d.wait -= dt) <= 0) Object.assign(d, { state: 'hop', t: 0 });
+          } else d.t = 0;
+          break;
+        }
+        case 'hop': { // the water's off: down off the counter, and back to the sofa
+          const t = d.t;
+          d.pos.copy(d.spot);
+          turn(face(d.spot, d.foot));
+          crouch += ease(0, 0.25, t) * (1 - ease(0.3, 0.35, t)) * 0.4;
+          peer -= 0.4 * ease(0, 0.25, t) * (1 - ease(0.35, 0.6, t));
+          if (t >= 0.35 && t < 0.75) {
+            const k = (t - 0.35) / 0.4;
+            leap(d.spot, d.foot, k, 0.12);
+            pitch -= 0.15 + 0.3 * ease(0, 0.7, k);
+            fore += 0.6;
+            hind -= 0.5 * (1 - ease(0.7, 1, k));
+          } else if (t >= 0.75) {
+            d.pos.copy(d.foot);
+            pitch -= 0.3 * (1 - ease(0.75, 1.0, t));
+            crouch += 0.5 * (1 - ease(0.75, 1.05, t));
+          }
+          if (t >= 1.05) Object.assign(d, { state: 'back', t: 0 });
           break;
         }
         case 'stalk': { // round to his chair, unhurried
@@ -788,44 +945,87 @@ export class QuartersRoom {
         leg.rotation.z += moving ? Math.sin(d.stride + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.5 : 0;
         // sitting: back legs folded under, front ones straight down; in the air and on his shoulders: reaching, gripping
         leg.rotation.z += front ? 0.9 * air + 1.0 * perch - 0.75 * sit : -0.6 * air + 0.6 * perch + 1.3 * sit;
+        leg.rotation.z += front ? fore + 0.7 * crouch : hind - 0.7 * crouch; // crouched: paws forward, hocks back
       });
       if (d.head) {
-        d.head.rotation.z += -bite * 1.0 + chew + nod + 0.2 * sit + (moving ? Math.sin(d.stride * 2) * 0.05 : 0);
+        d.head.rotation.z += -bite * 1.0 + chew + nod + peer + 0.2 * sit + (moving ? Math.sin(d.stride * 2) * 0.05 : 0);
         d.head.rotation.y += look + perch * Math.sin(this.clock * 0.8) * 0.3;
       }
       if (d.body) {
-        d.body.rotation.z = -bite * 0.22 + 0.75 * sit + 0.3 * air; // the front dips with the head; sitting, it tips up
-        d.body.position.y = d.bodyY - bite * 0.03 - 0.09 * sit - 0.05 * perch + (moving ? Math.abs(Math.sin(d.stride)) * 0.025 : 0);
+        d.body.rotation.z = -bite * 0.22 + 0.75 * sit + 0.3 * air + pitch; // the front dips with the head; sitting, it tips up
+        d.body.rotation.y = sway;
+        d.body.position.y = d.bodyY - bite * 0.03 - 0.09 * sit - 0.05 * perch - 0.065 * crouch + (moving ? Math.abs(Math.sin(d.stride)) * 0.025 : 0);
       }
       if (d.tail) d.tail.rotation.x += Math.sin(this.clock * 0.9) * 0.15 + bite * Math.sin(this.clock * 3.2) * 0.25 + (sit + perch) * Math.sin(this.clock * 4) * 0.25; // and it wags a little, pleased (or keyed up)
     }
   }
 
   /**
-   * The tap's on: whichever cats are in are up on the counter by the sink before it's run for
-   * a second, taking turns. The water bowl by the door is right there. It doesn't count.
+   * The tap's on: whichever cats are in come running, from the sofa or the bowl or wherever
+   * they are, jump up onto the counter either side of the sink and take turns at the stream.
+   * The water bowl by the door is right there. It doesn't count.
    */
   tap() {
-    this.drinking = 9;
+    this.drinking = TAP_RUNS;
   }
 
   private drink(dt: number) {
-    const charlie = this.scene.getObjectByName('charlie');
-    const george = this.scene.getObjectByName('george');
     const tap = this.named.get('tap');
-    if (!charlie || !george || !tap) return;
+    if (!tap) return;
     if (!this.sink) {
       const box = new THREE.Box3().setFromObject(tap);
-      const at = box.getCenter(V()).setY(box.min.y + 0.02);
-      const local = (dx: number) => charlie.parent!.worldToLocal(at.clone().add(V(dx, 0, 0)));
-      this.sink = { charlie: local(-0.5), george: local(0.5), home: george.position.clone() };
+      const x = box.getCenter(V()).x;
+      const top = box.min.y + 0.025; // the counter
+      const z = box.max.z - 0.17; // in from the front edge, level with the spout
+      this.sink = {
+        spout: V(x, box.max.y - 0.11, box.max.z - 0.205), basin: box.min.y + 0.065,
+        spots: { charlie: V(x - 0.4, top, z), george: V(x + 0.45, top, z) },
+      };
     }
+    const s = this.sink;
     this.drinking = Math.max(0, this.drinking - dt);
-    if (this.drinking > 0) {
-      ambush.on = false;
-      charlie.position.copy(this.sink.charlie);
+    if (this.drinking <= 0) {
+      this.queue.who = '';
+      return;
     }
-    george.position.copy(this.drinking > 0 ? this.sink.george : this.sink.home);
+    // the water: a thin thread from the spout into the basin, and the odd splash
+    const fall = s.spout.y - s.basin;
+    for (let i = 0; i < 6; i++) {
+      const drop = rand(0, fall);
+      this.particles.emit({
+        position: s.spout.clone().add(V(rand(-0.012, 0.012), -drop, rand(-0.012, 0.012))),
+        velocity: V(0, -1.4, 0), color: i % 3 ? '#bfe3f4' : '#f4fbff', life: (fall - drop) / 1.4, wobble: 0, size: 2, fadeIn: 0, hold: 1,
+      });
+    }
+    if (this.every('splash', 0.12, dt)) {
+      this.particles.emit({
+        position: V(s.spout.x, s.basin, s.spout.z), velocity: V(rand(-0.25, 0.25), rand(0.3, 0.5), rand(-0.25, 0.25)),
+        color: '#e6f4fa', life: 0.3, gravity: 3, size: 1, fadeIn: 0,
+      });
+    }
+    // whose turn: whoever's up there first, and they swap every few seconds
+    const up = [...this.diners].filter(([, d]) => d.state === 'lap').map(([id]) => id);
+    const q = this.queue;
+    if (!up.includes(q.who)) Object.assign(q, { who: up[0] ?? '', t: 0 });
+    else if ((q.t += dt) > 3.5 && up.length > 1) Object.assign(q, { who: up.find((id) => id !== q.who)!, t: 0 });
+    // and everyone in comes running
+    for (const [id, d] of this.diners) {
+      if (!indoors.has(id) || (id === 'charlie' && indoors.has('companion_lighthouse'))) continue; // (on her lap, Charlie stays put)
+      d.spot.copy(s.spots[id]);
+      d.foot.copy(d.spot).setY(0).add(V(0, 0, 0.5));
+      if (d.state === 'idle') {
+        const sleeper = this.scene.getObjectByName(id);
+        if (!sleeper) continue;
+        sleeper.getWorldPosition(d.from);
+        d.start.copy(d.from).setY(0).add(V(BEHIND, 0, 0));
+        Object.assign(d, { state: 'down', then: 'dash', hurry: true, route: [d.foot], t: -rand(0, 0.8) }); // (not quite together: one's a heavier sleeper)
+      } else if (d.state === 'down') {
+        Object.assign(d, { then: 'dash', route: [d.foot] });
+      } else if (['go', 'eat', 'back', 'stalk', 'sit', 'mew'].includes(d.state)) {
+        Object.assign(d, { state: 'dash', t: 0, burst: -1 });
+        if (id === 'charlie' && this.stalk.phase !== 'wait') Object.assign(this.stalk, { phase: 'wait', next: rand(90, 180) });
+      }
+    }
   }
 
   // --- the telly -------------------------------------------------------------------------

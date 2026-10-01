@@ -1241,7 +1241,7 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
       ctx.sound.call('tap');
       const cats = indoors.has('charlie') || indoors.has('george');
       ctx.toast(cats
-        ? 'You turn on the tap. Two cats who were fast asleep on the sofa a second ago are already on the counter, taking turns. Their water bowl is full. It doesn’t count.'
+        ? 'You turn on the tap. Two cats who were fast asleep on the sofa a second ago are already racing for the counter. Their water bowl is full. It doesn’t count.'
         : 'You turn on the tap. Somewhere out on the island, two cats sit bolt upright.');
     },
   },

@@ -574,7 +574,7 @@ export class Sound {
     const t = this.ctx.currentTime;
     const tone = (type: OscillatorType, at: number, glide: [number, number][], peak: number, length: number, filter?: number) =>
       this.tone(t + at, type, glide, peak * volume, length, filter);
-    const hiss = (at: number, length: number, freq: number, peak: number) => this.hiss(t + at, length, freq, peak * volume);
+    const hiss = (at: number, length: number, freq: number, peak: number, steady = false) => this.hiss(t + at, length, freq, peak * volume, steady);
     const r = (a: number, b: number) => a + Math.random() * (b - a);
     switch (kind) {
       case 'eagle':
@@ -592,9 +592,9 @@ export class Sound {
         for (let i = 0; i < 3; i++) tone('sine', 1.1 + i * 0.16, [[0, 400], [0.1, 390]], 0.18, 0.14);
         tone('sine', 1.6, [[0, 410], [0.8, 360]], 0.22, 1.0);
         break;
-      case 'tap': // the kitchen tap, running for a moment
-        hiss(0, 2.2, 2600, 0.08);
-        hiss(0.05, 2.1, 900, 0.05);
+      case 'tap': // the kitchen tap, left running while the cats drink (TAP_RUNS in quarters.ts)
+        hiss(0, 14, 2600, 0.06, true);
+        hiss(0.05, 14, 900, 0.04, true);
         break;
       case 'grind': // the machine's grinder: a whirr and the crunch of beans
         tone('sawtooth', 0, [[0, 95], [3.4, 105]], 0.06, 3.6, 500);
@@ -846,19 +846,27 @@ export class Sound {
   }
 
   /** A burst of filtered noise at time t (breath, spray, a splash). */
-  private hiss(t: number, length: number, freq: number, peak: number) {
+  /** A burst of filtered noise: up to `peak` and dying away over `length`, or (steady) held there till the end, like water running. */
+  private hiss(t: number, length: number, freq: number, peak: number, steady = false) {
     if (!this.noise) return;
     const ctx = this.ctx!;
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
+    src.loop = true; // (the buffer is two seconds; some last longer)
     const f = ctx.createBiquadFilter();
     f.type = 'bandpass';
     f.frequency.value = freq;
     f.Q.value = 0.7;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(peak, t + length * 0.15);
-    env.gain.exponentialRampToValueAtTime(0.001, t + length);
+    if (steady) {
+      env.gain.linearRampToValueAtTime(peak, t + 0.15);
+      env.gain.setValueAtTime(peak, t + length - 0.6);
+      env.gain.linearRampToValueAtTime(0, t + length);
+    } else {
+      env.gain.linearRampToValueAtTime(peak, t + length * 0.15);
+      env.gain.exponentialRampToValueAtTime(0.001, t + length);
+    }
     src.connect(f).connect(env).connect(this.master!);
     src.start(t, Math.random());
     src.stop(t + length + 0.05);
