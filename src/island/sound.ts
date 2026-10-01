@@ -242,7 +242,7 @@ export class Sound {
   onAlbum?: (track: Disc | null) => void;
   private albumBus?: GainNode;
   private lp?: { el: HTMLAudioElement; gain: GainNode; track: Disc; stopping?: boolean };
-  /** Where the tape was stopped. */
+  /** Where the tape was stopped (to start with, wherever the last person left it: a track at random). */
   private cue = { id: 1, at: 0 };
   /** Whether the album's on (so the next track goes on when one ends). */
   private albumOn = false;
@@ -282,6 +282,7 @@ export class Sound {
   ) {
     const probe = document.createElement('audio');
     this.ext = probe.canPlayType('audio/webm; codecs="opus"') ? 'webm' : 'm4a';
+    if (album.length) this.cue.id = album[Math.floor(Math.random() * album.length)].id;
 
     const gestures = ['pointerdown', 'keydown', 'touchstart'] as const;
     const unlock = () => {
@@ -343,6 +344,7 @@ export class Sound {
     this.start();
     const next = this.pieces[(this.pieces.findIndex((p) => p.id === this.lastPiece) + 1) % this.pieces.length];
     const piece = this.pieces.find((p) => p.id === id) ?? next;
+    this.stopAlbum(); // (the Walkman pauses: one music at a time)
     this.stopPiano(false);
     this.lastPiece = piece.id;
     const trim = this.ctx!.createGain();
@@ -374,6 +376,7 @@ export class Sound {
     if (!this.recordOrder.length) this.recordOrder = shuffle(this.records.map((r) => r.id));
     const want = id ?? this.recordOrder.shift();
     const track = this.records.find((r) => r.id === want)!;
+    this.stopAlbum();
     this.stopRecord(false);
     this.recordsOn = true;
     const { el, gain } = this.stream(`${track.file}.${this.ext}`, false, this.recordBus);
@@ -490,6 +493,7 @@ export class Sound {
 
   /** Ask Vincent for a song. He plays while you stay close, and stops once you wander off. */
   ask() {
+    this.stopAlbum();
     this.asked = true;
     this.silentFor = 0;
   }

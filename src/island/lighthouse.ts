@@ -101,6 +101,7 @@ export class Lighthouse implements RoomInput {
     el.hidden = false;
     this.pinFilm();
     this.ctx.sound.film = true;
+    this.ctx.sound.stopAlbum(); // the Walkman pauses for the film
     this.ui.tooltip(null);
   }
 
