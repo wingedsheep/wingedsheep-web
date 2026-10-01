@@ -68,6 +68,11 @@ export class HutRoom {
   /** What came on the post boat (hut.py `post_<k>`), the parcel on the mat, and the pancakes. */
   private parcel?: THREE.Object3D;
   private pancakes?: THREE.Object3D;
+  /** Whether Echo Lane is playing on the Walkman: the reels turn and notes drift up. */
+  playing = false;
+  private spin = 0;
+  private reels: THREE.Object3D[] = [];
+  private notesAt?: THREE.Vector3;
   /** The blackboard by the stove, and the forecast last chalked on it. */
   private board?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; material: THREE.MeshBasicMaterial; shows?: Forecast | null };
 
@@ -90,6 +95,7 @@ export class HutRoom {
       if (x.id) this.named.set(x.id, o);
       if (x.guests) guests.push(...o.children);
       if (x.emit === 'steam') this.steam.push({ at: o.getWorldPosition(V()), from: o });
+      if (x.emit === 'notes') this.notesAt = o.getWorldPosition(V());
       if (x.light) this.addLamp(o.getWorldPosition(V()), x, halo);
       if ((o as THREE.Mesh).isMesh) {
         const mesh = o as THREE.Mesh;
@@ -113,6 +119,10 @@ export class HutRoom {
     }
     this.parcel = this.named.get('hut_parcel');
     this.pancakes = this.named.get('pancakes');
+    for (const k of [0, 1]) {
+      const reel = root.getObjectByName(`walkman_reel_${k}`);
+      if (reel) this.reels.push(reel);
+    }
     const room = root.getObjectByName('room');
     if (room) this.bounds.setFromObject(room);
     this.guests = new Guests(this.scene, guests);
@@ -206,9 +216,17 @@ export class HutRoom {
       }
     }
     this.particles.update(dt);
+    this.record(dt);
     if (out) this.windows.update(dt, out);
     this.waiting(t);
     this.reader(t, dt);
+  }
+
+  /** The Walkman: the reels turn while it plays, and now and then a few notes drift up. */
+  private record(dt: number) {
+    this.spin = THREE.MathUtils.damp(this.spin, this.playing ? 4 : 0, 8, dt);
+    for (const reel of this.reels) reel.rotateY(-dt * this.spin);
+    if (this.playing && this.notesAt && this.every('notes', 3.5, dt)) this.guests.notes(this.notesAt);
   }
 
   /**

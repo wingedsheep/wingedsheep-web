@@ -19,6 +19,10 @@ const RAINY = 'Nearly at the top. Rain on the roof, the stove\'s lit, and someon
 /** When it's wet out and Vincent has brought the guitar in (`roof`: what's coming down on it). */
 const PLAYING = (roof: string) => `Nearly at the top. ${roof} on the roof, the stove's lit, and Vincent has brought the guitar in.`;
 
+/** A track's place on the tape: side A has the first four, side B the rest. */
+const side = (id: number) => (id <= 4 ? `A${id}` : `B${id - 4}`);
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
 export class Hut implements RoomInput {
   /** Whether the room (rather than the island) is on screen. */
   inside = false;
@@ -26,6 +30,8 @@ export class Hut implements RoomInput {
   private fade = 0;
   private room?: HutRoom;
   private loading?: Promise<HutRoom | undefined>;
+  /** The Walkman's keys (IslandShell.astro), while you've got it in your hands. */
+  private deck = document.querySelector<HTMLElement>('[data-walkman]');
 
   constructor(
     private ctx: IslandContext,
@@ -33,7 +39,50 @@ export class Hut implements RoomInput {
     private pixels: PixelRenderer,
     private host: HTMLElement,
     private reducedMotion: boolean,
-  ) {}
+  ) {
+    this.deck?.querySelectorAll<HTMLButtonElement>('[data-key]').forEach((key) => {
+      key.addEventListener('click', () => this.press(key.dataset.key!));
+    });
+    ctx.sound.onAlbum = () => this.showTape();
+  }
+
+  /** Pick up the Walkman: its keys come up. */
+  private pickUp() {
+    if (!this.deck) return;
+    this.deck.hidden = false;
+    this.showTape();
+    this.deck.querySelector<HTMLElement>('[data-key="play"]')?.focus({ preventScroll: true });
+  }
+
+  /** A key on the Walkman. */
+  private press(key: string) {
+    const sound = this.ctx.sound;
+    if (key === 'play') {
+      if (sound.albumPlaying) return;
+      if (sound.playing) return this.ctx.toast('He’s mid-song by the stove. The tape can wait.');
+      sound.playAlbum();
+    } else if (key === 'stop') {
+      sound.stopAlbum();
+    } else if (key === 'ff' || key === 'rew') {
+      sound.windAlbum(key === 'ff' ? 1 : -1);
+    } else if (key === 'eject') {
+      sound.stopAlbum();
+      if (this.deck) this.deck.hidden = true;
+    }
+    this.showTape();
+  }
+
+  /** What the Walkman's showing: the track, the time, and whether the reels are turning. */
+  private showTape() {
+    const deck = this.deck;
+    const tape = this.ctx.sound.albumTape;
+    if (!deck || deck.hidden || !tape) return;
+    const playing = this.ctx.sound.albumPlaying !== null;
+    deck.classList.toggle('playing', playing);
+    deck.querySelector('[data-key="play"]')!.setAttribute('aria-pressed', String(playing));
+    deck.querySelector('[data-walkman-now]')!.textContent = `${side(tape.track.id)} · ${tape.track.title}`;
+    deck.querySelector('[data-walkman-time]')!.textContent = clock(tape.at);
+  }
 
   /** Whether the pointer should drive the room rather than the island. */
   get wanted() {
@@ -106,6 +155,7 @@ export class Hut implements RoomInput {
     this.ui.tooltip(null);
     room.guests.pet(hit.id, hit.point);
     place.activate?.(this.ctx, hit.point);
+    if (hit.id === 'walkman') this.pickUp();
   }
 
   /** Run the iris and, once inside, the room. `night` is 0 (day) … 1 (night) outside. */
@@ -122,6 +172,8 @@ export class Hut implements RoomInput {
     if (this.inside && this.room) {
       this.room.chalk(this.ctx.forecast);
       this.room.time = this.ctx.sky.time;
+      this.room.playing = this.ctx.sound.albumPlaying !== null;
+      if (this.room.playing) this.showTape();
       this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
     }
   }
@@ -149,8 +201,10 @@ export class Hut implements RoomInput {
       this.ctx.rig.room = this;
       this.room?.view.reset();
       this.resize();
-    } else if (this.ctx.rig.room === this) {
-      this.ctx.rig.room = null;
+    } else {
+      if (this.ctx.rig.room === this) this.ctx.rig.room = null;
+      this.ctx.sound.stopAlbum(); // the Walkman stays in the hut
+      if (this.deck) this.deck.hidden = true;
     }
   }
 }

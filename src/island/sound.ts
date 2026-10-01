@@ -15,6 +15,8 @@
  *  - the gramophone in the workshop: music from Vincent's music generation experiments, played
  *    like an old 78: a honky horn with no real bass or treble, a wind-up as the platter gets
  *    to speed, a slow wow in the pitch, and the hiss and crackle of the needle in the groove.
+ *  - the Walkman in the mountain hut: Echo Lane's album, Beyond the Known, on tape, in order,
+ *    through its headphones: close and dry, with a faint tape hiss under it.
  *  - the winged sheep: a baa when you click it; Beike: a bark (short clips, decoded up front)
  *  - Charlie and George: a synthesised purr when you pet them
  *  - the wildlife: gulls, robins, the owl, ducks, geese and the whale's blow
@@ -234,6 +236,14 @@ export class Sound {
   private recordOrder: number[] = [];
   /** Whether the visitor wants records on (so the next goes on when one ends). */
   private recordsOn = false;
+  /** Told whenever a track of Echo Lane starts on the Walkman in the hut, or it stops (null). */
+  onAlbum?: (track: Disc | null) => void;
+  private albumBus?: GainNode;
+  private lp?: { el: HTMLAudioElement; gain: GainNode; track: Disc; stopping?: boolean };
+  /** Where the tape was stopped. */
+  private cue = { id: 1, at: 0 };
+  /** Whether the album's on (so the next track goes on when one ends). */
+  private albumOn = false;
   private song?: { el: HTMLAudioElement; gain: GainNode; id: number; live: boolean };
   private asked = false;
   private loudness = 0;
@@ -266,6 +276,7 @@ export class Sound {
     private songs: Song[],
     private pieces: Piece[] = [],
     private records: Disc[] = [],
+    private album: Disc[] = [],
   ) {
     const probe = document.createElement('audio');
     this.ext = probe.canPlayType('audio/webm; codecs="opus"') ? 'webm' : 'm4a';
@@ -319,6 +330,7 @@ export class Sound {
       this.dropSong();
       this.stopPiano();
       this.stopRecord();
+      this.stopAlbum();
     }
   }
 
@@ -390,6 +402,80 @@ export class Sound {
     const slow = setInterval(() => (r.el.playbackRate = Math.max(0.5, r.el.playbackRate - 0.04)), 50);
     setTimeout(() => clearInterval(slow), 1200);
     if (tell) this.onRecord?.(null);
+  }
+
+  /** The track of Echo Lane playing on the Walkman in the hut, if it's playing. */
+  get albumPlaying(): Disc | null {
+    return this.lp && !this.lp.stopping ? this.lp.track : null;
+  }
+
+  /** Where the tape is: the track, and how far into it (seconds), playing or not. */
+  get albumTape(): { track: Disc; at: number } | null {
+    if (!this.album.length) return null;
+    if (this.lp && !this.lp.stopping) return { track: this.lp.track, at: this.lp.el.currentTime };
+    return { track: this.album.find((t) => t.id === this.cue.id) ?? this.album[0], at: this.cue.at };
+  }
+
+  /**
+   * Press play on the Walkman: on from wherever the tape was stopped (or from the top of track
+   * `id`), and through to the end of the album. Call from a gesture.
+   */
+  playAlbum(id?: number): Disc | null {
+    if (!this.album.length) return null;
+    if (!this.enabled) this.setEnabled(true);
+    this.start();
+    if (id !== undefined) this.cue = { id, at: 0 };
+    const track = this.album.find((t) => t.id === this.cue.id) ?? this.album[0];
+    this.stopAlbum(false);
+    this.albumOn = true;
+    const { el, gain } = this.stream(`${track.file}.${this.ext}`, false, this.albumBus);
+    el.currentTime = Math.max(this.cue.at, track.start ?? 0);
+    el.playbackRate = 0.9; // the motor gets the tape up to speed
+    const up = setInterval(() => (el.playbackRate = Math.min(1, el.playbackRate + 0.02)), 30);
+    setTimeout(() => clearInterval(up), 300);
+    gain.gain.value = 0;
+    gain.gain.setTargetAtTime(0.85, this.ctx!.currentTime + 0.05, 0.08);
+    el.addEventListener('ended', () => {
+      if (this.lp?.el !== el) return;
+      const next = this.album[this.album.indexOf(track) + 1];
+      this.stopAlbum(!next);
+      this.cue = { id: (next ?? this.album[0]).id, at: 0 }; // the end of side B: rewound for next time
+      if (next) setTimeout(() => this.albumOn && !this.lp && this.playAlbum(), 2000); // the leader between tracks
+    });
+    void el.play();
+    this.lp = { el, gain, track };
+    this.onAlbum?.(track);
+    return track;
+  }
+
+  /** Press stop: the tape stays where it is, for the next time you press play. */
+  stopAlbum(tell = true) {
+    if (tell) this.albumOn = false;
+    const lp = this.lp;
+    if (lp) {
+      this.cue = { id: lp.track.id, at: lp.el.currentTime };
+      lp.stopping = true;
+      this.fadeOutAndDrop(lp.el, lp.gain, 0.04);
+      this.lp = undefined;
+    }
+    if (tell) this.onAlbum?.(null);
+  }
+
+  /**
+   * Fast-forward (1) or rewind (-1) to the next track, or back to the start of this one (or the
+   * one before, if you're already at its start). Playing, it plays on from there.
+   */
+  windAlbum(by: 1 | -1) {
+    const tape = this.albumTape;
+    if (!tape) return;
+    const i = this.album.indexOf(tape.track);
+    const back = by < 0 && tape.at > (tape.track.start ?? 0) + 3 ? 0 : by;
+    const next = this.album[Math.max(0, Math.min(this.album.length - 1, i + back))];
+    const playing = this.albumPlaying !== null;
+    if (playing) this.stopAlbum(false);
+    this.cue = { id: next.id, at: by > 0 && next === tape.track ? tape.at : 0 };
+    if (playing) this.playAlbum();
+    else this.onAlbum?.(null);
   }
 
   /** Let the last notes ring out and close the lid. */
@@ -1229,7 +1315,8 @@ export class Sound {
       const wound = 0.8 + 0.2 * Math.min(1, age / 1.4) ** 0.6;
       r.el.playbackRate = wound * (1 + Math.sin(age * Math.PI * 2 * 0.55) * 0.0045 + Math.sin(age * Math.PI * 2 * 5.5) * 0.0012);
     }
-    this.surface?.gain.setTargetAtTime(r && !r.stopping ? 0.05 : 0, t, r ? 0.3 : 0.6);
+    const lp = this.lp && !this.lp.stopping;
+    this.surface?.gain.setTargetAtTime(r && !r.stopping ? 0.05 : lp ? 0.006 : 0, t, r || lp ? 0.3 : 0.6);
 
     // the guitar only carries when you're zoomed right in on the fire; in the hut, it fills the room
     const close = Math.max(0, Math.min(1, (24 - view) / 10));
@@ -1350,6 +1437,7 @@ export class Sound {
     this.buildSongChain(ctx);
     this.buildPianoChain(ctx);
     this.buildRecordChain(ctx);
+    this.buildAlbumChain(ctx);
 
     this.fireGain = ctx.createGain();
     this.fireGain.gain.value = 0;
@@ -1843,6 +1931,22 @@ export class Sound {
     this.surface.gain.value = 0;
     src.connect(tone).connect(this.surface).connect(this.master!);
     src.start();
+  }
+
+  /**
+   * The Walkman in the hut: through its foam headphones, so close and dry, with no room at all;
+   * the very top rolled off a little, the way tape and little headphones do.
+   */
+  private buildAlbumChain(ctx: AudioContext) {
+    this.albumBus = ctx.createGain();
+    const lows = ctx.createBiquadFilter();
+    lows.type = 'highpass';
+    lows.frequency.value = 35;
+    const tape = ctx.createBiquadFilter();
+    tape.type = 'highshelf';
+    tape.frequency.value = 10000;
+    tape.gain.value = -4;
+    this.albumBus.connect(lows).connect(tape).connect(this.master!);
   }
 
   private buildPianoChain(ctx: AudioContext) {

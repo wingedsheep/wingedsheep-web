@@ -13,6 +13,7 @@ boots wait in a row by the door. The runtime (src/island/scene/hut-room.ts) driv
   post_<k>      the shelf over the coats: what's come on the post boat (week.ts shows the latest
                 in each of its six places), `hut_parcel` the one that came today, still unopened
   pancakes      a Sunday morning's stack on the table
+  walkman_reel_<k>  the Walkman's reels on the counter, which turn while Echo Lane plays
   the rest      things you can click (ids)
 """
 from __future__ import annotations
@@ -342,6 +343,8 @@ def counter(root):
     c.build(g)
     emitter(root, (cx, cy - 0.24, top + 0.14), "steam")
 
+    walkman(root, 2.85, yc - 0.02, top)
+
     t = group("capsules", parent=root, id="capsules")
     k = Model("capsule_tower")
     tx = cx + 0.42
@@ -351,6 +354,59 @@ def counter(root):
         a = i * 0.9
         k.cyl(0.035, 0.03, (tx + math.cos(a) * 0.06, cy + math.sin(a) * 0.06, top + 0.05 + i * 0.037), col, segs=6)
     k.build(t)
+
+
+def walkman(root, x: float, y: float, top: float):
+    """A Walkman on the counter, lying where it was left: blue and silver, its headphones (orange
+    foam) beside it, and the tape's case standing by, Echo Lane's cover on it: a night-blue square,
+    a pink sun going down behind a grid. The reels (`walkman_reel_<k>`) turn while it plays."""
+    g = group("walkman", parent=root, id="walkman")
+    m = Model("walkman_body")
+    w, d, h = 0.3, 0.2, 0.07                                                            # a little big, so it reads
+    rot = (0, 0, 0.25)
+    m.box((w, d, h), (x, y, top + h / 2), "#3f5fa8", rot=rot)                           # the body
+    m.box((w + 0.006, d + 0.006, 0.018), (x, y, top + h - 0.012), "#c9c6c0", rot=rot)    # the silver lid
+    c, sn = math.cos(rot[2]), math.sin(rot[2])
+
+    def at(u: float, v: float, z: float):
+        """A point on it: u along, v across from its middle, z up from the counter."""
+        return (x + u * c - v * sn, y + u * sn + v * c, top + z)
+
+    m.box((0.2, 0.11, 0.006), at(0, 0.01, h + 0.001), "#1b1820", rot=rot)              # the tape window
+    m.box((0.06, 0.04, 0.007), at(0, 0.01, h + 0.002), "#f06a8a", rot=rot)             # the tape's label
+    for k in range(4):                                                                  # the buttons along the front
+        m.box((0.05, 0.03, 0.03), at(-0.09 + k * 0.06, -d / 2 - 0.012, h - 0.02), P.TUNER if k else "#c8403a", rot=rot)
+    m.cyl(0.018, 0.02, at(w / 2 - 0.03, d / 2 - 0.02, h), "#c8403a", segs=6)            # the volume wheel
+    # the headphones: a wire band and two orange foam pads, the lead running back to it
+    hx, hy = x - 0.05, y - 0.28
+    for s_ in (-1, 1):
+        m.cyl(0.055, 0.035, (hx + s_ * 0.13, hy, top), "#f07a1a", segs=10)
+        m.cyl(0.03, 0.04, (hx + s_ * 0.13, hy, top), P.IRON, segs=8)
+    for k in range(6):                                                                  # the band, arched over flat
+        a0, a1 = math.pi * k / 6, math.pi * (k + 1) / 6
+        m.plank_line((hx - 0.13 * math.cos(a0), hy + 0.1 * math.sin(a0), top + 0.02),
+                     (hx - 0.13 * math.cos(a1), hy + 0.1 * math.sin(a1), top + 0.02), 0.015, 0.012, "#c9c6c0")
+    m.plank_line((hx + 0.13, hy, top + 0.01), at(w / 2 - 0.02, -0.05, 0.04), 0.008, 0.008, P.INK)  # the lead
+    # the case, stood up against the wall: Echo Lane's cover
+    lean, sx, sy, sz, sw, sh = -0.12, x + 0.38, Y1 - 0.08, top + 0.11, 0.2, 0.22
+
+    def on(u: float, v: float, out: float = 0.012):
+        """A point on the cover: u across, v up from its middle."""
+        return (sx + u, sy - out * math.cos(lean) - v * math.sin(lean), sz - out * math.sin(lean) + v * math.cos(lean))
+
+    m.box((sw, 0.05, sh), (sx, sy + 0.02, sz), "#cfe0e8", rot=(lean, 0, 0))              # the clear case
+    m.box((sw - 0.02, 0.02, sh - 0.02), (sx, sy, sz), "#1f2550", rot=(lean, 0, 0))
+    m.cyl(0.06, 0.006, on(0, 0.03, 0.008), "#f06a8a", segs=12, rot=(math.pi / 2 + lean, 0, 0))   # the sun
+    m.box((0.13, 0.006, 0.01), on(0, 0.01, 0.017), "#1f2550", rot=(lean, 0, 0))         # bands across it
+    m.box((sw - 0.04, 0.006, 0.012), on(0, -0.035), "#4fe0e6", rot=(lean, 0, 0))         # the horizon
+    m.box((sw - 0.04, 0.006, 0.01), on(0, -0.07), "#4fe0e6", rot=(lean, 0, 0))           # the grid
+    m.build(g)
+    for k, u in enumerate((-0.05, 0.05)):
+        reel = Model(f"walkman_reel_{k}")
+        reel.cyl(0.03, 0.004, (0, 0, 0), P.WHITE, segs=8)
+        reel.box((0.008, 0.05, 0.005), (0, 0, 0.002), "#1b1820")                         # a spoke, so you see it turn
+        reel.build(g, loc=at(u, 0.01, h + 0.004))
+    emitter(g, (x, y, top + 0.45), "notes")
 
 
 def board(root):

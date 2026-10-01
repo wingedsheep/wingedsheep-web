@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import beats from '../data/beats.json';
 import piano from '../data/piano.json';
 import records from '../data/records.json';
+import album from '../data/album.json';
 import songs from '../data/songs.json';
 import { type IslandContext, type PanelName, SECRETS, labelFor, placeFor } from './content';
 import { type WeatherKind, fetchForecast } from './forecast';
@@ -92,7 +93,7 @@ export async function bootIsland(host: HTMLElement) {
   const pixels = new PixelRenderer(renderer, pixelSizeFor(host.clientWidth, host.clientHeight));
   const sky = new Sky(scene, island, pixels, water.uniforms);
   const life = new Life(scene, island, sky);
-  const sound = new Sound(songs, piano, records);
+  const sound = new Sound(songs, piano, records, album);
   life.beike.onBark = () => sound.bark();
   // animals nearer the middle of the view sound louder, and off to the side they're heard from
   // that side; the ones calling out unasked only carry from somewhere near what's on screen

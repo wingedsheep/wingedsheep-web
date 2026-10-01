@@ -174,6 +174,21 @@ const places = [
       <p>Nearly at the top. The stove's lit, the soup's on, and there's a bed made up in the corner.</p>
       <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
     </header>
+    <div class="walkman" data-walkman hidden>
+      <div class="walkman-tape" aria-hidden="true">
+        <span class="walkman-reel"></span>
+        <span class="walkman-label"><strong>Echo Lane</strong>Beyond the Known</span>
+        <span class="walkman-reel"></span>
+      </div>
+      <p class="walkman-now"><span data-walkman-now aria-live="polite">A1 · Ghost in the Machine</span><span data-walkman-time>0:00</span></p>
+      <div class="walkman-keys" role="group" aria-label="The Walkman's keys">
+        <button data-key="rew" aria-label="Rewind" title="Rewind">◀◀</button>
+        <button data-key="play" aria-label="Play" title="Play" aria-pressed="false">▶</button>
+        <button data-key="stop" aria-label="Stop" title="Stop">■</button>
+        <button data-key="ff" aria-label="Fast forward" title="Fast forward">▶▶</button>
+        <button data-key="eject" aria-label="Eject (put it down)" title="Eject">⏏</button>
+      </div>
+    </div>
   </section>
   <section class="workshop" data-panel="workshop" hidden aria-labelledby="workshop-title">
     <header class="workshop-banner">

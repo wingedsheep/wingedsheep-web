@@ -1,0 +1,60 @@
+[
+  {
+    "id": 1,
+    "file": "records/echo-lane-01",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Ghost in the Machine",
+    "duration": 196.7
+  },
+  {
+    "id": 2,
+    "file": "records/echo-lane-02",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Breakaway",
+    "duration": 262.3
+  },
+  {
+    "id": 3,
+    "file": "records/echo-lane-03",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Parallel Lives",
+    "duration": 261.4
+  },
+  {
+    "id": 4,
+    "file": "records/echo-lane-04",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Data Ghost",
+    "duration": 261.1,
+    "start": 1.42
+  },
+  {
+    "id": 5,
+    "file": "records/echo-lane-05",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Neon Dreams",
+    "duration": 228.4
+  },
+  {
+    "id": 6,
+    "file": "records/echo-lane-06",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Hologram",
+    "duration": 228.9,
+    "start": 0.52
+  },
+  {
+    "id": 7,
+    "file": "records/echo-lane-07",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Covenant of Shadows",
+    "duration": 261.7
+  },
+  {
+    "id": 8,
+    "file": "records/echo-lane-08",
+    "set": "Echo Lane · Beyond the Known",
+    "title": "Mirage Protocol",
+    "duration": 261.7
+  }
+]

@@ -85,6 +85,7 @@ export const SECRETS = {
   ufo: { title: 'Unidentified', hint: 'Only at night. Only for a moment.' },
   moons: { title: 'Two moons', hint: 'Count the moons in the sea at night.' },
   piano: { title: 'Two originals', hint: 'Not all the music on the island is played outdoors.' },
+  echolane: { title: 'Beyond the known', hint: 'Somebody left a Walkman up at the hut, with a tape still in it.' },
   flock: { title: 'The flock', hint: '↑ ↑ ↓ ↓ ← → ← → B A' },
   robot: { title: 'The workshop robot', hint: 'Someone in the workshop keeps tripping over things.' },
   travels: { title: 'Pins in the globe', hint: 'Lean in close to the globe in the library.' },
@@ -1393,8 +1394,22 @@ export const HUT_PLACES: Record<string, Place> = {
     activate(ctx) {
       soundOn(ctx);
       if (ctx.sound.playing) return;
+      if (ctx.sound.albumPlaying) ctx.sound.stopAlbum(); // the tape can wait
       ctx.sound.ask();
       ctx.toast('He shuffles the stool an inch closer to the stove, counts in, and starts to play.');
+    },
+  },
+  walkman: {
+    label: (ctx) => {
+      const t = ctx.sound.albumPlaying;
+      return t ? `A Walkman · playing Echo Lane, ${t.title}` : 'A Walkman · with a tape still in it';
+    },
+    activate(ctx) {
+      // the hut opens its keys (hut.ts); the first time, the story of the tape
+      soundOn(ctx);
+      if (ctx.journal.has('echolane')) return;
+      ctx.toast('Echo Lane, Beyond the Known: an album Vincent made with AI in 2024. A language model he fine-tuned wrote the lyrics, and every song grew thirty seconds at a time, forwards or backwards from where it began.');
+      ctx.discover('echolane');
     },
   },
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
