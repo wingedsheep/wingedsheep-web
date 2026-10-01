@@ -82,8 +82,8 @@ const WOBBLE_FOR = 4.5;
 /** How hard it rocks (torque) off a drop this high (m). */
 const wobbleKick = (height: number) => Math.min(5.5, 2.5 + height * 0.7);
 /**
- * The washing machine: off a drop no faster than the water going over it (and TUMBLE_MARGIN m/s
- * more; a boof gets away with BOOF_GRACE less), the hole at its foot has you. It holds you in the
+ * The washing machine: off a drop going no faster through the water than TUMBLE_MARGIN m/s (just
+ * carried over it, not paddling; a boof gets away with BOOF_GRACE less), the hole at its foot has you. It holds you in the
  * foam, see-saws you end over end and rolls you about. Paddle hard, leaning forward, to break out
  * of it; held TUMBLE_FOR s and it flushes you out, upside down.
  */
@@ -282,7 +282,8 @@ export class Kayak {
   private bed = 0; // the river's height under it, a step ago
   /** How fast you were going over the last lip (m/s). */
   lipSpeed = 0;
-  private lipWater = 0; // and how fast the river was going over it
+  /** …and how fast through the water, forward (m/s: 0 is just carried along by it). */
+  lipThrough = 0;
   /** In the washing machine (see TUMBLE_FOR): the hole, how long it's had you, and how far you've paddled out of it (0..1). */
   private tumbler: { hole: Hole; t: number; out: number } | null = null;
   private lipSkew = 0; // how far off the river's line the bow pointed going over the lip
@@ -1125,7 +1126,7 @@ export class Kayak {
     l.passed = true;
     this.dropHeight = l.height;
     this.lipSpeed = this.speed;
-    this.lipWater = this.here?.speed ?? 0;
+    this.lipThrough = this.through.x * Math.sin(this.heading) - this.through.y * Math.cos(this.heading);
     // (still turning as you go over, you land more crooked than you left)
     this.lipSkew = (this.here ? angle(this.heading - this.here.a) : 0) + Math.max(-0.3, Math.min(0.3, this.yawRate * 0.3));
     // a boof: a stroke catching right at the lip, not leaning forward (leaning back lifts the bow more)
@@ -1243,7 +1244,7 @@ export class Kayak {
     }
     if (height > 0.6 && upright && this.dropHeight > 0 && this.balance !== 'rolling') {
       this.rock(Math.max(height, this.dropHeight), this.boofing ? 0.5 : 1);
-      if (this.lipSpeed < this.lipWater + TUMBLE_MARGIN - (this.boofing ? BOOF_GRACE : 0)) this.washed();
+      if (this.lipThrough < TUMBLE_MARGIN - (this.boofing ? BOOF_GRACE : 0)) this.washed();
     }
     this.dropHeight = 0;
     this.events.splash?.(fall, this.pos.clone());

@@ -78,6 +78,10 @@ interface Run {
   rolls: number;
   swam: boolean;
   bad: number; // bad landings
+  /** Into the washing machine at the foot of a drop (too slow over it), and how it came out: paddled out, or flushed out over. */
+  washed: number;
+  washedOut: number;
+  washedOver: number;
   braces: number;
   incidents: Incident[];
   /** Why it stopped short, if it did. */
@@ -89,7 +93,7 @@ interface Run {
   rms: number;
 }
 
-const clean = (r: Run) => r.finished && !r.knocks && !r.capsizes && !r.bad;
+const clean = (r: Run) => r.finished && !r.knocks && !r.capsizes && !r.bad && !r.washed;
 
 // (at the bottom, once the Pilot's defined)
 async function main() {
@@ -111,7 +115,7 @@ async function main() {
     process.exit(2);
   }
   console.log(`${SEEDS} seeds a river, paddling at ${S.power}, a line that ferries at ${S.ferry} m/s with ${S.margin} m to spare\n`);
-  console.log(pad('river', 12) + pad('clean', 8) + pad('knocked', 9) + pad('capsized', 10) + pad('swam', 6) + pad('landed', 8) + pad('short', 7) + pad('off', 7) + pad('knocks', 8) + pad('bumps', 7) + 'time');
+  console.log(pad('river', 12) + pad('clean', 8) + pad('knocked', 9) + pad('capsized', 10) + pad('swam', 6) + pad('landed', 8) + pad('washed', 8) + pad('short', 7) + pad('off', 7) + pad('knocks', 8) + pad('bumps', 7) + 'time');
   // every run on its own, handed out to the cores as they come free (the long rivers first)
   const jobs: [string, number][] = [...only].reverse().flatMap((r) => Array.from({ length: SEEDS }, (_, i) => [r.id, i + 1] as [string, number]));
   const cores = Math.max(1, Math.min(jobs.length, Number(args.cores ?? cpus().length)));
@@ -142,7 +146,7 @@ async function main() {
     const time = done.length ? done.reduce((a, r) => a + r.time, 0) / done.length : NaN;
     console.log(
       pad(river.id, 12) + pad(`${n(clean)}`, 8) + pad(`${n((r) => r.knocks > 0)}`, 9) + pad(`${n((r) => r.capsizes > 0)}`, 10)
-      + pad(`${n((r) => r.swam)}`, 6) + pad(`${n((r) => r.bad > 0)}`, 8) + pad(`${n((r) => !r.finished)}`, 7) + pad((runs.reduce((a, r) => a + r.rms, 0) / runs.length).toFixed(2), 7)
+      + pad(`${n((r) => r.swam)}`, 6) + pad(`${n((r) => r.bad > 0)}`, 8) + pad(`${n((r) => r.washed > 0)}`, 8) + pad(`${n((r) => !r.finished)}`, 7) + pad((runs.reduce((a, r) => a + r.rms, 0) / runs.length).toFixed(2), 7)
       + pad(`${runs.reduce((a, r) => a + r.knocks, 0)}`, 8) + pad((runs.reduce((a, r) => a + r.bumps, 0) / runs.length).toFixed(1), 7) + (Number.isNaN(time) ? '-' : `${time.toFixed(0)} s`),
     );
     const wrong = runs.filter((r) => !clean(r));
@@ -166,7 +170,7 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
   const auto = autopilot(course, kayak, start, finish);
   const { plan, pilot } = auto;
   const run: Run = {
-    seed, finished: false, time: 0, metres: 0, knocks: 0, bumps: 0, capsizes: 0, rolls: 0, swam: false, bad: 0, braces: 0,
+    seed, finished: false, time: 0, metres: 0, knocks: 0, bumps: 0, capsizes: 0, rolls: 0, swam: false, bad: 0, washed: 0, washedOut: 0, washedOver: 0, braces: 0,
     incidents: [], plan: plan.kind, rms: 0, bits: bits(course, start, finish),
   };
   const note = (what: string, trouble = false) => {
@@ -178,6 +182,7 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
     run.incidents.push(inc);
     if (tell) console.log(`${inc.t.toFixed(1).padStart(6)} s ${inc.at.toFixed(0).padStart(5)} m  ${what}, in ${inc.where}`);
   };
+  let washing = false; // in the washing machine right now
   kayak.events = {
     hit: (strength, at) => {
       run.knocks++;
@@ -189,7 +194,13 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
       note(`knocked (${strength.toFixed(1)}, ${(kayak.side - pilot.uAt(kayak.s)).toFixed(1)} m off the line)${detail}`, true);
     },
     bump: (strength) => { if (strength > 0.6) run.bumps++; },
-    capsize: () => (run.capsizes++, note('capsized', true)),
+    capsize: () => {
+      run.capsizes++;
+      if (washing) (run.washedOver++, (washing = false));
+      note('capsized', true);
+    },
+    tumbler: () => (run.washed++, (washing = true), note(`in the washing machine (${kayak.lipSpeed.toFixed(1)} m/s over the lip, ${kayak.lipThrough.toFixed(1)} through the water)`, true)),
+    punched: () => { if (washing) (run.washedOut++, (washing = false), note('paddled out of the washing machine')); },
     rolled: () => (run.rolls++, note('rolled up')),
     swim: () => (run.swam = true, note('swimming')),
     brace: (perfect) => (run.braces++, tell && note(perfect ? 'perfect brace' : 'brace')),
@@ -242,6 +253,7 @@ function summary(r: Run, river?: RiverDef) {
   if (r.knocks) bits.push(`${r.knocks} knock${r.knocks > 1 ? 's' : ''}`);
   if (r.capsizes) bits.push(`${r.capsizes} capsize${r.capsizes > 1 ? 's' : ''} (${r.rolls} rolled up)`);
   if (r.bad) bits.push(`${r.bad} bad landing${r.bad > 1 ? 's' : ''}`);
+  if (r.washed) bits.push(`${r.washed}× in the washing machine (${r.washedOut} paddled out, ${r.washedOver} flushed over)`);
   if (r.braces) bits.push(`${r.braces} brace${r.braces > 1 ? 's' : ''}`);
   if (r.plan === 'holes') bits.push('(the only line goes through a hole)');
   const first = r.incidents.find((i) => i.what !== 'rolled up' && !i.what.includes('brace'));
