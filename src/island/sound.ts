@@ -259,6 +259,7 @@ export class Sound {
   private lastTake = new Map<string, number>();
   /** The kitchen tap's stream while it runs (tap()). */
   private tapRun?: { src: AudioBufferSourceNode; gain: GainNode; off: AudioBufferSourceNode };
+  private tapSynth: { src: AudioBufferSourceNode; gain: GainNode }[] = [];
   private loading = new Set<SfxSet>();
   private wantsFestive = false;
   /** Fed by the synthesised beds, so they can step aside once the recording is in. */
@@ -573,7 +574,7 @@ export class Sound {
     if (kind === 'tap' && this.tap(volume)) return;
     // the recording if it's in (the whale's splash is its breach), duller the further off it is
     const recorded = kind === 'splash' ? 'breach' : kind;
-    if (kind !== 'chord' && this.play(recorded, volume, { air: 2500 + volume * 17500, pan })) return;
+    if (kind !== 'chord' && kind !== 'tap' && this.play(recorded, volume, { air: 2500 + volume * 17500, pan })) return;
     const t = this.ctx.currentTime;
     const tone = (type: OscillatorType, at: number, glide: [number, number][], peak: number, length: number, filter?: number) =>
       this.tone(t + at, type, glide, peak * volume, length, filter);
@@ -596,8 +597,8 @@ export class Sound {
         tone('sine', 1.6, [[0, 410], [0.8, 360]], 0.22, 1.0);
         break;
       case 'tap': // the kitchen tap, left running while the cats drink (TAP_RUNS in quarters.ts)
-        hiss(0, 14, 2600, 0.06, true);
-        hiss(0.05, 14, 900, 0.04, true);
+        this.tapSynth = [hiss(0, 14, 2600, 0.06, true), hiss(0.05, 14, 900, 0.04, true)]
+          .filter((node): node is NonNullable<typeof node> => !!node);
         break;
       case 'lap': // a cat at the stream: quick wet flicks of the tongue
         for (let i = 0; i < 10; i++) hiss(i * 0.24 + r(0, 0.03), 0.06, r(1600, 2600), 0.03);
@@ -876,6 +877,7 @@ export class Sound {
     src.connect(f).connect(env).connect(this.master!);
     src.start(t, Math.random());
     src.stop(t + length + 0.05);
+    return { src, gain: env };
   }
 
   // --- the river ------------------------------------------------------------------------
@@ -1721,8 +1723,8 @@ export class Sound {
 
   /**
    * The kitchen tap, left running while the cats drink (TAP_RUNS in quarters.ts): turned on, the
-   * stream looped for as long as it runs, and turned off. Turned on again while it's running, it
-   * just runs on. False if the recordings haven't arrived, so the synthesised one plays instead.
+   * stream looped for as long as it runs, and turned off. False if the recordings haven't
+   * arrived, so the synthesised one plays instead.
    */
   private tap(volume: number): boolean {
     const [run] = this.sfx.get('tap-run') ?? [];
@@ -1762,6 +1764,26 @@ export class Sound {
     this.tapRun = run2;
     src.onended = () => { if (this.tapRun === run2) this.tapRun = undefined; };
     return true;
+  }
+
+  /** Close the kitchen tap early, including its scheduled closing sound. */
+  stopTap() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const run = this.tapRun;
+    if (run) {
+      run.off.stop();
+      run.src.onended = null;
+      this.tapRun = undefined;
+    }
+    for (const node of [...(run ? [run] : []), ...this.tapSynth]) {
+      node.gain.gain.cancelScheduledValues(t);
+      node.gain.gain.setValueAtTime(node.gain.gain.value, t);
+      node.gain.gain.linearRampToValueAtTime(0, t + 0.1);
+      node.src.stop(t + 0.1);
+    }
+    this.tapSynth = [];
+    if (this.enabled) this.play('tap-off');
   }
 
   /**

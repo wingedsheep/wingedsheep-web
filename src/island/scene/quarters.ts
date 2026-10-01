@@ -968,7 +968,8 @@ export class QuartersRoom {
    * The water bowl by the door is right there. It doesn't count.
    */
   tap() {
-    this.drinking = TAP_RUNS;
+    this.drinking = this.drinking > 0 ? 0 : TAP_RUNS;
+    return this.drinking > 0;
   }
 
   private drink(dt: number) {

@@ -284,7 +284,11 @@ export class Lighthouse implements RoomInput {
     this.ui.tooltip(null);
     if (hit.id === 'stairs') return this.climb(this.floor === 'lamp' ? 'quarters' : 'lamp');
     if (room instanceof QuartersRoom) room.guests.pet(hit.id, hit.point);
-    if (room instanceof QuartersRoom && hit.id === 'tap') room.tap();
+    if (room instanceof QuartersRoom && hit.id === 'tap' && !room.tap()) {
+      this.ctx.sound.stopTap();
+      this.ctx.toast('You turn off the tap.');
+      return;
+    }
     place.activate?.(this.ctx, hit.point);
   }
 
