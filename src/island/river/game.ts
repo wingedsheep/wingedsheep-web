@@ -1008,6 +1008,14 @@ export class RiverGame {
         this.events.sound?.('hole', stuck ? 1 : 0.5);
         if (stuck) this.tell('hole', true);
       },
+      tumbler: () => {
+        this.events.sound?.('hole', 1);
+        this.shake = Math.max(this.shake, 0.6);
+        this.controls.rumble(0.8, 0.6, 300);
+        if (this.tally.flow > 1.2) this.broke('Too slow off the drop: the washing machine');
+        else this.events.praise?.('The washing machine!', false);
+        this.tell('hole', true);
+      },
       punched: () => this.well('Punched it!', 0.3, { sound: 'whoosh', rumble: 0.5 }),
       // reading the water: out of the current into the slack behind a rock or a bend, and out again
       eddy: () => {

@@ -72,6 +72,24 @@ const lineTolerance = (big: number) => 0.05 + 0.15 * (0.5 - big * 0.3);
  */
 const fallFlipSkew = (big: number) => 0.34 - big * 0.12;
 const ledgeFlipSkew = (height: number) => 0.7 - Math.min(2.5, height) * 0.1;
+/**
+ * Off a drop, the boat rocks side to side in the foot of it, and it's on you to steady it: for a
+ * few seconds it rocks this fast (rad/s) and sits looser, and it settles in WOBBLE_FOR s left to
+ * itself, much quicker leaning against each rock.
+ */
+const WOBBLE_RATE = 3.2;
+const WOBBLE_FOR = 4.5;
+/** How hard it rocks (torque) off a drop this high (m). */
+const wobbleKick = (height: number) => Math.min(5.5, 2.5 + height * 0.7);
+/**
+ * The washing machine: off a drop no faster than the water going over it (and TUMBLE_MARGIN m/s
+ * more; a boof gets away with BOOF_GRACE less), the hole at its foot has you. It holds you in the
+ * foam, see-saws you end over end and rolls you about. Paddle hard, leaning forward, to break out
+ * of it; held TUMBLE_FOR s and it flushes you out, upside down.
+ */
+const TUMBLE_MARGIN = 0.3;
+const BOOF_GRACE = 1;
+const TUMBLE_FOR = 6;
 /** A boof: the stroke has to catch this close (s) before the lip. */
 export const BOOF_WINDOW = 0.45;
 /** The lip: this far (m) above a ledge's arc length the river starts to pour over it. */
@@ -137,6 +155,8 @@ export interface KayakEvents {
   peel?(): void;
   /** The roll failed: swimming. */
   swim?(): void;
+  /** Too slow off a drop: caught in the washing machine at its foot. */
+  tumbler?(): void;
   /** Into a hole (stuck: too slow to punch it), and out the other side. */
   hole?(stuck: boolean): void;
   punched?(): void;
@@ -262,6 +282,9 @@ export class Kayak {
   private bed = 0; // the river's height under it, a step ago
   /** How fast you were going over the last lip (m/s). */
   lipSpeed = 0;
+  private lipWater = 0; // and how fast the river was going over it
+  /** In the washing machine (see TUMBLE_FOR): the hole, how long it's had you, and how far you've paddled out of it (0..1). */
+  private tumbler: { hole: Hole; t: number; out: number } | null = null;
   private lipSkew = 0; // how far off the river's line the bow pointed going over the lip
   private pitchNow = 0; // leaning forward (+) or back (-)
   private leanNow = 0;
@@ -271,6 +294,8 @@ export class Kayak {
   private braceSide = 0;
   private tipped = false;
   private slam = 0; // a bad landing off a waterfall still rolling you over (torque, fading)
+  /** Rocking side to side after a drop (see WOBBLE_RATE): how much is left (0..1), how hard, and where in a rock it is. */
+  private wobble = { left: 0, kick: 0, phase: 0 };
   private flip = 0; // 0 upright … 1 upside down (the model)
   private inTongue: Tongue | null = null;
   private skipHole: Hole | null = null;
@@ -324,6 +349,8 @@ export class Kayak {
     this.side = 0;
     this.here = p;
     this.tilt = this.tiltV = this.slam = 0;
+    this.wobble.left = 0;
+    this.tumbler = null;
     this.braceReady = 1;
     this.fall = this.fallMeter = null;
     this.balance = 'up';
@@ -360,6 +387,8 @@ export class Kayak {
     this.vel.set(0, 0);
     this.heading = p.a;
     this.yawRate = this.tilt = this.tiltV = this.slam = this.vy = 0;
+    this.wobble.left = 0;
+    this.tumbler = null;
     this.braceReady = 1;
     this.fall = this.fallMeter = null;
     this.airborne = false;
@@ -435,6 +464,8 @@ export class Kayak {
       this.lastSide = side;
       this.effort = Math.min(1, this.effort + 0.3 * power);
       if (kind === 'fwd') this.lastCatch = this.clock;
+      // in the washing machine, every hard stroke forward (leaning into it) drags you a bit further out
+      if (kind === 'fwd' && this.tumbler) this.tumbler.out += power * (0.14 + Math.max(0, this.pitchNow) * 0.1) * (this.sprinting ? 1.4 : 1);
       if (kind === 'fwd') this.pumped(power);
       // a forward stroke turns you away from its side, a reverse sweep towards it
       if (kind === 'fwd') this.spinFwd = -side;
@@ -604,6 +635,7 @@ export class Kayak {
           break;
       }
     }
+    if (this.tumbler) hole = this.tumbler.hole; // (it isn't letting go)
 
     // the hull: the water pushes on each end, by how that end moves through the water there
     const hx = Math.sin(this.heading);
@@ -673,6 +705,7 @@ export class Kayak {
     this.heading += this.yawRate * dt;
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.y * dt;
+    if (this.tumbler) this.tumble(dt, fx, fz, up);
 
     // rocks and logs knock it about
     this.touching = false;
@@ -742,7 +775,7 @@ export class Kayak {
       this.holed += dt;
       this.lastHole = hole;
       // held too long, a hole spits you out at one end
-      if (this.holed > 1.2) {
+      if (this.holed > 1.2 && !this.tumbler) {
         const out = Math.sign(this.side - hole.u) || 1;
         this.pos.x += rx * out * dt * (1 + this.holed);
         this.pos.z += rz * out * dt * (1 + this.holed);
@@ -927,7 +960,9 @@ export class Kayak {
     const wild = THREE.MathUtils.smoothstep(this.rough, 0.7, 1) * WILD_EASE;
     let torque = this.rough * (3.2 + this.difficulty * 2) * stance * (1 - wild * 0.7) * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
     if (Math.random() < dt * this.rough * 2.2 * (1 - wild)) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * this.rough * stance * (1 - wild * 0.6);
-    if (hole) torque += Math.sin(t * 5) * 5.5 * hole.strength * stance * (1 + Math.min(2, this.holed));
+    // (in the washing machine it doesn't keep building: it's already doing its worst, slower too)
+    if (hole) torque += Math.sin(t * 5) * 5.5 * hole.strength * stance * (1 + Math.min(this.tumbler ? 0.5 : 2, this.holed));
+    if (this.tumbler) torque += Math.sin(t * 2.4 + 1) * 2 * stance;
     // below a big waterfall the water boils: long slow heaves one way and then the other, and
     // every so often a boil bursting up under one edge. Lean against it and keep paddling.
     const boil = p.boil * (1 - this.eddy * 0.6);
@@ -959,12 +994,22 @@ export class Kayak {
     torque += lean * 4.5;
     torque += this.slam;
     this.slam *= Math.exp(-dt * 1.5);
+    // rocking after a drop: it sits loose and swings one way and then the other. Lean against
+    // each swing (or paddle on) and it settles; sit still and it rocks on for a while
+    const wb = this.wobble;
+    const rocking = wb.left;
+    if (rocking > 0) {
+      wb.phase += dt * WOBBLE_RATE;
+      torque += Math.sin(wb.phase) * wb.kick * Math.sqrt(rocking);
+      const against = Math.abs(this.tilt) > 0.08 ? Math.max(0, -Math.sign(this.tilt) * this.leanNow) : 0;
+      wb.left = Math.max(0, rocking - dt * (1 + against * 2.5 + this.effort) / WOBBLE_FOR);
+    }
     const planted = this.blade.kind === 'plant' ? 0.4 : 0; // a blade in the water is something to lean on
-    const steady = (2.2 + this.effort * 3.5 + planted * 3) * (1 - broadside * 0.5) * (1 + wild);
+    const steady = (2.2 + this.effort * 3.5 + planted * 3) * (1 - broadside * 0.5) * (1 + wild) * (1 - rocking * 0.5);
     const over = Math.abs(this.tilt) - TIP;
     // upright, it wants to stay that way; past the tipping point it wants to go on over
     torque += over < 0 ? -steady * this.tilt : Math.sign(this.tilt) * (2 + over * 10);
-    this.tiltV += (torque - this.tiltV * (2.2 + this.effort * 1.5 + wild * 3)) * dt;
+    this.tiltV += (torque - this.tiltV * (2.2 + this.effort * 1.5 + wild * 3) * (1 - rocking * 0.5)) * dt;
     this.tilt += this.tiltV * dt;
     if (!running) {
       this.tilt = Math.max(-TIP * 0.8, Math.min(TIP * 0.8, this.tilt));
@@ -1012,9 +1057,18 @@ export class Kayak {
   }
 
   private capsize() {
+    // in the washing machine: it lets go of you once you're over, and flushes you out downstream
+    const tb = this.tumbler;
+    if (tb && this.here) {
+      this.skipHole = tb.hole;
+      this.tumbler = null;
+      this.vel.x += Math.sin(this.here.a) * 2.5;
+      this.vel.y -= Math.cos(this.here.a) * 2.5;
+    }
     this.balance = 'rolling';
     this.fall = this.fallMeter = null;
     this.tiltV = this.slam = 0;
+    this.wobble.left = 0;
     this.roll = { needle: 0, window: Math.max(0.12, 0.36 - this.rolls * 0.06 - this.difficulty * 0.08), time: 0 };
     this.vel.multiplyScalar(0.5);
     this.holed = 0;
@@ -1071,6 +1125,7 @@ export class Kayak {
     l.passed = true;
     this.dropHeight = l.height;
     this.lipSpeed = this.speed;
+    this.lipWater = this.here?.speed ?? 0;
     // (still turning as you go over, you land more crooked than you left)
     this.lipSkew = (this.here ? angle(this.heading - this.here.a) : 0) + Math.max(-0.3, Math.min(0.3, this.yawRate * 0.3));
     // a boof: a stroke catching right at the lip, not leaning forward (leaning back lifts the bow more)
@@ -1186,9 +1241,19 @@ export class Kayak {
         this.events.ledge?.('pencil', height);
       }
     }
+    if (height > 0.6 && upright && this.dropHeight > 0 && this.balance !== 'rolling') {
+      this.rock(Math.max(height, this.dropHeight), this.boofing ? 0.5 : 1);
+      if (this.lipSpeed < this.lipWater + TUMBLE_MARGIN - (this.boofing ? BOOF_GRACE : 0)) this.washed();
+    }
     this.dropHeight = 0;
     this.events.splash?.(fall, this.pos.clone());
     this.boofing = false;
+  }
+
+  /** Down off a drop (m high): the boat starts rocking, first swing the way it's already going. */
+  private rock(height: number, k: number) {
+    const side = Math.abs(this.tiltV) > 0.05 ? Math.sign(this.tiltV) : Math.random() < 0.5 ? -1 : 1;
+    this.wobble = { left: 1, kick: wobbleKick(height) * k, phase: side > 0 ? 0 : Math.PI };
   }
 
   /** Off a drop sideways: stopped dead in the foot of it, and over on the side the bow pointed. */
@@ -1199,6 +1264,48 @@ export class Kayak {
     this.events.ledge?.('skew', height);
     this.tilt = s * OVER;
     this.capsize();
+  }
+
+  /** Too slow off the drop: the hole at its foot has you. */
+  private washed() {
+    const hole = this.course?.near(this.s - 2, this.s + 6).find((t): t is Hole => 'kind' in t && t.kind === 'hole' && t.s > this.s - 2);
+    if (!hole) return;
+    this.skipHole = null;
+    this.tumbler = { hole, t: 0, out: 0 };
+    this.vel.multiplyScalar(0.3);
+    this.events.tumbler?.();
+  }
+
+  /**
+   * In the washing machine: the foam pours back into the curtain and drags you back in, surging
+   * you to and fro, the bow and stern see-sawing. Paddle out of it, or it flushes you out over.
+   */
+  private tumble(dt: number, fx: number, fz: number, up: boolean) {
+    const tb = this.tumbler!;
+    tb.t += dt;
+    if (!up) return;
+    if (tb.out >= 1) {
+      // broken out: over the back of the foam and away downstream
+      this.tumbler = null;
+      this.skipHole = tb.hole;
+      this.punchedHoles.add(tb.hole);
+      this.vel.x += fx * 3;
+      this.vel.y += fz * 3;
+      this.events.punched?.();
+      return;
+    }
+    if (tb.t > TUMBLE_FOR) {
+      this.tilt = (Math.sign(this.tilt) || 1) * OVER;
+      this.capsize();
+      return;
+    }
+    // held just below the curtain, surging, and further out the more you've paddled
+    const along = this.vel.x * fx + this.vel.y * fz;
+    const want = -(this.s - (tb.hole.s - 0.4 + tb.out * 1.2)) * 2.5 + Math.sin(this.clock * 2.2) * 0.9;
+    const k = 1 - Math.exp(-dt * 4);
+    this.vel.x += fx * (want - along) * k;
+    this.vel.y += fz * (want - along) * k;
+    this.pitch = Math.sin(this.clock * 4.5) * (0.3 + 0.1 * Math.sin(this.clock * 1.3));
   }
 
   /** After a boof, the hole at the foot of the ledge can't hold you. */
