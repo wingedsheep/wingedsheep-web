@@ -248,6 +248,7 @@ export async function bootIsland(host: HTMLElement) {
     toast: (text, duration) => ui.toast(text, 'note', duration),
     showDrawing: (src, alt) => ui.showDrawing(src, alt),
     ask: (text, choices) => ui.ask(text, choices),
+    watch: () => lighthouse.watch(),
     discover(id) {
       if (!journal.discover(id)) return;
       sound.chime('found');

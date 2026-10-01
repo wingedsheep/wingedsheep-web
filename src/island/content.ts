@@ -57,6 +57,8 @@ export interface IslandContext {
   toast(text: string, duration?: number): void;
   /** Hold a drawing up to the screen. */
   showDrawing(src: string, alt: string): void;
+  /** Put the film on the telly in the keeper's quarters. */
+  watch(): void;
   /** A toast with buttons; picking one dismisses it. */
   ask(text: string, choices: { label: string; pick?(): void }[]): void;
   /** Mark a secret as found (toasts the first time). */
@@ -1188,7 +1190,9 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   vincent_coding: DESK,
   stairs: { label: 'The stairs · up to the lamp' }, // src/island/lighthouse.ts does the climbing
   console: {
-    label: () => (telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show].label : 'The telly · play GTA Arnhem'),
+    label: () => (telly.film ? 'The telly · Tails of Power'
+      : telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show].label
+      : 'The telly · GTA Arnhem, or a film'),
     activate(ctx) {
       const play = {
         label: 'Play ↗',
@@ -1197,9 +1201,20 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
           ctx.discover('arnhem');
         },
       };
+      if (telly.film) return ctx.toast('Two cats in armour, a war for the throne, and the music turned right up.');
+      const film = { label: 'Watch Tails of Power', pick: () => ctx.watch() };
       const on = telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show] : null;
-      if (on) ctx.ask(on.text, [{ ...play, label: on.play }, { label: on.stay }]);
-      else ctx.ask('GTA Arnhem: drive around Arnhem, where Vincent grew up. It opens in a new tab.', [play, { label: 'Not now' }]);
+      if (on) {
+        ctx.ask(on.text, [{ ...play, label: on.play }, {
+          label: 'Put on Tails of Power',
+          pick() {
+            ctx.watch();
+            ctx.toast('She hands over the remote. Cats in armour: fair enough.');
+          },
+        }, { label: on.stay }]);
+      } else {
+        ctx.ask('The console’s plugged in: GTA Arnhem, a drive round the town where Vincent grew up (it opens in a new tab). Or there’s Tails of Power, a fantasy trailer starring two cats, made with AI.', [film, { ...play, label: 'Play GTA Arnhem ↗' }, { label: 'Not now' }]);
+      }
     },
   },
   cartridge: {

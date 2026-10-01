@@ -22,7 +22,8 @@ export type Room = 'hut' | 'lighthouse' | 'workshop';
 /** What's on the telly while she's watching it (quarters.ts draws it, content.ts says what it is). */
 export type Show = 'murder' | 'location' | 'bnb' | 'rail';
 export const SHOWS: Show[] = ['murder', 'location', 'bnb', 'rail'];
-export const telly: { show: Show | null } = { show: null };
+/** What's on: her programme, unless you've put the film on (lighthouse.ts), which comes first. */
+export const telly: { show: Show | null; film: boolean } = { show: null, film: false };
 
 const STAY: [number, number] = [100, 220]; // seconds she spends at one spot
 const RAIN_WAIT = 20; // seconds she'll wait out of sight before going in anyway, in the rain

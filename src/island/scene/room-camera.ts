@@ -5,6 +5,9 @@ const YAW = THREE.MathUtils.degToRad(-22); // looking in from the south-east
 const DISTANCE = 60;
 const MAX_ZOOM = 4;
 const GLIDE = 3.5; // how quickly a focus() glides in
+const SIT = 0.9; // seconds to turn round to face something square on (sit())
+const SEAT_TILT = THREE.MathUtils.degToRad(22); // from behind the sofa, over the heads of whoever is on it
+const SEAT_SHARE = 0.36; // how much of the canvas the thing you're sat in front of fills
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -22,8 +25,15 @@ export class RoomCamera {
   private goal: { zoom: number; offset: THREE.Vector2 } | null = null;
   /** focus() may go in closer than the scroll wheel can (and lets it follow); zooming back out drops it again. */
   private limit = MAX_ZOOM;
+  /** Sat in front of something (the telly): the view turns to face it square on, from the sofa. */
+  private seat: { at: THREE.Vector3; normal: THREE.Vector3; size: THREE.Vector2 } | null = null;
+  private sitting = false;
+  /** How far round the view has turned to the seat (0 = the usual view, 1 = sat down). */
+  private sat = 0;
   private fit = {
     position: V(),
+    quaternion: new THREE.Quaternion(),
+    canvas: new THREE.Vector2(1, 1), // the canvas's size, in CSS pixels
     right: V(),
     up: V(),
     half: new THREE.Vector2(1, 1), // half the visible width and height when framed
@@ -64,6 +74,8 @@ export class RoomCamera {
     fit.right.setFromMatrixColumn(cam.matrixWorld, 0);
     fit.up.setFromMatrixColumn(cam.matrixWorld, 1);
     fit.position.copy(cam.position).addScaledVector(fit.right, shift.x).addScaledVector(fit.up, shift.y);
+    fit.quaternion.copy(cam.quaternion);
+    fit.canvas.set(width, height);
     fit.half.set((perPx * width) / 2, (perPx * height) / 2);
     fit.perPx = perPx;
     fit.lo.copy(box.min).sub(shift);
@@ -100,10 +112,36 @@ export class RoomCamera {
     if (instant) this.step(Infinity);
   }
 
+  /**
+   * Turn round to face something square on: `at` its middle, `normal` the way it faces (level),
+   * `size` its width and height. It fills most of the canvas, with what's around it still in view.
+   */
+  sit(at: THREE.Vector3, normal: THREE.Vector3, size: THREE.Vector2, instant = false) {
+    this.seat = { at: at.clone(), normal: normal.clone().setY(0).normalize(), size: size.clone() };
+    this.sitting = true;
+    if (instant) this.sat = 1;
+    this.apply();
+  }
+
+  /** Back to the usual view of the room. */
+  stand(instant = false) {
+    this.sitting = false;
+    if (instant) {
+      this.sat = 0;
+      this.apply();
+    }
+  }
+
+  /** Whether the view is turned round to a seat (or on its way there, or back). */
+  get seated() {
+    return this.sat > 0 || this.sitting;
+  }
+
   /** Move a glide along; true while it's still moving (and on the frame it arrives). */
   step(dt: number) {
+    const turning = this.turn(dt);
     const goal = this.goal;
-    if (!goal) return false;
+    if (!goal) return turning;
     const k = 1 - Math.exp(-GLIDE * dt);
     const was = this.offset.clone();
     this.zoom = Math.exp(THREE.MathUtils.lerp(Math.log(this.zoom), Math.log(goal.zoom), k));
@@ -115,6 +153,16 @@ export class RoomCamera {
       this.goal = null;
       this.apply();
     }
+    return true;
+  }
+
+  /** Turn towards the seat, or back from it; true while it's moving. */
+  private turn(dt: number) {
+    const want = this.sitting ? 1 : 0;
+    if (this.sat === want) return false;
+    this.sat = want ? Math.min(1, this.sat + dt / SIT) : Math.max(0, this.sat - dt / SIT);
+    if (this.sat === 0) this.seat = null;
+    this.apply();
     return true;
   }
 
@@ -154,8 +202,25 @@ export class RoomCamera {
     this.offset.x = THREE.MathUtils.clamp(this.offset.x, fit.lo.x * reach, fit.hi.x * reach);
     this.offset.y = THREE.MathUtils.clamp(this.offset.y, fit.lo.y * reach, fit.hi.y * reach);
     cam.position.copy(fit.position).addScaledVector(fit.right, this.offset.x).addScaledVector(fit.up, this.offset.y);
-    const w = fit.half.x / this.zoom;
-    const h = fit.half.y / this.zoom;
+    cam.quaternion.copy(fit.quaternion);
+    let w = fit.half.x / this.zoom;
+    let h = fit.half.y / this.zoom;
+    if (this.seat && this.sat > 0) {
+      // round to the front of it, a little above: the whole way there, it stays in the middle
+      const { at, normal, size } = this.seat;
+      const k = THREE.MathUtils.smoothstep(this.sat, 0, 1);
+      const aspect = fit.canvas.x / fit.canvas.y;
+      const sh = Math.max(size.y, size.x / aspect) / SEAT_SHARE / 2;
+      const from = normal.clone().multiplyScalar(Math.cos(SEAT_TILT)).setY(Math.sin(SEAT_TILT));
+      const look = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, V(), cam.up));
+      // swing round what's in the middle of the view, from the room's middle over to the telly
+      const middle = cam.position.clone().addScaledVector(V(0, 0, -1).applyQuaternion(cam.quaternion), DISTANCE);
+      middle.lerp(at, k);
+      cam.quaternion.slerp(look, k);
+      cam.position.copy(middle).addScaledVector(V(0, 0, 1).applyQuaternion(cam.quaternion), DISTANCE);
+      w = THREE.MathUtils.lerp(w, sh * aspect, k);
+      h = THREE.MathUtils.lerp(h, sh, k);
+    }
     Object.assign(cam, { left: -w, right: w, top: h, bottom: -h });
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld();

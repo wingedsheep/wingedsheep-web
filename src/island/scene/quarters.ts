@@ -122,7 +122,9 @@ export class QuartersRoom {
   private sipK = -1;
   /** Vincent's coffee run (coffee()): sips while he types, then up for a refill, and back. */
   private run = { phase: 'sit' as 'sit' | 'go' | 'brew' | 'back', t: 0, along: 0, yaw: Math.PI, step: 0 };
-  private screen?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; next: number };
+  private screen?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; next: number; mesh: THREE.Mesh };
+  /** A film's on (lighthouse.ts lays the player over the screen): the screen behind it goes dark. */
+  film = false;
   private clock = 0;
   /** Whether Vincent's at his desk and typing right now (the lighthouse plays the keys). */
   typing = false;
@@ -838,7 +840,30 @@ export class QuartersRoom {
     texture.colorSpace = THREE.SRGBColorSpace;
     faceRoom(mesh, 'west');
     mesh.material = new THREE.MeshBasicMaterial({ map: texture });
-    this.screen = { canvas, texture, next: 0 };
+    this.screen = { canvas, texture, next: 0, mesh };
+  }
+
+  /**
+   * The telly's screen, in the world: its top-left, top-right and bottom-left corners, its middle,
+   * and the way it faces (into the room, +x).
+   */
+  get tellyScreen() {
+    const mesh = this.screen?.mesh;
+    if (!mesh) return null;
+    mesh.geometry.computeBoundingBox();
+    const { min, max } = mesh.geometry.boundingBox!;
+    const x = max.x; // its front
+    const at = (y: number, z: number) => V(x, y, z).applyMatrix4(mesh.matrixWorld);
+    // (faceRoom: the picture runs from +z on the left to -z on the right)
+    const corners = { tl: at(max.y, max.z), tr: at(max.y, min.z), bl: at(min.y, max.z) };
+    const middle = corners.tr.clone().add(corners.bl).multiplyScalar(0.5);
+    return { ...corners, middle, normal: V(1, 0, 0).transformDirection(mesh.matrixWorld) };
+  }
+
+  /** A point in the room, in CSS pixels on a canvas this size. */
+  project(p: THREE.Vector3, width: number, height: number) {
+    const v = p.clone().project(this.camera);
+    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height };
   }
 
   private drawScreen() {
@@ -846,6 +871,12 @@ export class QuartersRoom {
     if (!s || this.clock < s.next) return;
     s.next = this.clock + 1 / 12; // a jerky twelve frames a second, like it should be
     const ctx = s.canvas.getContext('2d')!;
+    if (this.film) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, s.canvas.width, s.canvas.height);
+      s.texture.needsUpdate = true;
+      return;
+    }
     // with her on the sofa, it's her programme on (companion.ts), not the game
     if (telly.show && indoors.has('companion_lighthouse')) {
       drawProgramme(ctx, telly.show, this.clock);

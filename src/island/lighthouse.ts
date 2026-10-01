@@ -15,6 +15,8 @@ import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
 const NO_SHIFT = new THREE.Vector2();
+/** Tails of Power, the cat fantasy trailer, on the telly. */
+const FILM = 'https://www.youtube-nocookie.com/embed/nbV7pH5wCPI?autoplay=1&rel=0&playsinline=1';
 const BANNER = {
   quarters: 'The keeper\'s quarters. The coffee\'s on and the console\'s plugged in.',
   lamp: 'The lamp room, at the top of the tower. Mind the lens.',
@@ -39,6 +41,9 @@ export class Lighthouse implements RoomInput {
   private wantFloor: Floor = 'quarters';
   private rooms: { quarters?: QuartersRoom; lamp?: LampRoom } = {};
   private loading: { quarters?: Promise<Room | undefined>; lamp?: Promise<Room | undefined> } = {};
+  /** The film's player (IslandShell.astro), laid over the telly's screen while it's on. */
+  private film = document.querySelector<HTMLElement>('[data-film]');
+  private screen?: NonNullable<QuartersRoom['tellyScreen']>;
 
   constructor(
     private ctx: IslandContext,
@@ -46,7 +51,15 @@ export class Lighthouse implements RoomInput {
     private pixels: PixelRenderer,
     private host: HTMLElement,
     private reducedMotion: boolean,
-  ) {}
+  ) {
+    this.film?.querySelector('[data-film-off]')?.addEventListener('click', () => this.switchOff());
+    // Escape turns the telly off first, and only then leaves
+    window.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !telly.film) return;
+      e.stopImmediatePropagation();
+      this.switchOff();
+    }, true);
+  }
 
   /** Whether the pointer should drive the room rather than the island. */
   get wanted() {
@@ -65,7 +78,65 @@ export class Lighthouse implements RoomInput {
 
   /** What's on the telly, if you're in the room with it and she's in watching it. */
   get programme(): Show | null {
-    return this.inside && this.floor === 'quarters' && indoors.has('companion_lighthouse') ? telly.show : null;
+    return this.inside && this.floor === 'quarters' && indoors.has('companion_lighthouse') && !telly.film ? telly.show : null;
+  }
+
+  /** Put the film on: the view turns to face the telly, with the room still round it. */
+  watch() {
+    const room = this.rooms.quarters;
+    const screen = room?.tellyScreen;
+    const el = this.film;
+    if (!room || !screen || !el || !this.inside || this.floor !== 'quarters') return;
+    this.screen = screen;
+    telly.film = room.film = true;
+    const size = new THREE.Vector2(screen.tl.distanceTo(screen.tr), screen.tl.distanceTo(screen.bl));
+    room.view.sit(screen.middle, screen.normal, size, this.reducedMotion);
+    const player = document.createElement('iframe');
+    player.src = FILM;
+    player.title = 'Tails of Power';
+    player.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    player.allowFullscreen = true;
+    player.referrerPolicy = 'strict-origin-when-cross-origin';
+    el.querySelector('[data-film-screen]')!.replaceChildren(player);
+    el.hidden = false;
+    this.pinFilm();
+    this.ctx.sound.film = true;
+    this.ui.tooltip(null);
+  }
+
+  /** Off goes the telly (the player with it), and the view turns back to the room. */
+  switchOff(instant = false) {
+    if (!telly.film) return;
+    telly.film = false;
+    const room = this.rooms.quarters;
+    if (room) {
+      room.film = false;
+      room.view.stand(instant || this.reducedMotion);
+    }
+    if (this.film) {
+      this.film.hidden = true;
+      this.film.querySelector('[data-film-screen]')!.replaceChildren();
+    }
+    this.ctx.sound.film = false;
+  }
+
+  /** Keep the player on the telly's screen: its corners, wherever they are on the canvas. */
+  private pinFilm() {
+    const room = this.rooms.quarters;
+    const el = this.film?.querySelector<HTMLElement>('[data-film-screen]');
+    if (!room || !el || !this.screen) return;
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
+    const tl = room.project(this.screen.tl, w, h);
+    const tr = room.project(this.screen.tr, w, h);
+    const bl = room.project(this.screen.bl, w, h);
+    const across = Math.max(1, Math.hypot(tr.x - tl.x, tr.y - tl.y));
+    const down = Math.max(1, Math.hypot(bl.x - tl.x, bl.y - tl.y));
+    // sized in real pixels (so the player's controls stay readable), then turned and sheared onto the screen
+    el.style.width = `${across}px`;
+    el.style.height = `${down}px`;
+    const m = [(tr.x - tl.x) / across, (tr.y - tl.y) / across, (bl.x - tl.x) / down, (bl.y - tl.y) / down, tl.x, tl.y];
+    el.style.transform = `matrix(${m.map((v) => v.toFixed(4)).join(',')})`;
   }
 
   private get room(): Room | undefined {
@@ -96,6 +167,7 @@ export class Lighthouse implements RoomInput {
   /** Go in (or out). `instant` skips the iris closing, e.g. coming straight from another room. */
   enter(inside: boolean, instant = false) {
     if (inside) void this.load();
+    if (!inside) this.switchOff(true);
     if (inside && !this.inside) this.wantFloor = 'quarters'; // in through the front door, at the bottom
     this.want = inside;
     if (instant) this.fade = inside === this.inside ? 0 : 1;
@@ -109,6 +181,7 @@ export class Lighthouse implements RoomInput {
 
   /** Up (or down) the spiral stair: the iris closes on one floor and opens on the other. */
   climb(to: Floor) {
+    this.switchOff(true);
     // if the floor won't load, the iris opens again on the one you're on
     void this.load(to).then((room) => {
       if (!room) this.wantFloor = this.floor;
@@ -123,14 +196,16 @@ export class Lighthouse implements RoomInput {
     // the banner along the top; the room gets the rest
     const free = w > 760 ? { x: 16, y: 84, w: w - 32, h: h - 110 } : { x: 8, y: 100, w: w - 16, h: h - 150 };
     for (const room of Object.values(this.rooms)) room?.frame(w, h, free);
+    if (telly.film) this.pinFilm();
   }
 
+  // sat in front of the telly, the view stays put
   zoom(factor: number, ndc: THREE.Vector2) {
-    this.room?.view.zoomBy(factor, ndc);
+    if (!this.room?.view.seated) this.room?.view.zoomBy(factor, ndc);
   }
 
   pan(dxPx: number, dyPx: number) {
-    this.room?.view.pan(dxPx, dyPx);
+    if (!this.room?.view.seated) this.room?.view.pan(dxPx, dyPx);
   }
 
   hover(ndc: THREE.Vector2 | null, client: { x: number; y: number }) {
@@ -169,7 +244,10 @@ export class Lighthouse implements RoomInput {
       this.fade = Math.max(0, this.fade - step);
     }
     this.pixels.uniforms.uFade.value = this.fade;
-    if (this.inside && this.room) this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
+    if (this.inside && this.room) {
+      if (this.room.view.step(this.reducedMotion ? Infinity : dt) && telly.film) this.pinFilm(); // turning to face the telly
+      this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
+    }
   }
 
   render() {

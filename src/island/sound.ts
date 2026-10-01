@@ -218,6 +218,8 @@ export class Sound {
   /** The two minutes' silence on the fourth of May, 0..1 (remembrance.ts): everything fades right away. */
   silence = 0;
   private hush?: GainNode;
+  /** A film on the keeper's telly (lighthouse.ts): it has its own sound, so everything else steps back. */
+  film = false;
   /** Upside down in the river: everything heard through the water, and your own pressure in your ears. */
   private dunk?: BiquadFilterNode;
   private deep?: GainNode;
@@ -1247,7 +1249,7 @@ export class Sound {
   update(campfireNearness: number, view: number, dt: number) {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
-    this.hush?.gain.setTargetAtTime(1 - this.silence, t, 0.1);
+    this.hush?.gain.setTargetAtTime((1 - this.silence) * (this.film ? 0.15 : 1), t, this.film ? 0.4 : 0.1);
     const near = this.indoors || this.atRiver || this.diorama ? 0 : Math.max(0, Math.min(1, campfireNearness));
     // indoors the sea and the wind come through the walls; up in a diorama the island's far below
     const walls = this.atRiver ? 0 : this.indoors ? 0.3 : this.diorama ? 0.3 : 1;

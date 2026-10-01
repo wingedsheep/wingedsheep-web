@@ -167,6 +167,11 @@ const places = [
       <p>The keeper's quarters. The coffee's on and the console's plugged in.</p>
       <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
     </header>
+    <!-- a film on the telly: the player is laid over its screen while it plays (lighthouse.ts) -->
+    <div class="film" data-film hidden>
+      <div class="film-screen" data-film-screen></div>
+      <button class="hud-btn film-off" data-film-off>Turn the telly off</button>
+    </div>
   </section>
   <section class="workshop" data-panel="hut" hidden aria-labelledby="hut-title">
     <header class="workshop-banner">

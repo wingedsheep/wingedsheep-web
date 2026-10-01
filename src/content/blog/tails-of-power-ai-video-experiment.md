@@ -7,7 +7,7 @@ cover: "/blog/tails-of-power-ai-video-experiment/cover.webp"
 shelf: ai
 ---
 
-<!-- TODO: the "Tails of Power" trailer video was embedded here. The Ghost video card is broken on the live site too (only the player text '0:00/1×' survived), so the video file or a YouTube link has to be re-added by hand. -->
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/nbV7pH5wCPI?rel=0" title="Tails of Power" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe>
 
 After seeing some hilarious photoshopped images of my girlfriend's cats dressed as a naval admiral and a general, I had an idea. What if we could create an entire fantasy epic trailer, something in the style of Game of Thrones or Lord of the Rings, but replace all the characters with majestic, heroic cats? With OpenAI's recent release of Sora, this seemed like the perfect moment to test the current state of AI video generation and bring "Tails of Power" to life.
 

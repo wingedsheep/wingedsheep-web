@@ -516,6 +516,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .exhibit-player button[aria-pressed='true'] { background: var(--paper); }
 .exhibit-now { margin: 6px 0 0 !important; font: italic 14px/1.35 var(--serif); color: var(--paper-2); }
 /* the carried Walkman: its keys, while you've got it in your hands */
+/* the keeper's telly showing a film: the player sits on its screen, wherever that is on the canvas */
+.film { position: absolute; inset: 0; pointer-events: none; }
+.film[hidden] { display: none; }
+.film-screen { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: auto; background: #000; }
+.film-screen iframe { display: block; width: 100%; height: 100%; border: 0; }
+.film-off { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); pointer-events: auto; }
 .walkman {
   position: absolute; z-index: 21; left: 16px; bottom: 16px; width: min(300px, calc(100vw - 32px));
   padding: 10px 12px 12px; pointer-events: auto; color: #f4ead3; background: #3f5fa8; clip-path: var(--notch);
