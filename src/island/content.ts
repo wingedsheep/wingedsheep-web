@@ -118,7 +118,7 @@ export const SECRETS = {
   supersheep: { title: 'Super Sheep', hint: 'Once in a long while, one of the flock has somewhere to be. Fast.' },
   bottle: { title: 'Message in a bottle', hint: 'Keep an eye on the beach. Now and then the sea brings something in.' },
   thief: { title: 'Daylight robbery', hint: 'Someone by the fire should keep a closer eye on his dinner.' },
-  fairfolk: { title: 'Ill met by moonlight', hint: 'On some dry evenings there’s music down on the beach. Midsummer’s Eve is the surest.' },
+  fairfolk: { title: 'Ill met by moonlight', hint: 'On some dry evenings there’s music just past the campfire. Midsummer’s Eve is the surest.' },
   // the rare sightings (src/island/scene/sightings.ts)
   balloon: { title: 'Up, up and away', hint: 'On a calm summer evening, look up. Gelderland’s skies are full of them.' },
   starlings: { title: 'Murmuration', hint: 'At dusk in autumn, thousands of wings over the west of the island, turning as one.' },

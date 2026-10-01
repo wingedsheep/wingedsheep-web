@@ -17,8 +17,8 @@ const headingOf = (dx: number, dz: number) => Math.atan2(-dz, dx);
 /** Face along a heading, then pitch and roll (the models face +x). */
 const orient = (o: THREE.Object3D, heading: number, pitch = 0, roll = 0) => o.rotation.set(roll, heading, pitch, 'YZX');
 
-/** Where they dance: on the top of the beach just east of the pier, where the grass gives way to sand. */
-const SHORE = B(4.4, -13.9);
+/** Where they dance: on the grass east of the campfire, under the oaks at the edge of the woods. */
+const GLADE = B(32.0, -1.3);
 const RING = 1.6; // the ring's radius (tools/models/fae.py)
 const PIXIES = ['pixie_rose', 'pixie_blue', 'pixie_gold', 'pixie_green', 'pixie_rose', 'pixie_blue'];
 const GLITTER = ['#fff6d8', '#ffd1f0', '#c8f0ff', '#e0ffd0', '#ffe8a0'];
@@ -50,7 +50,7 @@ interface Wisp {
 
 /**
  * The fair folk's revel. On some evenings and nights (and every Midsummer's Eve), from dusk on,
- * if it's dry, will-o'-the-wisps drift out of the woods and down to the beach by the pier; where
+ * if it's dry, will-o'-the-wisps drift out of the woods to the grass just east of the campfire; where
  * they sink into the grass a ring of toadstools comes up, glowing; pixies pop into being round
  * it, and Oberon and Titania shimmer up in the middle. Then the dance: the pixies dance the
  * ring, the King and Queen turn round each other with their hands joined overhead, and Puck
@@ -68,7 +68,7 @@ export class Revel {
   private pixies: Body[] = [];
   private scales = new Map<Body, number>();
   private light = new THREE.PointLight('#c8f5dc', 0, 7, 1.4);
-  private centre = SHORE.clone();
+  private centre = GLADE.clone();
   private phase: Phase = 'waiting';
   private t = 0;
   private clock = 0;
@@ -118,7 +118,7 @@ export class Revel {
       if (/^fairyring_cap_\d+$/.test(o.name)) this.caps.push(o);
     });
     this.caps.sort((a, b) => Number(a.name.split('_').pop()) - Number(b.name.split('_').pop()));
-    const h = ground.at(SHORE.x, SHORE.z);
+    const h = ground.at(GLADE.x, GLADE.z);
     this.centre.setY(Number.isNaN(h) ? 1 : h);
     this.light.position.copy(this.centre).add(V(0, 1.2, 0));
     scene.add(this.light);
@@ -236,13 +236,13 @@ export class Revel {
       delete b.root.userData.popped;
       delete b.root.userData.poof;
     }
-    // down out of the trees inland, and in along the shore from either side
-    const outs = [0.2, 0.7, 1.3, 1.9, 2.5, 2.95];
+    // in from all round
+    const turn = rand(0, Math.PI * 2);
     this.wisps = Array.from({ length: 5 }, (_, i) => {
       const a = (i / 5) * Math.PI * 2 + rand(-0.3, 0.3);
-      const out = outs[(i + Math.floor(rand(0, outs.length))) % outs.length] + rand(-0.15, 0.15);
-      const far = rand(7, 10);
-      const from = this.centre.clone().add(V(Math.cos(out) * far, rand(0.6, 1.4), -Math.sin(out) * far * 0.7));
+      const out = turn + (i / 5) * Math.PI * 2 + rand(-0.4, 0.4);
+      const far = rand(6, 9);
+      const from = this.centre.clone().add(V(Math.cos(out) * far, rand(0.6, 1.4), -Math.sin(out) * far));
       const to = this.onGround(this.centre.x + Math.cos(a) * RING, this.centre.z + Math.sin(a) * RING).add(V(0, 0.25, 0));
       const via = from.clone().lerp(to, 0.5).add(V(rand(-2, 2), rand(0.8, 1.6), rand(-1.5, 1.5)));
       return { from, via, to, delay: rand(0, 2.5), at: from.clone() };
@@ -325,7 +325,7 @@ export class Revel {
       const k = p.caps[i];
       const was = cap.userData.up ?? 0;
       cap.scale.setScalar(Math.max(0.001, k));
-      cap.position.y = this.onGround(c.x + cap.position.x, c.z + cap.position.z).y - c.y; // the beach slopes
+      cap.position.y = this.onGround(c.x + cap.position.x, c.z + cap.position.z).y - c.y; // the ground slopes
       cap.visible = k > 0.01;
       if (was < 0.05 && k >= 0.05 && this.phase === 'ring') {
         this.burst(cap.getWorldPosition(V()).add(V(0, 0.1, 0)), 5, 0.5);
