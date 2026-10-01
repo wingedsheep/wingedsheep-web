@@ -517,10 +517,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .exhibit-now { margin: 6px 0 0 !important; font: italic 14px/1.35 var(--serif); color: var(--paper-2); }
 /* the carried Walkman: its keys, while you've got it in your hands */
 .walkman {
-  position: absolute; z-index: 21; left: 50%; bottom: 44px; transform: translateX(-50%); width: min(300px, calc(100vw - 32px));
+  position: absolute; z-index: 21; left: 16px; bottom: 16px; width: min(300px, calc(100vw - 32px));
   padding: 10px 12px 12px; pointer-events: auto; color: #f4ead3; background: #3f5fa8; clip-path: var(--notch);
   box-shadow: inset 0 10px 0 #c9c6c0, inset 0 12px 0 #2b4580, inset 0 -4px 0 #2b4580;
-  animation: card-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  animation: toast-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 /* Leave room for the tape and its keys below every notification, including discoveries. */
 body:has(.walkman:not([hidden])) .toasts { bottom: 220px; }
@@ -594,7 +594,7 @@ body:has(.walkman:not([hidden])) .toasts { bottom: 220px; }
 @media (max-width: 760px) {
   .workshop-banner { top: 52px; padding: 6px 44px 6px 12px; }
   .workshop-banner p { display: none; }
-  .walkman { bottom: 64px; }
+  .walkman { left: 8px; bottom: 64px; }
   body:has(.walkman:not([hidden])) .toasts { bottom: 240px; }
   .project-list, .project-list-open { top: auto; bottom: 64px; left: 8px; width: calc(100% - 16px); max-height: 46vh; }
   .project-list-open { width: auto; }
