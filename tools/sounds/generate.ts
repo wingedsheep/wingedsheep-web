@@ -160,7 +160,11 @@ export const SOUNDS: Sfx[] = [
   { name: 'clink', seconds: 1, prompt: 'A glass bottle bumping onto pebbles at the edge of the sea, a light clink and a wash of water' },
   { name: 'jump', seconds: 0.5, prompt: 'A single soft footstep landing on a thin exercise mat on grass, a quiet thump' },
   { name: 'flurry', seconds: 2, prompt: 'A seagull snatching food off a metal plate, a clatter of the plate and a flurry of big flapping wings taking off' },
-  { name: 'tap', seconds: 2.5, prompt: 'A kitchen tap turned on, water running into a steel sink for a moment, then turned off' },
+  // the kitchen tap, left running for the cats: turned on, a thin stream (looped as long as it runs), turned off
+  { name: 'tap', seconds: 1.5, prompt: 'A kitchen tap handle turned on with a small squeak, and a thin stream of water starting to patter into an empty steel sink, close, quiet kitchen, no voices' },
+  { name: 'tap-run', loop: true, seconds: 8, prompt: 'A thin steady stream of water running from a kitchen tap into a stainless steel sink, a gentle constant trickle and patter, close, quiet kitchen, no voices, no music' },
+  { name: 'tap-off', seconds: 1.2, prompt: 'A kitchen tap handle turned off, the thin stream of water stopping, a couple of last drips into a steel sink, close, quiet' },
+  ...[1, 2].map((i) => ({ name: `lap-${i}`, seconds: 3, prompt: 'Close-up of a cat drinking from a thin stream of running tap water, quick rhythmic wet lapping of its tongue, soft and delicate, no meowing, no voices, no music' })),
   ...[1, 2].map((i) => ({ name: `thunder-${i}`, seconds: 6, prompt: 'Distant thunder rolling across the sky, a long low rumble fading away, no rain' })),
   { name: 'boom', seconds: 1.5, prompt: 'A single punchy explosion, a cartoonish boom with a puff of debris' },
   { name: 'firework', seconds: 3, prompt: 'A single firework rocket whistling up into the sky, a bang, then crackling sparkles falling' },

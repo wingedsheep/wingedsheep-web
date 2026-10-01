@@ -73,7 +73,7 @@ type Clip = keyof typeof CLIPS;
  * the first time you step into one, and the telly's the first time she has it on while you're in.
  */
 const SFX = {
-  island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
+  island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, 'tap-run': 1, 'tap-off': 1, lap: 2, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 1,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
     flurry: 1, stroke: 3, burner: 1, horn: 1, murmur: 1, seal: 1,
@@ -98,7 +98,7 @@ type SfxSet = keyof typeof SFX;
  */
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
-  purr: 0.55, mew: 0.4, tap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
+  purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, raven: 0.45, burner: 0.4, horn: 0.55, murmur: 0.5, seal: 0.45,
@@ -257,6 +257,8 @@ export class Sound {
   /** The recordings that have arrived, each a list of takes, and which take played last. */
   private sfx = new Map<string, AudioBuffer[]>();
   private lastTake = new Map<string, number>();
+  /** The kitchen tap's stream while it runs (tap()). */
+  private tapRun?: { src: AudioBufferSourceNode; gain: GainNode; off: AudioBufferSourceNode };
   private loading = new Set<SfxSet>();
   private wantsFestive = false;
   /** Fed by the synthesised beds, so they can step aside once the recording is in. */
@@ -568,6 +570,7 @@ export class Sound {
   call(kind: Call, volume = 1, pan = 0) {
     if (kind === 'baa') return this.clip('baa', 0.5 * volume);
     if (!this.enabled || !this.ctx || !this.master) return;
+    if (kind === 'tap' && this.tap(volume)) return;
     // the recording if it's in (the whale's splash is its breach), duller the further off it is
     const recorded = kind === 'splash' ? 'breach' : kind;
     if (kind !== 'chord' && this.play(recorded, volume, { air: 2500 + volume * 17500, pan })) return;
@@ -595,6 +598,9 @@ export class Sound {
       case 'tap': // the kitchen tap, left running while the cats drink (TAP_RUNS in quarters.ts)
         hiss(0, 14, 2600, 0.06, true);
         hiss(0.05, 14, 900, 0.04, true);
+        break;
+      case 'lap': // a cat at the stream: quick wet flicks of the tongue
+        for (let i = 0; i < 10; i++) hiss(i * 0.24 + r(0, 0.03), 0.06, r(1600, 2600), 0.03);
         break;
       case 'grind': // the machine's grinder: a whirr and the crunch of beans
         tone('sawtooth', 0, [[0, 95], [3.4, 105]], 0.06, 3.6, 500);
@@ -1711,6 +1717,51 @@ export class Sound {
     src.connect(g).connect(into);
     src.start(0, Math.random() * buffer.duration);
     return g;
+  }
+
+  /**
+   * The kitchen tap, left running while the cats drink (TAP_RUNS in quarters.ts): turned on, the
+   * stream looped for as long as it runs, and turned off. Turned on again while it's running, it
+   * just runs on. False if the recordings haven't arrived, so the synthesised one plays instead.
+   */
+  private tap(volume: number): boolean {
+    const [run] = this.sfx.get('tap-run') ?? [];
+    if (!run || !this.sfx.has('tap-off') || !this.ctx || !this.master) return false;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const end = t + 14;
+    const old = this.tapRun;
+    if (old) { // already running: put off the end
+      old.gain.gain.cancelScheduledValues(t);
+      old.gain.gain.setValueAtTime(old.gain.gain.value, t);
+      old.src.onended = null;
+      old.src.stop(t + 0.3);
+      old.off.stop();
+      old.gain.gain.linearRampToValueAtTime(0, t + 0.3);
+    } else this.play('tap', volume);
+    const src = ctx.createBufferSource();
+    src.buffer = seamless(ctx, run, 0.8);
+    src.loop = true;
+    const gain = ctx.createGain();
+    const peak = 0.55 * volume; // (levelled as a bed, 6 dB under the one-shots)
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(peak, t + (old ? 0.3 : 0.6));
+    gain.gain.setValueAtTime(peak, end - 0.5);
+    gain.gain.linearRampToValueAtTime(0, end);
+    src.connect(gain).connect(this.master);
+    src.start(t + (old ? 0 : 0.15), Math.random() * src.buffer.duration);
+    src.stop(end + 0.05);
+    // the handle back down, as the stream thins out
+    const off = ctx.createBufferSource();
+    off.buffer = this.sfx.get('tap-off')![0];
+    const offGain = ctx.createGain();
+    offGain.gain.value = LEVEL['tap-off'] * volume;
+    off.connect(offGain).connect(this.master);
+    off.start(end - 0.45);
+    const run2 = { src, gain, off };
+    this.tapRun = run2;
+    src.onended = () => { if (this.tapRun === run2) this.tapRun = undefined; };
+    return true;
   }
 
   /**

@@ -153,7 +153,7 @@ export class QuartersRoom {
   /** Seconds left of the tap running (tap()); where the water comes out and lands, where each cat stands on the counter, and whose turn it is at the stream. */
   private drinking = 0;
   private sink?: { spout: THREE.Vector3; basin: number; spots: Record<string, THREE.Vector3> };
-  private queue = { who: '', t: 0 };
+  private queue = { who: '', t: 0, lap: 0 };
   /** Charlie gives his one small warning (lighthouse.ts makes the sound). */
   onMew?: () => void;
   /** Vincent takes a sip of his coffee (lighthouse.ts makes the sound). */
@@ -163,6 +163,8 @@ export class QuartersRoom {
   private diners = new Map<string, Diner>();
   /** A cat at its bowl starts on a run of bites (lighthouse.ts makes the crunching). */
   onCrunch?: () => void;
+  /** A cat at the stream laps away (lighthouse.ts makes the sound). */
+  onLap?: () => void;
   /** The machine grinds and then brews (lighthouse.ts makes the sounds). */
   onMachine?: (what: 'grind' | 'brew') => void;
   private machineHeard = { grind: false, brew: false };
@@ -1006,8 +1008,14 @@ export class QuartersRoom {
     // whose turn: whoever's up there first, and they swap every few seconds
     const up = [...this.diners].filter(([, d]) => d.state === 'lap').map(([id]) => id);
     const q = this.queue;
-    if (!up.includes(q.who)) Object.assign(q, { who: up[0] ?? '', t: 0 });
-    else if ((q.t += dt) > 3.5 && up.length > 1) Object.assign(q, { who: up.find((id) => id !== q.who)!, t: 0 });
+    if (!up.includes(q.who)) Object.assign(q, { who: up[0] ?? '', t: 0, lap: 0.3 });
+    else if ((q.t += dt) > 3.5 && up.length > 1) Object.assign(q, { who: up.find((id) => id !== q.who)!, t: 0, lap: 0.3 });
+    // and the lapping, once its head's in the stream (a take lasts about as long as a turn)
+    const drinker = this.diners.get(q.who);
+    if (drinker && drinker.sip > 0.6 && (q.lap -= dt) <= 0) {
+      this.onLap?.();
+      q.lap = 3.2;
+    }
     // and everyone in comes running
     for (const [id, d] of this.diners) {
       if (!indoors.has(id) || (id === 'charlie' && indoors.has('companion_lighthouse'))) continue; // (on her lap, Charlie stays put)

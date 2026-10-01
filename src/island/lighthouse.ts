@@ -207,6 +207,7 @@ export class Lighthouse implements RoomInput {
           room.onSip = () => this.ctx.sound.call('sip');
           room.onMachine = (what) => this.ctx.sound.call(what);
           room.onCrunch = () => this.ctx.sound.call('crunch');
+          room.onLap = () => this.ctx.sound.call('lap');
         }
         this.resize();
         return room;
