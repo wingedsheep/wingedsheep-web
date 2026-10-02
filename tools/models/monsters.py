@@ -133,16 +133,22 @@ def tallone(root):
     for s, side in ((1, "l"), (-1, "r")):
         a = Model(f"tallone_arm_{side}")                                                  # from the shoulder, down to its knees
         _limb(a, (0, 0, 0), (0.15, 0, -1.4), 0.14, GAUNT)
-        _limb(a, (0.15, 0, -1.4), (0.35, 0, -2.6), 0.11, GAUNT_LIGHT)
-        for f in range(4):                                                                # long fingers
-            _limb(a, (0.35, 0, -2.6), (0.42 + f * 0.04, (f - 1.5) * 0.06, -3.2 - (f % 2) * 0.1), 0.03, GAUNT_LIGHT)
-        a.build(body, loc=(0.1, s * 0.42, 5.6))
-        g = Model(f"tallone_leg_{side}")                                                  # from the hip: stilts, a knot at the knee
-        _limb(g, (0, 0, 0), (0.05, 0, -1.7), 0.18, GAUNT)
-        g.ball(0.14, (0.05, 0, -1.7), GAUNT_LIGHT, subdiv=1)
-        _limb(g, (0.05, 0, -1.7), (0, 0, -3.4), 0.13, GAUNT_LIGHT)
-        g.box((0.4, 0.14, 0.08), (0.12, 0, -3.44), GAUNT)                                  # a long splayed foot
-        g.build(body, loc=(0, s * 0.18, 3.48))
+        arm = a.build(body, loc=(0.1, s * 0.42, 5.6))
+        f = Model(f"tallone_forearm_{side}")                                              # from the elbow, dangling as it walks
+        _limb(f, (0, 0, 0), (0.2, 0, -1.2), 0.11, GAUNT_LIGHT)
+        for k in range(4):                                                                # long fingers
+            _limb(f, (0.2, 0, -1.2), (0.27 + k * 0.04, (k - 1.5) * 0.06, -1.8 - (k % 2) * 0.1), 0.03, GAUNT_LIGHT)
+        f.build(arm, loc=(0.15, 0, -1.4))
+        g = Model(f"tallone_leg_{side}")                                                  # from the hip: stilts…
+        _limb(g, (0, 0, 0), (0, 0, -1.7), 0.18, GAUNT)
+        leg = g.build(body, loc=(0, s * 0.18, 3.48))
+        n = Model(f"tallone_shin_{side}")                                                 # …a knot at the knee…
+        n.ball(0.14, (0, 0, 0), GAUNT_LIGHT, subdiv=1)
+        _limb(n, (0, 0, 0), (0, 0, -1.7), 0.13, GAUNT_LIGHT)
+        shin = n.build(leg, loc=(0, 0, -1.7))
+        t = Model(f"tallone_foot_{side}")                                                 # …and a long splayed foot, from the ankle
+        t.box((0.4, 0.14, 0.08), (0.12, 0, -0.04), GAUNT)
+        t.build(shin, loc=(0, 0, -1.7))
 
 
 ALL = {

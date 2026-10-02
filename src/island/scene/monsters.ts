@@ -199,6 +199,45 @@ class Horseman {
   }
 }
 
+/** The tall one's legs (monsters.py): hip to knee, knee to ankle, and the ankle's height off the ground. */
+const THIGH = 1.7;
+const SHIN = 1.7;
+const HIP = 3.48;
+const ANKLE = 0.08;
+/** Its walk: how fast it goes at full stride, how long a stride takes, and how much of it a foot is down. */
+const PACE = 0.8;
+const CYCLE = 3.0;
+const DUTY = 0.62;
+/** So how far a foot travels back under it while down, and how high it's lifted on the way forward. */
+const STRIDE = PACE * DUTY * CYCLE;
+const LIFT = 0.32;
+
+/**
+ * Where a foot is, a fraction `p` of the way through its stride: how far ahead of the hip, how
+ * high off the ground, and how its toe tips (down as it pushes off, up as it reaches to land).
+ */
+function footAt(p: number) {
+  p -= Math.floor(p);
+  if (p < DUTY) {
+    const u = p / DUTY;
+    return { x: STRIDE * (0.5 - u), up: 0, toe: u < 0.15 ? 0.2 * (1 - u / 0.15) : u > 0.8 ? -0.35 * ((u - 0.8) / 0.2) : 0 };
+  }
+  const u = (p - DUTY) / (1 - DUTY);
+  return { x: STRIDE * (smooth(u) - 0.5), up: Math.sin(Math.PI * Math.pow(u, 0.8)) * LIFT, toe: -0.35 * (1 - smooth(u * 1.6)) + 0.2 * smooth((u - 0.6) / 0.4) };
+}
+
+/**
+ * Bend a leg to reach a point (x forward of the hip, y up from it): the hip's swing and the knee's
+ * bend, the knee bending forward, as a person's does. Too far to reach, and it just points there.
+ */
+function reach(x: number, y: number) {
+  const d = Math.min(Math.hypot(x, y), THIGH + SHIN - 1e-4);
+  const towards = Math.atan2(x, -y);
+  const hip = Math.acos(THREE.MathUtils.clamp((THIGH ** 2 + d ** 2 - SHIN ** 2) / (2 * THIGH * d), -1, 1));
+  const knee = Math.PI - Math.acos(THREE.MathUtils.clamp((THIGH ** 2 + SHIN ** 2 - d ** 2) / (2 * THIGH * SHIN), -1, 1));
+  return { hip: towards + hip, knee };
+}
+
 /**
  * Something very tall in the eastern woods, all night: it rises out of the forest floor at
  * nightfall (and sinks back into it at dawn), and wanders between the trees, stopping to
@@ -214,7 +253,9 @@ class TallOne {
   private heading = 0;
   private stay = 0;
   private turn = 0;
+  /** How far through its stride, in strides, and how much of a stride it's taking (it eases into a walk, and slows to a stop). */
   private step = 0;
+  private gait = 0;
   private wait = ASKED === 'tallone' ? 2 : rand(20, 90);
   private outside = false;
   /** How far up out of the ground it has come, 0..1: it rises out of the forest floor at nightfall, and sinks back into it at dawn. */
@@ -310,7 +351,7 @@ class TallOne {
       const left = d.length();
       const want = headingOf(d.x, d.z);
       this.heading += Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading)) * (1 - Math.exp(-1.5 * dt));
-      this.at.addScaledVector(d.normalize(), Math.min(left, dt * 0.8));
+      this.at.addScaledVector(d.normalize(), Math.min(left, dt * PACE * this.gait));
       this.onGround(this.at);
       this.turn = Math.max(0, this.turn - dt * 0.5);
       if (left < 0.1) {
@@ -324,10 +365,25 @@ class TallOne {
       if (this.outside) this.turn = Math.min(1, this.turn + dt * 0.25);
       if (this.stay <= 0) this.next();
     }
+    // into its stride as it sets off, slowing as it nears where it's going: its feet keep pace
+    // with the ground, so a shorter stride for a slower walk, and none at all standing still
+    const striding = this.walking && !rising;
+    const left = Math.hypot(this.to.x - this.at.x, this.to.z - this.at.z);
+    const want = striding ? THREE.MathUtils.clamp(left / 1.5, 0.2, 1) : 0;
+    this.gait += (want - this.gait) * (1 - Math.exp(-(want > this.gait ? 1.2 : 3) * dt));
+    if (this.gait < 0.01 && !striding) this.gait = 0;
+    const g = this.gait;
+    if (g > 0) {
+      const before = this.step;
+      this.step += dt / CYCLE;
+      // a heavy footfall each time a foot comes down
+      if (g > 0.3 && Math.floor(before * 2) !== Math.floor(this.step * 2)) this.onCall?.('stomp', this.at.clone(), true);
+    }
     const p = this.at;
     const sunk = (1 - THREE.MathUtils.smoothstep(this.risen, 0, 1)) * 7.8; // its antlers come up first
     b.root.position.copy(p).add(V(0, -sunk, 0));
-    orient(b.root, this.heading, this.walking ? 0.05 : rising ? 0.2 * (1 - this.risen) : 0.12);
+    const lean = rising ? 0.2 * (1 - this.risen) : 0.12 - 0.07 * g;
+    orient(b.root, this.heading, lean);
     this.glow.position.copy(b.root.position).add(V(0, 5.6, 0));
     this.glow.intensity = 9 * this.risen * (0.85 + Math.sin(clock * 1.7) * 0.15);
     if (!rising && (this.cry -= dt) <= 0) {
@@ -335,28 +391,39 @@ class TallOne {
       this.onCall?.('wail', b.root.position.clone().add(V(0, 6, 0)), true);
       this.turn = Math.max(this.turn, 0.4);
     }
-    const striding = this.walking && !rising;
-    if (striding) {
-      const before = Math.sin(this.step);
-      this.step += dt * 3.2;
-      if (Math.sign(Math.sin(this.step)) !== Math.sign(before)) this.onCall?.('stomp', p.clone(), true);
+    // its hips: lowest as a foot comes down, highest as it passes over the other, and swaying
+    // over whichever foot is down
+    const s = this.step;
+    const drop = g * (0.08 + 0.05 * -Math.cos(4 * Math.PI * (s - DUTY / 2)));
+    const body = b.part('body');
+    if (body) {
+      body.position.y -= drop;
+      body.rotation.x -= g * 0.025 * Math.cos(2 * Math.PI * (s - DUTY / 2));
     }
-    const sw = striding ? Math.sin(this.step) * 0.35 : 0;
-    const legL = b.part('leg_l');
-    const legR = b.part('leg_r');
-    if (legL) legL.rotation.z += sw;
-    if (legR) legR.rotation.z -= sw;
-    const armL = b.part('arm_l');
-    const armR = b.part('arm_r');
-    if (armL) armL.rotation.z -= sw * 0.6 + Math.sin(clock * 0.7) * 0.05;
-    if (armR) armR.rotation.z += sw * 0.6 + (!this.walking && this.outside ? 0.25 * this.turn : 0);
+    for (const [side, phase] of [['l', 0], ['r', 0.5]] as const) {
+      const f = footAt(s + phase);
+      const x = f.x * g;
+      const y = -(HIP - ANKLE) + drop + f.up * g - x * lean; // the ground, under a body leaning
+      const { hip, knee } = reach(x, y);
+      const leg = b.part(`leg_${side}`);
+      const shin = b.part(`shin_${side}`);
+      const foot = b.part(`foot_${side}`);
+      if (leg) leg.rotation.z += hip;
+      if (shin) shin.rotation.z -= knee;
+      if (foot) foot.rotation.z += -(hip - knee) - lean + f.toe * g;
+      // the arm on this side swings against this leg, a beat behind, the forearm dangling after it
+      const arm = b.part(`arm_${side}`);
+      const forearm = b.part(`forearm_${side}`);
+      if (arm) arm.rotation.z += -g * 0.22 * Math.cos(2 * Math.PI * (s + phase - 0.08)) + (side === 'l' ? -Math.sin(clock * 0.7) * 0.05 : !this.walking && this.outside ? 0.25 * this.turn : 0);
+      if (forearm) forearm.rotation.z += g * (0.14 + 0.1 * Math.sin(2 * Math.PI * (s + phase - 0.2)));
+    }
     const head = b.part('head');
     if (head) {
       // round towards you (the camera's always off to the south), as far as a neck will go
       const toYou = headingOf(0, 1);
       const d = Math.atan2(Math.sin(toYou - this.heading), Math.cos(toYou - this.heading));
       head.rotation.y += THREE.MathUtils.clamp(d, -1.3, 1.3) * this.turn;
-      head.rotation.z += Math.sin(clock * 0.9) * 0.05 - 0.15 * this.turn;
+      head.rotation.z += Math.sin(clock * 0.9) * 0.05 - 0.15 * this.turn + g * 0.05 * Math.cos(4 * Math.PI * (s - DUTY / 2)); // a nod with each footfall
     }
   }
 }
