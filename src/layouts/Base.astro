@@ -7,26 +7,33 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
+  /** what the image shows, for link previews (a custom image is taken to be 1200×630) */
+  imageAlt?: string;
   /** set on blog posts: marks the page as an article for search engines and link previews */
   published?: Date;
   /** structured data (schema.org) for this page */
   jsonLd?: object;
   noindex?: boolean;
+  lang?: 'en' | 'nl';
+  /** the same page in every language, by language code: becomes hreflang links */
+  alternates?: Record<string, string>;
 }
-const { title, description = site.description, image, published, jsonLd, noindex = false } = Astro.props;
+const { title, description = site.description, image, imageAlt, published, jsonLd, noindex = false, lang = 'en', alternates } = Astro.props;
 const fullTitle = title ? `${title} · ${site.handle}` : `${site.handle} · ${site.name}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL(image ?? '/og.png', Astro.site);
 const ogImageAlt = 'A pixel-art island at dusk: a lighthouse, a library, a workshop and a mountain, surrounded by sea.';
 ---
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    {alternates && Object.entries(alternates).map(([code, path]) => <link rel="alternate" hreflang={code} href={new URL(path, Astro.site)} />)}
+    {alternates?.en && <link rel="alternate" hreflang="x-default" href={new URL(alternates.en, Astro.site)} />}
     <meta name="author" content={site.name} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
@@ -35,16 +42,18 @@ const ogImageAlt = 'A pixel-art island at dusk: a lighthouse, a library, a works
     <meta property="og:site_name" content={site.handle} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
+    <meta property="og:locale" content={lang === 'nl' ? 'nl_NL' : 'en_GB'} />
+    {alternates && Object.keys(alternates).filter((code) => code !== lang).map((code) => <meta property="og:locale:alternate" content={code === 'nl' ? 'nl_NL' : 'en_GB'} />)}
     <meta property="og:type" content={published ? 'article' : 'website'} />
     {published && <meta property="article:published_time" content={published.toISOString()} />}
     {published && <meta property="article:author" content={site.name} />}
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImage} />
-    {!image && (
+    {(!image || imageAlt) && (
       <>
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content={ogImageAlt} />
+        <meta property="og:image:alt" content={imageAlt ?? ogImageAlt} />
       </>
     )}
     <!-- X doesn't reliably fall back to the og: tags, so spell them out -->
@@ -52,7 +61,7 @@ const ogImageAlt = 'A pixel-art island at dusk: a lighthouse, a library, a works
     <meta name="twitter:title" content={fullTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
-    {!image && <meta name="twitter:image:alt" content={ogImageAlt} />}
+    {(!image || imageAlt) && <meta name="twitter:image:alt" content={imageAlt ?? ogImageAlt} />}
     <meta name="theme-color" content="#17466a" />
     <link rel="sitemap" href="/sitemap.xml" />
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd).replace(/</g, '\\u003c')} />}

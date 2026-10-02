@@ -84,6 +84,7 @@ const places = [
   <header class="brand">
     <BrandHeading class="brand-heading"><a href="/" class="brand-name">{site.handle}</a></BrandHeading>
     <p class="brand-tag">{site.name} · {site.tagline}</p>
+    <a class="brand-work" href="/commissions/">Commissioned work: websites, 3D, AI and games →</a>
   </header>
 
   <nav class="hud" aria-label="Island controls">
@@ -244,6 +245,8 @@ const places = [
       When I'm not at a screen, I'm up a mountain, on a river, or losing an evening to a board game.</p>
     <p>This island is where it all ends up. Most things here have a story, and some only show up
       at the right hour. Pull up a log.</p>
+    <p>I also build things like this for other people: interactive websites, 3D, AI and games.
+      <a href="/commissions/">Here's how that works</a>.</p>
     <p>Want to talk about AI, a game idea or a good river? You'll find me here:</p>
     <ul class="links">
       {site.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
@@ -438,6 +441,7 @@ const places = [
     <h2 id="places-title" tabindex="-1">Where to?</h2>
     <ul class="places">
       {places.map((p) => (<li><button data-goto={p.id}><strong>{p.label}</strong><span>{p.hint}</span></button></li>))}
+      <li><a href="/commissions/"><strong>Commissions</strong><span>work with me</span></a></li>
     </ul>
     <p class="muted">The signpost only points at the big places. The rest you'll have to find.</p>
   </section>

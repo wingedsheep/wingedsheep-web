@@ -1,0 +1,197 @@
+---
+/**
+ * The commissions page, in either language (copy in src/data/commissions.ts). The address is
+ * never in the HTML: it goes out as shifted character codes and the script below puts it
+ * together, so scrapers that don't run scripts don't find it.
+ */
+import { COMMISSIONS, COMMISSION_PATHS, KVK, type Lang, RATE } from '../data/commissions';
+import { site } from '../data/site';
+import Base from '../layouts/Base.astro';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = COMMISSIONS[lang];
+const other: Lang = lang === 'en' ? 'nl' : 'en';
+const url = Astro.site!.href;
+const page = new URL(COMMISSION_PATHS[lang], Astro.site).href;
+const amount = (n: number) => n.toLocaleString(lang === 'nl' ? 'nl-NL' : 'en-GB');
+const mail = [...'vincentbons89@gmail.com'].map((c) => c.charCodeAt(0) + 7).join('.');
+
+const film = t.offers.find((o) => o.film)?.film;
+const ogImage = '/work/og-house.jpg';
+const abs = (path: string) => new URL(path, Astro.site).href;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${page}#page`,
+      url: page,
+      name: t.title,
+      description: t.description,
+      inLanguage: lang,
+      isPartOf: { '@id': `${url}#website` },
+      about: { '@id': `${url}#business` },
+      primaryImageOfPage: abs(ogImage),
+    },
+    {
+      '@type': 'ProfessionalService',
+      '@id': `${url}#business`,
+      name: 'Bons AI',
+      url: abs(COMMISSION_PATHS.en),
+      description: t.description,
+      image: abs(ogImage),
+      founder: { '@id': `${url}#person` },
+      identifier: { '@type': 'PropertyValue', propertyID: 'KvK', value: KVK },
+      address: { '@type': 'PostalAddress', addressRegion: 'Gelderland', addressCountry: 'NL' },
+      areaServed: [
+        { '@type': 'City', name: 'Arnhem' },
+        { '@type': 'City', name: 'Nijmegen' },
+        { '@type': 'AdministrativeArea', name: 'Gelderland' },
+        { '@type': 'Country', name: 'Netherlands' },
+      ],
+      knowsLanguage: ['nl', 'en'],
+      knowsAbout: ['Interactive websites', 'WebGL', 'Three.js', '3D modelling', 'Virtual reality', 'Game development', 'Artificial intelligence', 'Web applications', 'Software architecture', 'Domain-driven design', 'Kotlin', 'TypeScript'],
+      priceRange: '€€',
+      hasOfferCatalog: {
+        '@type': 'OfferCatalog',
+        name: t.offersHeading,
+        itemListElement: [
+          ...t.offers.map((o) => ({ '@type': 'Offer', itemOffered: { '@type': 'Service', name: o.name, description: o.text } })),
+          ...t.indications.map((i) => ({
+            '@type': 'Offer',
+            itemOffered: { '@type': 'Service', name: i.what },
+            priceSpecification: {
+              '@type': 'PriceSpecification', priceCurrency: 'EUR', valueAddedTaxIncluded: false,
+              minPrice: i.from, ...(i.to && { maxPrice: i.to }),
+            },
+          })),
+          {
+            '@type': 'Offer',
+            itemOffered: { '@type': 'Service', name: t.rateNote ? `${t.rate} (${t.rateNote})` : t.rate },
+            priceSpecification: { '@type': 'UnitPriceSpecification', price: RATE, priceCurrency: 'EUR', unitCode: 'HUR', valueAddedTaxIncluded: false },
+          },
+        ],
+      },
+    },
+    {
+      '@type': 'Person',
+      '@id': `${url}#person`,
+      name: site.name,
+      alternateName: site.handle,
+      jobTitle: lang === 'nl' ? 'Creative developer en softwarearchitect' : 'Creative developer and software architect',
+      worksFor: { '@id': `${url}#business` },
+      url,
+      sameAs: site.links.filter((l) => l.href.startsWith('http')).map((l) => l.href),
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${page}#faq`,
+      inLanguage: lang,
+      mainEntity: t.faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+    },
+    ...(film ? [{
+      '@type': 'VideoObject',
+      name: lang === 'nl' ? 'Een huis om doorheen te lopen' : 'A house to walk through',
+      description: film.label,
+      thumbnailUrl: abs(film.poster),
+      contentUrl: abs(film.src),
+      uploadDate: '2026-10-02',
+      duration: 'PT30S',
+      inLanguage: lang,
+    }] : []),
+  ],
+};
+---
+<Base title={t.title} description={t.description} lang={lang} alternates={COMMISSION_PATHS} jsonLd={jsonLd} image={ogImage} imageAlt={film?.label}>
+  <main class="plain commissions">
+    <p class="commissions-nav">
+      <a href="/">{t.back}</a>
+      <a href={COMMISSION_PATHS[other]} hreflang={other} lang={other}>{t.otherLanguage}</a>
+    </p>
+    <h1>{t.heading}</h1>
+    {t.lede.map((p) => <p class="commissions-lede">{p}</p>)}
+
+    <h2>{t.offersHeading}</h2>
+    <ul class="offers">
+      {t.offers.map((o) => (
+        <li class="offer" id={o.id}>
+          <h3>{o.name}</h3><p>{o.text}</p>
+          {o.film && (
+            <figure class="offer-film">
+              <video src={o.film.src} poster={o.film.poster} width="1280" height="720" muted loop playsinline controls preload="none" aria-label={o.film.label}></video>
+              <figcaption>{o.film.label}</figcaption>
+            </figure>
+          )}
+        </li>
+      ))}
+    </ul>
+
+    <h2>{t.howHeading}</h2>
+    {t.how.map((p) => <p>{p}</p>)}
+
+    <h2 id="rate">{t.rateHeading}</h2>
+    <p class="rate"><strong><span class="euro">€</span>{RATE} {t.rate}</strong> <span>{t.rateNote}</span></p>
+    <p>{t.indicationsLede}</p>
+    <table class="indications">
+      <tbody>
+        {t.indications.map((i) => (
+          <tr>
+            <th scope="row">{i.what}</th>
+            <td>{i.to
+              ? <><span class="euro">€</span>{amount(i.from)}–<span class="euro">€</span>{amount(i.to)}</>
+              : <>{t.fromWord} <span class="euro">€</span>{amount(i.from)}</>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <ul class="commissions-notes">{t.indicationsFoot.map((p) => <li>{p}</li>)}</ul>
+
+    <h2 id="faq">{t.faqHeading}</h2>
+    <dl class="faq">
+      {t.faq.map((f) => (<><dt>{f.q}</dt><dd>{f.a}</dd></>))}
+    </dl>
+
+    <h2>{t.examplesHeading}</h2>
+    <ul class="commissions-examples">
+      {t.examples.map((e) => <li><a href={e.href}>{e.label}</a>: {e.text}</li>)}
+    </ul>
+
+    <h2 id="contact">{t.contactHeading}</h2>
+    <p>{t.contact}</p>
+    <p class="mail-line">
+      <a class="exhibit-btn mail-btn" data-mail={mail} hidden>{t.mailButton}</a>
+      <span class="mail-address" data-mail-address></span>
+    </p>
+    <noscript><p>{t.noscriptMail}</p></noscript>
+    <p>{t.elsewhere} {site.links.filter((l) => l.href.startsWith('http')).map((l, i, all) => (
+      <><a href={l.href} rel="me noopener">{l.label}</a>{i < all.length - 2 ? ', ' : i === all.length - 2 ? (lang === 'nl' ? ' of ' : ' or ') : '.'}</>
+    ))}</p>
+    <p class="commissions-company">{t.registration} {KVK}</p>
+  </main>
+</Base>
+
+<script>
+  // the films wait until they're in view, so they don't hold up the page, then play on their
+  // own without controls; with motion turned down they keep their controls and wait for a click
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const seen = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const v = e.target as HTMLVideoElement;
+        if (e.isIntersecting) { v.controls = false; v.play().catch(() => { v.controls = true; }); }
+        else v.pause();
+      }
+    }, { rootMargin: '200px' });
+    document.querySelectorAll<HTMLVideoElement>('.offer-film video').forEach((v) => seen.observe(v));
+  }
+  for (const a of document.querySelectorAll<HTMLAnchorElement>('[data-mail]')) {
+    const address = a.dataset.mail!.split('.').map((n) => String.fromCharCode(Number(n) - 7)).join('');
+    a.href = `mailto:${address}`;
+    a.hidden = false;
+    const shown = a.parentElement?.querySelector('[data-mail-address]');
+    if (shown) shown.textContent = address;
+  }
+</script>

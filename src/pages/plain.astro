@@ -15,6 +15,9 @@ const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf()
     <p>{site.tagline}.</p>
     <ul class="inline">{site.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
 
+    <h2>Commissions</h2>
+    <p>I take on commissioned work: interactive websites, digital experiences, 3D, AI, applications and small games. <a href="/commissions/">What I make and what it costs</a> (<a href="/nl/opdrachten/" hreflang="nl" lang="nl">in het Nederlands</a>).</p>
+
     <h2>Projects</h2>
     <ul>{projects.map((p) => <li><a href={p.href}>{p.name}</a>: {p.blurb}</li>)}</ul>
 

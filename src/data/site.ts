@@ -3,7 +3,7 @@ export const site = {
   handle: 'wingedsheep',
   tagline: 'Builder of odd and wonderful things',
   description:
-    'The island of Vincent Bons: AI experiments, games, music and other wonders. Explore it, or read the blog.',
+    'The island of Vincent Bons: AI experiments, games, music and other wonders. Explore it, read the blog, or have something like it made.',
   links: [
     { label: 'LinkedIn', href: 'https://www.linkedin.com/in/vincentbons2/' },
     { label: 'GitHub', href: 'https://github.com/wingedsheep' },
