@@ -58,6 +58,9 @@ STRIDER_EYE = "#e8902c"
 SHELL = "#1c5a4c"  # the mosslits' foot: their glow is all on top
 GLOW = "#7cffc8"
 GLOW_TIP = "#d8fff0"
+MOSSLIT = "#4ee8a0"
+MOSSLIT_CORE = "#b0ffd4"
+MOSSLIT_SPECK = "#e4fff2"
 
 TROMB = "#e2d4ea"
 TROMB_SHADE = "#b8a4c8"
@@ -279,36 +282,57 @@ def treestrider(root):
         ft.build(shin, loc=foot)
 
 
+MOSSLIT_SEGS = 12   # the tail's segments (MOSSLIT_TAIL in imaginary.ts)
+MOSSLIT_SEG = 0.05  # and each one's length
+
+
 def mosslits(root):
-    """Three little glowing slugs creeping along together, as in the painting: a soft teal body that tapers to a
-    point, speckled with light, and a long tail rising behind in an S and rolling up like a fern frond, with the
-    light-sensing tip at the heart of the curl (`mosslits_light_*`, which glow and pulse). Each one is its own
-    object: `mosslits_snail_*`."""
-    for i, (x, y, turn) in enumerate(((0.0, 0.0, 0.2), (0.2, 0.14, -0.3), (-0.16, 0.2, 0.5))):
-        s = Model(f"mosslits_snail_{i}", seed=20 + i)
-        s.ball(0.04, (0.0, 0, 0.012), SHELL, subdiv=1, scale=(2.2, 0.95, 0.4))                # the soft foot
-        s.ball(0.04, (-0.015, 0, 0.032), GLOW, subdiv=1, scale=(1.6, 0.85, 0.85), glow=True)   # a plump glowing body
-        _limb(s, (0.0, 0, 0.032), (0.12, 0, 0.01), 0.03, 0.003, GLOW, segs=6, glow=True)        # tapering to a point
-        for _ in range(6):                                                                     # specks of light
-            u = s.rng.uniform(-0.05, 0.06)
-            s.box((0.009,) * 3, (u, s.rng.uniform(-0.015, 0.015), 0.062 - max(0.0, u) * 0.4), GLOW_TIP, glow=True)
-        # the tail: up behind in an S, then rolled up tight, thinning as it goes
-        pts = [(-0.06, 0.035), (-0.085, 0.065), (-0.1, 0.11)]
-        cx, cz, turns = -0.06, 0.17, 380
-        for k in range(11):
-            t = k / 10
-            a = math.radians(180 - turns * t)
-            r = 0.045 - 0.033 * t
-            pts.append((cx + math.cos(a) * r, cz + math.sin(a) * r))
-        n = len(pts) - 1
-        for k, (a, c) in enumerate(zip(pts, pts[1:])):
-            _limb(s, (a[0], 0, a[1]), (c[0], 0, c[1]), 0.018 - 0.013 * k / n, 0.018 - 0.013 * (k + 1) / n, GLOW, segs=5, glow=True)
-        for k, side in ((1, 1), (3, -1), (6, 1), (8, -1)):                                    # and a few up the tail
-            s.box((0.008,) * 3, (pts[k][0], side * 0.011, pts[k][1]), GLOW_TIP, glow=True)
-        snail = s.build(root, loc=(x, y, 0), rot_z=turn)
-        lt = Model(f"mosslits_light_{i}")
-        lt.ball(0.014, (0, 0, 0), GLOW_TIP, subdiv=1, glow=True)
-        lt.build(snail, loc=(pts[-1][0], 0, pts[-1][1]))
+    """One mosslit, after the painting: a glowing, see-through green body like a fat leaf stood on its
+    point (`mosslits_body`), speckled with brighter light, and from the top of it a long tail
+    (`mosslits_tail_0` … each the child of the last, so the runtime can furl and unfurl it) rising
+    and rolling up into a spiral like a fern frond, with the light-sensing tip at its heart
+    (`mosslits_light`). The runtime gathers a dozen of them, big and small, into a colony."""
+    b = Model("mosslits_body", seed=21)
+    # turned about z: radius against height, from the point it stands on up to where the tail starts
+    profile = [(0.0, 0.0), (0.022, 0.03), (0.055, 0.08), (0.085, 0.15), (0.1, 0.22), (0.095, 0.28),
+               (0.075, 0.34), (0.05, 0.39), (0.03, 0.42)]
+    segs = 12
+    rings = []
+    for r, z in profile[1:]:
+        rings.append([b.bm.verts.new((math.cos(a_) * r, math.sin(a_) * r * 0.72, z))
+                      for a_ in (j / segs * math.pi * 2 for j in range(segs))])
+    foot = b.bm.verts.new((0.0, 0.0, 0.0))
+    top = b.bm.verts.new((0.0, 0.0, profile[-1][1] + 0.01))
+    slot = b._slot(MOSSLIT, True)
+    faces = []
+    for j in range(segs):
+        k = (j + 1) % segs
+        faces.append(b.bm.faces.new((foot, rings[0][k], rings[0][j])))
+        faces.append(b.bm.faces.new((top, rings[-1][j], rings[-1][k])))
+        for lo, hi in zip(rings, rings[1:]):
+            faces.append(b.bm.faces.new((lo[j], lo[k], hi[k], hi[j])))
+    for f in faces:
+        f.material_index = slot
+    b.ball(0.07, (0.015, 0, 0.2), MOSSLIT_CORE, subdiv=1, scale=(1.0, 0.8, 1.5), glow=True)  # a brighter heart
+    for _ in range(16):  # specks of light all over it
+        z = b.rng.uniform(0.06, 0.38)
+        r = next(r for r, h in profile if h >= z) * 0.98
+        a_ = b.rng.uniform(0, 2 * math.pi)
+        b.box((0.016,) * 3, (math.cos(a_) * r, math.sin(a_) * r * 0.72, z), MOSSLIT_SPECK, glow=True)
+    body = b.build(root)
+    parent, at = body, (0.0, 0.0, 0.4)
+    for i in range(MOSSLIT_SEGS):
+        g = Model(f"mosslits_tail_{i}")
+        r0 = 0.03 - 0.022 * i / MOSSLIT_SEGS
+        r1 = 0.03 - 0.022 * (i + 1) / MOSSLIT_SEGS
+        _limb(g, (0, 0, 0), (0, 0, MOSSLIT_SEG), r0, r1, MOSSLIT, segs=6, glow=True)
+        if i % 3 == 1:
+            g.box((0.012,) * 3, (0, r0 * 0.8, MOSSLIT_SEG / 2), MOSSLIT_SPECK, glow=True)
+        parent = g.build(parent, loc=at)
+        at = (0, 0, MOSSLIT_SEG)
+    lt = Model("mosslits_light")
+    lt.ball(0.02, (0, 0, 0.005), GLOW_TIP, subdiv=1, glow=True)
+    lt.build(parent, loc=at)
 
 
 def _ring(m: Model, x, ry, rz, z, color, width=0.035):
@@ -394,6 +418,6 @@ ALL = {
     "balloonbug": (balloonbug, 2.4),
     "fosha": (fosha, 2.2),
     "treestrider": (treestrider, 1.4),
-    "mosslits": (mosslits, 4.5),
+    "mosslits": (mosslits, 1.5),
     "tromb": (tromb, 2.3),
 }

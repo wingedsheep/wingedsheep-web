@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import type { Ground } from './beike';
 import { Body, headingOf, orient, splash, type Call } from './fauna';
+import type { Island } from './island';
 import type { Particles } from './particles';
 import type { Outlook } from './sightings';
+import { haloTexture } from './sky';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -509,78 +511,292 @@ class Treestrider {
 
 // --- the mosslits --------------------------------------------------------------------------
 
+const MOSSLIT_TAIL = 12; // the tail's segments (MOSSLIT_SEGS in imaginary.py)
+const COLONY = 26;
+const LIGHTS = 4; // soft lights shared between them (each one costs every lit surface)
+const MOSSLIT_GREEN = '#5effb4';
+
+/** One of the colony, and what it's up to. */
+interface Mosslit {
+  body: Body;
+  halo: THREE.Sprite;
+  pos: THREE.Vector3;
+  /** Where it lives: it wanders, but not far from here. */
+  home: THREE.Vector3;
+  heading: number;
+  size: number;
+  /** Which of the forest's lights is its. */
+  light: number;
+  /** Its own time, so they don't move in step. */
+  seed: number;
+  /** How lit it is, 0..1, and how long into the night before it lights (it goes from the middle out). */
+  glow: number;
+  delay: number;
+  /** How far from the middle of the colony (for the ripple when it's clicked). */
+  ring: number;
+  mode: 'rest' | 'creep' | 'reach' | 'lie';
+  until: number;
+  /** Leaning forward (and right over, lying down), eased; and how tight the tail's rolled. */
+  lean: number;
+  curl: number;
+  /** How far it's stretched out mid-creep. */
+  inch: number;
+}
+
 /**
- * Mosslits, on a damp night: three little snails in the moss at the edge of the woods, glowing so
- * they can find each other, their tail-lights pulsing. They creep along, very slowly. Clicked,
- * they dim one after the other, and then, one by one, light up again.
+ * Mosslits, on a damp night: a colony of a dozen in the eastern woods, glowing so they can find each
+ * other in the dark (and lighting the trees round them a soft, sea-glass green). As the night comes
+ * on they light up one by one, from the middle out, unrolling their tails like fern fronds. Then
+ * they breathe, sway, creep along a little way in slow inching heaves, stretch their tails up to
+ * feel the air, or lie down flat; motes of their light drift up and hang. Clicked, a ripple goes out
+ * through the colony: each one dims and rolls its tail up tight, and then, ring by ring, they light
+ * up again.
  */
 class Mosslits {
-  readonly body: Body;
+  private colony: Mosslit[] = [];
+  private centre = V();
+  private lights: THREE.PointLight[] = [];
   private on = 0;
+  private dark = 0; // seconds into its night
   private wait = LUCK.mosslitsSoon ? 1 : rand(10, 60);
-  private spot = V();
-  private heading = rand(0, Math.PI * 2);
-  private dim = -1;
-  private crawl = 0;
+  private ripple = -1;
+  private relit = false;
+  private shown = false;
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
-  constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, private particles: Particles) {
-    this.body = new Body('mosslits', template, scene);
-    // out from under the trees (whose crowns would hide them), where the moss runs onto the grass
-    const at = pick([B(-13.6, -8.8), B(23.5, -9.5)]);
-    if (firm(ground, at, 0.3, 4)) this.spot.copy(at).setY(ground.at(at.x, at.z));
+  constructor(template: THREE.Object3D, private scene: THREE.Scene, island: Island, private ground: Ground, private particles: Particles) {
+    // the woods east of the workshop: a patch of floor between the trunks that the crowns don't hide
+    const trees: THREE.Vector3[] = [];
+    for (const o of island.root.children) if (/^tree/.test(o.name)) trees.push(o.getWorldPosition(V()));
+    const cover = island.canopies.filter((c) => c.position.y > 1.5);
+    // the buildings hide the ground behind them too, like a tall, wide crown
+    for (const [id, r, h] of [['workshop', 5, 6], ['library', 6, 7], ['lighthouse', 3.5, 9]] as const) {
+      const at = island.positionOf(id);
+      if (at) cover.push({ position: at.clone().setY(h), radius: r, palette: '', squash: 1, tree: -1 });
+    }
+    const hidden = (p: THREE.Vector3) => cover.some((c) => {
+      const north = c.position.z - p.z;
+      return Math.abs(p.x - c.position.x) < c.radius * 0.9 && north > -c.radius * 0.8 && north < c.position.y * 1.3 + c.radius * 0.3;
+    });
+    // (and away from the campfire and the lamps, whose light would drown theirs out)
+    const glare = [B(27, -1), ...island.lights.filter((l) => l.radius > 3 && !l.day).map((l) => l.position)];
+    const open = (p: THREE.Vector3) => firm(ground, p, 0.45, 6) && !hidden(p) && trees.every((t) => Math.hypot(t.x - p.x, t.z - p.z) > 0.7);
+    const dark = (p: THREE.Vector3) => glare.every((g, i) => Math.hypot(g.x - p.x, g.z - p.z) > (i ? 4.5 : 7.5));
+    // the forest: wherever the trees stand close together
+    const woods = trees.filter((t) => trees.filter((u) => Math.hypot(u.x - t.x, u.z - t.z) < 4.5).length >= 4);
+    const spots: THREE.Vector3[] = [];
+    for (const t of woods) {
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+        for (const d of [1.2, 1.9, 2.6]) {
+          const p = t.clone().add(V(Math.cos(a) * d, 0, Math.sin(a) * d));
+          if (open(p) && dark(p)) spots.push(p.setY(ground.at(p.x, p.z)));
+        }
+      }
+    }
+    // scattered all through it, in ones and twos and little huddles, never on top of each other
+    spots.sort(() => Math.random() - 0.5);
+    const halo = haloTexture();
+    for (const p of spots) {
+      if (this.colony.length >= COLONY) break;
+      if (this.colony.some((m) => Math.hypot(m.home.x - p.x, m.home.z - p.z) < (chance(0.5) ? 0.5 : 1.4))) continue;
+      const body = new Body('mosslits', template, scene);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: halo, color: new THREE.Color(MOSSLIT_GREEN), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0,
+      }));
+      sprite.renderOrder = 2;
+      sprite.raycast = () => {};
+      sprite.visible = false;
+      scene.add(sprite);
+      const size = chance(0.3) ? rand(0.45, 0.65) : rand(0.7, 1.1); // a few little ones
+      this.colony.push({
+        body, halo: sprite, pos: p.clone(), home: p.clone(), heading: rand(0, Math.PI * 2), size: size * body.root.scale.x, seed: rand(0, 100),
+        glow: 0, delay: 0, ring: 0, light: 0, mode: 'rest', until: rand(2, 8), lean: 0, curl: 1.8, inch: 0,
+      });
+    }
+    if (!this.colony.length) return;
+    // a few soft lights over the forest floor where they are, spread out (each lights the ones round it)
+    const centres: THREE.Vector3[] = [this.colony[0].home.clone()];
+    while (centres.length < LIGHTS && centres.length < this.colony.length) {
+      let far = this.colony[0].home;
+      let farD = -1;
+      for (const m of this.colony) {
+        const d = Math.min(...centres.map((c) => c.distanceTo(m.home)));
+        if (d > farD) [far, farD] = [m.home, d];
+      }
+      centres.push(far.clone());
+    }
+    for (const m of this.colony) {
+      m.light = centres.reduce((best, c, i) => (c.distanceTo(m.home) < centres[best].distanceTo(m.home) ? i : best), 0);
+      m.ring = centres[m.light].distanceTo(m.home);
+      m.delay = m.ring * 0.8 + rand(0, 4); // lit one by one, from each light's middle out
+    }
+    for (const c of centres) {
+      const light = new THREE.PointLight(MOSSLIT_GREEN, 0, 8, 1.2);
+      light.position.copy(c).add(V(0, 1.3, 0.3));
+      scene.add(light);
+      this.lights.push(light);
+    }
+    this.centre.copy(centres[0]);
+  }
+
+  get bodies() {
+    return this.colony.map((m) => m.body);
   }
 
   get here() {
-    return this.body.shown;
+    return this.shown;
   }
 
+  /** A ripple out through the colony: each dims and furls, then they relight, ring by ring. */
   poke() {
-    if (this.body.shown && this.dim < 0) this.dim = 0;
+    if (!this.shown || this.ripple >= 0) return;
+    this.ripple = 0;
+    this.relit = false;
+    this.onCall?.('hush', this.centre.clone());
+  }
+
+  private next(m: Mosslit, t: number) {
+    const r = Math.random();
+    m.mode = r < 0.55 ? 'creep' : r < 0.75 ? 'reach' : r < 0.85 ? 'lie' : 'rest';
+    m.until = t + (m.mode === 'creep' ? rand(8, 20) : m.mode === 'lie' ? rand(6, 14) : rand(3, 7));
+    if (m.mode === 'creep') {
+      // off somewhere, but never far from the others
+      const home = headingOf(m.home.x - m.pos.x, m.home.z - m.pos.z);
+      const far = Math.hypot(m.home.x - m.pos.x, m.home.z - m.pos.z) > 2;
+      m.heading = far ? home + rand(-0.5, 0.5) : m.heading + rand(-1.2, 1.2);
+    }
   }
 
   update(dt: number, o: Outlook, clock: number) {
-    const b = this.body;
-    if (!this.spot.lengthSq()) return;
-    const fine = LUCK.mosslitsSoon || (LUCK.mosslits && o.night > 0.6 && (o.wet > 0.02 || o.fog > 0.2 || o.season === 'autumn') && o.season !== 'winter');
-    if (!b.shown) {
+    if (!this.colony.length) return;
+    const fine = LUCK.mosslitsSoon || (LUCK.mosslits && o.night > 0.6 && (o.wet > 0.02 || o.fog > 0.2 || o.season === 'autumn'));
+    if (!this.shown) {
       if (!fine || (this.wait -= dt) > 0) return;
-      b.show(this.spot);
-      this.on = 0;
+      this.shown = true;
+      this.dark = 0;
     }
-    // they light up as the dark comes on, and go out with it
-    this.on = damp(this.on, fine ? 1 : 0, 0.5, dt);
-    if (!fine && this.on < 0.02) {
-      b.hide();
+    this.dark = fine ? this.dark + dt : Math.max(0, this.dark - dt * 1.5);
+    this.on = damp(this.on, fine ? 1 : 0, 0.4, dt);
+    if (!fine && this.colony.every((m) => m.glow < 0.02)) {
+      this.shown = false;
       this.wait = rand(30, 90);
+      for (const light of this.lights) light.intensity = 0;
+      for (const m of this.colony) {
+        m.body.hide();
+        m.halo.visible = false;
+        m.glow = 0;
+      }
       return;
     }
-    b.relax();
-    // at a snail's pace, about a hand's width a minute
-    this.crawl = Math.min(0.6, this.crawl + dt * 0.002);
-    const p = this.spot.clone().add(V(Math.cos(this.heading) * this.crawl, 0, -Math.sin(this.heading) * this.crawl));
-    const h = this.ground.at(p.x, p.z);
-    if (!Number.isNaN(h)) p.y = h;
-    b.root.position.copy(p);
-    orient(b.root, this.heading);
-    if (this.dim >= 0) this.dim += dt;
-    if (this.dim > 7) this.dim = -1;
-    for (let i = 0; i < 3; i++) {
-      const snail = b.part(`snail_${i}`);
-      const light = b.part(`light_${i}`);
-      // dimmed one after the other, then back on one by one
-      const d = this.dim < 0 ? 0 : clamp(Math.min((this.dim - i * 0.4) * 3, (5 - this.dim + i * 0.5) * 1.5), 0, 1);
-      const glow = this.on * (1 - d);
-      if (snail) snail.position.x += Math.sin(clock * 0.3 + i * 2) * 0.01;
-      if (!light) continue;
-      light.scale.multiplyScalar(Math.max(0.01, glow * (0.8 + Math.sin(clock * (1.4 + i * 0.3) + i) * 0.35)));
-      // and a mote of their light drifting up off the tip now and then, which is what you see first
-      if (glow > 0.5 && chance(dt * 2.5)) {
+    if (this.ripple >= 0) {
+      this.ripple += dt;
+      if (!this.relit && this.ripple > 2.4) {
+        this.relit = true;
+        this.onCall?.('shimmer', this.centre.clone());
+      }
+      if (this.ripple > 6) this.ripple = -1;
+    }
+    for (const m of this.colony) {
+      const b = m.body;
+      const t = clock + m.seed;
+      // lit as its turn comes (from the middle out), and out again in the same order at the end
+      let want = this.dark > m.delay ? 1 : 0;
+      if (this.ripple >= 0) {
+        const k = this.ripple - m.ring * 0.35;
+        if (k > 0 && k < 2.6) want = 0.12;
+      }
+      const was = m.glow;
+      m.glow = damp(m.glow, want, want > m.glow ? 1.4 : 2.2, dt);
+      if (was < 0.5 && m.glow >= 0.5) {
+        // a little burst of light as it comes on
+        for (let i = 0; i < 6; i++) {
+          this.particles.emit({
+            position: m.pos.clone().add(V(rand(-0.2, 0.2), rand(0.1, 0.6) * m.size, rand(-0.2, 0.2))),
+            velocity: V(rand(-0.3, 0.3), rand(0.2, 0.6), rand(-0.3, 0.3)), color: pick(['#a8ffd4', '#e4fff2', MOSSLIT_GREEN]),
+            life: rand(0.8, 1.6), size: 1, drag: 1.5, fadeIn: 0,
+          });
+        }
+      }
+      if (m.glow < 0.02 && want === 0) {
+        if (b.shown) b.hide();
+        m.halo.visible = false;
+        continue;
+      }
+      if (!b.shown) b.show(m.pos);
+
+      // what it's doing
+      if (t - m.seed > 0 && clock > m.until) this.next(m, clock);
+      let lean = 0.15;
+      let curl = 1.0;
+      if (m.mode === 'creep') {
+        // inching: a heave forward, the body stretching out low, then the back end drawn up after
+        const heave = Math.max(0, Math.sin(t * 2.2));
+        m.inch = heave;
+        lean = 0.45 + heave * 0.25;
+        curl = 1.15;
+        const step = heave * heave * 0.4 * m.size * dt;
+        // wandering as it goes, and turning back if it strays too far from home or off the ground
+        m.heading += Math.sin(t * 0.37) * 0.25 * dt;
+        const to = m.pos.clone().add(V(Math.cos(m.heading) * step, 0, -Math.sin(m.heading) * step));
+        const h = this.ground.at(to.x, to.z);
+        if (Number.isNaN(h) || h < 0.45 || Math.hypot(m.home.x - to.x, m.home.z - to.z) > 3) m.heading += Math.PI * 0.6 * dt * 3;
+        else m.pos.copy(to).setY(h);
+      } else if (m.mode === 'reach') {
+        // stood up tall, the tail unrolled to feel the air, turning this way and that
+        lean = -0.05;
+        curl = 0.55 + Math.sin(t * 0.6) * 0.15;
+        m.inch = 0;
+      } else if (m.mode === 'lie') {
+        lean = 1.2; // right over, flat along the moss, like the one in the painting
+        curl = 1.5;
+        m.inch = 0;
+      } else m.inch = 0;
+      // dim, it furls up tight and hunkers down
+      curl += (1 - m.glow) * 1.0;
+      lean = THREE.MathUtils.lerp(lean, 0.6, 1 - m.glow);
+      m.lean = damp(m.lean, lean, 1.5, dt);
+      m.curl = damp(m.curl, curl, 1.2, dt);
+
+      b.relax();
+      b.root.position.copy(m.pos);
+      const breathe = 1 + Math.sin(t * 1.3) * 0.04;
+      const grow = 0.3 + 0.7 * smooth(Math.min(1, m.glow * 1.5)); // they swell as they light
+      b.root.scale.setScalar(m.size * grow);
+      orient(b.root, m.heading + (m.mode === 'reach' ? Math.sin(t * 0.4) * 0.4 : 0), -m.lean);
+      const body = b.part('body');
+      if (body) body.scale.set(breathe * (1 + m.inch * 0.12), 1 / breathe, breathe);
+      // the tail: a slight lean back off the body, then rolled up tighter towards the tip, swaying
+      for (let i = 0; i < MOSSLIT_TAIL; i++) {
+        const seg = b.part(`tail_${i}`);
+        if (!seg) continue;
+        const k = i / (MOSSLIT_TAIL - 1);
+        const roll = (k < 0.3 ? -0.14 : 0) + m.curl * (0.04 + 2.1 * k ** 2.4);
+        seg.rotation.z -= roll + Math.sin(t * 0.9 - i * 0.45) * 0.05 + m.lean * (k < 0.25 ? 0.35 : 0);
+        seg.rotation.x += Math.sin(t * 0.7 - i * 0.35) * 0.06;
+      }
+      // the tip's light, and the halo round the whole of it
+      const tip = b.part('light');
+      const pulse = 0.85 + Math.sin(t * (1.6 + (m.seed % 1))) * 0.15;
+      if (tip) tip.scale.setScalar(0.4 + m.glow * 0.9 * pulse);
+      m.halo.visible = true;
+      m.halo.position.copy(m.pos).add(V(0, 0.45 * m.size, 0));
+      m.halo.scale.setScalar(1.1 * m.size * (0.8 + m.glow * 0.4));
+      (m.halo.material as THREE.SpriteMaterial).opacity = 0.28 * m.glow * pulse * this.on;
+      // and motes of light drifting up off it and hanging in the air
+      if (m.glow > 0.6 && chance(dt * 1.6)) {
+        const from = tip ? tip.getWorldPosition(V()) : m.pos.clone();
         this.particles.emit({
-          position: light.getWorldPosition(V()), velocity: V(rand(-0.05, 0.05), rand(0.15, 0.35), rand(-0.05, 0.05)),
-          color: pick(['#7cffc8', '#d8fff0']), life: rand(1.2, 2.2), size: 1, wobble: 0.3, fadeIn: 0.3,
+          position: from.add(V(rand(-0.15, 0.15), 0, rand(-0.15, 0.15))), velocity: V(rand(-0.06, 0.06), rand(0.08, 0.25), rand(-0.06, 0.06)),
+          color: pick(['#5effb4', '#a8ffd4', '#e4fff2']), life: rand(2, 3.5), size: chance(0.2) ? 2 : 1, wobble: 0.5, fadeIn: 0.3, hold: 0.3,
         });
       }
     }
+    // each light glows with the ones round it, breathing with them
+    this.lights.forEach((light, i) => {
+      const near = this.colony.filter((m) => m.light === i);
+      const glow = near.reduce((sum, m) => sum + m.glow, 0) / Math.max(1, near.length);
+      light.intensity = glow * 3.2 * (0.9 + Math.sin(clock * 1.1 + i) * 0.1) * this.on;
+    });
   }
 }
 
@@ -824,7 +1040,7 @@ export class Imaginary {
   private tromb?: Tromb;
   onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
-  constructor(scene: THREE.Scene, template: (species: string) => THREE.Object3D | undefined, ground: Ground, particles: Particles) {
+  constructor(scene: THREE.Scene, template: (species: string) => THREE.Object3D | undefined, ground: Ground, particles: Particles, island: Island) {
     const call = (c: Call, at: THREE.Vector3, ambient?: boolean) => this.onCall?.(c, at, ambient);
     const T = template;
     const snorble = T('snorble');
@@ -848,7 +1064,10 @@ export class Imaginary {
       this.treestrider.onCall = call;
     }
     const mosslits = T('mosslits');
-    if (mosslits && LUCK.mosslits) this.mosslits = new Mosslits(mosslits, scene, ground, particles);
+    if (mosslits && LUCK.mosslits) {
+      this.mosslits = new Mosslits(mosslits, scene, island, ground, particles);
+      this.mosslits.onCall = call;
+    }
     const tromb = T('tromb');
     if (tromb && LUCK.tromb) {
       this.tromb = new Tromb(tromb, scene, ground, particles);
@@ -857,7 +1076,7 @@ export class Imaginary {
   }
 
   get bodies() {
-    return [this.snorble, this.balloonbug, this.fosha, this.treestrider, this.mosslits, this.tromb].filter((c) => !!c).map((c) => c.body);
+    return [...(this.mosslits?.bodies ?? []), ...[this.snorble, this.balloonbug, this.fosha, this.treestrider, this.tromb].filter((c) => !!c).map((c) => c.body)];
   }
 
   /** How many times the snorble's been woken, for its lines. */

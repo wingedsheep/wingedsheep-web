@@ -690,7 +690,7 @@ export class Sightings {
   constructor(scene: THREE.Scene, island: Island, template: (species: string) => THREE.Object3D | undefined, ground: Ground, private particles: Particles) {
     const call = (c: Call, at: THREE.Vector3, ambient?: boolean) => this.onCall?.(c, at, ambient);
     this.murmuration = new Murmuration(scene);
-    this.imaginary = new Imaginary(scene, template, ground, particles);
+    this.imaginary = new Imaginary(scene, template, ground, particles, island);
     this.imaginary.onCall = call;
     const T = template;
     const balloon = T('balloon');
