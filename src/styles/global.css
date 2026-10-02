@@ -545,6 +545,18 @@ body:has(.walkman:not([hidden])) .toasts { bottom: 220px; }
   flex: 1; padding: 3px 6px; text-align: center; font: italic 13px/1.2 var(--serif); color: #1f2550;
   background: linear-gradient(#f06a8a 0 6px, #f4ead3 6px);
 }
+.walkman-label { position: relative; }
+.walkman-side { position: absolute; top: 8px; left: 5px; font: 700 13px/1 var(--ui); font-style: normal; color: #f06a8a; }
+/* a side has run out: out it comes, over it goes, and back in */
+.walkman-tape.turning { animation: tape-turn 1.4s ease-in-out; }
+@keyframes tape-turn {
+  0% { transform: none; }
+  25% { transform: translateY(-14px); }
+  50% { transform: translateY(-14px) scaleX(0); }
+  75% { transform: translateY(-14px); }
+  100% { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .walkman-tape.turning { animation: none; } }
 .walkman-label strong { display: block; font: 700 14px/1.2 var(--ui); font-style: normal; letter-spacing: 0.04em; }
 .walkman-now { display: flex; justify-content: space-between; gap: 8px; margin: 8px 2px; font: 14px/1.2 var(--ui); }
 .walkman-now span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

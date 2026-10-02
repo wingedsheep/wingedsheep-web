@@ -9,6 +9,7 @@ import type { RoomInput } from './scene/camera-rig';
 import { HutRoom } from './scene/hut-room';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { indoors } from './scene/shelter';
+import { tapeSide } from './sound';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
@@ -20,7 +21,9 @@ const RAINY = 'Nearly at the top. Rain on the roof, the stove\'s lit, and someon
 const PLAYING = (roof: string) => `Nearly at the top. ${roof} on the roof, the stove's lit, and Vincent has brought the guitar in.`;
 
 /** A track's place on the tape: side A has the first four, side B the rest. */
-const side = (id: number) => (id <= 4 ? `A${id}` : `B${id - 4}`);
+const side = (id: number) => `${tapeSide(id)}${id <= 4 ? id : id - 4}`;
+/** How long turning the tape over takes on screen (ms; global.css `tape-turn`). */
+const TURN = 1400;
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export class Hut implements RoomInput {
@@ -44,6 +47,27 @@ export class Hut implements RoomInput {
       key.addEventListener('click', () => this.press(key.dataset.key!));
     });
     ctx.sound.onAlbum = () => this.showTape();
+    ctx.sound.onTurn = () => this.turnTape();
+  }
+
+  /** A side has run out: the tape comes out, goes back in the other way up, and plays on. */
+  private turnTape() {
+    const deck = this.deck;
+    if (!deck || deck.hidden) return;
+    const tape = deck.querySelector<HTMLElement>('.walkman-tape')!;
+    deck.classList.remove('playing');
+    tape.classList.remove('turning');
+    void tape.offsetWidth; // (restart the animation)
+    tape.classList.add('turning');
+    deck.querySelector('[data-walkman-now]')!.textContent = 'Turning the tape over…';
+    // the other side's letter shows once it's halfway round
+    setTimeout(() => this.showSide(), TURN / 2);
+    setTimeout(() => tape.classList.remove('turning'), TURN);
+  }
+
+  private showSide() {
+    const tape = this.ctx.sound.albumTape;
+    if (tape && this.deck) this.deck.querySelector('[data-walkman-side]')!.textContent = tapeSide(tape.track.id);
   }
 
   /** Pick up the Walkman: its keys come up. */
@@ -83,6 +107,7 @@ export class Hut implements RoomInput {
     deck.querySelector('[data-key="play"]')!.setAttribute('aria-pressed', String(playing));
     deck.querySelector('[data-walkman-now]')!.textContent = `${side(tape.track.id)} · ${tape.track.title}`;
     deck.querySelector('[data-walkman-time]')!.textContent = clock(tape.at);
+    if (!deck.querySelector('.walkman-tape.turning')) this.showSide();
   }
 
   /** Whether the pointer should drive the room rather than the island. */

@@ -49,6 +49,9 @@ export interface Piece {
 }
 
 /** A track on the workshop's gramophone (src/data/records.json). */
+/** Which side of the Walkman's tape a track of Echo Lane is on: side A has the first four. */
+export const tapeSide = (id: number) => (id <= 4 ? 'A' : 'B');
+
 export interface Disc {
   id: number;
   file: string; // without extension: there's a .webm and an .m4a
@@ -240,6 +243,8 @@ export class Sound {
   private recordsOn = false;
   /** Told whenever a track of Echo Lane starts on the Walkman in the hut, or it stops (null). */
   onAlbum?: (track: Disc | null) => void;
+  /** Told when a side of the tape runs out and it's taken out and turned over (it plays on by itself). */
+  onTurn?: () => void;
   private albumBus?: GainNode;
   private lp?: { el: HTMLAudioElement; gain: GainNode; track: Disc; stopping?: boolean };
   /** Where the tape was stopped (to start with, wherever the last person left it: a track at random). */
@@ -426,7 +431,7 @@ export class Sound {
 
   /**
    * Press play on the Walkman: on from wherever the tape was stopped (or from the top of track
-   * `id`), and through to the end of the album. Call from a gesture.
+   * `id`), and on round the album, turning the tape over at the end of each side. Call from a gesture.
    */
   playAlbum(id?: number): Disc | null {
     if (!this.album.length) return null;
@@ -445,10 +450,15 @@ export class Sound {
     gain.gain.setTargetAtTime(0.85, this.ctx!.currentTime + 0.05, 0.08);
     el.addEventListener('ended', () => {
       if (this.lp?.el !== el) return;
-      const next = this.album[this.album.indexOf(track) + 1];
-      this.stopAlbum(!next);
-      this.cue = { id: (next ?? this.album[0]).id, at: 0 }; // the end of side B: rewound for next time
-      if (next) setTimeout(() => this.albumOn && !this.lp && this.playAlbum(), 2000); // the leader between tracks
+      // on to the next track; at the end of a side the tape comes out and goes back in the other
+      // way up, and after side B that's the top of side A again
+      const next = this.album[(this.album.indexOf(track) + 1) % this.album.length];
+      const turn = tapeSide(next.id) !== tapeSide(track.id);
+      this.stopAlbum(false);
+      this.cue = { id: next.id, at: 0 };
+      if (turn) this.onTurn?.();
+      // the leader between tracks, or the click of the end of a side and a turn of the hand
+      setTimeout(() => this.albumOn && !this.lp && this.playAlbum(), turn ? 4000 : 2000);
     });
     void el.play();
     this.lp = { el, gain, track };
@@ -478,7 +488,8 @@ export class Sound {
     if (!tape) return;
     const i = this.album.indexOf(tape.track);
     const back = by < 0 && tape.at > (tape.track.start ?? 0) + 3 ? 0 : by;
-    const next = this.album[Math.max(0, Math.min(this.album.length - 1, i + back))];
+    // past the last track it's turned over and back to the top of side A
+    const next = this.album[i + back < 0 ? 0 : (i + back) % this.album.length];
     const playing = this.albumPlaying !== null;
     if (playing) this.stopAlbum(false);
     this.cue = { id: next.id, at: by > 0 && next === tape.track ? tape.at : 0 };
