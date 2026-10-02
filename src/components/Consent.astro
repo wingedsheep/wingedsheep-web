@@ -6,8 +6,8 @@ interface Props {
 }
 const { lang } = Astro.props;
 const t = {
-  en: { ask: 'The island counts its visitors with Google Analytics, which sets cookies. Is that all right?', yes: 'Fine', no: 'No thanks', label: 'Cookies' },
-  nl: { ask: 'Het eiland telt zijn bezoekers met Google Analytics, en dat zet cookies. Is dat goed?', yes: 'Prima', no: 'Liever niet', label: 'Cookies' },
+  en: { ask: 'The island counts its visitors with analytics, which sets cookies. Is that all right?', yes: 'Fine', no: 'No thanks', label: 'Cookies' },
+  nl: { ask: 'Het eiland telt zijn bezoekers met analytics, en dat zet cookies. Is dat goed?', yes: 'Prima', no: 'Liever niet', label: 'Cookies' },
 }[lang];
 ---
 <aside class="consent" aria-label={t.label} hidden>
