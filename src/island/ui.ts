@@ -3,6 +3,7 @@
  * Panels are server-rendered by Astro; this only shows/hides them and swaps article content.
  */
 import type { PanelName } from './content';
+import { track } from './track';
 import { Reader } from './reader';
 
 type Open = { kind: 'panel'; name: PanelName } | { kind: 'article'; slug: string } | null;
@@ -109,6 +110,7 @@ export class UI {
     this.hideAll();
     el.hidden = false;
     el.scrollTop = 0;
+    track('open_panel', { panel: name });
     this.current = { kind: 'panel', name };
     if (name === 'library') document.title = 'The library · wingedsheep';
     else if (name === 'workshop') document.title = 'The workshop · wingedsheep';
@@ -124,6 +126,7 @@ export class UI {
   async openArticle(slug: string, push = true) {
     if (this.current?.kind === 'panel') this.returnTo = this.current.name;
     if (push) history.pushState(null, '', `/blog/${slug}/`);
+    track('open_article', { post: slug });
     this.hideAll();
     this.article.hidden = false;
     this.backdrop.hidden = false;

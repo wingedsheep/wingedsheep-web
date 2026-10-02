@@ -1,4 +1,6 @@
 /** A growing field book. Only observed animals get a page; old discoveries are carried over. */
+import { track } from './track';
+
 const SPECIMENS = [
   ['beaver', 'Beaver', 'A flat tail, a wake in the water, and supper on its way home.'],
   ['otter', 'Otter', 'A quick silver ripple. Then a whiskered face looking back.'],
@@ -81,6 +83,7 @@ export function spotAnimal(id: string, where = 'On the island'): boolean {
   if (!valid(id) || pages().some((e) => e.id === id)) return false;
   pages().push({ id, where, date: new Date().toISOString() });
   try { localStorage.setItem(KEY, JSON.stringify(pages())); } catch { /* Still works for this visit. */ }
+  track('spot_animal', { animal: id, where });
   for (const changed of listeners) changed();
   return true;
 }

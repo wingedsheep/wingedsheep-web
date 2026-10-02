@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import type { IslandContext } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
+import { track } from './track';
 import type { Device, Nav } from './river/controls';
 import type { Stretch } from './river/course';
 import type { Hint, RiverGame, Tally } from './river/game';
@@ -470,6 +471,7 @@ export class River implements RoomInput {
     if (game.state !== 'ready') return;
     void tilt.ask(); // (an iPhone that wants tilting asks on the tap that pushes off)
     game.go();
+    track('river_start', { river: this.river.id });
     this.card(null);
     (document.activeElement as HTMLElement | null)?.blur?.();
     this.ctx.discover('river');
@@ -954,6 +956,7 @@ export class River implements RoomInput {
       if (el) el.textContent = text;
     };
     // the tally's score already has the bonus in it; a new best score was saved as it came in
+    track('river_end', { river: this.river.id, finished: t.finished, metres: Math.round(t.metres), seconds: Math.round(t.time), score: Math.round(t.score), flips: t.flips });
     const quickest = t.finished && (!this.best.time || t.time < this.best.time);
     const was = this.reached;
     const first = t.finished && !this.best.time;

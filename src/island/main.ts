@@ -18,6 +18,7 @@ import { CameraRig } from './scene/camera-rig';
 import { Ambience } from './scene/ambience';
 import { Mist } from './scene/mist';
 import { Beacons } from './scene/beacons';
+import { track } from './track';
 import { greeting, occasions } from './scene/calendar';
 import { Fireworks } from './scene/fireworks';
 import { createFoliage } from './scene/foliage';
@@ -177,6 +178,7 @@ export async function bootIsland(host: HTMLElement) {
       const place = hit ? placeFor(hit.id) : undefined;
       if (!hit || !place) return;
       ui.tooltip(null);
+      track('select_place', { place: hit.id });
       place.activate?.(ctx, hit.point);
       if (place.panel) ui.openPanel(place.panel);
     },
@@ -262,6 +264,7 @@ export async function bootIsland(host: HTMLElement) {
     watch: () => lighthouse.watch(),
     discover(id) {
       if (!journal.discover(id)) return;
+      track('discover', { secret: id, found: journal.count });
       sound.chime('found');
       ui.toast(`✦ Discovered: ${SECRETS[id].title} (${journal.count}/${journal.size})`, 'secret');
       renderJournal(ctx);
