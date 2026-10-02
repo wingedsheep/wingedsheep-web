@@ -30,7 +30,7 @@ export interface CommissionsCopy {
   how: string[];
   /** the hourly rate's name in the structured data */
   rateName: string;
-  /** asked the way people search; the cost answer is the one place the page gives a budget */
+  /** only what the page doesn't say above; the cost answer is the one place it gives a price */
   faqHeading: string;
   faq: { q: string; a: string }[];
   contactHeading: string;
@@ -99,7 +99,7 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     ],
     howHeading: 'How it works',
     how: [
-      `We start with a conversation about what you have in mind. Then I estimate a budget, and we agree on when we look at the work together along the way. Smaller jobs, changes and upkeep go at €${RATE} an hour, excluding VAT.`,
+      'We start with a conversation about what you have in mind. Then I estimate a budget, and we agree on when we look at the work together along the way.',
       'You get one person doing the design, the 3D, the code and the sound. I work four days a week and the fifth is for commissions, so plan for weeks for a small project and months for a big one. That day goes further than it sounds: I build fast, with tools I’ve made for it, like the ones behind this island.',
       'I use AI throughout my work, as you might have guessed from this island. It’s a big part of why I’m fast. So if you’d rather keep AI well away from your project, I’m not the one to hire.',
       'I work from the Arnhem–Nijmegen area, for clients in the Netherlands and abroad, in Dutch or English. Remote works fine.',
@@ -108,10 +108,6 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     faqHeading: 'Questions',
     faq: [
       { q: 'What does it cost?', a: `Smaller jobs, changes and upkeep go at €${RATE} an hour. To give you an idea of a project: I’d estimate a house to walk through in VR, like the one above, at around €2,500. Bigger projects, like a game or a virtual experience, I estimate first, once we’ve talked through what you want. All excluding VAT.` },
-      { q: 'Can we make a game together?', a: 'Yes. Besides games made to order, I like teaming up with people who are making one themselves, if our taste overlaps. That works differently from a commission, so we’ll talk about how.' },
-      { q: 'Can you help with software architecture?', a: 'Yes. Software architecture is my day job: I design the systems behind a platform for trading on the power market. I can design a new system, review one you already have, or build the application. I like it best when there’s something creative or unusual about it.' },
-      { q: 'Do you use AI?', a: 'Yes, throughout my work. It’s a big part of why I get a lot done in one day a week. If you’d rather keep AI away from your project, I’m not the right fit.' },
-      { q: 'Where are you based?', a: 'In the Arnhem–Nijmegen area, in Gelderland. I work for clients across the Netherlands, and abroad remotely, in English.' },
       { q: 'When can you start?', a: 'That depends on what I’m working on at the time. Send me an email and I’ll tell you.' },
     ],
     contactHeading: 'Get in touch',
@@ -176,7 +172,7 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     ],
     howHeading: 'Hoe het werkt',
     how: [
-      `We beginnen met een gesprek over wat je voor ogen hebt. Daarna schat ik een budget in, en spreken we af wanneer we tussendoor samen naar het werk kijken. Kleinere klussen, aanpassingen en onderhoud gaan tegen €${RATE} per uur, exclusief btw.`,
+      'We beginnen met een gesprek over wat je voor ogen hebt. Daarna schat ik een budget in, en spreken we af wanneer we tussendoor samen naar het werk kijken.',
       'Je krijgt één persoon die het ontwerp, de 3D, de code en het geluid doet. Ik werk vier dagen per week en de vijfde is voor opdrachten, dus reken op weken voor een klein project en maanden voor een groot. Daar kan meer in dan je denkt: ik bouw snel, met gereedschap dat ik er zelf voor heb gemaakt, zoals dat achter dit eiland.',
       'Ik gebruik AI in alles wat ik maak, zoals je op dit eiland misschien al zag. Het is een groot deel van waarom ik snel ben. Wil je liever geen AI in de buurt van je project, dan ben ik niet de juiste keuze.',
       'Ik werk vanuit de regio Arnhem-Nijmegen, voor opdrachtgevers in Nederland en daarbuiten, in het Nederlands of Engels. Op afstand kan prima.',
@@ -185,10 +181,6 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     faqHeading: 'Vragen',
     faq: [
       { q: 'Wat kost het?', a: `Kleinere klussen, aanpassingen en onderhoud gaan tegen €${RATE} per uur. Om je een idee te geven van een project: een huis om in VR doorheen te lopen, zoals het huis hierboven, schat ik op zo’n €2.500. Grotere projecten, zoals een game of een virtuele ervaring, schat ik eerst in, als we hebben doorgesproken wat je wilt. Alles exclusief btw.` },
-      { q: 'Kunnen we samen een game maken?', a: 'Ja. Naast games in opdracht werk ik graag samen met mensen die er zelf een maken, als we dezelfde smaak hebben. Dat werkt anders dan een opdracht, dus we bespreken hoe.' },
-      { q: 'Kun je helpen met softwarearchitectuur?', a: 'Ja. Softwarearchitectuur is mijn dagelijkse werk: ik ontwerp de systemen achter een platform voor handel op de stroommarkt. Ik kan een nieuw systeem ontwerpen, een bestaand systeem doorlichten, of de applicatie bouwen. Het liefst als er iets creatiefs of ongewoons aan zit.' },
-      { q: 'Gebruik je AI?', a: 'Ja, in alles wat ik maak. Het is een groot deel van waarom ik veel gedaan krijg in één dag per week. Wil je liever geen AI in je project, dan ben ik niet de juiste keuze.' },
-      { q: 'Waar zit je?', a: 'In de regio Arnhem-Nijmegen, in Gelderland. Ik werk voor opdrachtgevers in heel Nederland, en op afstand ook in het buitenland, in het Engels.' },
       { q: 'Wanneer kun je beginnen?', a: 'Dat hangt af van waar ik op dat moment aan werk. Stuur me een mail, dan laat ik het je weten.' },
     ],
     contactHeading: 'Neem contact op',
