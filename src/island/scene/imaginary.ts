@@ -766,12 +766,22 @@ class Tromb {
       if (this.state === 'perched' && this.fishing < 0) head.rotation.y += Math.sin(clock * 0.31) * 0.25;
     }
     // the snout: drooping out of the head, then rolled up into a loop at the tip
+    // (as it fishes, the whole snout straightens out along one line, down to the water)
+    const straight = this.fishing >= 0 ? 1 - curl : 0;
     for (let i = 0; i < SNOUT; i++) {
       const seg = b.part(`snout_${i}`);
       if (!seg) continue;
-      const droop = i === 0 ? -0.45 - look * 0.5 : i < 4 ? -0.04 : 0;
+      const droop = i === 0 ? -0.45 : i < 4 ? -0.04 : 0;
       const roll = i >= 4 ? 1.15 * curl : 0;
-      seg.rotation.z += droop + roll + (lift ? Math.sin(clock * 3 + i) * 0.03 * lift : 0);
+      seg.rotation.z += droop * (i === 0 ? 1 : 1 - straight) + roll + (lift ? Math.sin(clock * 3 + i) * 0.03 * lift : 0);
+    }
+    // its root turned to point at the water, so snout and tongue are one straight line
+    const root = b.part('snout_0');
+    if (root?.parent && straight > 0 && this.water.lengthSq()) {
+      b.root.updateMatrixWorld(true);
+      const to = root.parent.worldToLocal(this.water.clone()).sub(root.position).normalize();
+      const aim = new THREE.Quaternion().setFromUnitVectors(V(1, 0, 0), to);
+      root.quaternion.slerp(aim, smooth(straight));
     }
     const tongue = b.part('tongue');
     const fish = b.part('fish');
