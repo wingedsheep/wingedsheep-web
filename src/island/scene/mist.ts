@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { occasions } from './calendar';
 import { windDir } from './grass';
 import { season } from './season';
 import type { Sky } from './sky';
@@ -14,7 +15,8 @@ const MOONLIT = new THREE.Color('#6d7ca8');
  * heights, so it thins out up the hillsides and hangs in the low ground. It comes with foggy
  * (and a little with drizzly) weather, and on some calm, cool mornings it's there at sunrise
  * and burns off as the sun climbs. In a hard freeze the sea smokes: the water is warmer than
- * the air, and wisps of vapour lift off it all day while it's calm. In a blizzard it's blown snow. Faded out in steps with an ordered dither, so it stays pixel art.
+ * the air, and wisps of vapour lift off it all day while it's calm. In a blizzard it's blown snow.
+ * All through the Halloween week a thin mist lies over everything, thicker after dark. Faded out in steps with an ordered dither, so it stays pixel art.
  */
 export class Mist {
   /** How much mist there is now, 0..1. */
@@ -83,7 +85,9 @@ export class Mist {
     const smoke = THREE.MathUtils.smoothstep(weather.heat.chill, 0.6, 1) * calm * (1 - wet) * 0.3;
     // a blizzard: blown snow hanging low over everything, whiter still
     const whiteout = weather.blizzard * 0.4;
-    const goal = Math.max(fog, morning, smoke, whiteout);
+    // Halloween: a mist creeping low over the island all week, thickening at night (wind or not, it thins)
+    const haunt = occasions.has('halloween') ? (0.3 + sky.lamps * 0.3) * (1 - weather.windiness * 0.6) : 0;
+    const goal = Math.max(fog, morning, smoke, whiteout, haunt);
     this.smoke = goal > 0 ? Math.max(smoke, whiteout) / goal : 0;
     // already misty when the visitor arrives; after that it rolls in and lifts slowly
     this.amount = this.started ? THREE.MathUtils.damp(this.amount, goal, 0.15, dt) : goal;

@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import type { Ground } from './beike';
 import { occasions } from './calendar';
+import { season } from './season';
 import { Body, headingOf, orient, splash, type Call, type Season } from './fauna';
 import type { Island } from './island';
 import type { Particles } from './particles';
 import { Imaginary } from './imaginary';
+import { Monsters } from './monsters';
 import { GRADIENT } from './toon';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -42,15 +44,17 @@ const LUCK = (() => {
   const q = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
   const want = (k: string) => q.get('animal') === k;
   return {
-    balloon: want('balloon') || chance(0.6), // not every calm summer evening
+    // balloons fly from spring into autumn, most of all in summer; murmurations from autumn into
+    // winter, at their biggest in autumn (and not every calm evening, even then)
+    balloon: want('balloon') || chance(0.6 * season.weights.summer + 0.35 * season.weights.spring + 0.3 * season.weights.autumn),
     balloonSoon: want('balloon'),
-    starlings: want('starlings') || chance(0.6),
+    starlings: want('starlings') || chance(0.6 * season.weights.autumn + 0.4 * season.weights.winter),
     starlingsSoon: want('starlings'),
     seal: want('seal') || chance(1 / 6),
     sealSoon: want('seal'),
     ferrySoon: want('ferry'),
     containerSoon: want('container'),
-    tallship: want('tallship') || chance(1 / 25),
+    tallship: want('tallship') || chance(1 / 12),
     tallshipSoon: want('tallship'),
     fisherman: want('fisherman') || chance(0.45),
     fishermanSoon: want('fisherman'),
@@ -60,9 +64,9 @@ const LUCK = (() => {
 // --- in the air ---------------------------------------------------------------------------
 
 /**
- * A hot-air balloon, on calm, dry summer evenings: it drifts over the island with the wind, the
- * burner roaring now and then to lift it, sinking slowly in between. (Over Gelderland, on an
- * evening like that, you can count a dozen.)
+ * A hot-air balloon, on calm, dry evenings from spring into autumn (summer's best): it drifts
+ * over the island with the wind, the burner roaring now and then to lift it, sinking slowly in
+ * between. (Over Gelderland, on an evening like that, you can count a dozen.)
  */
 class Balloon {
   readonly body: Body;
@@ -91,7 +95,7 @@ class Balloon {
   update(dt: number, o: Outlook, clock: number) {
     const b = this.body;
     if (this.t < 0) {
-      const fine = LUCK.balloonSoon || (LUCK.balloon && o.season === 'summer' && o.hour >= 18 && o.hour < 21.75
+      const fine = LUCK.balloonSoon || (LUCK.balloon && o.season !== 'winter' && o.hour >= 18 && o.hour < 21.75
         && o.wind < 5 && o.wet < 0.05 && o.storm < 0.05 && o.night < 0.7);
       if (!fine || (this.wait -= dt) > 0) return;
       // downwind, across the island (seen from above and to the south, it hangs well north of
@@ -170,9 +174,9 @@ function starlingGeometry() {
 }
 
 /**
- * A murmuration of starlings at dusk in autumn: they stream in from the east, wheel and fold
- * over the west of the island for a couple of minutes, as one thing, then pour down into the
- * trees by the lighthouse for the night. Each bird is a tiny starling, pointed into the way it's
+ * A murmuration of starlings at dusk in autumn and winter: they stream in from the east, wheel
+ * and fold over the west of the island for a couple of minutes, as one thing, then pour down
+ * into the trees by the lighthouse for the night. Each bird is a tiny starling, pointed into the way it's
  * going, beating its wings in bursts and gliding in between.
  *
  * The shape is worked out fresh each frame: every bird has a fixed place in a unit ball, and the
@@ -285,7 +289,7 @@ class Murmuration {
 
   update(dt: number, o: Outlook) {
     if (this.t < 0) {
-      const fine = LUCK.starlingsSoon || (LUCK.starlings && o.season === 'autumn' && o.hour >= 15 && o.night > 0.1 && o.night < 0.8
+      const fine = LUCK.starlingsSoon || (LUCK.starlings && (o.season === 'autumn' || o.season === 'winter') && o.hour >= 15 && o.night > 0.1 && o.night < 0.8
         && o.wet < 0.3 && o.wind < 10);
       if (!fine || (this.wait -= dt) > 0) return;
       this.t = 0;
@@ -660,8 +664,8 @@ class Fisherman {
 }
 
 /**
- * The rare sightings, off the island's edges and over it: a hot-air balloon on calm summer
- * evenings, a murmuration of starlings at dusk in autumn, a seal hauled out on the beach, ships
+ * The rare sightings, off the island's edges and over it: a hot-air balloon on calm evenings
+ * from spring to autumn, a murmuration of starlings at dusk in autumn and winter, a seal hauled out on the beach, ships
  * on the horizon (the ferry, to its timetable; a container ship now and then; very rarely a tall
  * ship), and a fisherman at the end of the pier on some early mornings. (The geese and the
  * dolphins, and the black sheep that turns up more on Friday the 13th, are in fauna.ts.)
@@ -676,8 +680,10 @@ export class Sightings {
   private fisherman?: Fisherman;
   /** The made-up ones, from the blog: see imaginary.ts. */
   readonly imaginary: Imaginary;
+  /** Halloween's: see monsters.ts. */
+  private monsters: Monsters;
   private containerWait = LUCK.containerSoon ? 2 : rand(60, 360);
-  private tallshipWait = LUCK.tallshipSoon ? 2 : rand(60, 400);
+  private tallshipWait = LUCK.tallshipSoon ? 2 : rand(45, 240);
   private tallshipDone = false;
   private hornedFerry = -1;
   private hornedContainer = false;
@@ -692,6 +698,8 @@ export class Sightings {
     this.murmuration = new Murmuration(scene);
     this.imaginary = new Imaginary(scene, template, ground, particles, island);
     this.imaginary.onCall = call;
+    this.monsters = new Monsters(scene, template, ground, particles);
+    this.monsters.onCall = call;
     const T = template;
     const balloon = T('balloon');
     if (balloon) {
@@ -724,7 +732,7 @@ export class Sightings {
 
   /** All of them, for the Picker. */
   get pickables() {
-    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.fisherman?.body, ...this.imaginary.bodies]
+    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.fisherman?.body, ...this.imaginary.bodies, ...this.monsters.bodies]
       .filter((b): b is Body => !!b).map((b) => b.root).concat(this.murmuration.hit);
   }
 
@@ -734,6 +742,12 @@ export class Sightings {
     if (id === 'seal') this.seal?.poke();
     if (id === 'fisherman') this.fisherman?.poke();
     this.imaginary.poke(id);
+    this.monsters.poke(id);
+  }
+
+  /** How loud the Headless Horseman's hooves are, for the view (monsters.ts). */
+  hooves(target: THREE.Vector3, view: number) {
+    return this.monsters.hooves(target, view);
   }
 
   /** How many fish in the fisherman's bucket. */
@@ -757,6 +771,7 @@ export class Sightings {
     this.seal?.update(dt, o, t);
     this.fisherman?.update(dt, o, t);
     this.imaginary.update(dt, o, t);
+    this.monsters.update(dt, o, t);
     const swell = clamp(o.wind / 15, 0, 1);
 
     // the ferry, where the timetable says it is (?animal=ferry: one leaving now)
@@ -792,7 +807,7 @@ export class Sightings {
       this.container.update(dt, t, swell);
       if (this.container.sailing && !this.hornedContainer && Math.abs(this.container.along) < 8) {
         this.hornedContainer = true;
-        if (chance(0.35)) this.onCall?.('horn', this.container.position.clone(), true);
+        if (chance(0.35)) this.onCall?.('typhon', this.container.position.clone(), true); // her great foghorn, deeper than the ferry's
       }
       if (this.container.sailing && Math.abs(this.container.along) > 136) {
         this.container.dock();

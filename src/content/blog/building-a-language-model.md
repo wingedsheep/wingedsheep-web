@@ -139,7 +139,7 @@ tokenized_training_data = tokenizer.tokenize(training_data)
 
 Remember that our model expects input sequences of a fixed length, yet our sentences vary in length. To address this, we'll use padding, specifically left-padding.
 
-Left-padding involves prepending padding tokens ("<pad>") to the beginning of shorter sequences until they match the length of the longest sequence in our dataset. By padding our sequences in this way, we ensure that every token in every sequence, no matter its original length, will be used in the training process.
+Left-padding involves prepending padding tokens (`<pad>`) to the beginning of shorter sequences until they match the length of the longest sequence in our dataset. By padding our sequences in this way, we ensure that every token in every sequence, no matter its original length, will be used in the training process.
 
 ```python
 # Left-pad the tokenized training data

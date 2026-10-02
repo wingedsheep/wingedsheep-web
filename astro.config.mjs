@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { defineConfig } from 'astro/config';
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
+import rehypePages from './src/lib/rehype-pages.mjs';
 
 // Ghost served posts at /<slug>/; keep those links alive by redirecting to /blog/<slug>/.
 const legacyRedirects = Object.fromEntries(
@@ -32,7 +33,7 @@ export default defineConfig({
   redirects: { ...legacyRedirects, '/rss': '/rss.xml' },
   markdown: {
     remarkPlugins: [[remarkMath, { singleDollarTextMath: false }]],
-    rehypePlugins: [rehypeKatex],
+    rehypePlugins: [rehypeKatex, rehypePages],
     shikiConfig: { theme: 'github-dark-dimmed' },
   },
 });

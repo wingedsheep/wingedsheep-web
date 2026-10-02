@@ -47,6 +47,13 @@ export class UI {
       else this.back();
     });
     this.sketch.addEventListener('click', () => (this.sketch.hidden = true));
+    // a picture in one of a book's galleries is held up larger
+    this.articleBody.addEventListener('click', (e) => {
+      const img = (e.target as Element).closest<HTMLImageElement>('.gallery img');
+      if (!img) return;
+      const caption = img.closest('figure')?.querySelector('figcaption')?.textContent?.trim();
+      this.showDrawing(img.currentSrc || img.src, caption || img.alt, true);
+    });
 
     // books in the library open in place, without a page load
     document.addEventListener('click', (e) => {
@@ -196,9 +203,11 @@ export class UI {
     setTimeout(dismiss, 12000);
   }
 
-  /** Hold up a drawing or painting over whatever is on screen; a click or Escape puts it down again. */
-  showDrawing(src: string, alt: string) {
+  /** Hold up a drawing or painting over whatever is on screen; a click or Escape puts it down again.
+   *  A photo is shown at up to its own size, smoothly, where a drawing is blown up in crisp pixels. */
+  showDrawing(src: string, alt: string, photo = false) {
     const img = $<HTMLImageElement>('img', this.sketch)!;
+    this.sketch.classList.toggle('photo', photo);
     img.src = src;
     img.alt = alt;
     this.sketch.setAttribute('aria-label', alt);
@@ -219,9 +228,9 @@ export class UI {
     this.article.scrollTop = 0;
     this.current = { kind: 'article', slug };
     this.articleBack.textContent = `← back to the ${this.returnTo === 'library' ? 'shelves' : this.returnTo}`;
-    this.reader.opened();
     this.events.panelOpened('article');
     $('h1', this.articleBody)?.focus({ preventScroll: true });
+    this.reader.opened();
   }
 
   private hideAll() {

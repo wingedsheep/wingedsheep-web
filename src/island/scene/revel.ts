@@ -30,11 +30,11 @@ const COURT = 4; // for the court to arrive
 const STARE = 1.8; // everyone looking straight at you, before they go
 const PARTING = 5; // bows, and gone, and the ring sinking back into the grass
 
-/** Whether the fair folk are out on this visit: now and then, and always on Midsummer's Eve. */
+/** Whether the fair folk are out on this visit: now and then, and always round Midsummer's Eve. */
 const LUCK = (() => {
   const q = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
   const wanted = q.get('animal') === 'fae' || q.has('revel');
-  return { wanted, tonight: wanted || occasions.has('midsummer') || Math.random() < 1 / 10, again: wanted || occasions.has('midsummer') };
+  return { wanted, tonight: wanted || occasions.has('midsummer') || Math.random() < 1 / 7, again: wanted || occasions.has('midsummer') };
 })();
 
 type Phase = 'waiting' | 'wisps' | 'ring' | 'court' | 'revel' | 'stare' | 'parting' | 'gone';
@@ -49,7 +49,7 @@ interface Wisp {
 }
 
 /**
- * The fair folk's revel. On some evenings and nights (and every Midsummer's Eve), from dusk on,
+ * The fair folk's revel. On some evenings and nights (and every night round Midsummer), from dusk on,
  * if it's dry, will-o'-the-wisps drift out of the woods to the grass just east of the campfire; where
  * they sink into the grass a ring of toadstools comes up, glowing; pixies pop into being round
  * it, and Oberon and Titania shimmer up in the middle. Then the dance: the pixies dance the
@@ -132,6 +132,15 @@ export class Revel {
   /** Whether they're out just now. */
   get on() {
     return this.phase !== 'waiting' && this.phase !== 'gone';
+  }
+
+  /**
+   * Their tune, for the island's sound: `dancing` while it plays, `cut` the moment they're stared at
+   * (the music stops dead), and how near the camera's looking to the ring, 0..1.
+   */
+  music(at: THREE.Vector3, view: number) {
+    const d = Math.hypot(this.centre.x - at.x, this.centre.z - at.z);
+    return { out: this.on, dancing: this.phase === 'revel', cut: this.phase === 'stare', near: clamp(1 - d / (8 + view * 0.5), 0, 1) };
   }
 
   /** Straight to it: for previews (?revel). */

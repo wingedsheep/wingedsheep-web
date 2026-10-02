@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CREST_LEAN, type Course } from './course';
 import { BACKFLOW, CORE, EDDY_BEND } from './flow';
+import { CHILLED } from '../scene/water';
 
 const NOISE = /* glsl */ `
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -40,7 +41,8 @@ const TRAIL = 12;
  * every eddy line. Standing waves hold their place while the water runs through them, caustics
  * and pebbles show through slow clear water, a pillow of foam piles up on every rock, holes boil
  * back on themselves, and white water pours over the falls. The boat leaves a wake and every
- * stroke a ring.
+ * stroke a ring. When it's freezing the water runs slate grey, ice grows out from the banks into
+ * the slow water, slush drifts down on the current, and in a hard frost the river steams.
  *
  * Everything that moves either drifts for a cycle and starts again or shimmers in place, so
  * nothing gets smeared out however long you paddle.
@@ -81,6 +83,8 @@ export function riverWater() {
       uDeep: { value: new THREE.Vector3(0.03, 0.17, 0.33) },
       // 0..1: how hot the flow's running, for a wake gone gold
       uHeat: { value: 0 },
+      // 0..1: how hard it's freezing (Weather's chill)
+      uCold: { value: 0 },
     },
   ]);
   const material = new THREE.ShaderMaterial({
@@ -176,6 +180,7 @@ export function riverWater() {
       uniform vec3 uMid;
       uniform vec3 uDeep;
       uniform float uHeat;
+      uniform float uCold;
       varying vec3 vWorld;
       varying vec4 vRiver;
       varying vec4 vMore;
@@ -184,6 +189,7 @@ export function riverWater() {
       varying vec2 vIsle;
       #include <fog_pars_fragment>
       ${NOISE}
+      ${CHILLED}
   uniform vec4 uTrains[${MAX_TRAINS}];
   uniform vec4 uTrainsB[${MAX_TRAINS}];
   // a train's water at s (m along the river) and off (m across), as course.ts's waveAt: x the
@@ -251,6 +257,26 @@ export function riverWater() {
         float inLen = step(abs(l.y - 0.5), len * 0.5);
         float thick = 0.09;
         return on * inLen * (step(abs(x), thick) - step(abs(x - 0.2), 0.08));
+      }
+
+      const float SLUSH = 4.0; // seconds a lot of slush drifts before the next lot take over
+
+      // slush on a freezing river: little grey pans of it riding the current, each lot drifted
+      // and swapped for the next just as the dashes are, only more slowly. amount: how many
+      // cells have a pan. Returns 1 on a pan's rim, 0.5 inside it, 0 elsewhere.
+      float slush(vec2 lp, float along, float stretch, float amount, float phase, float seed) {
+        float t = fract(uTime / SLUSH + phase);
+        float k = t - 0.5;
+        vec2 size = vec2(1.0, 1.2);
+        vec2 q = lp - vec2(0.0, along * k * SLUSH);
+        vec2 cell = floor(q / size);
+        vec2 l = (q / size - cell - 0.5) * size;
+        float life = 1.0 - abs(2.0 * t - 1.0);
+        float on = step(hash(cell + seed), amount) * step(0.1 + hash(cell + seed + 3.1) * 0.5, life * 1.6);
+        on *= smoothstep(0.3, 0.7, 1.0 - stretch * SLUSH / CYCLE * k);
+        float r = 0.12 + 0.18 * hash(cell + seed + 7.7);
+        float dist = length(l) + (noise(q * 2.5 + seed) - 0.5) * 0.16 + (hash(floor(q * 6.0)) - 0.5) * 0.06; // (ragged)
+        return on * step(dist, r) * (0.5 + 0.5 * step(r - 0.09, dist));
       }
 
       void main() {
@@ -376,9 +402,11 @@ export function riverWater() {
 
         // --- the colour: the island sea's palette. Turquoise in the shallows by the banks and over
         // the gravel of a slow pool, deepening to blue where it's deep and running hard
-        vec3 shallow = mix(uShallow, uShallow * vec3(1.6, 0.92, 0.76), clear * 0.5);
-        vec3 mid = uMid;
-        vec3 deep = uDeep;
+        // (on a cold day, the colour drains out of it: slate where it was turquoise, ink in the deep)
+        float cold = smoothstep(0.25, 0.8, uCold);
+        vec3 shallow = chilled(mix(uShallow, uShallow * vec3(1.6, 0.92, 0.76), clear * 0.5), cold);
+        vec3 mid = chilled(uMid, cold);
+        vec3 deep = chilled(uDeep, cold);
         float t = clamp(depth * (0.7 - clear * 0.35) + fast * 0.35 + (noise(p * 0.12) - 0.5) * 0.1, 0.0, 1.0);
         vec3 col = mix(shallow, mid, smoothstep(0.0, 0.35, t));
         col = mix(col, deep, smoothstep(0.45, 1.0, t));
@@ -435,7 +463,7 @@ export function riverWater() {
         // caustic squiggles and pebbles in clear, slow shallows
         float see = clamp(clear * 0.9 + (1.0 - depth) * 0.3 - fast * 1.0, 0.0, 1.0) * (1.0 - rough);
         float c = abs(noise(p * 0.9 + drift) - 0.5);
-        col += vec3(0.10, 0.14, 0.10) * step(c, 0.03) * see;
+        col += vec3(0.10, 0.14, 0.10) * step(c, 0.03) * see * (1.0 - cold * 0.8); // (hardly any under a winter sun)
         col = mix(col, col * 0.85, step(0.74, noise(p * 2.2)) * see * 0.6);
 
         // --- the current ------------------------------------------------------------------
@@ -449,7 +477,7 @@ export function riverWater() {
         float stretch = abs(det) > 1e-9 ? (gOff.x * gT.y - gOff.y * gT.x) / det : 0.0;
         float dash = dashes(lp, along, stretch, fast, rough, 0.0, 0.0) + dashes(lp + vec2(0.35, 0.0), along, stretch, fast, rough, 0.5, 11.0);
         dash *= 1.0 - calm * 0.7;
-        vec3 light = mix(vec3(0.55, 0.85, 0.95), vec3(0.9, 0.97, 0.97), rough);
+        vec3 light = mix(chilled(vec3(0.55, 0.85, 0.95), cold), vec3(0.9, 0.97, 0.97), rough);
         // (a hint of the current, not a pattern laid over the water)
         col = mix(col, mix(col, light, 0.3 + fast * 0.15), step(0.5, dash));
         col = mix(col, col * 0.9, step(dash, -0.5));
@@ -536,6 +564,29 @@ export function riverWater() {
         }
         col = mix(col, vec3(0.92, 0.97, 0.94), foam);
 
+        // --- a freeze: slush riding the current, thickest in the slow water and never in the
+        // white water's churn; then ice grown out from the banks over the slow water by the edge
+        // (further into an eddy, hardly at all into the current), crazed with cracks, with a
+        // white rim where the water laps it
+        float iced = 0.0;
+        if (uCold > 0.3) {
+          float freezing = smoothstep(0.3, 0.9, uCold);
+          float amount = freezing * (0.02 + 0.06 * (1.0 - fast) + eddy * 0.06) * (1.0 - smoothstep(0.2, 0.5, rough)) * (1.0 - drop);
+          float pan = max(slush(lp, along, stretch, amount, 0.0, 3.0), slush(lp + vec2(0.5, 0.0), along, stretch, amount, 0.5, 17.0));
+          col = mix(col, mix(vec3(0.62, 0.72, 0.78), vec3(0.88, 0.94, 0.97), step(0.9, pan)), step(0.25, pan) * (1.0 - calm * 0.5));
+
+          float reach = smoothstep(0.45, 1.0, uCold) * (0.1 + 0.1 * noise(p * 0.35) + eddy * 0.15) * (1.0 - fast * 0.6) * (1.0 - drop);
+          float halfW = vBend.x * 0.5;
+          float fromBank = (1.0 - abs(u)) * halfW; // m out from the bank
+          float edge = reach * halfW;
+          if (near) fromBank = min(fromBank, shore);
+          iced = step(fromBank, edge) * step(0.05, reach);
+          vec3 ice = mix(vec3(0.7, 0.82, 0.9), vec3(0.8, 0.9, 0.95), step(0.5, noise(p * 0.45)));
+          ice = mix(ice, vec3(0.55, 0.68, 0.8), step(abs(noise(p * 0.7 + 11.0) - 0.5), 0.025));
+          ice = mix(ice, vec3(0.94, 0.97, 1.0), step(edge - 0.16, fromBank));
+          col = mix(col, ice, iced);
+        }
+
         // --- the boat: a V of wake behind it through the water, and rings from its strokes
         if (uBoat.w > 0.3) {
           vec2 wd = vec2(sin(uBoat.z), -cos(uBoat.z));
@@ -567,7 +618,17 @@ export function riverWater() {
           float phase = fract(uTime * 1.1 + hash(rc));
           vec2 centre = (rc + 0.2 + 0.6 * vec2(hash(rc + 1.7), hash(rc + 4.3))) / 0.8;
           float rr = step(abs(length(wp - centre) - phase * 0.5), 0.07) * step(hash(rc + floor(uTime * 1.1 + hash(rc)) * 0.13), uRain * 0.8);
-          col = mix(col, vec3(0.78, 0.9, 0.92), rr * (1.0 - phase) * 0.7);
+          col = mix(col, vec3(0.78, 0.9, 0.92), rr * (1.0 - phase) * 0.7 * (1.0 - iced));
+        }
+
+        // in a hard frost the river steams: low wisps of it drifting off downstream
+        float steam = smoothstep(0.6, 1.0, uCold) * (1.0 - iced);
+        if (steam > 0.0) {
+          // (thin threads of it, strung out down the river and broken up, never a blanket)
+          float thread = 1.0 - abs(noise(vec2(off * 0.6 + sin(s * 0.05 + uTime * 0.2), s * 0.08 - uTime * 0.25)) - 0.5) * 2.0;
+          float broken = step(0.68, noise(vec2(off * 0.4, s * 0.3 - uTime * 0.6)));
+          float veil = step(0.93, thread) * broken * (0.6 + 0.4 * step(0.975, thread));
+          col = mix(col, vec3(0.8, 0.86, 0.9), veil * steam * 0.28);
         }
 
         if (uDebug > 0.0) col = along > 0.0 ? mix(vec3(0.2), vec3(1.0, 0.2, 0.1), along / 10.0) : mix(vec3(0.2), vec3(0.1, 0.4, 1.0), -along / 3.0);

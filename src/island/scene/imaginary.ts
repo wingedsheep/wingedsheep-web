@@ -4,6 +4,7 @@ import { Body, headingOf, orient, splash, type Call } from './fauna';
 import type { Island } from './island';
 import type { Particles } from './particles';
 import type { Outlook } from './sightings';
+import { season, type SeasonName } from './season';
 import { haloTexture } from './sky';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -18,25 +19,31 @@ const B = (x: number, y: number) => V(x, 0, -y);
 
 /**
  * The imaginary creatures, from the 2022 blog posts where GPT-3 wrote the field notes and DALL·E
- * painted them. Rarer than anything else on the island, and each only in its own weather. Seen
- * once, they get a page in the sketchbook like everyone else. `?animal=<name>` brings one along
- * soon, whatever the weather.
+ * painted them. Rarer than anything else on the island, and each only in its own weather. They
+ * can turn up any time of year, but each has a season it likes best, when it's out on more
+ * visits. Seen once, they get a page in the sketchbook like everyone else. `?animal=<name>`
+ * brings one along soon, whatever the weather.
  */
 const LUCK = (() => {
   const q = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
   const want = (k: string) => q.get('animal') === k;
+  /** The chance of one on this visit, blended between the seasons' (spring, summer, autumn, winter). */
+  const odds = (spring: number, summer: number, autumn: number, winter: number) => {
+    const p: Record<SeasonName, number> = { spring, summer, autumn, winter };
+    return chance((Object.keys(p) as SeasonName[]).reduce((sum, k) => sum + season.weights[k] * p[k], 0));
+  };
   return {
-    snorble: want('snorble') || chance(1 / 15),
+    snorble: want('snorble') || odds(1 / 8, 1 / 8, 1 / 12, 1 / 18),
     snorbleSoon: want('snorble'),
-    balloonbug: want('balloonbug') || chance(1 / 12),
+    balloonbug: want('balloonbug') || odds(1 / 7, 1 / 7, 1 / 12, 1 / 20),
     balloonbugSoon: want('balloonbug'),
-    fosha: want('fosha') || chance(1 / 12),
+    fosha: want('fosha') || odds(1 / 12, 1 / 12, 1 / 9, 1 / 7), // the long, clear winter nights
     foshaSoon: want('fosha'),
-    treestrider: want('treestrider') || chance(1 / 18),
+    treestrider: want('treestrider') || odds(1 / 12, 1 / 16, 1 / 8, 1 / 12), // the misty autumn mornings
     treestriderSoon: want('treestrider'),
-    mosslits: want('mosslits') || chance(1 / 8),
+    mosslits: want('mosslits') || odds(1 / 7, 1 / 9, 1 / 5, 1 / 10),
     mosslitsSoon: want('mosslits'),
-    tromb: want('tromb') || chance(1 / 12),
+    tromb: want('tromb') || odds(1 / 11, 1 / 9, 1 / 11, 1 / 14),
     trombSoon: want('tromb'),
   };
 })();
@@ -49,32 +56,190 @@ const firm = (ground: Ground, p: THREE.Vector3, lo: number, hi: number) => {
 
 // --- the snorble ---------------------------------------------------------------------------
 
+/** Round to a heading, a little at a time. */
+const turn = (from: number, to: number, k: number, dt: number) =>
+  from + Math.atan2(Math.sin(to - from), Math.cos(to - from)) * (1 - Math.exp(-k * dt));
+/** A heading's forward and left in the world, and a point that far ahead and to the left of p. */
+const ahead = (p: THREE.Vector3, heading: number, fwd: number, left: number) =>
+  p.clone().add(V(Math.cos(heading) * fwd - Math.sin(heading) * left, 0, -Math.sin(heading) * fwd - Math.cos(heading) * left));
+
 /**
- * A snorble, on a sunny day out of the wind: a heap of fluff napping in the grass, breathing,
- * lifting its long snout now and then to sniff the air. Bother it and it leaps two metres
- * straight up (the field notes say it can), lands, and settles down again. The third time it
- * bounds off for good.
+ * One snorble, grown or young: where it is, which way it faces, and how it holds itself. Its
+ * poses ease in: lying down (legs folded under, chin on the grass), sitting up on its haunches,
+ * its legs flung out in a leap. It walks on its four short legs in diagonal pairs.
+ */
+class Fluff {
+  readonly pos = V();
+  heading = rand(0, Math.PI * 2);
+  height = 0;
+  lieTo = 0;
+  sitTo = 0;
+  splayTo = 0;
+  pitchTo = 0;
+  yawTo = 0;
+  sleepy = false;
+  sniffing = false;
+  chewing = false;
+  /** A play bow: front down, rump up, ready to pounce. */
+  bowTo = 0;
+  /** Over onto its back and round, tumbling (set each frame, not eased). */
+  roll = 0;
+  private lie = 0;
+  private bow = 0;
+  private sit = 0;
+  private splay = 0;
+  private pitch = 0;
+  private yaw = 0;
+  private gait = 0;
+  private pace = 0;
+  private stride = 0;
+
+  constructor(readonly body: Body, readonly size: number, private ground: Ground) {}
+
+  /** A step toward somewhere; true once it's there. */
+  walk(to: THREE.Vector3, speed: number, dt: number) {
+    const d = to.clone().sub(this.pos).setY(0);
+    const left = d.length();
+    if (left < 0.04) return true;
+    this.heading = turn(this.heading, headingOf(d.x, d.z), 7, dt);
+    const step = Math.min(left, speed * dt);
+    this.pos.addScaledVector(d.normalize(), step);
+    this.gait += step;
+    this.pace = speed;
+    return false;
+  }
+
+  face(heading: number, dt: number) {
+    this.heading = turn(this.heading, heading, 4, dt);
+  }
+
+  /** Straight into a pose (for one that's already there when you arrive). */
+  settle() {
+    this.lie = this.lieTo;
+    this.sit = this.sitTo;
+  }
+
+  draw(dt: number, clock: number) {
+    const b = this.body;
+    b.relax();
+    this.lie = damp(this.lie, this.lieTo, 3, dt);
+    this.sit = damp(this.sit, this.sitTo, 4, dt);
+    this.splay = damp(this.splay, this.splayTo, 10, dt);
+    this.bow = damp(this.bow, this.bowTo, 8, dt);
+    this.pitch = damp(this.pitch, this.pitchTo, 5, dt);
+    this.yaw = damp(this.yaw, this.yawTo, 3, dt);
+    this.stride = damp(this.stride, this.pace > 0 ? clamp(this.pace * 1.4, 0.35, 0.8) : 0, 8, dt);
+    const h = this.ground.at(this.pos.x, this.pos.z);
+    if (!Number.isNaN(h)) this.pos.y = h;
+    b.root.position.copy(this.pos).setY(this.pos.y + this.height);
+    orient(b.root, this.heading, 0, this.roll);
+    b.root.scale.setScalar(this.size);
+    const body = b.part('body');
+    const head = b.part('head');
+    // the step: diagonal pairs, a stride every twelve centimetres or so
+    const phase = (this.gait / (0.12 * this.size)) * Math.PI;
+    const swing = Math.sin(phase) * this.stride;
+    if (body) {
+      body.position.y += Math.abs(Math.sin(phase)) * 0.012 * this.stride - 0.14 * this.lie;
+      // sitting up: tipped back onto its haunches, about the bottom of its rump
+      const a = 1.0 * this.sit;
+      if (a > 0.001) {
+        const px = -0.16;
+        const py = -0.2;
+        body.rotation.z += a;
+        body.position.x += px - (Math.cos(a) * px - Math.sin(a) * py);
+        body.position.y += py - (Math.sin(a) * px + Math.cos(a) * py);
+      }
+      // a play bow
+      body.rotation.z -= 0.35 * this.bow;
+      body.position.y -= 0.05 * this.bow;
+      // slow breaths, curled up asleep
+      body.scale.y *= 1 + Math.sin(clock * 1.2) * 0.04 * this.lie;
+    }
+    for (const [tag, front, pair] of [['fl', true, 1], ['fr', true, -1], ['bl', false, -1], ['br', false, 1]] as const) {
+      const leg = b.part(`leg_${tag}`);
+      if (!leg) continue;
+      let r = swing * pair * 0.9;
+      // folded under, lying down: front paws forward, back ones back
+      r += (front ? 1.4 : -1.4) * this.lie;
+      // sitting: the back legs stay planted, the front paws come up to hold what it's sniffing
+      r += (front ? 0.7 : -1.0) * this.sit;
+      // a leap: front legs flung forward, back legs out behind
+      r += (front ? 0.9 : -1.0) * this.splay;
+      // bowed: front legs out flat ahead
+      if (front) r += 0.8 * this.bow;
+      leg.rotation.z += r;
+    }
+    if (head) {
+      head.rotation.z += this.pitch - 1.1 * this.sit;
+      head.rotation.y += this.yaw;
+      if (this.sniffing) head.rotation.z += Math.sin(clock * 16) * 0.04; // the snout going
+      if (this.chewing) head.rotation.z += Math.max(0, Math.sin(clock * 9)) * 0.08; // a nibble, and another
+    }
+    const eyes = b.part('eyes');
+    const lids = b.part('lids');
+    if (eyes) eyes.visible = !this.sleepy;
+    if (lids) lids.visible = this.sleepy;
+    const flower = b.part('flower');
+    if (flower) flower.visible = false; // the meadow's daisy is its own (see Snorble)
+    this.pace = 0;
+    this.roll = 0;
+  }
+}
+
+/**
+ * Snorbles, on a sunny day out of the wind: a grown one and its two young, out of the trees to
+ * the sunny grass above the beach. They potter about, sniffing at the ground, and now and then
+ * set off across the meadow to forage, nibbling as they go (and snapping at the odd insect). The
+ * young ones play when they get the chance: round and round after each other, or one creeping
+ * up to pounce and the two of them tumbling over. Now and then the grown one sits up on its
+ * haunches to sniff the daisy there, and when it's had enough it lies down in the sunbeam, curls
+ * up and sleeps, the young ones (once they've played themselves out) tucked in beside it. Startle it and it
+ * leaps two metres straight up (the field notes say it can), the young ones after it, half as
+ * high; the third time, the whole family bounds off into the trees for good. A cloud over the sun
+ * and they wander home. (If it's sunny when you arrive, they're already out.)
  */
 class Snorble {
   readonly body: Body;
-  private state: 'away' | 'waking' | 'napping' | 'leaping' | 'bounding' = 'away';
-  private wait = LUCK.snorbleSoon ? 2 : rand(20, 120);
+  private mum: Fluff;
+  private young: Fluff[] = [];
+  private state: 'away' | 'coming' | 'pottering' | 'foraging' | 'flower' | 'napping' | 'leaping' | 'leaving' | 'fleeing' = 'away';
+  /** What it was doing before a fright, to go back to. */
+  private was: 'pottering' | 'napping' = 'pottering';
+  private wait = LUCK.snorbleSoon ? 0 : rand(20, 120);
+  private arriving = true;
   private spot = V();
-  private heading = rand(0, Math.PI * 2);
+  private den = V();
+  private target = V();
+  private daisy?: THREE.Object3D;
+  private daisyAt = V();
   private t = 0;
-  private sniff = 0;
-  private nextSniff = rand(4, 10);
-  private alert = 0;
+  /** In a potter: walking to somewhere, or nose down sniffing there. */
+  private sniffFor = 0;
+  private rounds = 0;
+  /** Whether it's been to the daisy since its last nap. */
+  private daisied = false;
+  private napFor = 0;
+  /** A foraging trip: the stops still to come (the last one back home), and how long it's nibbling at this one. */
+  private route: THREE.Vector3[] = [];
+  private browse = 0;
+  private snap = 0;
+  /** The young ones' game, if they're playing one. */
+  private play: { kind: 'chase' | 'pounce'; t: number; length: number; centre: THREE.Vector3; angle: number; way: number; first: number } | null = null;
+  private playWait = rand(4, 12);
   private pokes = 0;
+  private startled = false;
+  private landed = false;
+  /** Till its next snore, or sniff at the daisy. */
+  private hum = 0;
   private gone = false;
-  private hop = V();
-  /** The template's own scale, which the squash and stretch goes on top of. */
-  private size = 1;
   onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
-  constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground) {
+  constructor(template: THREE.Object3D, private scene: THREE.Scene, private ground: Ground) {
     this.body = new Body('snorble', template, scene);
-    this.size = this.body.root.scale.x;
+    const size = this.body.root.scale.x;
+    this.mum = new Fluff(this.body, size, ground);
+    for (let i = 0; i < 2; i++) this.young.push(new Fluff(new Body('snorble', template, scene), size * 0.55, ground));
     // a sunny patch of grass above the beach, either side of the pier, out in the open
     for (const at of [B(-8, -13.6), B(11.2, -15.6)].sort(() => Math.random() - 0.5)) {
       if (firm(ground, at, 0.3, 4)) {
@@ -82,122 +247,483 @@ class Snorble {
         break;
       }
     }
+    // a daisy in the grass near it, there whether they come or not
+    const flower = this.body.part('flower');
+    if (flower && this.spot.lengthSq()) {
+      for (let i = 0; i < 8; i++) {
+        const at = ahead(this.spot, rand(0, Math.PI * 2), rand(1.2, 1.8), 0);
+        if (!firm(ground, at, 0.3, 4)) continue;
+        this.daisy = flower.clone();
+        this.daisy.visible = true;
+        this.daisy.position.copy(at).setY(ground.at(at.x, at.z));
+        this.daisy.rotation.set(0, rand(0, Math.PI * 2), 0);
+        this.daisy.scale.setScalar(size);
+        this.daisyAt.copy(this.daisy.position);
+        scene.add(this.daisy);
+        break;
+      }
+    }
+  }
+
+  /** Everyone's bodies, for the picker: clicking a young one startles the family the same. */
+  get bodies() {
+    return [this.body, ...this.young.map((y) => y.body)];
   }
 
   get here() {
     return this.state !== 'away';
   }
 
-  /** How many times it's been woken (its third is its last). */
+  /** How many times it's been startled (its third is its last), or 0 if the last click found it already in the air. */
   get woken() {
-    return this.pokes;
+    return this.startled ? this.pokes : 0;
+  }
+
+  /** Home, in the trees: the nearest one a little way off the sunny patch, or uphill from it. */
+  private findDen() {
+    let best = Infinity;
+    const p = V();
+    this.scene.traverse((o) => {
+      if (!/^tree\d+$/.test(o.name)) return;
+      o.getWorldPosition(p);
+      const d = p.distanceTo(this.spot);
+      if (d > 4 && d < 14 && d < best && firm(this.ground, p, 0.2, 8)) {
+        best = d;
+        this.den.copy(p);
+      }
+    });
+    if (best === Infinity) this.den.copy(this.spot).add(V(-this.spot.x, 0, -this.spot.z).setLength(7));
   }
 
   poke() {
-    if (this.state !== 'napping') return;
-    if (++this.pokes >= 3) {
-      // that's enough: off it goes, in bounds, away from the camera
-      this.state = 'bounding';
-      this.t = 0;
-      this.hop.set(rand(-1, 1), 0, -1).normalize();
-      this.heading = headingOf(this.hop.x, this.hop.z);
-      this.onCall?.('bounce', this.body.root.position.clone());
-      return;
-    }
+    this.startled = ['coming', 'pottering', 'foraging', 'flower', 'napping', 'leaving'].includes(this.state);
+    if (!this.startled) return;
+    this.pokes++;
+    this.onCall?.('squeak', this.mum.pos.clone());
+    this.landed = false;
+    this.was = this.state === 'napping' ? 'napping' : 'pottering';
     this.state = 'leaping';
     this.t = 0;
-    this.onCall?.('bounce', this.body.root.position.clone());
+    this.play = null;
+  }
+
+  /** Off across the meadow: a few stops along it, never far uphill toward the houses, and home again. */
+  private trip() {
+    this.route = [];
+    let from = this.spot;
+    for (let i = 0, stops = 2 + Math.floor(rand(0, 3)); i < 20 && this.route.length < stops; i++) {
+      const at = this.spot.clone().add(V(rand(-6, 6), 0, rand(-1.5, 1.5)));
+      // clear grass all the way there, not the beach or the water
+      const clear = [0.25, 0.5, 0.75, 1].every((k) => firm(this.ground, from.clone().lerp(at, k), 0.3, 5));
+      if (!clear || at.distanceTo(from) < 1.2) continue;
+      this.route.push(at);
+      from = at;
+    }
+    if (!this.route.length) return false;
+    this.route.push(this.spot.clone());
+    this.state = 'foraging';
+    this.browse = 0;
+    return true;
+  }
+
+  /** The young ones start a game, somewhere clear just beside their mother. */
+  private startPlay() {
+    const m = this.mum;
+    const centre = ahead(m.pos, m.heading, rand(0.3, 0.8), (chance(0.5) ? 1 : -1) * rand(0.6, 1.0));
+    if (!firm(this.ground, centre, 0.3, 5)) {
+      this.playWait = 3;
+      return;
+    }
+    this.play = { kind: chance(0.5) ? 'chase' : 'pounce', t: 0, length: rand(6, 14), centre, angle: rand(0, Math.PI * 2), way: chance(0.5) ? 1 : -1, first: chance(0.5) ? 1 : 0 };
+  }
+
+  /** Somewhere to potter over to: a step or two off across the sunny grass. */
+  private wander() {
+    for (let i = 0; i < 6; i++) {
+      const at = ahead(this.spot, rand(0, Math.PI * 2), rand(0.4, 2.2), 0);
+      if (firm(this.ground, at, 0.3, 4)) return this.target.copy(at);
+    }
+    return this.target.copy(this.spot);
+  }
+
+  private show(at: THREE.Vector3, settled: boolean) {
+    const m = this.mum;
+    m.pos.copy(at);
+    m.body.show(at);
+    this.young.forEach((y, i) => {
+      y.pos.copy(ahead(at, m.heading, -0.5, i ? 0.35 : -0.35));
+      y.heading = m.heading;
+      y.body.show(y.pos);
+    });
+    if (!settled) return;
+    // already out: pottering, or (half the time) asleep in the sun
+    if (chance(0.5)) {
+      this.state = 'napping';
+      this.napFor = rand(20, 50);
+      this.t = 3;
+      for (const f of [m, ...this.young]) {
+        f.lieTo = 1;
+        f.sleepy = true;
+        f.yawTo = 0.9;
+        f.pitchTo = -0.3;
+        f.settle();
+      }
+      this.young.forEach((y, i) => {
+        y.pos.copy(ahead(m.pos, m.heading, -0.05, i ? 0.5 : -0.5));
+        y.heading = m.heading + (i ? 0.6 : -0.6);
+      });
+    } else {
+      this.state = 'pottering';
+      this.wander();
+    }
   }
 
   update(dt: number, o: Outlook, clock: number) {
-    const b = this.body;
+    if (this.daisy) this.daisy.visible = o.season !== 'winter';
     if (!this.spot.lengthSq() || this.gone) return;
+    const m = this.mum;
     const fine = LUCK.snorbleSoon || (LUCK.snorble && o.night < 0.3 && o.hour >= 9 && o.hour < 17.5
-      && o.cloud < 0.35 && o.wet < 0.05 && o.wind < 9 && o.season !== 'winter');
+      && o.cloud < 0.5 && o.wet < 0.05 && o.wind < 9);
     if (this.state === 'away') {
-      if (!fine || (this.wait -= dt) > 0) return;
-      // there in the long grass all along: it comes up out of it, still asleep
-      this.state = 'waking';
-      this.t = 0;
-      b.show(this.spot);
-    }
-    if (this.state === 'napping' && !fine) {
-      // a cloud over the sun: it wanders off to find another sunbeam
-      this.pokes = 2;
-      this.poke();
-    }
-    b.relax();
-    this.t += dt;
-    let y = this.spot.y;
-    let stretch = 1;
-    let head = 0;
-    const p = this.spot.clone();
-    if (this.state === 'waking') {
-      y -= (1 - smooth(Math.min(1, this.t / 2.5))) * 0.6;
-      if (this.t > 2.5) this.state = 'napping';
-    } else if (this.state === 'leaping') {
-      // a crouch, then two metres straight up, a stretch out at the top, and a squashy landing
-      const crouch = 0.25;
-      const air = 1.3;
-      if (this.t < crouch) stretch = 1 - Math.sin((this.t / crouch) * Math.PI) * 0.3;
-      else if (this.t < crouch + air) {
-        const k = (this.t - crouch) / air;
-        y += Math.sin(k * Math.PI) * 2.0;
-        stretch = 1 + Math.sin(k * Math.PI) * 0.25;
-        head = 0.5;
-      } else if (this.t < crouch + air + 0.3) stretch = 1 - Math.sin(((this.t - crouch - air) / 0.3) * Math.PI) * 0.35;
+      const already = this.arriving && fine;
+      this.arriving = false;
+      if (!fine || (!already && (this.wait -= dt) > 0)) return;
+      this.findDen();
+      if (already) this.show(this.spot, true);
       else {
-        this.state = 'napping';
-        this.alert = 4;
+        // out from under the trees, and over to the sunny grass
+        m.heading = headingOf(this.spot.x - this.den.x, this.spot.z - this.den.z);
+        this.show(this.den, false);
+        this.state = 'coming';
+        this.target.copy(this.spot);
       }
-    } else if (this.state === 'bounding') {
-      // big springy bounds, two metres high, off out of sight
-      const bound = 0.9;
-      const k = (this.t % bound) / bound;
-      y += Math.sin(k * Math.PI) * 1.6;
-      stretch = 1 + Math.sin(k * Math.PI) * 0.2;
-      head = 0.4;
-      p.addScaledVector(this.hop, this.t * 3.2);
-      const h = this.ground.at(p.x, p.z);
-      y = (Number.isNaN(h) ? this.spot.y : h) + Math.sin(k * Math.PI) * 1.6;
-      if (this.t > 5) {
-        b.hide();
-        this.gone = true;
-        return;
+    }
+    if (!fine && ['coming', 'pottering', 'foraging', 'flower', 'napping'].includes(this.state)) this.state = 'leaving';
+    this.t += dt;
+    m.sniffing = false;
+    m.chewing = false;
+    m.splayTo = 0;
+    m.height = 0;
+    m.sitTo = 0;
+    if (this.state !== 'napping') {
+      m.lieTo = 0;
+      m.sleepy = false;
+    }
+    m.yawTo = 0;
+    m.pitchTo = 0;
+    switch (this.state) {
+      case 'coming':
+        if (m.walk(this.target, 0.55, dt)) {
+          this.state = 'pottering';
+          this.sniffFor = rand(2, 4);
+        }
+        break;
+      case 'pottering':
+        if (this.sniffFor > 0) {
+          // nose down in the clover
+          this.sniffFor -= dt;
+          m.sniffing = true;
+          m.pitchTo = -0.7;
+          m.yawTo = Math.sin(this.t * 0.9) * 0.3;
+          if (this.sniffFor <= 0) {
+            this.rounds++;
+            if (this.rounds >= 4 && chance(0.5)) {
+              // that'll do: a nap in the sun
+              this.state = 'napping';
+              this.napFor = rand(25, 60);
+              this.t = 0;
+              this.target.copy(this.spot);
+              this.daisied = false;
+            } else if (this.rounds >= 2 && chance(0.25)) {
+              if (!this.trip()) this.wander();
+            } else if (!this.daisied && this.daisy?.visible && chance(0.4)) {
+              this.state = 'flower';
+              this.daisied = true;
+              this.t = 0;
+              const back = this.daisyAt.clone().sub(this.spot).setY(0).setLength(0.5 * m.size);
+              this.target.copy(this.daisyAt).sub(back);
+            } else this.wander();
+          }
+        } else if (m.walk(this.target, 0.45, dt)) {
+          this.sniffFor = rand(2, 5);
+          if (chance(0.5)) this.onCall?.('sniff', m.pos.clone(), true);
+        }
+        break;
+      case 'foraging':
+        if (this.browse > 0) {
+          // a nibble at the clover and the leaves, and now and then a snap at something flying past
+          this.browse -= dt;
+          m.chewing = true;
+          m.pitchTo = -0.75;
+          m.yawTo = Math.sin(this.t * 0.7) * 0.25;
+          if (this.snap > 0) {
+            this.snap -= dt;
+            m.chewing = false;
+            m.pitchTo = 0.5;
+            m.height = Math.sin((1 - Math.max(0, this.snap) / 0.4) * Math.PI) * 0.12;
+          } else if (chance(dt / 7)) this.snap = 0.4;
+          if (this.browse <= 0) this.route.shift();
+        } else if (!this.route.length) {
+          this.state = 'pottering';
+          this.rounds = 1;
+          this.sniffFor = rand(1, 3);
+        } else if (m.walk(this.route[0], 0.5, dt)) {
+          if (this.route.length === 1) this.route.shift();
+          else {
+            this.browse = rand(3, 7);
+            if (chance(0.4)) this.onCall?.('sniff', m.pos.clone(), true);
+          }
+        }
+        break;
+      case 'flower':
+        if (!m.walk(this.target, 0.45, dt)) {
+          this.t = 0;
+          break;
+        }
+        // up on its haunches, eyes shut, nose in the daisy
+        m.face(headingOf(this.daisyAt.x - m.pos.x, this.daisyAt.z - m.pos.z), dt);
+        m.sitTo = 1;
+        m.sleepy = this.t > 1;
+        m.sniffing = this.t > 1;
+        if (this.t > 1 && (this.hum -= dt) <= 0) {
+          this.hum = 2.5;
+          this.onCall?.('sniff', m.pos.clone(), true);
+        }
+        if (this.t > 6) {
+          this.state = 'pottering';
+          this.wander();
+        }
+        break;
+      case 'napping':
+        if (m.lieTo < 1) {
+          // over to the sunbeam, a turn about, and down
+          if (!m.walk(this.target, 0.45, dt)) {
+            this.t = 0;
+            break;
+          }
+          m.face(m.heading + 2, dt);
+          if (this.t > 1.2) {
+            m.lieTo = 1;
+            this.t = 0;
+            if (chance(0.5)) this.playWait = 0; // the young ones aren't tired yet
+          }
+          break;
+        }
+        if (this.t > 1.5) {
+          m.sleepy = true;
+          m.yawTo = 0.9;
+          m.pitchTo = -0.3;
+          // little snores, in the sun
+          if ((this.hum -= dt) <= 0) {
+            this.hum = rand(5, 10);
+            this.onCall?.('snooze', m.pos.clone(), true);
+          }
+        }
+        if ((this.napFor -= dt) <= 0) {
+          // awake, a stretch, and back to pottering
+          m.lieTo = 0;
+          m.sleepy = false;
+          this.state = 'pottering';
+          this.rounds = 0;
+          this.sniffFor = 0;
+          this.wander();
+          if (chance(0.4)) this.trip(); // up, and hungry
+        }
+        break;
+      case 'leaping': {
+        // a crouch, two metres straight up with its legs flung out, and a squashy landing
+        const k = (this.t - 0.2) / 1.3;
+        if (this.t < 0.2) m.lieTo = 0.3;
+        else if (k < 1) {
+          m.lieTo = 0;
+          m.height = Math.sin(k * Math.PI) * 2.0;
+          m.splayTo = 1;
+          m.pitchTo = 0.4;
+        } else if (this.t < 2.9) {
+          if (!this.landed) {
+            this.landed = true;
+            this.onCall?.('bounce', m.pos.clone());
+          }
+          // landed: what was that?
+          m.yawTo = Math.sin((this.t - 1.5) * 4) * 0.6;
+          m.pitchTo = 0.25;
+        } else if (this.pokes >= 3) {
+          this.state = 'fleeing';
+          this.t = 0;
+          this.onCall?.('squeak', m.pos.clone());
+        } else {
+          this.state = this.was;
+          this.t = 0;
+          if (this.was === 'napping') m.lieTo = 1;
+          else this.wander();
+        }
+        break;
+      }
+      case 'leaving':
+      case 'fleeing': {
+        const fleeing = this.state === 'fleeing';
+        if (m.walk(this.den, fleeing ? 3 : 0.55, dt)) {
+          for (const f of [m, ...this.young]) f.body.hide();
+          if (fleeing) this.gone = true;
+          else {
+            this.state = 'away';
+            this.wait = rand(30, 120);
+          }
+          return;
+        }
+        if (fleeing) {
+          // big springy bounds, off into the trees
+          const k = (this.t % 0.55) / 0.55;
+          m.height = Math.sin(k * Math.PI) * 0.9;
+          m.splayTo = Math.sin(k * Math.PI);
+        }
+        break;
+      }
+    }
+    m.draw(dt, clock);
+    // the young ones' games: while she sniffs about, browses, or is just dozing off
+    const free = this.state === 'pottering' || this.state === 'flower' || (this.state === 'foraging' && this.browse > 0)
+      || (this.state === 'napping' && m.lieTo >= 1 && this.t < 12);
+    if (!free) this.play = null;
+    else if (!this.play && (this.playWait -= dt) <= 0) this.startPlay();
+    if (this.play && (this.play.t += dt) > this.play.length) {
+      this.play = null;
+      this.playWait = rand(10, 30);
+    }
+    if (this.play?.kind === 'chase') this.play.angle += this.play.way * (2.2 + Math.sin(this.play.t * 1.3) * 0.6) * dt;
+    this.young.forEach((y, i) => (this.play ? this.frolic(y, i, dt, clock) : this.youngster(y, i, dt, clock)));
+  }
+
+  /** A young one at play: round and round after the other, or creeping up to pounce, and a tumble. */
+  private frolic(y: Fluff, i: number, dt: number, clock: number) {
+    const p = this.play!;
+    const other = this.young[1 - i];
+    y.lieTo = 0;
+    y.sleepy = false;
+    y.sniffing = false;
+    y.chewing = false;
+    y.sitTo = 0;
+    y.splayTo = 0;
+    y.bowTo = 0;
+    y.height = 0;
+    y.yawTo = 0;
+    y.pitchTo = 0.1;
+    if (p.kind === 'chase') {
+      const r = 0.45;
+      const a = p.angle - (i ? 0.9 * p.way : 0);
+      y.walk(p.centre.clone().add(V(Math.cos(a) * r, 0, Math.sin(a) * r)), 1.4, dt);
+      y.height = Math.abs(Math.sin(clock * 10 + i * 1.3)) * 0.05;
+      if (chance(dt / 5)) this.onCall?.('chirrup', y.pos.clone(), true);
+    } else {
+      // pounce: one creeps up and crouches with its rump in the air, springs, and over they both go
+      const cycle = 2.4;
+      const k = p.t % cycle;
+      const pouncer = (Math.floor(p.t / cycle) + p.first) % 2 === i;
+      const toward = headingOf(other.pos.x - y.pos.x, other.pos.z - y.pos.z);
+      if (k < 1.2) {
+        if (pouncer) {
+          if (y.pos.distanceTo(other.pos) > 0.6) y.walk(other.pos, 0.35, dt);
+          else y.face(toward, dt);
+          y.bowTo = 1;
+          y.roll = Math.sin(clock * 22) * 0.1 * Math.min(1, k * 2); // the wiggle
+          y.pitchTo = 0.2;
+        } else {
+          y.sniffing = true; // none the wiser
+          y.pitchTo = -0.5;
+        }
+      } else if (k < 1.7) {
+        const s = (k - 1.2) / 0.5;
+        if (pouncer) {
+          y.walk(other.pos.clone().lerp(y.pos, Math.min(1, (0.3 * y.size) / Math.max(0.01, y.pos.distanceTo(other.pos)))), 1.8, dt);
+          y.height = Math.sin(s * Math.PI) * 0.25;
+          y.splayTo = 1;
+          y.pitchTo = 0.3;
+        } else {
+          y.height = Math.sin(s * Math.PI) * 0.12;
+          y.splayTo = 0.6;
+          y.pitchTo = 0.4;
+          if (k - dt < 1.2) this.onCall?.('chirrup', y.pos.clone(), true);
+        }
+      } else if (k < 2.2) {
+        // over and over together
+        const s = (k - 1.7) / 0.5;
+        y.roll = (pouncer ? 1 : -1) * s * Math.PI * 2;
+        y.height = Math.sin(s * Math.PI) * 0.1;
+        y.splayTo = 0.5;
+      }
+    }
+    // never wandering off far from its mother while it plays, and never through its sister
+    if (y.pos.distanceTo(this.mum.pos) > 2.2) y.walk(this.mum.pos, 1.2, dt);
+    const apart = y.pos.clone().sub(other.pos).setY(0);
+    const near = 0.32 * y.size;
+    const gap = apart.length();
+    if (gap < near) y.pos.addScaledVector(gap ? apart.divideScalar(gap) : V(1, 0, 0), (near - gap) / 2);
+    y.draw(dt, clock);
+  }
+
+  /** A young one: never far behind, copying whatever it's doing, a bit late and a bit smaller. */
+  private youngster(y: Fluff, i: number, dt: number, clock: number) {
+    const m = this.mum;
+    const side = i ? 1 : -1;
+    y.sniffing = false;
+    y.splayTo = 0;
+    y.height = 0;
+    y.sitTo = 0;
+    y.yawTo = 0;
+    y.pitchTo = 0;
+    if (this.state === 'napping' && m.lieTo >= 1) {
+      // tucked in against its side, asleep too
+      if (y.walk(ahead(m.pos, m.heading, -0.05, side * 0.5), 0.5, dt)) {
+        y.face(m.heading + side * 0.6, dt);
+        y.lieTo = 1;
+        if (m.sleepy) {
+          y.sleepy = true;
+          y.yawTo = -side * 0.8;
+          y.pitchTo = -0.3;
+        }
       }
     } else {
-      // napping: slow breaths, and a sniff of the air now and then
-      if ((this.nextSniff -= dt) <= 0) {
-        this.sniff = 2.5;
-        this.nextSniff = rand(6, 14);
+      y.lieTo = 0;
+      y.sleepy = false;
+      if (this.state === 'leaping') {
+        // after it, half as high
+        const k = (this.t - 0.35 - i * 0.12) / 0.9;
+        if (k > 0 && k < 1) {
+          y.height = Math.sin(k * Math.PI) * 1.0;
+          y.splayTo = 1;
+          y.pitchTo = 0.4;
+        } else if (k >= 1) y.yawTo = Math.sin((this.t + i) * 5) * 0.5;
+      } else {
+        const fleeing = this.state === 'fleeing';
+        const spot = ahead(m.pos, m.heading, -0.55, side * 0.4);
+        const far = y.pos.distanceTo(spot);
+        if (far > 0.25 || fleeing) y.walk(spot, fleeing ? 3.2 : Math.min(0.9, 0.3 + far), dt);
+        else {
+          // having a sniff about too, while it waits
+          y.face(m.heading + side * 0.4, dt);
+          y.sniffing = Math.sin(clock * 0.7 + i * 2) > 0;
+          y.pitchTo = y.sniffing ? -0.6 : 0.1;
+          // a chirrup to its mother now and then
+          if (chance(dt / 12)) this.onCall?.('chirrup', y.pos.clone(), true);
+        }
+        if (fleeing) {
+          const k = ((this.t + i * 0.2) % 0.45) / 0.45;
+          y.height = Math.sin(k * Math.PI) * 0.5;
+          y.splayTo = Math.sin(k * Math.PI);
+        }
       }
-      this.sniff -= dt;
-      this.alert -= dt;
-      const up = this.sniff > 0 ? Math.sin(Math.min(1, (2.5 - this.sniff) / 2.5) * Math.PI) : 0;
-      head = up * 0.35 + (this.alert > 0 ? 0.3 : 0);
     }
-    p.y = y;
-    b.root.position.copy(p);
-    orient(b.root, this.heading);
-    b.root.scale.set(1 / Math.sqrt(stretch), stretch, 1 / Math.sqrt(stretch)).multiplyScalar(this.size);
-    const body = b.part('body');
-    if (body && this.state === 'napping') body.scale.y *= 1 + Math.sin(clock * 1.1) * 0.05;
-    const hd = b.part('head');
-    if (hd) {
-      hd.rotation.z += head;
-      // a twitch of the snout while it sniffs
-      if (this.sniff > 0) hd.rotation.y += Math.sin(clock * 14) * 0.05;
-    }
+    y.draw(dt, clock);
   }
 }
 
 // --- the balloonbug ------------------------------------------------------------------------
 
 /**
- * A balloonbug, on a still, warm afternoon in spring or summer: blown up like a hot-air balloon,
- * drifting over the island with what wind there is, legs dangling. Some days it has eaten its
- * fill of midges halfway across: it lets itself down and flutters into the grass. Clicked, it
- * puffs itself up and bobs higher.
+ * A balloonbug, on a still, dry afternoon (likeliest in spring and summer): blown up like a
+ * hot-air balloon, drifting over the island with what wind there is, legs dangling. Some days it
+ * has eaten its fill of midges halfway across: it lets itself down and flutters into the grass.
+ * Clicked, it puffs itself up and bobs higher.
  */
 class Balloonbug {
   readonly body: Body;
@@ -234,7 +760,7 @@ class Balloonbug {
   update(dt: number, o: Outlook, clock: number) {
     const b = this.body;
     if (this.t < 0) {
-      const fine = LUCK.balloonbugSoon || (LUCK.balloonbug && (o.season === 'spring' || o.season === 'summer')
+      const fine = LUCK.balloonbugSoon || (LUCK.balloonbug
         && o.hour >= 11 && o.hour < 18.5 && o.night < 0.3 && o.wind < 4.5 && o.wet < 0.03 && o.storm < 0.05);
       if (!fine || this.trips >= 2 || (this.wait -= dt) > 0) return;
       // in from upwind, across the near side of the island
@@ -360,7 +886,7 @@ class Fosha {
   update(dt: number, o: Outlook, clock: number) {
     const b = this.body;
     if (!this.spot.lengthSq()) return;
-    const fine = LUCK.foshaSoon || (LUCK.fosha && o.night > 0.75 && o.cloud < 0.25 && o.fog < 0.2 && o.wet < 0.03);
+    const fine = LUCK.foshaSoon || (LUCK.fosha && o.night > 0.75 && o.cloud < 0.3 && o.fog < 0.2 && o.wet < 0.03);
     if (this.state === 'away') {
       if (!fine || (this.wait -= dt) > 0) return;
       this.state = 'coming';
@@ -415,11 +941,45 @@ class Fosha {
 
 // --- the treestrider -----------------------------------------------------------------------
 
+/** How it walks: a stride (metres between one footfall and the next of the same foot), the share of it a foot spends in the air, its pace, how hard it slows and sets off, and how high a foot comes out of the water. */
+const STRIDE = 2.2;
+const SWING = 0.4;
+const CRUISE = 0.9;
+const BRAKE = 0.6;
+const LIFT = 0.9;
+/** How far beyond the bay it comes from and goes on to: out past where the camera can see, like the ships. */
+const OFFSTAGE = 85;
+
+/** One of its legs: a thigh from the hip, a shin from the knee, and where its foot is planted. */
+interface StriderLeg {
+  thigh: THREE.Object3D;
+  shin: THREE.Object3D;
+  /** Where the leg is in its stride: diagonal pairs half a stride apart. */
+  phase: number;
+  /** At rest, in the body's frame: the hip, the knee from the hip, the foot from the hip. */
+  hip: THREE.Vector3;
+  knee: THREE.Vector3;
+  foot: THREE.Vector3;
+  /** The thigh's and shin's lengths, the way its knee points, and the shin at rest from the knee. */
+  thighLength: number;
+  shinLength: number;
+  pole: THREE.Vector3;
+  shinRest: THREE.Vector3;
+  /** The thigh's frame at rest (along it, across, and out of the leg's plane), transposed. */
+  rest: THREE.Matrix4;
+  /** Where its foot stands from the creature, in the world, for this walk. */
+  reach: THREE.Vector3;
+  air: boolean;
+}
+
 /**
  * A treestrider, on a misty morning: five metres of stilt legs under a leaf-green back, wading through
- * the shallows off the island on its way to somewhere else, the mist round its knees. It walks
- * like a harvestman, two legs at a time. Clicked, it stops, turns its head to look at you,
- * and walks on.
+ * the shallows off the island on its way to somewhere else, the mist round its knees. It comes in
+ * from out of sight over the sea and goes on out of sight the other way (if it's about when you
+ * arrive, it's already partway across). It walks
+ * like a harvestman, two legs at a time, each foot set down and left where it is while the body
+ * goes on over it, then lifted out of the water and swung on ahead. Clicked, it slows to a stop
+ * with all four feet down, turns its head to look at you, and walks on.
  */
 class Treestrider {
   readonly body: Body;
@@ -428,14 +988,40 @@ class Treestrider {
   private from = V();
   private dir = V();
   private walked = 0;
-  private stride = 0;
-  private stop = 0;
+  private speed = 0;
+  /** Where it's coming to a stop, with all four feet down (-1: it isn't). */
+  private haltAt = -1;
+  private look = 0;
   private done = false;
-  private lastStep = 0;
+  /** How far it walks, from out of sight to out of sight. */
+  private route = 0;
+  /** Whether it's still the first look: if it's about then, it's already there. */
+  private arriving = true;
+  private legs: StriderLeg[] = [];
   onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
   constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, private particles: Particles) {
     this.body = new Body('treestrider', template, scene);
+    // front-left with back-right, then the other two
+    for (const [tag, phase] of [['fl', 0], ['br', 0], ['fr', 0.5], ['bl', 0.5]] as const) {
+      const thigh = this.body.part(`leg_${tag}`);
+      const shin = this.body.part(`shin_${tag}`);
+      const foot = this.body.part(`foot_${tag}`);
+      if (!thigh || !shin || !foot) continue;
+      const knee = shin.position.clone();
+      const toFoot = knee.clone().add(foot.position);
+      const along = toFoot.clone().normalize();
+      const pole = knee.clone().addScaledVector(along, -knee.dot(along)).normalize();
+      const u = knee.clone().normalize();
+      const n = knee.clone().cross(toFoot).normalize();
+      this.legs.push({
+        thigh, shin, phase, knee, foot: toFoot, hip: thigh.position.clone(),
+        thighLength: knee.length(), shinLength: foot.position.length(), pole,
+        shinRest: foot.position.clone().normalize(),
+        rest: new THREE.Matrix4().makeBasis(u, n.clone().cross(u), n).transpose(),
+        reach: V(), air: false,
+      });
+    }
   }
 
   get here() {
@@ -443,7 +1029,11 @@ class Treestrider {
   }
 
   poke() {
-    if (this.t >= 0) this.stop = 4;
+    if (this.t < 0 || this.haltAt >= 0 || this.look > 0) return;
+    // come to a stop where all four feet are down (pairs mid-stride, both planted), as soon as it can slow down for
+    const soonest = (this.walked + (this.speed * this.speed) / (2 * BRAKE)) / STRIDE;
+    const settled = [SWING / 2 + 0.25, SWING / 2 + 0.75].map((c) => Math.floor(soonest) + c);
+    this.haltAt = Math.min(...[...settled, ...settled.map((c) => c + 1)].filter((c) => c >= soonest)) * STRIDE;
   }
 
   /** Whether the water's deep enough to wade in here (and not so deep it would swim). */
@@ -452,60 +1042,121 @@ class Treestrider {
     return Number.isNaN(h) || h < -0.4;
   }
 
+  /** Where a leg's foot stands for its k-th step: placed so it's right under the hip halfway through standing on it. */
+  private plant(leg: StriderLeg, k: number) {
+    const mid = (k + (SWING + 1) / 2 - leg.phase) * STRIDE;
+    return this.from.clone().addScaledVector(this.dir, mid).add(leg.reach);
+  }
+
   update(dt: number, o: Outlook, clock: number) {
     const b = this.body;
     if (this.t < 0) {
-      const fine = LUCK.treestriderSoon || (LUCK.treestrider && o.fog > 0.3 && o.night < 0.5 && o.storm < 0.1 && o.wind < 8);
-      if (this.done || !fine || (this.wait -= dt) > 0) return;
-      // across the bay to the south-east, in front of the island, one way or the other
+      const fine = LUCK.treestriderSoon || (LUCK.treestrider && o.fog > 0.25 && o.night < 0.5 && o.storm < 0.1 && o.wind < 8);
+      const already = this.arriving && fine;
+      this.arriving = false;
+      if (this.done || !fine || (!already && (this.wait -= dt) > 0)) return;
+      // across the bay to the south-east, in front of the island, one way or the other, wading in
+      // from out of sight over the sea and on out of sight beyond
       const east = chance(0.5);
-      this.from.copy(east ? B(46, -24) : B(-8, -34));
-      this.dir.copy(east ? B(-8, -34) : B(46, -24)).sub(this.from).setY(0).normalize();
-      this.walked = 0;
+      const a = east ? B(46, -24) : B(-8, -34);
+      const z = east ? B(-8, -34) : B(46, -24);
+      this.dir.copy(z).sub(a).setY(0).normalize();
+      this.from.copy(a).addScaledVector(this.dir, -OFFSTAGE);
+      this.route = a.distanceTo(z) + 2 * OFFSTAGE;
+      // there when you arrive: somewhere in the bay already, partway across
+      this.walked = already ? OFFSTAGE + rand(0, a.distanceTo(z)) : 0;
+      this.speed = CRUISE;
       this.t = 0;
-      b.show(this.from);
+      b.show(this.from.clone().addScaledVector(this.dir, this.walked));
+      // how far out each foot stands from it, on this heading
+      b.relax();
+      orient(b.root, headingOf(this.dir.x, this.dir.z));
+      b.root.updateMatrixWorld(true);
+      const body = b.part('body');
+      for (const leg of this.legs) {
+        if (body) leg.reach.copy(body.localToWorld(leg.hip.clone().add(leg.foot))).sub(b.root.position);
+        leg.air = (this.walked / STRIDE + leg.phase) % 1 < SWING;
+      }
     }
     b.relax();
     this.t += dt;
-    this.stop -= dt;
-    const pace = this.stop > 0 ? 0 : 0.9;
-    this.walked += pace * dt;
-    this.stride += pace * dt * 1.1;
+    // slowing to a stop, standing a while, and setting off again
+    if (this.haltAt >= 0) {
+      const left = this.haltAt - this.walked;
+      this.speed = Math.min(this.speed, Math.sqrt(2 * BRAKE * Math.max(0, left)));
+      if (left < 0.01) {
+        this.walked = this.haltAt;
+        this.speed = 0;
+        this.haltAt = -1;
+        this.look = 4;
+        this.onCall?.('strider', b.root.position.clone());
+      }
+    } else if (this.look > 0) this.look -= dt;
+    else this.speed = Math.min(CRUISE, this.speed + BRAKE * dt);
+    this.walked = Math.min(this.haltAt >= 0 ? this.haltAt : Infinity, this.walked + this.speed * dt);
+    // the body rides highest as each pair stands straight under it, and rolls a little from pair to pair
+    const u = this.walked / STRIDE;
     const p = this.from.clone().addScaledVector(this.dir, this.walked);
-    // a sway as the weight goes from one pair of legs to the other
-    p.y = Math.abs(Math.sin(this.stride * Math.PI)) * 0.12;
+    p.y = 0.08 * Math.cos(4 * Math.PI * (u - (SWING + 1) / 2));
     b.root.position.copy(p);
-    orient(b.root, headingOf(this.dir.x, this.dir.z), 0, Math.sin(this.stride * Math.PI) * 0.04);
-    // legs in diagonal pairs: front-left with back-right, then the others
-    for (const [tag, phase] of [['leg_fl', 0], ['leg_br', 0], ['leg_fr', 1], ['leg_bl', 1]] as const) {
-      const leg = b.part(tag);
-      if (!leg) continue;
-      const swing = Math.sin((this.stride + phase) * Math.PI);
-      leg.rotation.y += swing * 0.12;
-      leg.rotation.x += Math.max(0, swing) * 0.04 * (tag.endsWith('l') ? 1 : -1);
-    }
-    // a splash where a foot comes down
-    const step = Math.floor(this.stride * 2);
-    if (step !== this.lastStep && pace > 0) {
-      this.lastStep = step;
-      const side = V(-this.dir.z, 0, this.dir.x).multiplyScalar(step % 2 ? 1.3 : -1.3);
-      const foot = p.clone().add(side).addScaledVector(this.dir, 1.7).setY(0);
-      if (this.wading(foot)) splash(this.particles, foot, 0.5);
-    }
+    orient(b.root, headingOf(this.dir.x, this.dir.z), 0.015 * Math.sin(4 * Math.PI * u), 0.03 * Math.sin(2 * Math.PI * u));
+    b.root.updateMatrixWorld(true);
+    const body = b.part('body');
+    if (body) for (const leg of this.legs) this.step(leg, body, u);
     const head = b.part('head');
     if (head) {
-      if (this.stop > 0) {
+      if (this.look > 0) {
         // round to look at you, and down a little
-        const k = Math.sin(Math.min(1, (4 - this.stop) / 1.2) * Math.PI / 2) * Math.min(1, this.stop);
+        const k = Math.sin(Math.min(1, (4 - this.look) / 1.2) * Math.PI / 2) * Math.min(1, this.look);
         head.rotation.y += -0.9 * k;
         head.rotation.z -= 0.25 * k;
       } else head.rotation.y += Math.sin(clock * 0.25) * 0.2;
+      head.rotation.z += 0.03 * Math.sin(4 * Math.PI * u + 1); // nodding along with its stride
     }
-    if (this.walked > 60) {
+    if (this.walked > this.route) {
       b.hide();
       this.t = -1;
       this.done = true; // once a visit is plenty
     }
+  }
+
+  /** One leg: where its foot is in the world this frame, and the thigh and shin turned to reach it. */
+  private step(leg: StriderLeg, body: THREE.Object3D, u: number) {
+    const at = u + leg.phase;
+    const k = Math.floor(at);
+    const f = at - k;
+    const air = f < SWING;
+    const foot = this.plant(leg, k);
+    if (air) {
+      // lifted out of the water and swung on ahead to where it'll stand next
+      const s = f / SWING;
+      foot.lerpVectors(this.plant(leg, k - 1), foot, smooth(s));
+      foot.y += Math.sin(Math.PI * s) * LIFT;
+    }
+    if (air !== leg.air) {
+      leg.air = air;
+      const water = (air ? this.plant(leg, k - 1) : foot).setY(0);
+      if (this.wading(water)) {
+        splash(this.particles, water, air ? 0.2 : 0.5);
+        if (!air) this.onCall?.('wade', water, true);
+      }
+      if (air && chance(0.3)) this.onCall?.('creak', body.localToWorld(leg.hip.clone().add(leg.knee)), true);
+    }
+    // two bones to reach it: the knee goes where the triangle of thigh, shin and reach puts it, on the side it bends
+    const reach = body.worldToLocal(foot).sub(leg.hip);
+    const a = leg.thighLength;
+    const c = leg.shinLength;
+    const d = clamp(reach.length(), Math.abs(a - c) + 1e-3, a + c - 1e-3);
+    const along = reach.clone().normalize();
+    const out = leg.pole.clone().addScaledVector(along, -leg.pole.dot(along)).normalize();
+    const cos = clamp((a * a + d * d - c * c) / (2 * a * d), -1, 1);
+    const knee = along.clone().multiplyScalar(a * cos).addScaledVector(out, a * Math.sqrt(1 - cos * cos));
+    const u1 = knee.clone().normalize();
+    const n1 = knee.clone().cross(reach).normalize();
+    const turn = new THREE.Matrix4().makeBasis(u1, n1.clone().cross(u1), n1).multiply(leg.rest);
+    leg.thigh.quaternion.setFromRotationMatrix(turn);
+    const shin = reach.sub(knee).applyQuaternion(leg.thigh.quaternion.clone().invert()).normalize();
+    leg.shin.quaternion.setFromUnitVectors(leg.shinRest, shin);
   }
 }
 
@@ -1179,7 +1830,7 @@ export class Imaginary {
   }
 
   get bodies() {
-    return [...(this.mosslits?.bodies ?? []), ...[this.snorble, this.balloonbug, this.fosha, this.treestrider, this.tromb].filter((c) => !!c).map((c) => c.body)];
+    return [...(this.snorble?.bodies ?? []), ...(this.mosslits?.bodies ?? []), ...[this.balloonbug, this.fosha, this.treestrider, this.tromb].filter((c) => !!c).map((c) => c.body)];
   }
 
   /** How many times the snorble's been woken, for its lines. */

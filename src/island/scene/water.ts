@@ -11,12 +11,25 @@ const NOISE = /* glsl */ `
 `;
 
 /**
+ * A colour gone cold: most of the colour drained out of it, leaning blue-grey and a shade darker,
+ * as far as `k` (0..1). Turquoise turns slate, deep blue turns ink. (The river's water too.)
+ */
+export const CHILLED = /* glsl */ `
+  vec3 chilled(vec3 c, float k) {
+    vec3 grey = vec3(dot(c, vec3(0.3, 0.59, 0.11)));
+    return mix(c, mix(grey, c, 0.35) * vec3(0.9, 1.0, 1.12) * 0.85, k);
+  }
+`;
+
+/**
  * The sea: one big plane. Colour comes from a baked distance-to-shore map (turquoise shallows
  * fading to deep blue), plus animated foam bands, caustic squiggles and sparkles. Everything
  * is evaluated on a world-space grid so it pixelates cleanly. When the wind gets up, real waves
  * roll through it downwind: a gentle swell on a breezy day, big breaking rollers in a storm,
- * calming down in the shallows so the island stays dry. In a hard freeze, a shelf of ice creeps
- * out from the shore, with the swell stilled under it.
+ * calming down in the shallows so the island stays dry. When it's cold the sea goes slate grey
+ * and the shallows lose their turquoise; in a hard freeze a shelf of ice creeps out from the
+ * shore, with the swell stilled under it, slush and pancake ice beyond, and sea smoke drifting
+ * downwind over the open water.
  */
 export function createWater(shore: THREE.Texture, info: IslandInfo) {
   const [x0, y0, x1, y1] = info.extent;
@@ -38,6 +51,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       uMeteor: { value: new THREE.Vector4() }, // a shooting star's reflection: head (x, y) and tail (dx, dy)
       uMeteorA: { value: 0 }, // …and how bright it is
       uIce: { value: 0 }, // 0..1: how far ice reaches out from the shore
+      uCold: { value: 0 }, // 0..1: how hard it's freezing (Weather's chill): a slate-grey sea, and sea smoke
     },
   ]);
   uniforms.tShore.value = shore;
@@ -52,6 +66,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       uniform float uSea;
       uniform vec2 uWindDir;
       uniform float uIce;
+      uniform float uCold;
       varying vec3 vWorld;
       varying float vWave; // -1 trough … 1 crest
       varying float vFace; // the wave's slope towards the wind: >0 on the back, <0 on the face
@@ -127,6 +142,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       uniform vec4 uMeteor;
       uniform float uMeteorA;
       uniform float uIce;
+      uniform float uCold;
       varying vec3 vWorld;
       varying float vWave;
       varying float vFace;
@@ -134,6 +150,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       varying float vRun;
       #include <fog_pars_fragment>
       ${NOISE}
+      ${CHILLED}
 
       void main() {
         // blender coords: x east, y north = -z
@@ -142,9 +159,11 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
         float d = mix(1.0, texture2D(tShore, uv).r, inside);   // 0 at the coast … 1 far out
 
-        vec3 shallow = vec3(0.22, 0.78, 0.66);
-        vec3 mid = vec3(0.05, 0.40, 0.52);
-        vec3 deep = vec3(0.03, 0.17, 0.33);
+        // (and on a cold day, the colour drains out of it: slate shallows, an ink-dark deep)
+        float cold = smoothstep(0.25, 0.8, uCold);
+        vec3 shallow = chilled(vec3(0.22, 0.78, 0.66), cold);
+        vec3 mid = chilled(vec3(0.05, 0.40, 0.52), cold);
+        vec3 deep = chilled(vec3(0.03, 0.17, 0.33), cold);
         float wob = (noise(p * 0.35 + uTime * (0.05 + uWind * 0.2)) - 0.5) * (0.08 + uWind * 0.1);
         float t = clamp(d + wob, 0.0, 1.0);
         vec3 col = mix(shallow, mid, smoothstep(0.0, 0.25, t));
@@ -155,9 +174,9 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         // stepped bands, like a hand-picked palette
         col = floor(col * 14.0 + 0.5) / 14.0;
 
-        // caustic squiggles in the shallows
+        // caustic squiggles in the shallows (hardly any under a low winter sun)
         float c = abs(noise(p * 0.9 + vec2(uTime * 0.15, -uTime * 0.1)) - 0.5);
-        col += vec3(0.10, 0.14, 0.10) * step(c, 0.03) * (1.0 - smoothstep(0.05, 0.3, d));
+        col += vec3(0.10, 0.14, 0.10) * step(c, 0.03) * (1.0 - smoothstep(0.05, 0.3, d)) * (1.0 - cold * 0.8);
 
         // little wave dashes, the way a pixel artist draws the sea: a light crest over a dark
         // trough, each one swelling and fading in its own time
@@ -173,7 +192,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         float wy = wl.y * wsize.y;
         float open = step(0.62, wh) * smoothstep(0.12, 0.3, d) * (1.0 - uRain * 0.7) * (1.0 - uSea * 0.8);
         col = mix(col, col * 0.84, wAlong * step(abs(wy - 0.42), 0.13) * open);
-        col = mix(col, mix(col, vec3(0.55, 0.85, 0.95), 0.4), wAlong * step(abs(wy - 0.68), 0.13) * open);
+        col = mix(col, mix(col, chilled(vec3(0.55, 0.85, 0.95), cold), 0.4), wAlong * step(abs(wy - 0.68), 0.13) * open);
 
         // the waves: in stepped bands, lit on their backs and crests, dark in the troughs and on
         // the steep faces; the rougher the sea, the greyer and darker it gets
@@ -204,26 +223,50 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
           foam = max(foam, step(abs(d - at), 0.004 + roll * 0.006) * step(0.3 + roll * 0.4, noise(p * 0.9 + float(k) * 7.0)) * step(0.25, uSea));
         }
         // rollers: dark green-blue as they stand up, then white where they tip over and break
-        col = mix(col, vec3(0.16, 0.42, 0.44), smoothstep(0.2, 0.5, vRoll) * 0.35);
+        col = mix(col, chilled(vec3(0.16, 0.42, 0.44), cold), smoothstep(0.2, 0.5, vRoll) * 0.35);
         foam = max(foam, step(0.85, vRoll) * step(0.4, noise(p * 1.3 + vec2(uTime * 0.7))));
         // the wash on the beach: churned white water with the sand-coloured sea showing through
         float wash = step(0.02, vRun) * step(0.62 - vRun * 0.25, noise(p * 1.6 - uTime * vec2(0.9, 0.4)));
-        col = mix(col, vec3(0.45, 0.72, 0.66), step(0.02, vRun));
+        col = mix(col, chilled(vec3(0.45, 0.72, 0.66), cold), step(0.02, vRun));
         foam = mix(max(foam, wash), wash, step(0.02, vRun) * step(d, 0.004)); // over the sand, only the wash
         col = mix(col, vec3(0.92, 0.97, 0.94), foam * inside);
 
         // ice: a pale shelf along the coast with a ragged edge, darker patches and cracks, a
-        // white rim where it meets open water, and a few loose floes just beyond
+        // white rim where it meets open water. Beyond it the sea's thickening: dull grey slicks
+        // of slush that flatten the ripples, and pancake ice, round pans with raised white rims
+        // where they've knocked together, drifting slowly downwind and thinning out to sea
         float iced = 0.0;
         if (uIce > 0.001) {
           float edge = uIce * (0.055 + 0.045 * noise(p * 0.18));
           float shelf = step(d, edge);
-          float floe = step(d, edge + 0.025 * uIce) * step(0.74, noise(floor(p * 1.5) / 1.5 * 0.9 + 3.7));
-          iced = max(shelf, floe) * inside;
+          float reach = 0.07 * uIce;
+          float grease = (1.0 - smoothstep(edge, edge + reach, d)) * step(0.42, noise(p * 0.22 + 5.0 + uWindDir * uTime * 0.02));
+          col = mix(col, vec3(0.5, 0.6, 0.66) * (0.9 + 0.1 * step(0.5, noise(p * 0.8))), grease * 0.55 * inside);
+          vec2 pp = p - uWindDir * uTime * 0.04;
+          vec2 cell = floor(pp / 1.6);
+          vec2 at = (cell + 0.5 + (vec2(hash(cell + 2.1), hash(cell + 5.3)) - 0.5) * 0.4) * 1.6 + uWindDir * uTime * 0.04;
+          vec2 auv = (at - uExtent.xy) / uExtent.zw;
+          float dc = texture2D(tShore, clamp(auv, 0.0, 1.0)).r; // (how far out the pan's middle is)
+          float r = 0.35 + 0.35 * hash(cell + 8.8);
+          float dist = length(p - at) + (noise(p * 3.0) - 0.5) * 0.12;
+          float pan = step(dist, r) * step(hash(cell + 1.3) * reach, edge + reach - dc) * step(edge, dc);
+          float panRim = pan * step(r - 0.14, dist);
+          iced = max(shelf, pan) * inside;
           vec3 ice = mix(vec3(0.7, 0.82, 0.9), vec3(0.8, 0.9, 0.95), step(0.5, noise(p * 0.45)));
-          ice = mix(ice, vec3(0.55, 0.68, 0.8), step(abs(noise(p * 0.7 + 11.0) - 0.5), 0.02));
-          ice = mix(ice, vec3(0.94, 0.97, 1.0), step(edge - 0.004, d) * shelf);
+          ice = mix(ice, vec3(0.55, 0.68, 0.8), step(abs(noise(p * 0.7 + 11.0) - 0.5), 0.02) * shelf);
+          ice = mix(ice, vec3(0.94, 0.97, 1.0), max(step(edge - 0.004, d) * shelf, panRim));
           col = mix(col, ice, iced);
+        }
+
+        // sea smoke: in a hard freeze the sea steams, low wisps of it drifting off downwind over
+        // the open water (a gale tears it away)
+        float smoke = smoothstep(0.6, 1.0, uCold) * (1.0 - smoothstep(0.5, 0.9, uSea)) * (1.0 - iced) * smoothstep(0.02, 0.12, d);
+        if (smoke > 0.0) {
+          // (thin threads of it, strung out along the wind and broken up, never a blanket)
+          float thread = 1.0 - abs(noise(vec2(across * 0.5, along * 0.06 - uTime * 0.25)) - 0.5) * 2.0;
+          float broken = step(0.68, noise(vec2(across * 0.3, along * 0.25 - uTime * 0.6)));
+          float veil = step(0.93, thread) * broken * (0.6 + 0.4 * step(0.975, thread));
+          col = mix(col, vec3(0.8, 0.86, 0.9), veil * smoke * 0.28);
         }
 
         // sparkles: sun glints by day, moonlight by night

@@ -229,7 +229,7 @@ PIXIES = {
 }
 
 ALL = {
-    "oberon": (oberon, 1.15), "titania": (titania, 1.1), "puck": (puck, 1.3),
+    "oberon": (oberon, 0.85), "titania": (titania, 0.8), "puck": (puck, 1.3),
     **{k: ((lambda r, k=k, c=c: pixie(r, k, *c)), 1.6) for k, c in PIXIES.items()},
     "fairyring": (fairy_ring, 1.0),
 }

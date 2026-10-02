@@ -13,6 +13,7 @@ import { ambush, coffee, indoors } from './shelter';
 import { haloTexture } from './sky';
 import { GRADIENT } from './toon';
 import { type Outside, Windows } from './windows';
+import { wardrobe } from './wardrobe';
 
 /** One cat's trip to the bowls: hop down, walk over, eat for a while, walk back, hop up. */
 interface Diner {
@@ -187,6 +188,7 @@ export class QuartersRoom {
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
+      if (x.wear && !(o as THREE.Mesh).isMesh) wardrobe.adopt(o, true);
       if (x.shelf !== undefined) {
         rows.push({ index: x.shelf, origin: o.getWorldPosition(V()), width: x.width, depth: x.depth, clear: x.clear });
       }
@@ -200,7 +202,7 @@ export class QuartersRoom {
         if (o.name.startsWith('tv_screen') || o.parent?.name.startsWith('tv_screen')) screen = mesh;
         const glow = src.name.startsWith('glow_');
         if (glass) panes.push(mesh);
-        mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
+        mesh.material = wardrobe.adopt(o, true) ?? (glass ? this.glass : toonIndoors(src.color, glow));
         mesh.castShadow = !glass && !glow;
         mesh.receiveShadow = true;
       }

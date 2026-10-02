@@ -281,6 +281,31 @@ def scatter(t: Terrain, seed=11):
             pts.append((x, y, t.sample(x, y)))
     nature.flowers(group("flowers"), pts, seed)
 
+    # crocuses and snowdrops: thick under the trees and at the woods' edge, patches on the lawns
+    def lawn(x, y):
+        ix = int(round((x - L.EXTENT[0]) / L.CELL))
+        iy = int(round((y - L.EXTENT[1]) / L.CELL))
+        if not (1 <= ix < t.height.shape[1] - 1 and 1 <= iy < t.height.shape[0] - 1):
+            return None
+        if not t.land[iy, ix] or t.path[iy, ix] or t.plaza[iy, ix] or t.height[iy, ix] < 0.45:
+            return None
+        return t.sample(x, y)
+
+    def open_lawn(x, y, r):             # out on the grass, flowers may come right up to the houses
+        return lawn(x, y) is not None and not any(math.hypot(x - px, y - py) < pr * 0.6 for px, py, pr in kept)
+
+    patches = []
+    for pick, n, spread, ok in [(ellipse(27, 4, 11, 11), 40, 1.4, free), (ellipse(-18, 0, 9, 6), 22, 1.2, free),
+                                (anywhere, 48, 1.0, free), (anywhere, 85, 0.9, open_lawn)]:
+        for _ in range(n * 12):
+            x, y = pick()
+            if ok(x, y, 0.8):
+                patches.append((x, y, spread * rng.uniform(0.7, 1.3)))
+                n -= 1
+                if not n:
+                    break
+    nature.bulbs(group("bulbs"), patches, lawn, seed + 1)
+
 
 def populate(t: Terrain):
     landmarks(t)

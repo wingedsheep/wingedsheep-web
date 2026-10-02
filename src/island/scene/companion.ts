@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Call } from './fauna';
-import { fridayEvening, herNight, sundayMorning } from './bedtime';
+import { fridayEvening, fridayNight, herNight, sundayMorning } from './bedtime';
 import type { Island } from './island';
 import { Kneeling, type Pet, petting } from './petting';
 import { indoors } from './shelter';
@@ -81,6 +81,9 @@ export class Companion {
   private vincent?: THREE.Vector3;
   private page = { t: 0, next: rand(4, 9) };
   private sip = { t: 0, next: rand(6, 14) };
+  /** What's in her hands by the fire: tea, or on a Friday evening a beer from the crate. */
+  private tea?: THREE.Object3D;
+  private beer?: THREE.Object3D;
   private look = 0;
   /** Clicked on: she looks up (or raises her mug) for a moment, 1 easing back to 0. */
   private noticed = 0;
@@ -115,6 +118,8 @@ export class Companion {
       const o = island.root.getObjectByName(name);
       if (o) this.parts.set(name, { o, rest: o.rotation.clone() });
     }
+    this.tea = island.root.getObjectByName('companion_tea');
+    this.beer = island.root.getObjectByName('companion_beer');
     this.kneel = new Kneeling(island, 'companion');
     this.vincent = island.positionOf('vincent');
     this.jumpY = this.parts.get('companion_jump')?.o.position.y ?? 0;
@@ -291,7 +296,7 @@ export class Companion {
       }
     } else if (this.spot === 'fireside') {
       // she looks over at Vincent while he plays and sways along; otherwise into the fire,
-      // with a sip of tea now and then
+      // with a sip of tea now and then (on a Friday evening, of beer)
       const g = this.groups.get('fireside');
       const head = this.part('companion_fire_head');
       if (g && head && this.vincent) {
@@ -301,6 +306,9 @@ export class Companion {
         head.rotation.y += this.look;
         head.rotation.z += w.playing ? Math.sin(t * 2.4) * 0.12 : 0;
       }
+      const friday = fridayNight(w.time);
+      if (this.tea) this.tea.visible = !friday;
+      if (this.beer) this.beer.visible = friday;
       const s = this.sip;
       s.next -= dt;
       if (s.next < 0) {

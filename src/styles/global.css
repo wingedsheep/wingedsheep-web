@@ -272,6 +272,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   animation: sketch-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1);
 }
 @keyframes sketch-in { from { transform: translateY(24px) rotate(-4deg); opacity: 0; } }
+.sketch.photo { background: rgba(12, 12, 30, 0.8); }
+.sketch.photo .sketch-page { width: min(calc(var(--w) * 1px), calc(100vw - 32px), calc((100vh - 32px) * var(--w) / var(--h))); image-rendering: auto; }
 
 /* --- the open book (an article) ------------------------------------------------------ */
 .backdrop { position: absolute; inset: 0; z-index: 15; background: rgba(12, 12, 30, 0.55); backdrop-filter: blur(1px); }
@@ -286,10 +288,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
     inset -6px 0 0 -3px var(--page-rule), inset -9px 0 0 -3px var(--page), inset -12px 0 0 -3px var(--page-rule);
   animation: book-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
   transition: background 0.3s, color 0.3s;
+  color-scheme: light; scrollbar-color: var(--page-rule) transparent;
 }
 /* candlelight: a dark page for reading at night */
 .book-open.candle {
   --page: #1f1a27; --page-ink: #eadfc6; --page-soft: #b3a68f; --page-rule: #3e3549; --page-well: #2a2334; --page-accent: #f0b55a;
+  color-scheme: dark; /* the audio players and scrollbars dim with the page */
   box-shadow: inset 0 0 0 3px #3e3549, inset 30px 0 28px -24px rgba(0, 0, 0, 0.6),
     inset -6px 0 0 -3px var(--page-rule), inset -9px 0 0 -3px var(--page), inset -12px 0 0 -3px var(--page-rule);
 }
@@ -369,11 +373,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .prose iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; }
 .prose figure { margin: 2em 0; }
 .prose figure img, .prose figure video { margin: 0 auto; }
+/* three or more pictures in a row: a gallery, each one held up larger on a click */
+.prose .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 14px 12px; align-items: start; margin: 2em 0; }
+.prose .gallery > * { margin: 0; }
+.prose .gallery img { width: 100%; margin: 0; cursor: zoom-in; clip-path: var(--notch); }
+.prose .gallery figcaption { font-size: 14px; margin-top: 0.45em; }
 .prose figcaption { margin-top: 0.7em; font: italic 15px/1.45 var(--serif); color: var(--page-soft); text-align: center; text-wrap: balance; }
 .prose blockquote { margin: 1.6em 0; padding: 0.1em 0 0.1em 1.2em; border-left: 4px solid var(--gold); font-style: italic; color: var(--page-soft); }
 .prose blockquote p:last-child { margin-bottom: 0; }
 .prose code { font: 0.84em var(--mono); background: var(--page-well); padding: 0.08em 0.32em; }
-.prose pre { margin: 1.6em 0; overflow-x: auto; padding: 16px 20px; font-size: 14.5px; line-height: 1.55; clip-path: var(--notch); hyphens: none; }
+.prose pre { margin: 1.6em 0; overflow-x: auto; padding: 16px 20px; font-size: 14.5px; line-height: 1.55; clip-path: var(--notch); hyphens: none; color-scheme: dark; scrollbar-color: #545d68 transparent; }
 .prose pre code { background: none; padding: 0; font-size: inherit; }
 .prose table { display: block; overflow-x: auto; border-collapse: collapse; width: 100%; margin: 1.6em 0; font-size: 0.8em; line-height: 1.45; hyphens: none; }
 .prose th, .prose td { border-bottom: 2px solid var(--page-rule); padding: 7px 12px 7px 0; text-align: left; vertical-align: top; }
@@ -382,14 +391,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .prose hr::after { content: '◆ ◆ ◆'; font-size: 11px; letter-spacing: 1.2em; color: var(--gold); }
 .prose audio { width: 100%; margin: 1em 0; }
 .prose .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.3em 0; }
-/* transcript colours from the GPT-4 post */
-.prose :is(.user-text, .game-text, .gpt-text, .remark-text, .clarification-text) { color: #2b2535; display: block; padding: 10px 14px; margin-bottom: 10px; font-size: 0.9em; clip-path: var(--notch); }
-.prose .user-text { background: #d7f5db; }
-.prose .game-text { background: #e3ecfa; }
-.prose .gpt-text { background: #f5ead7; }
-.prose .remark-text { background: #e4cffa; }
-.prose .clarification-text { background: #c5f1e7; }
-.candle .prose :is(.user-text, .game-text, .gpt-text, .remark-text, .clarification-text) { filter: brightness(0.82); }
+/* the GPT-4 post's transcript: who's speaking, by colour (as its key describes) and by name */
+.prose :is(.user-text, .game-text, .gpt-text, .remark-text, .clarification-text) {
+  display: block; padding: 8px 14px 10px 18px; margin-bottom: 10px; font-size: 0.9em; clip-path: var(--notch);
+  background: color-mix(in srgb, var(--say) 26%, var(--page)); box-shadow: inset 4px 0 0 var(--say);
+}
+.prose :is(.user-text, .game-text, .gpt-text, .remark-text, .clarification-text)::before {
+  display: block; margin-bottom: 2px; font: 11px var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--page-soft);
+}
+.candle .prose :is(.user-text, .game-text, .gpt-text, .remark-text, .clarification-text) { background: color-mix(in srgb, var(--say) 16%, var(--page)); }
+.prose .user-text { --say: #5fb86e; }
+.prose .user-text::before { content: 'Me'; }
+.prose .game-text { --say: #9a948a; }
+.prose .game-text::before { content: 'The game'; }
+.prose .gpt-text { --say: #e0b43c; }
+.prose .gpt-text::before { content: 'GPT-4'; }
+.prose .remark-text { --say: #a77bd8; }
+.prose .remark-text::before { content: 'Remark'; }
+.prose .clarification-text { --say: #3fb5a0; }
+.prose .clarification-text::before { content: 'Clarification'; }
 
 /* the end: the next books along the shelf */
 .article-end { max-width: 680px; margin: 60px auto 0; }

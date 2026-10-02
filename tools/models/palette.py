@@ -1,5 +1,7 @@
 """Colour palette (hue-shifted, cosy). Values are sRGB hex; kit.material() converts to linear."""
 
+from kit import Wear
+
 # terrain
 SAND_WET = "#a88457"
 SAND = "#dcbd83"
@@ -54,6 +56,7 @@ UFO = "#b8f5e8"
 # characters
 SKIN = "#e3a680"          # Vincent: sun-tanned
 HAIR = "#5a3e2c"
+HAIR_LIGHT = "#6e4c36"
 BEARD = "#7a5a44"
 BEARD_GREY = "#9c8f82"
 CAP = "#4d5d8a"           # dusty blue cap, worn backwards
@@ -286,3 +289,59 @@ LEGGINGS = "#2f2b3a"
 MAT = "#4f9e94"
 MAT_DARK = "#3d8078"
 APPLE = "#c83a32"
+
+# What they wear, slot by slot (kit.Wear): built in the summer colours here, and given the day's
+# by the runtime's wardrobe (src/island/scene/wardrobe.ts). Skin a sleeve or a trouser leg can
+# cover is a slot of its own; hands and faces stay skin. "s" slots are their sports things.
+V_TOP = Wear("v_top", TEE)          # his tee, sleeves and all
+V_ARM = Wear("v_arm", SKIN)         # his arms below the sleeves
+V_NECK = Wear("v_neck", SKIN)       # the v of the tee
+V_LEGS = Wear("v_legs", SHORTS)     # shorts, or the tops of his trousers
+V_SHIN = Wear("v_shin", SKIN)
+V_FACE = Wear("v_face", SKIN)       # (white with paint on Halloween)
+VS_TOP = Wear("vs_top", "#2f8f9a")  # a teal sports tee
+VS_ARM = Wear("vs_arm", SKIN)
+VS_LEGS = Wear("vs_legs", TEE)      # black running shorts
+VS_SHIN = Wear("vs_shin", SKIN)
+E_TOP = Wear("e_top", LAVENDER)
+E_ARM = Wear("e_arm", FAIR)
+E_LEGS = Wear("e_legs", DENIM)      # her jeans
+E_SHORTS = Wear("e_shorts", DENIM)  # the shorts she reads in on the blanket, legs bare…
+E_THIGH = Wear("e_thigh", FAIR)
+E_SHIN = Wear("e_shin", FAIR)
+E_CARDI = Wear("e_cardi", OILSKIN)  # her cardigan by the fire, and its edging
+E_CARDI_EDGE = Wear("e_cardi_edge", GINGER_DARK)
+ES_TOP = Wear("es_top", TANK)
+ES_ARM = Wear("es_arm", FAIR)       # bare shoulders and arms in the tank top
+ES_LEGS = Wear("es_legs", LEGGINGS)
+# and the things that come out with an outfit
+KAYAK_VEST = "#d8402e"        # his buoyancy aid, always on in the kayak
+KAYAK_VEST_DARK = "#a83024"
+BEANIE = "#8c2f39"
+BEANIE_DARK = "#6e2430"
+SCARF = "#c9a23f"
+SCARF_DARK = "#a8862e"
+E_BEANIE = "#e8e0d0"
+E_BEANIE_DARK = "#c9bfae"
+E_SCARF = "#8e3a4a"
+TOPHAT = "#1c1a22"
+TOPHAT_BAND = "#2c2832"
+GOGGLE = "#b8763e"
+GOGGLE_GLASS = "#c8d4d8"
+WAISTCOAT = "#1f1d26"
+BOWTIE = "#a8222e"
+SHIRT = "#eeeae2"
+FACE_SHADE = "#4a4452"
+CAPE_BLACK = "#16141c"
+CAPE_LINING = "#2a2632"
+REINDEER = "#a87850"
+REINDEER_DARK = "#6e4a30"
+REINDEER_LIGHT = "#d8b890"
+WITCH = "#b8202e"            # her witch's hat and dress
+WITCH_DARK = "#7a1420"       # and her cloak
+WITCH_BAND = "#1c1a22"
+WITCH_SHADE = "#5a3a4a"
+WITCH_LIPS = "#5a1424"
+BLOOD = "#a8101c"
+XMAS_TREE = "#2f7a3f"
+XMAS_LIGHTS = ["#ffd27a", "#ff6a4a", "#7ad28a", "#7ab8ff"]

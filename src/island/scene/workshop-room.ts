@@ -12,6 +12,7 @@ import { hourOf } from './bedtime';
 import { BOAT_STAGES as STAGES, boatStage } from './almanac';
 import { occasions } from './calendar';
 import { indoors } from './shelter';
+import { wardrobe } from './wardrobe';
 
 
 const SKY_DAY = new THREE.Color('#a9dcff');
@@ -87,6 +88,7 @@ export class WorkshopRoom {
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
+      if (x.wear && !(o as THREE.Mesh).isMesh) wardrobe.adopt(o, true);
       if (x.waypoint) waypoints.push({ name: x.waypoint, position: o.getWorldPosition(V()), links: String(x.links ?? '').split(' ').filter(Boolean) });
       if (x.emit) this.emitters.push({ kind: x.emit, position: o.getWorldPosition(V()) });
       if (x.light) this.addLamp(o.getWorldPosition(V()), x, halo);
@@ -95,7 +97,7 @@ export class WorkshopRoom {
         const src = mesh.material as THREE.MeshStandardMaterial;
         const glass = o.name.startsWith('window_glass');
         const glow = src.name.startsWith('glow_');
-        mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
+        mesh.material = wardrobe.adopt(o, true) ?? (glass ? this.glass : toonIndoors(src.color, glow));
         mesh.castShadow = !glass && !glow;
         mesh.receiveShadow = true;
       }

@@ -35,12 +35,8 @@ The source was the Ghost blog at https://wingedsheep.com/, migrated on 2026-09-2
 
 ## Needs a human look
 
-### Audio still points at Ghost (not downloaded)
-The audio totals about 170 MB, which is too heavy to commit. The `<audio>` tags still point at `https://wingedsheep.com/content/media/...` and will break when the Ghost site goes down.
-- `the-shift`: 1 file, `The-Shift.mp3` (about 56 MB).
-- `quantum-aeon`: 28 files. The full story is about 50 MB and each of the 27 chapters is about 2 MB.
-
-Decide whether to self-host these files (for example on R2 or S3, or in `public/` using Git LFS) or drop them.
+### Audio (resolved)
+The audio is self-hosted now, next to each post's images: `public/blog/the-shift/` (1 file) and `public/blog/quantum-aeon/` (28 files). The files came from the old Ghost data and were re-encoded to 48 kbps mono to keep the repo light, about 93 MB in total.
 
 ### Missing video (`tails-of-power-ai-video-experiment`)
 The trailer video card is broken on the live Ghost site too. Only the player text `0:00/1×` survived in the post HTML. I replaced it with an HTML comment, `<!-- TODO ... -->`, at the top of the post. The trailer needs to be re-added, either as a YouTube embed or as a video file. The post's code injection also hid the feature image on the post page (`.post-full-image {display:none}`). The cover is still set in the frontmatter, so decide whether to show it.

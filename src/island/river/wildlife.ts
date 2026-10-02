@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { spotAnimal, type Animal } from '../sketchbook';
+import { occasions } from '../scene/calendar';
+import { GREEN_FIRE } from '../scene/island';
 import { season } from '../scene/season';
 import { haloTexture } from '../scene/sky';
 import type { RiverAssets } from './assets';
@@ -213,7 +215,11 @@ const BLOSSOM = ['#f2c3d6', '#fbe0ea'].map((c) => new THREE.Color(c));
 /** Butterflies over the meadows (cabbage whites, brimstones, a peacock, a blue), and thistledown. */
 const BUTTERFLIES = ['#f4f0e6', '#f2dc5a', '#d8602a', '#6a9ae8'].map((c) => new THREE.Color(c));
 const DOWN = new THREE.Color('#f6f2e8');
-const EMBERS = ['#ffd35a', '#ff9a3c', '#ffb35a'].map((c) => new THREE.Color(c));
+// (over Halloween the fires burn green, and so do their sparks: see land.ts)
+const EMBERS = (GREEN_FIRE?.embers ?? ['#ffd35a', '#ff9a3c', '#ffb35a']).map((c) => new THREE.Color(c));
+/** Halloween week's bats, out over the water at dusk. */
+const BATS = occasions.has('halloween');
+const BAT = new THREE.Color('#1d1a24');
 const SMOKE = ['#c9c4c8', '#b3aeb6', '#dcd8da'].map((c) => new THREE.Color(c));
 
 /**
@@ -489,6 +495,13 @@ export class Wildlife {
       const u = side * (half + rand(-0.5, 7));
       const q = this.course.at(s + rand(-10, 35));
       this.fireflies.emit(V(q.x + Math.cos(q.a) * u, Math.max(q.y, this.ground(q.x + Math.cos(q.a) * u, q.z + Math.sin(q.a) * u)) + rand(0.4, 2), q.z + Math.sin(q.a) * u));
+    }
+    // Halloween week: bats out over the water as the light goes, flitting after the midges
+    const bats = BATS ? THREE.MathUtils.smoothstep(night, 0.1, 0.35) * (1 - THREE.MathUtils.smoothstep(night, 0.75, 0.95)) * (1 - rain) * (1 - snow) : 0;
+    if (bats > 0 && Math.random() < dt * 3 * bats) {
+      const q = this.course.at(s + rand(0, 30));
+      const u = rand(-1.2, 1.2) * q.width / 2;
+      this.specks.emit(V(q.x + Math.cos(q.a) * u, q.y + rand(1.5, 4.5), q.z + Math.sin(q.a) * u), V(), BAT, rand(5, 9), 3);
     }
     // on a gentle river on a fine day, butterflies over the banks and thistledown drifting across
     const flutter = this.course.profile.look.flutter * (1 - night) * (0.3 + warm) * (1 - rain);

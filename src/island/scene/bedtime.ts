@@ -71,6 +71,17 @@ export function fridayEvening(time: number) {
   return d.getDay() === FRIDAY && hourOf(time) >= 17;
 }
 
+/**
+ * Friday night, from `from` o'clock till four in the morning (by then it's Saturday): when the
+ * crate's out by the fire (week.ts, from four in the afternoon) and they drink from it (from five).
+ * Never Friday morning.
+ */
+export function fridayNight(time: number, from = 17) {
+  const day = onTheDay(time).getDay();
+  const hour = hourOf(time);
+  return (day === FRIDAY && hour >= from) || (day === SATURDAY && hour < 4);
+}
+
 /** Sunday morning, till half past eleven: pancakes. */
 export function sundayMorning(time: number) {
   return onTheDay(time).getDay() === 0 && hourOf(time) < 11.5;

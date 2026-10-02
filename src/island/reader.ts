@@ -41,12 +41,11 @@ export class Reader {
         return;
       }
       const link = (e.target as Element).closest<HTMLAnchorElement>('a[href^="#"]');
-      if (!link || !this.body.contains(link)) return;
-      const target = this.body.querySelector(`#${CSS.escape(decodeURIComponent(link.hash.slice(1)))}`);
+      if (!link || !this.body.contains(link) || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const target = this.fragmentTarget(link.hash);
       if (!target) return;
       e.preventDefault();
-      const top = target.getBoundingClientRect().top - book.getBoundingClientRect().top + book.scrollTop - 70;
-      book.scrollTo({ top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      this.jumpTo(target, !matchMedia('(prefers-reduced-motion: reduce)').matches);
     });
     book.addEventListener('scroll', () => this.onScroll(), { passive: true });
   }
@@ -54,7 +53,28 @@ export class Reader {
   /** A new post is on the page. */
   opened() {
     this.barTitle.textContent = this.body.querySelector('h1')?.textContent ?? '';
+    const target = this.fragmentTarget(location.hash);
+    if (target) this.jumpTo(target, false);
     this.onScroll();
+  }
+
+  private fragmentTarget(hash: string): HTMLElement | null {
+    if (hash.length < 2) return null;
+    try {
+      return this.body.querySelector<HTMLElement>(`#${CSS.escape(decodeURIComponent(hash.slice(1)))}`);
+    } catch {
+      return null; // a malformed fragment should leave the book readable
+    }
+  }
+
+  private jumpTo(target: HTMLElement, smooth: boolean) {
+    // Use the actual toolbar height: its controls can wrap on narrow screens.
+    const clearance = this.book.querySelector('.book-bar')!.getBoundingClientRect().height + 20;
+    const top = target.getBoundingClientRect().top - this.book.getBoundingClientRect().top + this.book.scrollTop - clearance;
+    this.book.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    // Continue keyboard reading at the destination instead of back in the contents.
+    if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+    target.focus({ preventScroll: true });
   }
 
   private onScroll() {

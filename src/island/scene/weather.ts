@@ -352,6 +352,7 @@ export class Weather {
     tintTo(sky.hemi.color, ICE, chill * 0.3);
     tintTo(f.color, ICE, chill * 0.15);
     water.uIce.value = this.ice;
+    water.uCold.value = chill;
     pixels.uniforms.uTime.value = this.clock;
 
     const g = pixels.uniforms.uGrade.value as THREE.Vector3;

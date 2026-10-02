@@ -43,11 +43,58 @@ def _lock(h: Model, a: float, r: float, top: float, length: float, width: float,
     h.box((width, 0.05, length), tuple(at), color, rot=tuple(rot))
 
 
+def _bare(h: Model, c: float):
+    """The top of her head with nothing on it: just hair, parted."""
+    h.ball(0.218, (0, 0.01, c + 0.14), P.BLONDE, subdiv=2, scale=(1.0, 1.0, 0.5))
+    h.box((0.02, 0.22, 0.02), (0.05, -0.04, c + 0.245), P.BLONDE_DARK)                 # her parting
+
+
+def hats(o, name: str, sport=False):
+    """What she has on her head, one part each, for the wardrobe to pick from (`wear`, see
+    src/island/scene/wardrobe.ts): her cap worn forwards, a knitted beanie, nothing, and on
+    Halloween a red witch's hat and a witch's make-up (`sport`: just the cap or the beanie, ponytail
+    through the back)."""
+    c = HEAD_C
+    k = "es" if sport else "e"
+    m = Model(f"{name}_cap")                                                          # a round crown, the brim forwards over her brows, pale lettering
+    m.ball(0.222, (0, 0.01, c + 0.16), P.CAP_ROSE, subdiv=2, scale=(1.0, 1.0, 0.58))
+    m.cyl(0.228, 0.05, (0, 0.01, c + 0.12), P.CAP_ROSE, segs=14)                       # its band
+    m.box((0.04, 0.04, 0.03), (0, 0.01, c + 0.29), P.CAP_ROSE_DARK)                   # button
+    m.box((0.28, 0.16, 0.03), (0, -0.28, c + 0.165), P.CAP_ROSE_DARK, rot=(0.06, 0, 0))  # brim, up off her brows
+    m.box((0.13, 0.015, 0.02), (0, -0.19, c + 0.22), P.WHITE, rot=(-0.9, 0, 0))
+    m.box((0.09, 0.015, 0.018), (0, -0.205, c + 0.195), P.WHITE, rot=(-0.9, 0, 0))
+    m.build(o, wear=f"{k}_cap")
+    b = Model(f"{name}_beanie")                                                       # slouchy, cuff turned up, a bobble
+    b.ball(0.226, (0, 0.02, c + 0.17), P.E_BEANIE, subdiv=2, scale=(1.0, 1.0, 0.7))
+    b.cyl(0.235, 0.07, (0, 0.01, c + 0.1), P.E_BEANIE_DARK, segs=14)
+    b.ball(0.07, (0, 0.04, c + 0.34), P.E_BEANIE_DARK, subdiv=1)
+    b.build(o, wear=f"{k}_beanie")
+    if sport:
+        return
+    n = Model(f"{name}_bare")
+    _bare(n, c)
+    n.build(o, wear="e_bare")
+    # a witch's hat, red, tall and a bit crooked, with a black band and a buckle
+    t = Model(f"{name}_witch")
+    t.cyl(0.38, 0.03, (0, 0.01, c + 0.13), P.WITCH, segs=12)                          # brim
+    t.cyl(0.215, 0.36, (0, 0.01, c + 0.13), P.WITCH, segs=8, r_top=0.1)
+    t.cyl(0.222, 0.06, (0, 0.01, c + 0.15), P.WITCH_BAND, segs=8)
+    t.box((0.07, 0.02, 0.05), (0, -0.21, c + 0.18), P.GOLD)                            # buckle
+    t.cyl(0.1, 0.34, (0, 0.03, c + 0.47), P.WITCH, segs=8, r_top=0.0, rot=(-0.55, 0.25, 0))  # the point, flopping back
+    t.build(o, wear="e_witch")
+    p = Model(f"{name}_paint")                                                       # dark round the eyes, dark lips
+    for s in (-1, 1):
+        p.box((0.1, 0.01, 0.095), (s * 0.085, -0.184, c + 0.04), P.WITCH_SHADE)
+    p.box((0.15, 0.024, 0.02), (0, -0.172, c - 0.105), P.WITCH_LIPS)
+    p.build(o, wear="e_paint")
+
+
 def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, ponytail=False, earbuds=False):
-    """Her head, pivoting at the neck: a softer jaw than Vincent's, a round-crowned cap worn
-    forwards (not in bed), and straight blonde hair to the shoulders in loose locks, a strand
-    either side framing her face. `ponytail`: tied back through the gap in the cap instead, as
-    its own part (`<name>_ponytail`) so it can bounce. `earbuds`: her little white in-ears, in."""
+    """Her head, pivoting at the neck: a softer jaw than Vincent's, straight blonde hair to the
+    shoulders in loose locks, a strand either side framing her face, and (not in bed) whatever
+    she has on it today (hats). `ponytail`: tied back through the gap in the cap instead, as its
+    own part (`<name>_ponytail`) so it can bounce, for her sports. `earbuds`: her little white
+    in-ears, in."""
     h = Model(name, seed=sum(map(ord, name)))
     c = HEAD_C
     h.slab(_chamfered(0.19, 0.18, 0.06), c - 0.1, c + 0.17, P.FAIR)
@@ -80,17 +127,8 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, ponytail=False, earbud
     # a side parting under the cap: the fringe swept off to her right
     h.box((0.2, 0.03, 0.045), (0.05, -0.19, c + 0.12), P.BLONDE, rot=(0, 0.3, 0))
     h.box((0.09, 0.03, 0.04), (-0.11, -0.19, c + 0.125), P.BLONDE_LIGHT, rot=(0, -0.35, 0))
-    if cap:
-        # the cap: a round crown, the brim forwards over her brows, pale lettering on the front
-        h.ball(0.222, (0, 0.01, c + 0.16), P.CAP_ROSE, subdiv=2, scale=(1.0, 1.0, 0.58))
-        h.cyl(0.228, 0.05, (0, 0.01, c + 0.12), P.CAP_ROSE, segs=14)                   # its band
-        h.box((0.04, 0.04, 0.03), (0, 0.01, c + 0.29), P.CAP_ROSE_DARK)               # button
-        h.box((0.28, 0.16, 0.03), (0, -0.28, c + 0.165), P.CAP_ROSE_DARK, rot=(0.06, 0, 0))  # brim, up off her brows
-        h.box((0.13, 0.015, 0.02), (0, -0.19, c + 0.22), P.WHITE, rot=(-0.9, 0, 0))
-        h.box((0.09, 0.015, 0.018), (0, -0.205, c + 0.195), P.WHITE, rot=(-0.9, 0, 0))
-    else:
-        h.ball(0.218, (0, 0.01, c + 0.14), P.BLONDE, subdiv=2, scale=(1.0, 1.0, 0.5))  # no cap in bed: just hair
-        h.box((0.02, 0.22, 0.02), (0.05, -0.04, c + 0.245), P.BLONDE_DARK)             # her parting
+    if not cap:
+        _bare(h, c)
     if earbuds:                                                                       # peeking out through the hair
         for s in (-1, 1):
             h.box((0.05, 0.05, 0.05), (s * 0.24, -0.05, c - 0.03), P.EARBUD)
@@ -98,6 +136,8 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, ponytail=False, earbud
     o = h.build(parent, loc=loc)
     o.rotation_euler = rot
     o.scale = (HEAD_SCALE,) * 3
+    if cap:
+        hats(o, name, sport=ponytail)
     if ponytail:                                                                      # out through the back of the cap
         t = Model(f"{name}_ponytail")
         t.box((0.1, 0.07, 0.05), (0, 0.0, 0.0), P.CAP_ROSE_DARK)                       # the hair tie
@@ -135,16 +175,16 @@ def reading(root):
 
     m = Model("companion_read_body")
     hips, shoulders = (0, 0.36, 0.16), (0, -0.22, 0.36)
-    m.plank_line(hips, shoulders, 0.46, 0.26, P.LAVENDER)                             # chest up on her elbows
-    m.plank_line((0, 0.74, 0.12), (0, 0.32, 0.15), 0.46, 0.25, P.DENIM)               # shorts
+    m.plank_line(hips, shoulders, 0.46, 0.26, P.E_TOP)                                # chest up on her elbows
+    m.plank_line((0, 0.74, 0.12), (0, 0.32, 0.15), 0.46, 0.25, P.E_SHORTS)            # shorts
     for s in (-1, 1):
         x = s * 0.11
-        _limb(m, (x, 0.7, 0.11), (x, 1.12, 0.09), 0.17, P.FAIR)                         # thighs
+        _limb(m, (x, 0.7, 0.11), (x, 1.12, 0.09), 0.17, P.E_THIGH)                      # thighs
         sh, el, hand = (s * 0.26, -0.2, 0.36), (s * 0.24, -0.46, 0.06), (s * 0.13, -0.72, 0.07)
         mid = tuple(a + (b_ - a) * 0.4 for a, b_ in zip(sh, el))
-        _limb(m, sh, mid, 0.15, P.LAVENDER)                                             # sleeves
-        _limb(m, mid, el, 0.12, P.FAIR)
-        _limb(m, el, hand, 0.11, P.FAIR)
+        _limb(m, sh, mid, 0.15, P.E_TOP)                                                # sleeves
+        _limb(m, mid, el, 0.12, P.E_ARM)
+        _limb(m, el, hand, 0.11, P.E_ARM)
         m.box((0.1, 0.12, 0.08), hand, P.FAIR)
     _limb(m, (0, -0.24, 0.4), (0, -0.3, 0.5), 0.15, P.FAIR)                          # neck
     # the book, open on the blanket in front of her
@@ -160,7 +200,7 @@ def reading(root):
     pg.build(root, loc=(0, -0.87, 0.075))
     for s, lean in ((-1, 0.35), (1, -0.25)):                                         # feet up, crossing and uncrossing
         g = Model(f"companion_shin_{'l' if s < 0 else 'r'}")
-        _limb(g, (0, 0, 0), (0, 0, 0.42), 0.14, P.FAIR)
+        _limb(g, (0, 0, 0), (0, 0, 0.42), 0.14, P.E_SHIN)
         g.box((0.12, 0.22, 0.08), (0, 0.05, 0.46), P.FAIR)
         g.box((0.12, 0.05, 0.08), (0, 0.17, 0.46), P.CHEEK)                             # a bit pink on the soles
         o = g.build(root, loc=(s * 0.11, 1.12, 0.09))
@@ -168,41 +208,94 @@ def reading(root):
     head(root, "companion_read_head", (0, -0.32, 0.47), rot=(0.1, 0, 0))
 
 
-def _seated(m: Model, seat: float):
+def _seated(m: Model, seat: float, root=None):
     """Legs, hips and tee for sitting on something `seat` high, feet on the ground."""
     up = seat - 0.56
     for s in (-1, 1):
         x = s * 0.12
-        _limb(m, (x, 0.0, 0.66 + up), (x, -0.46, 0.64 + up), 0.18, P.DENIM)             # thighs
-        _limb(m, (x, -0.46, 0.66 + up), (x, -0.52, 0.12), 0.15, P.DENIM)                # shins
+        _limb(m, (x, 0.0, 0.66 + up), (x, -0.46, 0.64 + up), 0.18, P.E_LEGS)             # thighs
+        _limb(m, (x, -0.46, 0.66 + up), (x, -0.52, 0.12), 0.15, P.E_LEGS)               # shins
         m.box((0.16, 0.3, 0.1), (x, -0.58, 0.06), P.SNEAKER)
         m.box((0.17, 0.31, 0.03), (x, -0.58, 0.015), P.PEBBLE)
-    m.box((0.46, 0.3, 0.2), (0, 0.02, 0.66 + up), P.DENIM)
-    m.box((0.44, 0.28, 0.56), (0, 0.03, 1.02 + up), P.LAVENDER)                       # tee
+    _top(m, up, root)
+
+
+def _top(m: Model, up: float, root=None):
+    """Her hips and tee, sitting up, her seat at 0.56 + up. Given the `root` the body is built
+    in, also what comes out over it with an outfit (dressing)."""
+    m.box((0.46, 0.3, 0.2), (0, 0.02, 0.66 + up), P.E_LEGS)
+    m.box((0.44, 0.28, 0.56), (0, 0.03, 1.02 + up), P.E_TOP)                          # tee
     m.box((0.16, 0.01, 0.06), (0, -0.112, 1.27 + up), P.FAIR)                         # round neck
     m.box((0.15, 0.15, 0.1), (0, 0.02, 1.33 + up), P.FAIR)                            # neck
+    if root:
+        dressing(root, m.name, up)
 
+
+def dressing(root, name: str, up: float):
+    """What comes out over her top with an outfit (`wear`, see src/island/scene/wardrobe.ts),
+    sitting up as in _top: a scarf when it's cold; at Christmas a tree on her jumper, its
+    lights lit; and on Halloween a witch's cloak and the red skirt of her dress."""
+    y = -0.11                                                                         # the front of the tee
+    f = Model(f"{name}_scarf")
+    f.box((0.26, 0.25, 0.09), (0, 0.02, 1.32 + up), P.E_SCARF)
+    f.box((0.09, 0.03, 0.26), (-0.08, y - 0.03, 1.16 + up), P.E_SCARF)
+    f.build(root, wear="e_scarf")
+
+    j = Model(f"{name}_tree")
+    j.prism([(-0.14, 0), (0.14, 0), (0, 0.32)], 0.012, (0, y - 0.004, 0.86 + up), P.XMAS_TREE)
+    j.box((0.05, 0.012, 0.06), (0, y - 0.004, 0.83 + up), P.WOOD)                      # its trunk
+    j.box((0.05, 0.02, 0.05), (0, y - 0.01, 1.19 + up), P.GOLD, glow=True)             # the star
+    for i, (x, z) in enumerate(((-0.06, 0.92), (0.05, 0.97), (-0.02, 1.04), (0.07, 0.9), (-0.09, 0.88), (0.02, 1.1))):
+        j.box((0.03, 0.02, 0.03), (x, y - 0.01, z + up), P.XMAS_LIGHTS[i % 4], glow=True)
+    for i in range(6):                                                                # a white zigzag round the hem
+        j.box((0.07, 0.012, 0.03), (-0.19 + i * 0.076, y - 0.004, 0.79 + up + (i % 2) * 0.025), P.WHITE)
+    j.build(root, wear="e_tree")
+
+    k = Model(f"{name}_cloak")                                                       # a witch's, off the shoulders, collar up
+    k.prism([(-0.27, 1.32 + up), (0.27, 1.32 + up), (0.36, 0.6 + up), (-0.36, 0.6 + up)], 0.04, (0, 0.2, 0), P.WITCH_DARK)
+    for s in (-1, 1):
+        k.box((0.12, 0.2, 0.05), (s * 0.27, 0.07, 1.31 + up), P.WITCH_DARK)              # over the shoulders
+        k.box((0.2, 0.03, 0.26), (s * 0.12, 0.24, 1.44 + up), P.WITCH_DARK, rot=(-0.25, s * 0.35, 0))
+        k.box((0.17, 0.01, 0.22), (s * 0.115, 0.22, 1.43 + up), P.WITCH_BAND, rot=(-0.25, s * 0.35, 0))
+    k.build(root, wear="e_cloak")
+
+    d = Model(f"{name}_dress")                                                       # the witch's dress: a red skirt over her lap
+    d.box((0.56, 0.36, 0.1), (0, 0.0, 0.76 + up), P.WITCH)                            # its waist, over the hips
+    d.box((0.48, 0.31, 0.06), (0, 0.03, 0.84 + up), P.WITCH_BAND)                     # a black sash
+    d.box((0.58, 0.64, 0.08), (0, -0.3, 0.75 + up), P.WITCH)                          # over her thighs
+    d.box((0.6, 0.06, 0.32), (0, -0.62, 0.62 + up), P.WITCH, rot=(-0.12, 0, 0))         # falling past her knees
+    for i in range(5):                                                                # a ragged hem, in points
+        d.prism([(-0.05, 0.0), (0.05, 0.0), (0, -0.08)], 0.04, (-0.24 + i * 0.12, -0.64, 0.46 + up), P.WITCH_DARK)
+    d.build(root, wear="e_dress")
 
 def fireside(root):
-    """On the log by the campfire in a mustard cardigan, a mug of tea in both hands. The log
-    itself is the island's (props.log_seat): her seat is at z = 0.56."""
+    """On the log by the campfire in a mustard cardigan, a mug of tea in both hands
+    (`companion_tea`), or on a Friday evening a beer from the crate (`companion_beer`; the runtime
+    picks). The log itself is the island's (props.log_seat): her seat is at z = 0.56."""
     m = Model("companion_fire_body")
-    _seated(m, 0.56)
+    _seated(m, 0.56, root)
     for s in (-1, 1):                                                                 # the cardigan, open down the front
-        m.box((0.12, 0.3, 0.57), (s * 0.18, 0.03, 1.02), P.OILSKIN)
-        m.box((0.02, 0.31, 0.5), (s * 0.12, 0.03, 1.0), P.GINGER_DARK)
-        _limb(m, (s * 0.28, 0.03, 1.24), (s * 0.29, -0.08, 0.94), 0.14, P.OILSKIN)
-    m.box((0.46, 0.3, 0.08), (0, 0.04, 0.72), P.OILSKIN)                              # its hem
+        m.box((0.12, 0.3, 0.57), (s * 0.18, 0.03, 1.02), P.E_CARDI)
+        m.box((0.02, 0.31, 0.5), (s * 0.12, 0.03, 1.0), P.E_CARDI_EDGE)
+        _limb(m, (s * 0.28, 0.03, 1.24), (s * 0.29, -0.08, 0.94), 0.14, P.E_CARDI)
+    m.box((0.46, 0.3, 0.08), (0, 0.04, 0.72), P.E_CARDI)                              # its hem
     m.build(root)
 
     g = Model("companion_mug")                                                        # forearms and mug, from the elbows
     for s in (-1, 1):
-        _limb(g, (s * 0.29, 0, 0), (s * 0.1, -0.22, 0.1), 0.13, P.OILSKIN)
+        _limb(g, (s * 0.29, 0, 0), (s * 0.1, -0.22, 0.1), 0.13, P.E_CARDI)
         g.box((0.09, 0.11, 0.1), (s * 0.08, -0.26, 0.11), P.FAIR)
-    g.cyl(0.075, 0.15, (0, -0.28, 0.05), P.TILE_BLUE, segs=8)
-    g.cyl(0.078, 0.02, (0, -0.28, 0.19), P.WHITE, segs=8)
-    g.cyl(0.062, 0.005, (0, -0.28, 0.2), P.COFFEE, segs=8)
-    g.build(root, loc=(0, -0.08, 0.94))
+    hands = g.build(root, loc=(0, -0.08, 0.94))
+    tea = Model("companion_tea")
+    tea.cyl(0.075, 0.15, (0, -0.28, 0.05), P.TILE_BLUE, segs=8)
+    tea.cyl(0.078, 0.02, (0, -0.28, 0.19), P.WHITE, segs=8)
+    tea.cyl(0.062, 0.005, (0, -0.28, 0.2), P.COFFEE, segs=8)
+    tea.build(hands)
+    beer = Model("companion_beer")                                                    # Friday evening: one from the crate
+    beer.cyl(0.042, 0.2, (0, -0.28, -0.03), "#6a3a1a", segs=6)
+    beer.box((0.07, 0.01, 0.08), (0, -0.325, 0.06), "#e8d8a8")
+    beer.cyl(0.017, 0.08, (0, -0.28, 0.17), "#6a3a1a", segs=4)
+    beer.build(hands)
     head(root, "companion_fire_head", (0, 0.02, 1.37))
 
 
@@ -227,21 +320,21 @@ def workout(root):
     jump = group("companion_jump", parent=root)
     for s, side in ((1, "l"), (-1, "r")):
         g = Model(f"companion_leg_{side}")
-        g.box((0.17, 0.19, 0.74), (0, 0, -0.4), P.LEGGINGS)
+        g.box((0.17, 0.19, 0.74), (0, 0, -0.4), P.ES_LEGS)
         g.box((0.16, 0.28, 0.1), (0, -0.04, -0.79), P.SNEAKER)
         g.box((0.17, 0.29, 0.03), (0, -0.04, -0.825), P.PEBBLE)
         g.build(jump, loc=(s * 0.11, 0, hip))
     t = Model("companion_torso")
-    t.box((0.44, 0.26, 0.16), (0, 0, 0.04), P.LEGGINGS)
-    t.box((0.42, 0.25, 0.5), (0, 0, 0.37), P.TANK)                                    # tank top
+    t.box((0.44, 0.26, 0.16), (0, 0, 0.04), P.ES_LEGS)
+    t.box((0.42, 0.25, 0.5), (0, 0, 0.37), P.ES_TOP)                                  # tank top
     for s in (-1, 1):
-        t.box((0.12, 0.22, 0.08), (s * 0.17, 0, 0.66), P.FAIR)                         # bare shoulders
-        t.box((0.07, 0.24, 0.1), (s * 0.1, 0, 0.66), P.TANK)                           # straps
+        t.box((0.12, 0.22, 0.08), (s * 0.17, 0, 0.66), P.ES_ARM)                       # bare shoulders
+        t.box((0.07, 0.24, 0.1), (s * 0.1, 0, 0.66), P.ES_TOP)                         # straps
     t.box((0.14, 0.14, 0.1), (0, 0, 0.72), P.FAIR)                                    # neck
     torso = t.build(jump, loc=(0, 0, hip))
     for s, side in ((1, "l"), (-1, "r")):
         a = Model(f"companion_arm_{side}")
-        _limb(a, (0, 0, 0), (0, 0, -0.56), 0.11, P.FAIR)
+        _limb(a, (0, 0, 0), (0, 0, -0.56), 0.11, P.ES_ARM)
         a.box((0.09, 0.11, 0.11), (0, 0, -0.6), P.FAIR)
         if s < 0:
             a.box((0.12, 0.13, 0.05), (0, 0, -0.46), P.WATCH)                          # a sports watch
@@ -258,30 +351,27 @@ def podcast(root):
     up = seat - 0.56
     m = Model("companion_pod_body")
     for s in (-1, 1):
-        _limb(m, (s * 0.12, 0.0, 0.66 + up), (s * 0.12, -0.44, 0.64 + up), 0.18, P.DENIM)  # thighs, over the edge
-    m.box((0.46, 0.3, 0.2), (0, 0.02, 0.66 + up), P.DENIM)
-    m.box((0.44, 0.28, 0.56), (0, 0.03, 1.02 + up), P.LAVENDER)                       # tee
-    m.box((0.16, 0.01, 0.06), (0, -0.112, 1.27 + up), P.FAIR)
-    m.box((0.15, 0.15, 0.1), (0, 0.02, 1.33 + up), P.FAIR)                            # neck
+        _limb(m, (s * 0.12, 0.0, 0.66 + up), (s * 0.12, -0.44, 0.64 + up), 0.18, P.E_LEGS)  # thighs, over the edge
+    _top(m, up, root)
     # left arm: hand on her thigh, the phone in it
     sh, el, hand = (0.28, 0.03, 1.24 + up), (0.3, -0.06, 0.96 + up), (0.16, -0.3, 0.8 + up)
     mid = tuple(a + (b - a) * 0.35 for a, b in zip(sh, el))
-    _limb(m, sh, mid, 0.14, P.LAVENDER)
-    _limb(m, mid, el, 0.12, P.FAIR)
-    _limb(m, el, hand, 0.11, P.FAIR)
+    _limb(m, sh, mid, 0.14, P.E_TOP)
+    _limb(m, mid, el, 0.12, P.E_ARM)
+    _limb(m, el, hand, 0.11, P.E_ARM)
     m.box((0.09, 0.11, 0.08), hand, P.FAIR)
     m.box((0.1, 0.16, 0.02), (hand[0] - 0.06, hand[1] + 0.02, hand[2] + 0.05), P.PHONE, rot=(0.2, 0, 0))
     m.build(root)
     for s, side in ((1, "l"), (-1, "r")):
         g = Model(f"companion_pod_shin_{side}")                                        # dangling, swinging
-        _limb(g, (0, 0, 0), (0, -0.04, -0.5), 0.15, P.DENIM)
+        _limb(g, (0, 0, 0), (0, -0.04, -0.5), 0.15, P.E_LEGS)
         g.box((0.16, 0.3, 0.1), (0, -0.1, -0.55), P.SNEAKER)
         g.box((0.17, 0.31, 0.03), (0, -0.1, -0.605), P.PEBBLE)
         g.build(root, loc=(s * 0.12, -0.44, 0.64 + up))
     a = Model("companion_pod_arm")                                                   # the right arm, from the shoulder
-    _limb(a, (0, 0, 0), (0, -0.03, -0.14), 0.14, P.LAVENDER)
-    _limb(a, (0, -0.03, -0.14), (0, -0.08, -0.3), 0.12, P.FAIR)
-    _limb(a, (0, -0.08, -0.3), (0.12, -0.3, -0.42), 0.11, P.FAIR)                      # forearm, resting on her leg
+    _limb(a, (0, 0, 0), (0, -0.03, -0.14), 0.14, P.E_TOP)
+    _limb(a, (0, -0.03, -0.14), (0, -0.08, -0.3), 0.12, P.E_ARM)
+    _limb(a, (0, -0.08, -0.3), (0.12, -0.3, -0.42), 0.11, P.E_ARM)                     # forearm, resting on her leg
     a.box((0.09, 0.11, 0.08), (0.13, -0.33, -0.43), P.FAIR)
     a.build(root, loc=(-0.28, 0.03, 1.24 + up))
     head(root, "companion_pod_head", (0, 0.02, 1.37 + up), earbuds=True)
@@ -294,18 +384,18 @@ def watching(root):
     popcorn (`companion_bowl`), and gets stroked."""
     up = 0.03
     m = Model("companion_tv_body")
-    _seated(m, 0.59)
+    _seated(m, 0.59, root)
     for s in (-1, 1):
         sh, el = (s * 0.28, 0.03, 1.27), (s * 0.29, -0.06, 0.99)
         mid = tuple(a + (b - a) * 0.35 for a, b in zip(sh, el))
-        _limb(m, sh, mid, 0.14, P.LAVENDER)
-        _limb(m, mid, el, 0.12, P.FAIR)
-    _limb(m, (0.29, -0.06, 0.99), (0.16, -0.3, 0.88), 0.11, P.FAIR)                  # left hand on the bowl's rim
+        _limb(m, sh, mid, 0.14, P.E_TOP)
+        _limb(m, mid, el, 0.12, P.E_ARM)
+    _limb(m, (0.29, -0.06, 0.99), (0.16, -0.3, 0.88), 0.11, P.E_ARM)                 # left hand on the bowl's rim
     m.box((0.09, 0.11, 0.08), (0.15, -0.32, 0.88), P.FAIR)
     m.build(root)
 
     g = Model("companion_snack")                                                      # right forearm, from the elbow
-    _limb(g, (0, 0, 0), (0.12, -0.24, -0.08), 0.11, P.FAIR)
+    _limb(g, (0, 0, 0), (0.12, -0.24, -0.08), 0.11, P.E_ARM)
     g.box((0.09, 0.11, 0.08), (0.13, -0.27, -0.08), P.FAIR)
     g.build(root, loc=(-0.29, -0.06, 0.99))
     head(root, "companion_tv_head", (0, 0.02, 1.4))
@@ -332,17 +422,17 @@ def baking(root):
     seat = 0.475
     up = seat - 0.56
     m = Model("companion_bake_body")
-    _seated(m, seat)
+    _seated(m, seat, root)
     for s in (-1, 1):
         sh, el = (s * 0.28, 0.03, 1.24 + up), (s * 0.29, -0.08, 0.94 + up)
         mid = tuple(a + (b - a) * 0.35 for a, b in zip(sh, el))
-        _limb(m, sh, mid, 0.14, P.LAVENDER)
-        _limb(m, mid, el, 0.12, P.FAIR)
+        _limb(m, sh, mid, 0.14, P.E_TOP)
+        _limb(m, mid, el, 0.12, P.E_ARM)
     m.build(root)
 
     g = Model("companion_hut_mug")                                                    # forearms and mug, from the elbows
     for s in (-1, 1):
-        _limb(g, (s * 0.29, 0, 0), (s * 0.1, -0.22, 0.1), 0.11, P.FAIR)
+        _limb(g, (s * 0.29, 0, 0), (s * 0.1, -0.22, 0.1), 0.11, P.E_ARM)
         g.box((0.09, 0.11, 0.1), (s * 0.08, -0.26, 0.11), P.FAIR)
     g.cyl(0.075, 0.15, (0, -0.28, 0.05), P.WHITE, segs=8)
     g.cyl(0.078, 0.02, (0, -0.28, 0.19), P.RED, segs=8)
@@ -436,12 +526,12 @@ def yoga(root):
     m.box((0.8, 1.9, 0.02), (0, 0, 0.01), P.MAT)
     m.box((0.8, 0.04, 0.021), (0, 0.9, 0.011), P.MAT_DARK)
     m.build(root)
-    yoga_poses(root, "companion_yoga", dict(top=P.TANK, sleeve=P.FAIR, thigh=P.LEGGINGS, shin=P.LEGGINGS, skin=P.FAIR, wide=0.9),
+    yoga_poses(root, "companion_yoga", dict(top=P.ES_TOP, sleeve=P.ES_ARM, arm=P.ES_ARM, thigh=P.ES_LEGS, shin=P.ES_LEGS, skin=P.FAIR, wide=0.9),
                lambda parent, name, loc, rot: head(parent, name, loc, rot=rot, ponytail=True))
 
 
 def petting(root, pet: str):
     """On her knees in the grass, petting the cats on their bench or Beike (characters.PETTING)."""
     kneeling(root, f"companion_petting_{pet}", pet,
-             dict(top=P.LAVENDER, sleeve=P.LAVENDER, thigh=P.DENIM, shin=P.DENIM, skin=P.FAIR, foot=P.SNEAKER, wide=0.9),
+             dict(top=P.E_TOP, sleeve=P.E_TOP, arm=P.E_ARM, thigh=P.E_LEGS, shin=P.E_LEGS, skin=P.FAIR, foot=P.SNEAKER, wide=0.9),
              lambda parent, name, loc, rot: head(parent, name, loc, rot=rot))

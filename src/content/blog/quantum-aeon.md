@@ -9,15 +9,11 @@ shelf: ai
 
 Listen to the entire story
 
-**Full story**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/full_story-3.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/full_story-3.mp3"></audio>
 
 ### Introduction
 
-**Introduction**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/introduction-2.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/introduction-2.mp3"></audio>
 
 I am Cyrus Kendrick, though you would not know me by that name. Across innumerable lightyears I have traversed, shedding skins and titles as stars wink in and out of existence. The universe whispers all names unto me, yet my essence remains cloaked.
 
@@ -37,9 +33,7 @@ Now listen, and remember...
 
 ## Chapter 1 - "Calling Kepler"
 
-**Chapter1**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter1.mp3"></audio>
 
 The incessant beeping of the quantum communicator roused Kepler Arden from his light slumber. As consciousness returned, so did the feeling of dread that had settled around him like a stubborn cosmic fog. Sleep provided no escape anymore - his dreams were haunted by alien landscapes filled with strange quantum fluctuations, as perplexing as they were mesmerizing.
 
@@ -85,9 +79,7 @@ The CEO flashed one last charming smile before his hologram blinked out, once ag
 
 ## Chapter 2 - "Gathering the Team"
 
-**Chapter2**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter2.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter2.mp3"></audio>
 
 The shuttle docked at Ascension Hub with a low thrum of electromagnetic clamps locking into place. Kepler grabbed his rugged field backpack and strode down the loading ramp onto the bustling promenade of the station. The Hub was abuzz with people of all ethnicities and planets - traders, migrants, miners, and wanderers. Kepler felt his excitement rising, the old familiar thrill of venturing into the unknown cosmos.
 
@@ -116,9 +108,7 @@ Kepler smiled back, feeling his spirits lift. Having Lilith along would make thi
 
 ## Chapter 3 - "The Quantum Jump"
 
-**Chapter3**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter3-1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter3-1.mp3"></audio>
 
 The sleek corporate starship dropped out of faster-than-light travel, engines thrumming as it slowed to sublight speed. Through the oval viewport on the main deck, Kepler gazed in wonder at the spectacular sight before him - Cronus and its small red dwarf star. The planet was swathed in lush emerald and sapphire, with delicate wisps of cloud.
 
@@ -140,9 +130,7 @@ With a few deft maneuvers, the ship came to rest on a landing pad. Kepler and Li
 
 ## Chapter 4 - "Arrival"
 
-**Chapter4**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter4-1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter4-1.mp3"></audio>
 
 Kepler stepped off the landing ramp onto the soft loamy soil of Cronus. The purple trees surrounding the site swayed gently in the warm breeze. There was a sweet, floral scent on the air mixed with an earthy undertone. Above him, the sky was a dazzling azure with streaks of emerald green.
 
@@ -179,9 +167,7 @@ As they left, Lilith leaned over excitedly. "This was a good call, Keph. I can f
 
 ## Chapter 5 - "Unearthly Greens"
 
-**Chapter5**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter5.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter5.mp3"></audio>
 
 The expedition rover glided swiftly through Cronus' verdant wilderness. Lilith sat in the driver's seat, expertly maneuvering around tangled roots and fallen trunks. Kepler rode shotgun, scanning their surroundings with various sensors and drones.
 
@@ -211,9 +197,7 @@ Lilith met Kepler's eyes. "Did you see that? It was like a reply..." Kepler stoo
 
 ## Chapter 6 - "Quantum Bloom"
 
-**Chapter6**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter6.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter6.mp3"></audio>
 
 Kepler stepped cautiously through the alien biomes, scanning a flowering vine that wound its way around a tree trunk. Its petals rippled with colors that had no name in any earthly tongue. Hints of indigo, violet, and crimson undulated across their surfaces like celestial clouds.
 
@@ -241,9 +225,7 @@ What they had stumbled upon was changing everything Kepler knew about the bounda
 
 ## Chapter 7 - "Echoes of Sentience"
 
-**Chapter7**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter7.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter7.mp3"></audio>
 
 Kepler sat in the darkened monitor room of the Cronus research base, surrounded by displays tracking the planet's exotic quantum biome. He rubbed his eyes wearily after another near-sleepless night spent analyzing the alien ecology's perplexing rhythms and cascades.
 
@@ -267,9 +249,7 @@ Kepler had no chance to reply before proximity alarms blared urgently through th
 
 ## Chapter 8 - "Across the Stars"
 
-**Chapter8**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter8-1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter8-1.mp3"></audio>
 
 Kepler shielded his eyes against the intense blue-green glow emanating from beyond the habitat structures. Strange wispy shapes swirled hypnotically in the sky above the forest canopy.
 
@@ -311,9 +291,7 @@ Beside him, Lilith slipped a gloved hand into his and gave it a comforting squee
 
 ## Chapter 9 - "Cronian Council"
 
-**Chapter9**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter9.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter9.mp3"></audio>
 
 The shadowed Cronian forest took on a foreboding aura as Kepler and Lilith made their way to the coordinates specified in the alien message. It had arrived that morning - a rhythm of lights flickering through the exotic plants, coalescing into shapes reminiscent of the glowing apparitions in the sky.
 
@@ -357,9 +335,7 @@ The long night back was filled with luminous dreams. Dreams of resonance, rippli
 
 ## Chapter 10 - "Orion's Ambition"
 
-**Chapter10**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter10.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter10.mp3"></audio>
 
 Earth shone like a blue marble in the void as the sleek Starfire shuttle approached. Inside, Orion Voronin gazed pensively at his home planet, steeling himself for the coming storm.
 
@@ -389,9 +365,7 @@ As his shuttle descended back to Earth, Orion gazed out at the glittering Starfi
 
 ## Chapter 11 - "Kepler's Moral Dilemma"
 
-**Chapter11**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter11.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter11.mp3"></audio>
 
 Kepler sat alone in his spartan quarters, head in hands, struggling to order his turbulent thoughts. Ever since their first true contact with the Cronians, a nameless dread had taken hold in his heart, gnawing at him during every waking hour. And even seeping into his uneasy dreams.
 
@@ -419,9 +393,7 @@ With renewed vigor, Kepler vowed to confront Orion's relentless exploitation and
 
 ## Chapter 12 - "Orion's Dismissal"
 
-**Chapter12**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter12.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter12.mp3"></audio>
 
 The sleek corporate shuttle descended through Cronus' hazy orange skies towards the gleaming cityscape of Voronin Point, headquarters for Starfire's interstellar operations. Kepler gazed broodingly out the window as the alien metropolis came into focus below, its silver towers rising incongruously from the primordial landscape.
 
@@ -477,9 +449,7 @@ Kepler raised his eyes to the swirling violet skies, stained crimson by the sett
 
 ## Chapter 13 - "Indigenous Defense"
 
-**Chapter13**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter13.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter13.mp3"></audio>
 
 A baleful crimson dawn crept over the horizon as Kepler stepped out of the remote research outpost onto Cronus' barren plains. The morning sky was stained a virulent purple, flickering with ominous auroral shapes. Kepler shuddered, unnerved by the planet's changed temperament.
 
@@ -511,9 +481,7 @@ Kepler's hands trembled as he placed a scrambled call to Voronin's inner council
 
 ## Chapter 14 - "Cosmic Crisis Averted"
 
-**Chapter14**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter14-1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter14-1.mp3"></audio>
 
 Kepler raced through the quantum research complex, past teams of scientists frantically trying to contain the cascading Cronian retaliations. Alarms blared as precious equipment flickered and dissolved under the unearthly assault.
 
@@ -563,9 +531,7 @@ Kepler and Lilith clung fiercely to that faith as they plunged into the luminous
 
 ## Chapter 15 - "Cronians' Protest"
 
-**Chapter15**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter15-1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter15-1.mp3"></audio>
 
 A deathly silence hung over the crystalline grove as Kepler and Lilith approached. The alien trees towered overhead, refracting the wan sunlight into splintered rainbows across the mossy floor. There was no sign of Sal or the Cronian Council.
 
@@ -607,9 +573,7 @@ But Kepler clung fiercely to hope as they made their way back through the darkli
 
 ## Chapter 16 - "A Race Against Time"
 
-**Chapter16**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter16.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter16.mp3"></audio>
 
 Kepler gripped the rover's controls, deftly swerving around tangled Cronian roots as they raced back to Voronin Point. Beside him, Lilith clung to her seat, eyes shadowed with the weight of the knowledge they carried.
 
@@ -633,9 +597,7 @@ Human and Cronian fates would be forged here today, beneath an alien sky. Kepler
 
 ## Chapter 17 - "Orion's Relentlessness"
 
-**Chapter17**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter17.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter17.mp3"></audio>
 
 The door to the Executive Spire's situational chamber slid open and Kepler froze, momentarily overwhelmed by the sheer controlled chaos within. Teams of corporate officers and advisers swarmed around displays tracking Earth's crumbling interstellar infrastructure. At the center, Orion Voronin stood like the eye of a storm, barking orders and demands for solutions.
 
@@ -681,9 +643,7 @@ They clung to each other under the shrouded sky. If these were to be humankind's
 
 ## Chapter 18 - "Cronian Ultimatum"
 
-**Chapter18**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter18.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter18.mp3"></audio>
 
 Kepler and Lilith entered the crystalline grove as Cronus' sun sank below the horizon. The alien trees surrounding the clearing thrummed with an ominous resonance just beyond human hearing. Kepler felt it vibrating through his bones - a harmonic frequency conveying urgency...and barely restrained fury.
 
@@ -723,9 +683,7 @@ Lilith embraced him fiercely, knowing the full meaning of the gift they had rece
 
 ## Chapter 19 - "Earth's Concerns"
 
-**Chapter19**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter19.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter19.mp3"></audio>
 
 Kepler sat anxiously in the communications room aboard the Cronus research outpost, rapidly calibrating the quantum transmitter to contact Earth. Beside him, Lilith put a reassuring hand on his shoulder as the display finally blinked ready.
 
@@ -767,9 +725,7 @@ Perhaps those innocent of Earth's sins could walk blameless before the Cronian C
 
 ## Chapter 20 - "Apocalyptic Visions"
 
-**Chapter20**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter20.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter20.mp3"></audio>
 
 Darkness engulfed Kepler as he drifted into an uneasy sleep, the threat of catastrophe looming over both Earth and Cronus keeping rest at bay. He had done all he could to avert disaster, yet peace still seemed beyond their grasp.
 
@@ -801,9 +757,7 @@ Humanity would confront its reflection soon in Cronus' crystalline gaze - would 
 
 ## Chapter 21 - "Alien Partnership"
 
-**Chapter21**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter21.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter21.mp3"></audio>
 
 The violet mists of Cronus swirled around Kepler as he sat deep in meditation, attempting to reconnect with the alien presences inhabiting this strange world. Since the visions, his mind felt altered, as if permanently receptive now to the Cronians and their unknowable ways. He hoped desperately they might sense his desire for reconciliation.
 
@@ -825,9 +779,7 @@ There were no miracles or absolutes, only tesseract paths still unfolding. But K
 
 ## Chapter 22 - "Earth vs. Orion"
 
-**Chapter22**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter22.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter22.mp3"></audio>
 
 A tense silence filled the Global Authority's situation room as Secretary-General Veda Patel ended the emergency session regarding Orion Voronin's Cronus fleet. Despite Dr. Arden's dire warnings, they had failed to reach a consensus on stopping Voronin's imminent retaliation against the entities on Cronus.
 
@@ -871,9 +823,7 @@ There was still a chance to avoid calamity, but only if Orion relinquished old g
 
 ## Chapter 23 - "Quantum Warfare"
 
-**Chapter23**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter23-1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter23-1.mp3"></audio>
 
 As Orion's fleet emerged from quantum jumpspace, Cronus loomed before them - a magnificent sapphire orb veiled in violet mist. For a heartbeat, Orion faltered, doubt and longing welling up in his chest. Was the dream of his forebears worth this coming bloodshed?
 
@@ -931,9 +881,7 @@ With a seismic groan, the ravaged Colossus came to rest in a valley of violet Cr
 
 ## Chapter 24 - "Reconciliation"
 
-**Chapter24**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter24.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter24.mp3"></audio>
 
 In the wake of Orion's doomed armada, a tense calm had settled over Cronus. The planet's surface remained unsettled and volatile, reacting to the disturbance across its quantum depths. Pockets of unnatural decay marred the alien wilderness Kepler had come to love, like infected wounds slow to heal.
 
@@ -959,9 +907,7 @@ Lilith smiled through her own tears, knowing what had passed in that unearthly c
 
 ## Chapter 25 - "New Dawn on Cronus"
 
-**Chapter25**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter25-3.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter25-3.mp3"></audio>
 
 A soft azure dawn crested over Cronus' violet forests, casting everything in luminous hues. Kepler paused from tending his alien garden to admire the daily miracle of light reborn. Even after twenty years here, the beauty of this adopted world still stirred his weary spirit.
 
@@ -987,9 +933,7 @@ Back home, Lilith greeted them with news - a priority transmission from old comr
 
 ## Chapter 26 - "Kepler's Reflections"
 
-**Chapter26**
-
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2023/07/chapter26-1.mp3"></audio>
+<audio controls preload="metadata" src="/blog/quantum-aeon/chapter26-1.mp3"></audio>
 
 Kepler sat alone on a rocky outcropping overlooking the Cronian sea, the twin moons casting rippling emerald light across the gently undulating alien waters. He inhaled the crisp salty air, feeling the breeze caress his weathered features. At 70 years old now, Kepler could sense the long decades behind him, written in furrows across his brow and grey streaking his once dark hair.
 

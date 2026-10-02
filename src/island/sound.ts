@@ -22,6 +22,8 @@
  *  - the wildlife: gulls, robins, the owl, ducks, geese and the whale's blow
  *  - weather: rain, rolling thunder, gusting wind and cicadas on a hot day
  *  - the river: its water, the falls, the paddle, the hull on the rocks, and whatever lives on the banks
+ *  - the season's score: an eerie Halloween soundscape all through that week, quiet Christmas music all
+ *    through the Christmas weeks; and over Halloween, the vampire's laugh and the witch's cackle
  * The sea, the fire, the weather, the wildlife and the river are recordings (public/audio/sfx/, made
  * with tools/sounds/generate.ts), loaded once sound starts. Everything has a synthesised stand-in
  * that plays until its recording has arrived, and the game's little musical cues stay synthesised.
@@ -79,7 +81,8 @@ const SFX = {
   island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, 'tap-run': 1, 'tap-off': 1, lap: 2, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 1,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
-    flurry: 1, stroke: 3, burner: 1, horn: 1, murmur: 1, seal: 1,
+    flurry: 1, stroke: 3, burner: 1, horn: 1, typhon: 1, murmur: 1, seal: 1,
+    strider: 1, creak: 2, wade: 2, sniff: 2, snooze: 1, squeak: 2, chirrup: 2,
     eagle: 1, boar: 1, moo: 1 }, // (the river's too, but they turn up here now and then)
   rooms: {
     simmer: 1, typing: 1, clockwork: 1, workshop: 1, press: 1, engine: 1, quill: 1, page: 1, zap: 1, 'robot-servo': 1,
@@ -92,6 +95,10 @@ const SFX = {
   telly: { 'tv-murder': 1, 'tv-location': 1, 'tv-bnb': 1, 'tv-rail': 1 },
   // only on the special days that need them (scene/calendar.ts)
   festive: { fireworks: 1, 'fw-launch': 2, 'fw-burst': 3, 'fw-crackle': 2, 'steam-whistle': 1 },
+  // dressed up for Halloween (scene/wardrobe.ts): the witch's cackle and the vampire's laugh
+  costumes: { cackle: 2, vampire: 2 },
+  // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
+  graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -104,7 +111,7 @@ const LEVEL: Record<string, number> = {
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
-  dolphin: 0.4, raven: 0.45, burner: 0.4, horn: 0.55, murmur: 0.5, seal: 0.45,
+  dolphin: 0.4, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45,
   'door-library': 0.25, 'door-hut': 0.25, 'door-lighthouse': 0.22, bell: 0.25, hatch: 0.25, bottle: 0.5, clink: 0.35, jump: 0.25,
   flurry: 0.45, press: 0.35, engine: 2.5, quill: 0.3, page: 0.35, zap: 0.25, 'robot-servo': 0.35, 'robot-tinker': 0.3,
   'robot-snore': 0.3, 'robot-clank': 0.45, 'robot-beep': 0.35, ding: 0.35, snore: 0.3,
@@ -113,14 +120,17 @@ const LEVEL: Record<string, number> = {
   stroke: 0.3, hit: 0.85, bump: 0.5, splash: 0.7, capsize: 0.8, roll: 0.55, brace: 0.55, boof: 0.7, dropin: 0.55,
   hole: 0.6, slap: 0.65, howl: 0.6, growl: 0.7, croak: 0.4, whoosh: 0.35, kingfisher: 0.4, otter: 0.4, grunt: 0.65,
   yeti: 0.6, eagle: 0.5, boar: 0.55, moo: 0.6,
-  'fw-launch': 0.3, 'fw-burst': 0.75, 'fw-crackle': 0.35, 'steam-whistle': 0.65,
+  strider: 0.6, creak: 0.35, wade: 0.4, sniff: 0.25, snooze: 0.25, squeak: 0.4, chirrup: 0.25,
+  'fw-launch': 0.3, 'fw-burst': 0.75, 'fw-crackle': 0.35, 'steam-whistle': 0.65, cackle: 0.45, vampire: 0.5,
+  groan: 0.5, moan: 0.45, bats: 0.35, skitter: 0.3, neigh: 0.55, gallop: 0.5, headless: 0.55, giant: 0.6, stomp: 0.5, wail: 0.6,
 };
 /**
  * The ones that could make someone jump, browsing late with the volume up: after dark they're
  * held back to this much of their daytime level.
  */
 const STARTLING: Record<string, number> = {
-  fox: 0.5, foghorn: 0.6, horn: 0.6, yeti: 0.55, growl: 0.6, roar: 0.6, howl: 0.65, bellow: 0.65, boom: 0.6, firework: 0.65, thunder: 0.65,
+  fox: 0.5, foghorn: 0.6, horn: 0.6, typhon: 0.55, yeti: 0.55, growl: 0.6, roar: 0.6, howl: 0.65, bellow: 0.65, boom: 0.6, firework: 0.65, thunder: 0.65,
+  groan: 0.6, moan: 0.6, neigh: 0.6, headless: 0.6, giant: 0.6, stomp: 0.7, wail: 0.6,
 };
 /** The beds are levelled lower (-24 LUFS) and each gets its own trim into its old volume curve. */
 const BED = { sea: 1.8, fire: 3.5, rain: 3, wind: 2.5, cicadas: 8, falls: 1.6, crickets: 1.5, birdsong: 1.5, hail: 2.5, leaves: 2, drips: 2, flag: 2, fireworks: 1.6 };
@@ -184,7 +194,17 @@ export class Sound {
   fog = 0;
   /** How near the lit mosslits are, 0..1: their glade has a sound of its own. */
   mosslits = 0;
+  /** The fair folk (scene/revel.ts): out, dancing, stared away, and how near, 0..1. */
+  revel = { out: false, dancing: false, cut: false, near: 0 };
+  /** Their tune, once they've first come out: `heard` once it's actually playing. */
+  private reel?: { el: HTMLAudioElement; gain: GainNode; air: BiquadFilterNode; going: boolean; heard: boolean };
   private nextHorn = 0;
+  /**
+   * The season's quiet score (score()): which tune, if any, and how much it's wanted, 0..1. Both
+   * play all day, Halloween's through its week and Christmas's through the Christmas weeks.
+   */
+  tune: { name: 'halloween-tune' | 'christmas-tune'; level: number } | null = null;
+  private score?: { el: HTMLAudioElement; gain: GainNode; air: BiquadFilterNode; going: boolean; next: number };
   /** How dark it is, 0 (day) … 1 (night): the startling sounds are held back after dark. */
   night = 0;
   /** Hail, and snow lying and falling (which hushes everything a little), 0..1 each. */
@@ -268,7 +288,8 @@ export class Sound {
   private tapRun?: { src: AudioBufferSourceNode; gain: GainNode; off: AudioBufferSourceNode };
   private tapSynth: { src: AudioBufferSourceNode; gain: GainNode }[] = [];
   private loading = new Set<SfxSet>();
-  private wantsFestive = false;
+  /** The special days' sets, fetched once sound is on. */
+  private wants = new Set<SfxSet>();
   /** Fed by the synthesised beds, so they can step aside once the recording is in. */
   private seaSynth?: GainNode;
   private seaWalls?: BiquadFilterNode;
@@ -682,6 +703,7 @@ export class Sound {
         [1047, 1319, 1568, 2093, 2637, 3136].forEach((f, i) => tone('sine', i * 0.06, [[0, f], [0.8, f * 1.006]], 0.035, 1.1));
         break;
       case 'reel': { // one turn of their tune: a skipping pentatonic run over a drone, in six-eight
+        if (this.reel?.heard) break; // (the recording's playing)
         const scale = [587, 659, 784, 880, 988, 1175, 1319];
         const turn = [0, 2, 4, 5, 4, 2, 1, 3, 5, 6, 5, 3];
         const step = 3.2 / turn.length;
@@ -721,6 +743,33 @@ export class Sound {
         tone('triangle', 0.05, song.map(([at, hz]) => [at, hz * 1.5] as [number, number]), 0.012, 5.0, 1200); // a ghost of it a fifth up
         tone('sine', 0, [[0, 165 * f], [4.6, 147 * f]], 0.02, 5.4);
         tone('sine', 0.6, song.map(([at, hz]) => [at, hz * 0.998] as [number, number]), 0.025, 5.2, 900); // and back off the cliffs
+        break;
+      }
+      case 'wade': { // a treestrider's foot coming down in the shallows: a deep slosh, and drops falling back
+        hiss(0, 0.5, 700, 0.12);
+        tone('sine', 0, [[0, r(70, 85)], [0.25, 42]], 0.1, 0.3);
+        for (let i = 0; i < 4; i++) tone('sine', 0.12 + r(0, 0.35), [[0, r(900, 1700)], [0.05, r(1800, 2600)]], 0.012, 0.06);
+        break;
+      }
+      case 'creak': { // a knee, five metres up, bending: a dry, woody creak like a branch in the wind
+        const f = r(0.85, 1.15);
+        for (let i = 0; i < 14; i++) {
+          const k = Math.sin((i / 13) * Math.PI);
+          tone('sawtooth', i * 0.035 + r(0, 0.01), [[0, (150 + i * 4) * f]], 0.02 * (0.4 + k), 0.04, 900);
+        }
+        break;
+      }
+      case 'strider': { // its call, looking down at you: a long slow creak, then two hollow knocks, like a woodpecker in a drum
+        const f = r(0.9, 1.1);
+        for (let i = 0; i < 36; i++) {
+          const k = Math.sin((i / 35) * Math.PI);
+          tone('sawtooth', i * 0.045 + r(0, 0.012), [[0, (120 - i * 1.2) * f]], 0.03 * (0.3 + k), 0.05, 700);
+        }
+        tone('sine', 0, [[0, 60 * f], [1.6, 52 * f]], 0.025, 1.7);
+        for (const at of [1.85, 2.15]) {
+          tone('sine', at, [[0, 260 * f], [0.08, 190 * f]], 0.09, 0.22, 1200);
+          tone('triangle', at, [[0, 520 * f], [0.05, 380 * f]], 0.02, 0.1);
+        }
         break;
       }
       case 'hush': // gone: a falling shimmer, and a breath of air through the grass
@@ -826,9 +875,34 @@ export class Sound {
   }
 
   /** A special day needs its sounds (the fireworks, the steamboat's whistle): fetch them once sound is on. */
-  festive() {
-    this.wantsFestive = true;
-    if (this.ctx) this.load('festive');
+  festive(set: 'festive' | 'costumes' | 'graveyard' = 'festive') {
+    this.wants.add(set);
+    if (this.ctx) this.load(set);
+  }
+
+  /**
+   * Vincent or Eef, clicked while they're dressed up for Halloween: the vampire's hammy laugh, or
+   * the witch's cackle. Until the recording's in, a wobbly glide stands in.
+   */
+  spook(who: 'vampire' | 'witch') {
+    if (!this.enabled || this.play(who === 'witch' ? 'cackle' : 'vampire', 1, { air: this.outdoors ? undefined : 5000 }) || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const f = who === 'witch' ? 880 : 220;
+    for (let i = 0; i < 4; i++) this.tone(t + i * 0.16, 'triangle', [[0, f * 1.2], [0.14, f]], 0.04, 0.15);
+  }
+
+  /**
+   * Halloween's graveyard: one of the dead groaning, the ghost's long wooo, the bats squeaking
+   * round the lamp, a spider skittering. `volume` falls off with distance; `pan` is across the
+   * screen. Until the recordings are in, a synthesised stand-in.
+   */
+  haunt(kind: 'groan' | 'moan' | 'bats' | 'skitter', volume = 1, pan = 0) {
+    if (!this.enabled || !this.outdoors || this.play(kind, volume, { pan }) || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (kind === 'groan') this.tone(t, 'sawtooth', [[0, 110], [0.5, 92], [1.3, 70]], 0.05 * volume, 1.5, 500);
+    else if (kind === 'moan') this.tone(t, 'sine', [[0, 330], [0.8, 520], [1.8, 300]], 0.05 * volume, 2.2);
+    else if (kind === 'bats') for (let i = 0; i < 5; i++) this.tone(t + i * 0.11 + Math.random() * 0.05, 'sine', [[0, 5200], [0.04, 3800]], 0.02 * volume, 0.06);
+    else for (let i = 0; i < 8; i++) this.tone(t + i * 0.035, 'square', [[0, 2600 + Math.random() * 900]], 0.012 * volume, 0.02, 4000);
   }
 
   /**
@@ -873,6 +947,82 @@ export class Sound {
     out.connect(env).connect(this.master!);
     osc.start(t);
     osc.stop(t + length + 0.05);
+  }
+
+  /**
+   * The fair folk's tune (public/audio/sfx/revel.mp3, composed by tools/sounds/generate.ts): from the
+   * top each time they start to dance, duller and quieter the further off you look, fading as they
+   * part and stopping dead if you stare. Fetched as they come out; until it plays, the synthesised
+   * reel stands in.
+   */
+  private dance(t: number) {
+    const { out, dancing, cut, near } = this.revel;
+    if (out && !this.reel) {
+      const air = this.ctx!.createBiquadFilter();
+      air.type = 'lowpass';
+      air.connect(this.master!);
+      const reel = { ...this.stream('sfx/revel.mp3', true, air), air, going: false, heard: false };
+      reel.gain.gain.value = 0;
+      reel.el.addEventListener('playing', () => (reel.heard = reel.going));
+      this.reel = reel;
+    }
+    const reel = this.reel;
+    if (!reel) return;
+    if (dancing && !reel.going) {
+      reel.going = true;
+      reel.el.currentTime = 0;
+      void reel.el.play().catch(() => {});
+    }
+    if (!reel.going) return;
+    if (!dancing) {
+      reel.going = false;
+      reel.heard = false;
+      reel.gain.gain.setTargetAtTime(0, t, cut ? 0.02 : 1.2);
+      setTimeout(() => !reel.going && reel.el.pause(), cut ? 300 : 7000);
+      return;
+    }
+    const hear = this.enabled && this.outdoors ? near : 0;
+    reel.gain.gain.setTargetAtTime(hear * 0.7, t, 0.4);
+    reel.air.frequency.setTargetAtTime(1200 + hear * hear * 16000, t, 0.4);
+  }
+
+  /**
+   * The season's score (public/audio/sfx/*-tune.mp3, composed by tools/sounds/generate.ts): soft,
+   * and low under everything, a minute or so's rest between plays. It steps aside for any other
+   * music (the guitar, the piano, the gramophone, the Walkman, the fair folk, the telly), and isn't
+   * heard on the river or up on the trail. Indoors it comes through the walls, a little duller.
+   */
+  private scoring(t: number) {
+    const tune = this.tune;
+    const other = this.playing || this.piano || (this.record && !this.record.stopping) || (this.lp && !this.lp.stopping)
+      || this.reel?.going || this.telly || this.film;
+    const level = tune && this.enabled && !other && !this.atRiver && !this.diorama ? tune.level : 0;
+    if (!this.score) {
+      if (!tune || level <= 0.01) return;
+      const air = this.ctx!.createBiquadFilter();
+      air.type = 'lowpass';
+      air.connect(this.master!);
+      const score = { ...this.stream(`sfx/${tune.name}.mp3`, false, air), air, going: false, next: t + 4 };
+      score.gain.gain.value = 0;
+      score.el.addEventListener('ended', () => {
+        score.going = false;
+        score.next = this.ctx!.currentTime + 50 + Math.random() * 70;
+      });
+      this.score = score;
+    }
+    const s = this.score;
+    s.gain.gain.setTargetAtTime(level * (tune?.name === 'christmas-tune' ? 0.22 : 0.3) * (this.indoors ? 0.7 : 1), t, level > 0 ? 3 : 1.5);
+    s.air.frequency.setTargetAtTime(this.indoors ? 2400 : 16000, t, 0.5);
+    if (level > 0.01 && !s.going && t > s.next) {
+      s.going = true;
+      s.el.currentTime = 0;
+      void s.el.play().catch(() => (s.going = false));
+    } else if (level <= 0.01 && s.going && s.gain.gain.value < 0.003) {
+      // faded right out: stop, and start again from the top when it's wanted
+      s.el.pause();
+      s.going = false;
+      s.next = t + 6;
+    }
   }
 
   private gladeOut?: GainNode;
@@ -1414,6 +1564,8 @@ export class Sound {
     // after the rain, the trees and the eaves drip for a while (and so do the icicles as they thaw)
     this.soaked = Math.max(this.rain, this.soaked - dt / 80);
     this.glade(t, this.indoors || this.atRiver || this.diorama ? 0 : this.mosslits);
+    this.dance(t);
+    this.scoring(t);
     const drip = Math.min(1, Math.max(0, this.soaked - this.rain * 2) + this.thaw * 0.6);
     this.dripGain?.gain.setTargetAtTime(drip * 0.22 * (this.atRiver ? 0 : walls), t, 1.5);
     this.flagGain?.gain.setTargetAtTime(this.summit * (0.35 + this.wind) * 0.2 * (this.atRiver ? 0 : walls), t, 1);
@@ -1719,7 +1871,7 @@ export class Sound {
       ));
     }
     this.load('island');
-    if (this.wantsFestive) this.load('festive');
+    for (const set of this.wants) this.load(set);
     if (this.atRiver) this.load('river');
   }
 

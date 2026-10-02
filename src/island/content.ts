@@ -12,9 +12,10 @@ import { chapters } from '../data/career';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { travels, yearsOf } from '../data/travels';
-import { hourOf } from './scene/bedtime';
-import { occasions } from './scene/calendar';
+import { fridayNight, hourOf } from './scene/bedtime';
+import { clog, occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
+import { wardrobe } from './scene/wardrobe';
 import { FRIDAY_13 } from './scene/fauna';
 import { ambush, beds, coffee, flatOut, indoors, type Nook } from './scene/shelter';
 import { boatStage, shelf } from './scene/almanac';
@@ -118,10 +119,10 @@ export const SECRETS = {
   supersheep: { title: 'Super Sheep', hint: 'Once in a long while, one of the flock has somewhere to be. Fast.' },
   bottle: { title: 'Message in a bottle', hint: 'Keep an eye on the beach. Now and then the sea brings something in.' },
   thief: { title: 'Daylight robbery', hint: 'Someone by the fire should keep a closer eye on his dinner.' },
-  fairfolk: { title: 'Ill met by moonlight', hint: 'On some dry evenings there’s music just past the campfire. Midsummer’s Eve is the surest.' },
+  fairfolk: { title: 'Ill met by moonlight', hint: 'On some dry evenings there’s music just past the campfire. The nights round Midsummer are the surest.' },
   // the rare sightings (src/island/scene/sightings.ts)
-  balloon: { title: 'Up, up and away', hint: 'On a calm summer evening, look up. Gelderland’s skies are full of them.' },
-  starlings: { title: 'Murmuration', hint: 'At dusk in autumn, thousands of wings over the west of the island, turning as one.' },
+  balloon: { title: 'Up, up and away', hint: 'On a calm evening, summer best of all, look up. Gelderland’s skies are full of them.' },
+  starlings: { title: 'Murmuration', hint: 'At dusk in autumn and winter, thousands of wings over the west of the island, turning as one.' },
   seal: { title: 'Hauled out', hint: 'On some days, someone comes up out of the sea to lie on the beach.' },
   ferry: { title: 'Right on time', hint: 'Out on the hour, back on the half hour. Keep an eye on the sea to the south.' },
   tallship: { title: 'Under full sail', hint: 'Very rarely, something from another century passes on the horizon.' },
@@ -173,7 +174,7 @@ const inTurn = (lines: string[]) => {
  * Her, out on the island (src/island/scene/companion.ts): she looks up, or raises her mug, and
  * you get a line. Never her name: she's just there.
  */
-function withHer(label: string, line: (ctx: IslandContext) => string): Place {
+function withHer(label: Place['label'], line: (ctx: IslandContext) => string): Place {
   return {
     label,
     activate(ctx) {
@@ -305,10 +306,14 @@ const SPECIAL_DAYS: Record<string, Place> = {
     activate: say('His clothes, his towel, and a flask of hot chocolate. The flask is the part he’s actually looking forward to.'),
   },
   shoe: {
-    label: 'A clog by the fire',
+    label: clog === 'carrot' ? 'A clog by the fire · with a carrot in it' : 'A clog by the fire · and something in it',
     activate: say(occasions.has('sinterklaas')
       ? 'The carrot’s gone, and there’s a chocolate letter where it was. Somebody was good this year.'
-      : 'Put out for Sinterklaas, with a carrot in it for his horse. Come back on the fifth of December and see what’s in it.'),
+      : clog === 'letter'
+        ? 'The carrot’s gone, and there’s a chocolate letter in its place. Sinterklaas came by in the night.'
+        : clog === 'pepernoten'
+          ? 'The carrot’s gone, and the clog’s full of pepernoten. The horse got the better deal, but only just.'
+          : 'Put out for Sinterklaas, with a carrot in it for his horse. Some mornings the carrot’s gone and there’s something in its place.'),
   },
   steamboat: {
     label: 'The steamboat · in from Spain',
@@ -328,6 +333,56 @@ const SPECIAL_DAYS: Record<string, Place> = {
   pumpkin: JACK,
   pumpkin_0: JACK,
   pumpkin_1: JACK,
+  graves: {
+    label: 'A graveyard · the unfinished projects',
+    activate: (() => {
+      const line = keepsOn(
+        'Arcaneum, Rustwing Raiders, Vesper, and a few that never got as far as a name. Not dead, exactly. Resting until he has a free weekend.',
+        { 3: 'One grave is still open, the spade stuck in the heap. Nobody’s saying what it’s for yet.' },
+      );
+      return (ctx: IslandContext) => ctx.toast(line());
+    })(),
+  },
+  ghost: {
+    label: 'A ghost',
+    activate(ctx) {
+      ctx.sound.haunt('moan');
+      ctx.toast('An old bedsheet with two holes in it, drifting over the graves. Beike won’t go anywhere near it, and nobody has the heart to tell him.');
+    },
+  },
+  pumpkinhead: {
+    label: 'A scarecrow · keeping watch',
+    activate: say('He keeps watch over the graves all week. The pumpkin was meant for soup.'),
+  },
+  zombie: {
+    label: 'One of the dead · out for a walk',
+    activate(ctx) {
+      ctx.sound.haunt('groan');
+      ctx.toast('Very slow, very determined, and going nowhere in particular. Beike has decided it’s a friend.');
+    },
+  },
+  risen: {
+    label: 'Climbing out of a grave',
+    activate(ctx) {
+      ctx.sound.haunt('groan', 0.8);
+      ctx.toast('Back from the grave of a project nobody finished. They always come back, sooner or later.');
+    },
+  },
+  spider: {
+    label: 'A spider · the size of a saucer',
+    activate(ctx) {
+      ctx.sound.haunt('skitter');
+      ctx.toast('Very proud of its web, and rightly so. George has had his eye on it for days, working out a plan.');
+    },
+  },
+  bats: {
+    label: 'Bats · round the lamp',
+    activate(ctx) {
+      spotAnimal('bat');
+      ctx.sound.haunt('bats');
+      ctx.toast('Out after the moths that come to the light. They do this every night of the year; it’s only this week anyone looks up.');
+    },
+  },
   xmas_tree: {
     label: () => (occasions.has('christmasday') ? 'The Christmas tree · with presents under it' : 'The Christmas tree'),
     activate: say(occasions.has('christmasday')
@@ -336,7 +391,7 @@ const SPECIAL_DAYS: Record<string, Place> = {
   },
   bench_balloons: {
     label: 'Balloons · three birthdays on one day',
-    activate: say('Hers, Charlie’s and George’s, all on the fourteenth of August. One cake, three candles, and two cats who think the cake is theirs.'),
+    activate: say('Eef’s, Charlie’s and George’s, all on the fourteenth of August. One cake, three candles, and two cats who think the cake is theirs.'),
   },
   cake: {
     label: 'A birthday cake · three candles',
@@ -374,7 +429,7 @@ const THE_WEEK: Record<string, Place> = {
   },
   borrel: {
     label: 'A crate of beer · it’s Friday',
-    activate: say('Friday evening by the fire: a crate, two open bottles, and nobody in any hurry to go to bed.'),
+    activate: say('Friday evening by the fire: a crate of pils for her, an IPA for him, and nobody in any hurry to go to bed.'),
   },
   borrel_mug: {
     label: 'A second mug',
@@ -480,6 +535,15 @@ const WILDLIFE: Record<string, Place> = {
     'A small masked wanderer in a red cloak. It bows, needle raised, and is gone in a dash. It seems to know exactly where it’s going.',
   ], 'wanderer'),
   // the rare sightings (scene/sightings.ts)
+  // Halloween's monsters (scene/monsters.ts)
+  horseman: sighting('horseman', 'The Headless Horseman', [
+    'Once round the island at a gallop, now and then on a Halloween night, looking for his head. Nobody has the heart to point out the one in his hand.',
+    'Beike chases most things along this beach. He has decided to sit this one out.',
+  ]),
+  tallone: sighting('tallone', 'Something in the woods', [
+    'Far too tall, and very quiet for its size. It keeps to the woods, mostly.',
+    'It doesn’t like being looked at. Which is fair: neither does anyone at the fire.',
+  ]),
   balloon: sighting('balloon', 'A hot-air balloon', [
     'Two people in the basket wave down at you. The burner roars, and up they go.',
     'A hot-air balloon, drifting over on the evening air. On a calm summer night, the sky over Gelderland is full of them.',
@@ -510,10 +574,10 @@ const WILDLIFE: Record<string, Place> = {
   }, 'fisherman'),
   // the imaginary ones (scene/imaginary.ts), from the 2022 blog posts
   snorble: sighting('snorble', 'A snorble', (ctx) => [
-    'A snorble, asleep in a sunbeam. The field notes say they can jump two metres. It doesn’t look like it could get up.',
-    'Boing. Two metres straight up, just as the field notes said, and straight back down to sleep.',
-    'Up it goes again, and lands in exactly the same dent in the grass.',
-    'That was one wake-up too many. It bounces off to find a quieter sunbeam.',
+    'A snorble, still on its way down. They really can jump two metres.',
+    'Boing. Two metres straight up, just as the field notes said. It lands and looks round for whatever that was.',
+    'Up it goes again, and the little ones go up after it, about half as high.',
+    'That was one fright too many. The whole family bounds off into the trees to find a quieter sunbeam.',
   ][Math.min(3, ctx.life.sightings.imaginary.snorbleWoken)], 'madeup'),
   balloonbug: sighting('balloonbug', 'A balloonbug', [
     'A balloonbug, drifting over on nothing at all. It eats midges, so it can stay as long as it likes.',
@@ -590,6 +654,12 @@ const fireside = inTurn([
   'She has a request. He plays it the second time she asks.',
   'Toes towards the fire, hands round the mug. This is the good log, and it’s taken.',
 ]);
+// a Friday evening: a beer from the crate instead
+const borrel = inTurn([
+  'She raises her bottle at you. Proost.',
+  'She has a request. He plays it the second time she asks, and the third.',
+  'Toes towards the fire, a cold one in her hands. The week is over, officially, as of this sip.',
+]);
 // she doesn't much like it, but she does it anyway: it's for the greater good
 const workout = inTurn([
   'She waves without missing a beat. Nobody else on this island can do jumping jacks and wave.',
@@ -662,8 +732,8 @@ export const PLACES: Record<string, Place> = {
   },
   companion_podcast: withHer('Feet over the water, a podcast in', hearing),
   companion_reading: withHer('Deep in a book', reading),
-  companion_fireside: withHer('By the fire, with tea', (ctx) =>
-    ctx.sound.playing ? 'She’s singing along, a word or two ahead of him. He’s pretending not to notice.' : fireside()),
+  companion_fireside: withHer((ctx) => (fridayNight(ctx.sky.time) ? 'By the fire, with a beer' : 'By the fire, with tea'), (ctx) =>
+    ctx.sound.playing ? 'She’s singing along, a word or two ahead of him. He’s pretending not to notice.' : fridayNight(ctx.sky.time) ? borrel() : fireside()),
   companion_workout: withHer('Working out above the beach, under protest', workout),
   companion_petting_cats: withHer('Giving the cats a fuss', herCats),
   companion_petting_beike: withHer('Giving Beike a fuss', herBeike),
@@ -1623,6 +1693,31 @@ export function toggleRecord(ctx: IslandContext) {
   const disc = ctx.sound.playRecord();
   if (disc) ctx.toast(`You wind the handle and lower the needle. Crackle, then: ${disc.set}, written by a transformer.`);
 }
+
+/**
+ * Over Halloween they're dressed up (scene/wardrobe.ts), and play the part when you click them:
+ * the vampire laughs, the witch cackles. Not when they're out in their sports things, or asleep,
+ * or can't hear you for the podcast.
+ */
+function dressedUp(places: Record<string, Place>, ids: string[], who: 'vampire' | 'witch') {
+  for (const id of ids) {
+    const place = places[id];
+    places[id] = {
+      ...place,
+      activate(ctx, at) {
+        if (wardrobe.outfit === 'halloween' && !ctx.sound.playing) ctx.sound.spook(who); // (not over his own song)
+        place.activate?.(ctx, at);
+      },
+    };
+  }
+}
+dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike'], 'vampire');
+dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike'], 'witch');
+dressedUp(WORKSHOP_PLACES, ['vincent_workshop'], 'vampire');
+dressedUp(LIGHTHOUSE_PLACES, ['vincent_coding'], 'vampire');
+dressedUp(LIGHTHOUSE_PLACES, ['companion_watching'], 'witch');
+dressedUp(HUT_PLACES, ['vincent_guitar'], 'vampire');
+dressedUp(HUT_PLACES, ['companion_baking'], 'witch');
 
 export function workshopPlaceFor(id: string): Place | undefined {
   return WORKSHOP_PLACES[id];

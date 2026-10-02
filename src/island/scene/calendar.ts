@@ -4,25 +4,28 @@
  * Island drops the ones that aren't today's):
  *
  *   easter        Easter Sunday and Monday: eggs hidden in the grass, and Beike after them (easter.ts)
- *   kingsday      27 April (the 26th when the 27th is a Sunday): orange bunting, a vrijmarkt
+ *   kingsday      27 April (the 26th when the 27th is a Sunday), and Koningsnacht before it: orange
+ *                 bunting, a vrijmarkt
  *   remembrance   4 May: the summit flag at half-mast from six, and at eight two minutes' silence
  *                 (remembrance.ts): the sound fades away and Vincent puts the guitar down
  *   liberation    5 May: the flag right back up, with a bit of bunting on the pole
- *   airborne      the third Saturday of September, Arnhem's own day: the Airborne commemoration,
- *                 and a few parachutes coming down far off over the water (airborne.ts)
+ *   airborne      the weekend of the third Saturday of September, Arnhem's own: the Airborne
+ *                 commemoration, and a few parachutes coming down far off over the water (airborne.ts)
  *   sintmaarten   11 November: paper lanterns at dusk, carried round the island by the fair folk (lanterns.ts)
  *   arrival       the Saturday in mid-November when Sinterklaas comes in on his steamboat
  *   steamboat     from then to 5 December: the steamboat tied up at the head of the pier
- *   shoe          the same weeks: a clog by the fire, a carrot in it for the horse
+ *   shoe          the same weeks: a clog by the fire, a carrot in it for the horse, and some mornings
+ *                 a chocolate letter or pepernoten in its place (clogHolds)
  *   sinterklaas   5 December, pakjesavond: presents on the pier, a chocolate letter in the clog
  *   dive          New Year's Day at noon: the nieuwjaarsduik, Vincent into the sea in an orange hat
- *   halloween     the last days of October: jack-o'-lanterns at the hut and the library
+ *   halloween     the last week of October: jack-o'-lanterns, a graveyard with a ghost, bats at night
  *   christmas     6 December (the tree goes up once Sinterklaas has gone) to Twelfth Night
  *   christmasday  24 to 26 December: presents under the tree
  *   newyear       New Year's Eve and Day: fireworks, all day, and wild at midnight (fireworks.ts)
  *   birthday      Vincent's, 23 January: balloons by the fire
- *   birthdays     14 August, hers and Charlie's and George's: party hats, a cake on the bench
- *   midsummer     Midsummer's Eve, 23 June: the fair folk are sure to hold their revel (revel.ts)
+ *   birthdays     14 August, Eef's and Charlie's and George's: party hats, a cake on the bench
+ *   midsummer     the short nights round Midsummer's Eve (23 June), 21 to 24 June: the fair folk are
+ *                 sure to hold their revel (revel.ts)
  *
  * And the ordinary days of the week, which have their habits too (week.ts):
  *
@@ -130,10 +133,10 @@ export function occasionsOn(d: Date): Set<Occasion> {
   const y = d.getFullYear();
   const e = easter(y);
   if (k === md(e) || k === md(new Date(y, e.getMonth(), e.getDate() + 1))) on.add('easter');
-  if (k === kingsDay(y)) on.add('kingsday');
+  if (k === kingsDay(y) || k === kingsDay(y) - 1) on.add('kingsday'); // Koningsnacht, the night before, too
   if (k === 504) on.add('remembrance');
   if (k === 505) on.add('liberation');
-  if (k === md(airborneDay(y))) on.add('airborne');
+  if (k === md(airborneDay(y)) || k === md(airborneDay(y)) + 1) on.add('airborne'); // the weekend
   if (k === 1111) on.add('sintmaarten');
   const arrived = md(arrivalDay(y));
   if (k === arrived) on.add('arrival');
@@ -143,13 +146,13 @@ export function occasionsOn(d: Date): Set<Occasion> {
   }
   if (k === 1205) on.add('sinterklaas');
   if (k === 101) on.add('dive');
-  if (k >= 1027 && k <= 1031) on.add('halloween');
+  if (k >= 1024 && k <= 1031) on.add('halloween');
   if (k >= 1206 || k <= 106) on.add('christmas');
   if (k >= 1224 && k <= 1226) on.add('christmasday');
   if (k === 1231 || k === 101) on.add('newyear');
   if (k === 123) on.add('birthday');
   if (k === 814) on.add('birthdays');
-  if (k === 623) on.add('midsummer');
+  if (k >= 621 && k <= 624) on.add('midsummer');
   const day = d.getDay();
   if (day === 1) on.add('washday');
   if (sirenTestOn(d)) on.add('sirentest');
@@ -160,6 +163,19 @@ export function occasionsOn(d: Date): Set<Occasion> {
   if (day === 6) on.add('saturday');
   if (day === 0) on.add('sunday');
   return on;
+}
+
+/**
+ * What's in the clog by the fire on day `d` of the Sinterklaas weeks: the carrot for the horse,
+ * or, on some mornings, what Sinterklaas left in its place (a chocolate letter on the fifth,
+ * always). Null outside the weeks.
+ */
+export function clogHolds(d: Date): 'carrot' | 'letter' | 'pepernoten' | null {
+  const on = occasionsOn(d);
+  if (!on.has('shoe')) return null;
+  if (on.has('sinterklaas')) return 'letter';
+  if (on.has('arrival') || daily(7, d) > 0.45) return 'carrot'; // put out again tonight
+  return daily(8, d) < 0.5 ? 'letter' : 'pepernoten';
 }
 
 /** The day it is for this visit: today, or whatever ?date= or ?holiday= asked for (at the time it is now). */
@@ -183,6 +199,8 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 /** Today's occasions (fixed for the visit). */
 export const occasions = occasionsOn(visitDate());
+/** What's in the clog today. */
+export const clog = clogHolds(visitDate());
 
 /** How many days a preview is shifted from today, so the clock (which ?time= can move too) stays on the previewed day. */
 const shiftDays = (() => {
@@ -285,23 +303,26 @@ export function daily(salt: number, d = visitDate()) {
 
 /** A word on arrival, on the days that have one (main.ts says it once a day). */
 export function greeting(): string | null {
-  const newYear = md(visitDate()) === 101 ? 'Happy New Year! A few stragglers are still letting off what they had left.' : 'It’s New Year’s Eve. Stay up: the sky goes off at midnight.';
+  const k = md(visitDate());
+  const newYear = k === 101 ? 'Happy New Year! A few stragglers are still letting off what they had left.' : 'It’s New Year’s Eve. Stay up: the sky goes off at midnight.';
   const lines: Partial<Record<Occasion, string>> = {
     birthday: 'It’s Vincent’s birthday today. There are balloons by the fire.',
-    birthdays: 'Three birthdays today: hers, Charlie’s and George’s. There’s cake by the bench, and the cats are wearing hats about it.',
-    kingsday: 'Fijne Koningsdag! The island’s gone orange, and someone’s selling a teddy on the plaza.',
+    birthdays: 'Three birthdays today: Eef’s, Charlie’s and George’s. There’s cake by the bench, and the cats are wearing hats about it.',
+    kingsday: k === kingsDay(visitDate().getFullYear())
+      ? 'Fijne Koningsdag! The island’s gone orange, and someone’s selling a teddy on the plaza.'
+      : 'It’s Koningsnacht, the night before King’s Day. The island’s gone orange already, and the vrijmarkt has started early.',
     sinterklaas: 'It’s pakjesavond: there are presents on the pier, and something in the clog by the fire.',
     arrival: 'Sinterklaas has arrived! His steamboat came in this morning and is tied up at the pier.',
     dive: 'Happy New Year! At noon Vincent is going into the sea. He says so every year.',
     easter: 'Happy Easter! There are eggs hidden in the grass. Beike knows.',
     remembrance: 'It’s the fourth of May. At eight tonight the whole country is quiet for two minutes, and so is the island.',
     liberation: 'Happy Liberation Day! The flag’s back up, with a bit of bunting on it.',
-    airborne: 'It’s the Airborne commemoration today, Arnhem’s own. Watch the sky over the water: they still jump.',
+    airborne: 'It’s the Airborne commemoration this weekend, Arnhem’s own. Watch the sky over the water: they still jump.',
     sintmaarten: 'It’s Sint Maarten. Stay till it gets dark: somebody’s bringing lanterns.',
-    halloween: 'Somebody’s been carving pumpkins: there are candles lit at the library door and up at the hut.',
+    halloween: 'Somebody’s been carving pumpkins, and a little graveyard has turned up by the plaza. Something in it moves.',
     christmasday: 'Merry Christmas! There are presents under the tree on the plaza.',
     newyear: newYear,
-    midsummer: 'It’s Midsummer’s Eve. Stay till the light goes: there’s music on the beach tonight.',
+    midsummer: k === 623 ? 'It’s Midsummer’s Eve. Stay till the light goes: there’s music on the beach tonight.' : 'It’s midsummer. Stay till the light goes: there’s music on the beach tonight.',
   };
   const first = (Object.keys(lines) as Occasion[]).find((o) => occasions.has(o));
   return first ? lines[first]! : null;

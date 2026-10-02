@@ -1499,6 +1499,7 @@ export class RiverGame {
     u.uLight.value.copy(this.hemi.color).lerp(this.sun.color, 0.3).lerp(WHITE, 0.35).multiplyScalar(0.3 + Math.min(this.sun.intensity, 2.5) * 0.29);
     u.uNight.value = o.night;
     u.uRain.value = o.rain;
+    u.uCold.value = o.chill ?? 0;
     u.uSunDir.value.copy(dir);
     u.uSky.value.copy(this.hemi.color).lerp(fog.color, 0.5);
     // the camera looks down the river from behind, ELEVATION above the horizon

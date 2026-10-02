@@ -1,8 +1,15 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { type Occasion, occasions } from './calendar';
+import { clog, type Occasion, occasions } from './calendar';
 import { toon } from './toon';
 import type { Waypoint } from './shelter';
+import { wardrobe } from './wardrobe';
+
+/**
+ * Halloween week (scene/calendar.ts): the campfire burns green, a witch's fire, its flames, its
+ * light and its embers (life.ts). Core, flames, and the light it throws.
+ */
+export const GREEN_FIRE = occasions.has('halloween') ? { core: '#d8ff9c', flame: '#46e06a', light: '#5cff7a', embers: ['#c8ff8a', '#46e06a'] } : null;
 
 export interface LightMarker {
   position: THREE.Vector3; // world
@@ -65,11 +72,12 @@ export class Island {
     this.shore = shore;
     this.info = info;
     // the special days' things (tools/models/holidays.py): only today's stay, lights and all
-    // ("!sinterklaas": everywhere but that day)
+    // ("!sinterklaas": everywhere but that day), and in the clog only what's in it today
     const off: THREE.Object3D[] = [];
     root.traverse((o) => {
       const tag = o.userData.holiday as string | undefined;
       if (tag && occasions.has(tag.replace('!', '') as Occasion) === tag.startsWith('!')) off.push(o);
+      if (o.userData.clog && o.userData.clog !== clog) off.push(o);
     });
     for (const o of off) o.removeFromParent();
     root.updateMatrixWorld(true);
@@ -81,7 +89,7 @@ export class Island {
       if (x.light) {
         this.lights.push({
           position: o.getWorldPosition(new THREE.Vector3()),
-          color: new THREE.Color(x.color),
+          color: new THREE.Color(GREEN_FIRE && ownerId(o) === 'campfire' ? GREEN_FIRE.light : x.color),
           radius: x.radius,
           intensity: x.intensity,
           flicker: x.flicker,
@@ -107,12 +115,13 @@ export class Island {
       }
       if (x.icicles) this.eaves.push({ matrix: o.matrixWorld.clone(), length: x.icicles });
       if (x.terrain) terrain = o as THREE.Mesh;
+      if (x.wear && !(o as THREE.Mesh).isMesh) wardrobe.adopt(o);
 
       if ((o as THREE.Mesh).isMesh) {
         const mesh = o as THREE.Mesh;
         const src = mesh.material as THREE.MeshStandardMaterial;
         const glow = src.name.startsWith('glow_');
-        mesh.material = toon(src.color, { glow, vertexColors: Boolean(x.terrain) || src.name === 'terrain' });
+        mesh.material = wardrobe.adopt(o) ?? toon(src.color, { glow, vertexColors: Boolean(x.terrain) || src.name === 'terrain' });
         if (src.name === 'terrain') terrain = mesh;
         mesh.castShadow = !glow;
         mesh.receiveShadow = true;
@@ -128,6 +137,13 @@ export class Island {
     if (!terrain) throw new Error('island.glb has no terrain');
     this.terrain = terrain;
     (terrain.material as THREE.MeshToonMaterial).color.set(0xffffff);
+    if (GREEN_FIRE) {
+      for (let i = 0; i < 3; i++) {
+        this.part('campfire', `flame${i}`)?.traverse((m) => {
+          if ((m as THREE.Mesh).isMesh) (m as THREE.Mesh).material = toon(new THREE.Color(i ? GREEN_FIRE.flame : GREEN_FIRE.core), { glow: true });
+        });
+      }
+    }
     terrain.castShadow = true;
   }
 

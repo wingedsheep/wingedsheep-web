@@ -65,10 +65,13 @@ function withSnow(mat: THREE.MeshToonMaterial) {
 
 const cache = new Map<string, THREE.MeshToonMaterial>();
 
-/** Shared toon material for a flat colour (or a glowing one). */
-export function toon(color: THREE.Color, opts: { glow?: boolean; vertexColors?: boolean } = {}) {
-  const key = `${color.getHexString()}:${opts.glow ? 1 : 0}:${opts.vertexColors ? 1 : 0}`;
-  let mat = cache.get(key);
+/**
+ * Shared toon material for a flat colour (or a glowing one); `own`: one of its own, to recolour;
+ * `bare`: never snowed or frosted on (the kayak, out on the river).
+ */
+export function toon(color: THREE.Color, opts: { glow?: boolean; vertexColors?: boolean; own?: boolean; bare?: boolean } = {}) {
+  const key = `${color.getHexString()}:${opts.glow ? 1 : 0}:${opts.vertexColors ? 1 : 0}:${opts.bare ? 1 : 0}`;
+  let mat = opts.own ? undefined : cache.get(key);
   if (!mat) {
     mat = new THREE.MeshToonMaterial({
       color,
@@ -79,10 +82,10 @@ export function toon(color: THREE.Color, opts: { glow?: boolean; vertexColors?: 
       mat.emissive = color.clone();
       mat.emissiveIntensity = 0.25;
       mat.userData.glow = true;
-    } else {
+    } else if (!opts.bare) {
       withSnow(mat);
     }
-    cache.set(key, mat);
+    if (!opts.own) cache.set(key, mat);
   }
   return mat;
 }

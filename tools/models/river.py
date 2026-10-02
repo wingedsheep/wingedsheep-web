@@ -12,11 +12,13 @@ import math
 import random
 
 import bmesh
+import bpy
 import palette as P
 import beike
 import characters
 import fauna
-from nature import LEAF, canopy
+from holidays import CANDLE, jack
+from nature import BULB_KINDS, LEAF, bulb_clump, canopy
 from kit import Model, group, light
 from mathutils import Vector
 
@@ -608,6 +610,32 @@ def flowers():
         m.cyl(0.08, 0.05, (x, y, h), CAMPION[k % 3], segs=5)
         m.cyl(0.025, 0.06, (x, y, h + 0.01), BUTTERCUP if k % 3 == 0 else "#f4efe6", segs=4)
     m.build(root)
+
+
+def bulbs():
+    """Crocuses and snowdrops for the banks in spring, a patch of the island's clumps about a metre
+    across: lilac crocuses, purple and white ones, crocuses still in bud, snowdrops, and snowdrops
+    among crocuses for the weeks they're both out. The patches share one mesh per kind of clump."""
+    meshes = {}
+    for i, kind in enumerate(BULB_KINDS):
+        m = Model(f"bulb_{kind}", seed=320 + i)
+        bulb_clump(m, random.Random(320 + i), kind)
+        obj = m.build()
+        meshes[kind] = obj.data
+        bpy.data.objects.remove(obj)
+    for i, kinds in enumerate([("crocus_0", "crocus_1", "crocus_0"), ("crocus_0", "crocus_2", "crocus_3"),
+                               ("crocus_4", "crocus_0"), ("snowdrop_0", "snowdrop_1"), ("snowdrop_0", "crocus_0")]):
+        root = _root(f"bulbs_{i}")
+        rng = random.Random(330 + i)
+        for k in range(rng.randrange(4, 7)):
+            a, d = rng.uniform(0, math.tau), rng.uniform(0.15, 0.45) if k else 0
+            kind = kinds[k % len(kinds)]
+            obj = bpy.data.objects.new(f"bulb_{kind}", meshes[kind])
+            bpy.context.scene.collection.objects.link(obj)
+            obj.parent = root
+            obj.location = (math.cos(a) * d, math.sin(a) * d, 0)
+            obj.rotation_euler = (0, 0, rng.uniform(0, math.tau))
+            obj.scale = (s := rng.uniform(0.85, 1.15), s, s)
 
 
 def mushrooms():
@@ -1601,11 +1629,12 @@ def duckhouse():
     m.build(root)
 
 
-def scarecrow():
+def scarecrow(halloween=False):
     """A scarecrow in the meadow: a sack head under a battered hat, an old coat stuffed with
-    straw on a cross of poles, one leg of its trousers flapping, and a crow not fooled at all."""
-    root = _root("scarecrow")
-    m = Model("scarecrow", seed=910)
+    straw on a cross of poles, one leg of its trousers flapping, and a crow not fooled at all.
+    For Halloween week (`scarecrow_halloween`) its head's a jack-o'-lantern, lit after dark."""
+    root = _root("scarecrow_halloween" if halloween else "scarecrow")
+    m = Model("scarecrow_halloween" if halloween else "scarecrow", seed=910)
     m.box((0.08, 0.08, 2.2), (0, 0, 1.0), P.WOOD_DARK)
     m.plank_line((-0.85, 0, 1.55), (0.85, 0, 1.6), 0.07, 0.07, P.WOOD_DARK)
     m.box((0.52, 0.32, 0.72), (0, 0, 1.22), COAT[0], taper=1.25)                          # the coat
@@ -1615,11 +1644,15 @@ def scarecrow():
             m.box((0.05, 0.05, 0.22), (x, (k - 1) * 0.05, 1.46), HAY[k], rot=(0, x * 0.5, (k - 1) * 0.6), taper=0.4)
     m.plank_line((-0.12, 0, 0.88), (-0.14, 0.02, 0.35), 0.16, 0.16, DENIM)               # the trousers
     m.plank_line((0.12, 0, 0.88), (0.3, -0.05, 0.42), 0.16, 0.16, DENIM)
-    m.ball(0.19, (0, 0, 1.86), SACK, subdiv=1, scale=(1, 0.9, 1.05))
-    m.cyl(0.32, 0.04, (0, 0, 2.0), P.WOOD_DARK, segs=8, rot=(0.12, 0, 0))                 # the hat
-    m.cyl(0.16, 0.24, (0, 0.02, 2.02), P.WOOD_DARK, segs=8, r_top=0.14, rot=(0.12, 0, 0))
-    m.box((0.05, 0.02, 0.05), (-0.07, -0.18, 1.9), DARK)
-    m.box((0.05, 0.02, 0.05), (0.07, -0.18, 1.9), DARK)
+    if halloween:
+        jack(m, (0, 0, 1.66), 0.26, True, 0.4)
+        light(root, (0, -0.3, 1.85), CANDLE, 2, 0.5, flicker=1.0, halo=False)
+    else:
+        m.ball(0.19, (0, 0, 1.86), SACK, subdiv=1, scale=(1, 0.9, 1.05))
+        m.cyl(0.32, 0.04, (0, 0, 2.0), P.WOOD_DARK, segs=8, rot=(0.12, 0, 0))             # the hat
+        m.cyl(0.16, 0.24, (0, 0.02, 2.02), P.WOOD_DARK, segs=8, r_top=0.14, rot=(0.12, 0, 0))
+        m.box((0.05, 0.02, 0.05), (-0.07, -0.18, 1.9), DARK)
+        m.box((0.05, 0.02, 0.05), (0.07, -0.18, 1.9), DARK)
     m.ball(0.09, (0.62, 0, 1.73), RAVEN, subdiv=1, scale=(1.6, 0.8, 0.9))                 # the crow
     m.ball(0.06, (0.73, 0, 1.8), RAVEN, subdiv=1)
     m.box((0.06, 0.02, 0.02), (0.8, 0, 1.79), "#e8902a")
@@ -1981,6 +2014,24 @@ def icefall():
     for x, r in ((-0.45, 0.2), (0.1, 0.26), (0.6, 0.16)):
         c.cyl(r, 1.7, (x, 0.1, 0), ICE[1], segs=5, r_top=r * 1.5, rot=(math.pi + 0.45, 0, 0))
     c.build(ice)
+
+
+# --- Halloween week -----------------------------------------------------------------------------
+
+def pumpkins():
+    """Jack-o'-lanterns on the bank for Halloween week (as on the island, holidays.py), their
+    faces (-y) to the river and a candle in each that's lit after dark: a big one on its own,
+    a big one with a little one, and one carved beside one not yet got round to."""
+    for i, set_ in enumerate([[(0, 0, 0.42, True)],
+                              [(-0.25, 0, 0.4, True), (0.42, -0.12, 0.24, True)],
+                              [(0, 0, 0.36, True), (-0.55, 0.15, 0.3, False)]]):
+        root = _root(f"pumpkin_{i}")
+        m = Model(f"pumpkin_{i}", seed=2700 + i)
+        for k, (x, y, r, carved) in enumerate(set_):
+            jack(m, (x, y, 0), r, carved, i * 0.9 + k * 0.6)
+            if carved:
+                light(root, (x, y - r * 0.6, r * 0.7), CANDLE, 2.5 if r > 0.3 else 1.5, 0.6, flicker=1.0, halo=r > 0.3)
+        m.build(root)
 
 
 # --- the rare ones: out on some runs, if you're lucky ------------------------------------------
@@ -2640,6 +2691,7 @@ def build():
     mill()
     duckhouse()
     scarecrow()
+    scarecrow(halloween=True)
     upturned()
     canoes()
     fingerpost()
@@ -2657,3 +2709,5 @@ def build():
     ferrata()
     icefall()
     rare()
+    bulbs()
+    pumpkins()

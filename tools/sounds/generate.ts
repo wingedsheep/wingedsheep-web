@@ -10,8 +10,9 @@
  * generations are kept in tools/sounds/raw/ so re-levelling never costs a second call.
  *
  * Beds (loop: true) are the ambience that runs under everything: stereo, levelled to BED_LUFS.
- * The rest are one-shots: mono, the silence before them trimmed, levelled to SHOT_LUFS. The game
- * turns them up and down from there (src/island/sound.ts).
+ * Music (music: true) is composed with ElevenLabs' music model instead: stereo and whole, levelled to
+ * MUSIC_LUFS. The rest are one-shots: mono, the silence before them trimmed, levelled to SHOT_LUFS.
+ * The game turns them up and down from there (src/island/sound.ts).
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,12 +23,15 @@ interface Sfx {
   prompt: string;
   seconds: number;
   loop?: boolean;
+  /** A piece of music, composed rather than generated as a sound. */
+  music?: boolean;
   /** Its own loudness target, for something mostly transients (a fire's crackle) that would only be squashed. */
   lufs?: number;
 }
 
 const BED_LUFS = -24;
 const SHOT_LUFS = -18;
+const MUSIC_LUFS = -20;
 
 export const SOUNDS: Sfx[] = [
   // --- beds -------------------------------------------------------------------------------
@@ -149,12 +153,22 @@ export const SOUNDS: Sfx[] = [
   // the rare sightings (src/island/scene/sightings.ts)
   { name: 'burner', seconds: 2.5, prompt: 'A hot air balloon burner firing overhead on a calm evening, a roaring whoosh of propane flame for two seconds, then cutting off, a little distant, no voices' },
   { name: 'horn', seconds: 4, prompt: 'A passenger ferry sounding its horn once far out at sea, one long deep blast carrying over calm water, distant, fading away' },
+  { name: 'typhon', seconds: 7, prompt: 'A huge container ship sounding its great foghorn far out at sea, one very long, very low, booming blast that shakes the air, rolling across the water, then echoing away, distant, no music' },
   { name: 'murmur', seconds: 3, prompt: 'A huge flock of starlings wheeling overhead at dusk, a soft rushing whoosh of thousands of wings turning together, swelling and fading, faint chattering, no other birds' },
   { name: 'seal', seconds: 2, prompt: 'A harbour seal lying on a beach giving a low grumbling grunt and a snort, close, gentle surf behind' },
   { name: 'eagle', seconds: 2.5, prompt: 'A white-tailed eagle calling over a quiet river, a series of high yelping kyik kyik kyik calls falling in pitch, a little distant, no other birds, no water' },
   { name: 'boar', seconds: 2, prompt: 'A wild boar in a forest at the edge of a river, a sharp loud warning snort through the nose and then a low grunting grumble, close, no other animals, no music' },
   { name: 'moo', seconds: 3, prompt: 'A Highland cow standing in a quiet river meadow gives one long, deep, lowing moo, calm and unhurried, a little distant, gentle river behind, no other animals, no music' },
   { name: 'raven', seconds: 2, prompt: 'A common raven calling high over a mountain valley, deep croaking cronk cronk, echoing, no other birds' },
+  // the snorbles (src/island/scene/imaginary.ts): small, fluffy, long-snouted, out in the sunny grass
+  ...[1, 2].map((i) => ({ name: `sniff-${i}`, seconds: 1.5, prompt: 'A small furry animal with a long snout sniffing busily at the grass, quick soft snuffly sniffs through a little nose, close up, quiet meadow, no voices, no music' })),
+  { name: 'snooze', seconds: 4, prompt: 'A small fluffy animal fast asleep in the sun, tiny soft whistling snores, slow and contented, very close and quiet, no voices, no music' },
+  ...[1, 2].map((i) => ({ name: `squeak-${i}`, seconds: 1, prompt: 'A small startled furry animal giving one short surprised squeak as it leaps up into the air, with a soft whoosh, cute, close, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `chirrup-${i}`, seconds: 1, prompt: 'A baby furry animal giving a few tiny happy chirrups and peeps to its mother, soft and small, close, quiet meadow, no birds, no voices, no music' })),
+  // the treestrider (src/island/scene/imaginary.ts): five metres of insect wading the bay
+  { name: 'strider', seconds: 4, prompt: 'A cricket chirp slowed down eight times and pitched very low, so it sounds like an insect as big as a house: deep bassy rasping pulses of huge wooden wings scraping, slow and rhythmic, booming and resonant, out over a calm sea, no high hiss, no music, no voices, no birds' },
+  ...[1, 2].map((i) => ({ name: `creak-${i}`, seconds: 1, prompt: 'The leg joint of an enormous insect bending, a slow deep creak and click of hard chitin shell, dry and woody, heavy, close, no water, no music' })),
+  ...[1, 2].map((i) => ({ name: `wade-${i}`, seconds: 1.5, prompt: 'A giant thin insect leg plunging down into shallow calm sea water, a heavy deep slosh and splash, then water dripping, a little distant, no voices, no music' })),
   // the rooms' doors (door-*, bell, hatch) are made, not generated: tools/sounds/doors.py
   { name: 'bottle', seconds: 2.5, prompt: 'A cork pulled out of a glass bottle with a pop, then a rolled paper note shaken out and unrolled' },
   { name: 'clink', seconds: 1, prompt: 'A glass bottle bumping onto pebbles at the edge of the sea, a light clink and a wash of water' },
@@ -175,6 +189,30 @@ export const SOUNDS: Sfx[] = [
   ...[1, 2].map((i) => ({ name: `fw-launch-${i}`, seconds: 1.5, prompt: 'A single firework rocket launching from the ground and whooshing up into the night sky, a fizzing hiss rising away, no explosion' })),
   ...[1, 2, 3].map((i) => ({ name: `fw-burst-${i}`, seconds: 2.5, prompt: 'A single firework shell bursting high in the sky some distance away, a deep thud of a bang echoing, then a soft crackle, outdoors at night, no voices' })),
   ...[1, 2].map((i) => ({ name: `fw-crackle-${i}`, seconds: 3, prompt: 'Firework crackling glitter stars popping and sizzling high in the air after a burst, a spray of tiny sharp crackles fading out, no bang' })),
+  // --- music --------------------------------------------------------------------------------
+  // the fair folk's tune (src/island/scene/revel.ts): long enough for the whole dance, which runs a minute and a half or so
+  { name: 'revel', music: true, seconds: 120, prompt: 'Instrumental fairy reel for a revel of the fair folk in a moonlit glade at midnight. A light, skipping jig in 6/8 led by a tin whistle and a fiddle, with glassy celesta and little bells sparkling on top, a lilting harp, and a soft bodhrán keeping the dance going over a quiet drone. Bright, playful and enchanted, a little otherworldly, as if the tuning were not quite of this world. Traditional Celtic folk feel, acoustic and delicate, no vocals, no heavy drums, no electronic sounds.' },
+
+  // the Halloween week and the Christmas weeks, all day: a quiet score under
+  // everything, with a long rest between plays (sound.ts score())
+  { name: 'halloween-tune', music: true, seconds: 150, prompt: 'Dark, eerie Halloween night soundscape, like the haunted graveyard scenes of a gothic stop-motion film score. Slow and creeping, in a minor key with crooked, dissonant harmony. A low drone of bowed double basses and a deep pipe organ breathing in and out, a wavering musical saw and a ghostly theremin sliding between notes, a cracked music box picking out a few sinister notes and then stopping, out-of-tune celesta, plucked pizzicato strings creeping like footsteps, a tolling bell far off, wind moaning through the gaps, the odd creak of a gate and a distant rattle of bones on a xylophone. Long dark silences in between, building to a quiet swell of unease and falling away again. Spooky, unsettling and atmospheric rather than loud, no jump scares, no vocals, no choir, no lyrics, no drums, no electronic beats.' },
+  { name: 'christmas-tune', music: true, seconds: 150, prompt: 'Cheerful, cosy instrumental Christmas music, light and merry, like the soundtrack of a classic family Christmas film. A bright, bouncy melody on celesta and glockenspiel in a major key, jingling sleigh bells keeping a gentle trot, playful pizzicato strings, a warm swinging upright bass, a soft clarinet and flute answering each other, a little twinkling piano. Happy, festive and twinkly, like snow falling on a lit-up village, smiling but not loud. Light and airy, background music, no vocals, no choir, no lyrics, no drum kit, no electronic sounds.' },
+  // and dressed up for it (scene/wardrobe.ts): Vincent as a vampire, Eef as a witch, when you click them
+  ...[1, 2].map((i) => ({ name: `cackle-${i}`, seconds: 2.5, prompt: 'A witch giving a short, gleeful, theatrical cackle, a high crackly hee-hee-hee-hee rising and falling, playful rather than scary, close, dry, no music, no other sounds' })),
+  ...[1, 2].map((i) => ({ name: `vampire-${i}`, seconds: 2.5, prompt: 'A man playing a vampire at a costume party giving a deep, hammy, theatrical mwa-ha-ha-ha laugh, rich and drawn out, playful rather than scary, close, dry, no music, no other sounds' })),
+  // and its graveyard (tools/models/holidays.py): the dead, the ghost, the bats, a spider
+  ...[1, 2].map((i) => ({ name: `groan-${i}`, seconds: 2.5, prompt: 'A zombie giving one slow, low, drawn-out groan, hoarse and gravelly, a cartoonish Halloween zombie rather than gory, close, dry, no music, no other sounds' })),
+  { name: 'moan', seconds: 3, prompt: 'A friendly cartoon ghost giving a long, wavering, hollow wooooo, rising and falling, airy and echoing, spooky but gentle, no music, no other sounds' },
+  { name: 'bats', seconds: 2.5, prompt: 'A few small bats flittering past at night, quick high squeaks and the soft flutter of leathery wings, close, no music, no other sounds' },
+  { name: 'skitter', seconds: 1.5, prompt: 'A large spider skittering quickly over dry leaves and wood, many tiny fast leg taps, close, quiet, no music, no other sounds' },
+  // and its monsters (src/island/scene/monsters.ts): the Headless Horseman, and the tall one from the woods
+  { name: 'neigh', seconds: 2, prompt: 'A black stallion rearing up and giving one wild, shrill, frightened neigh at night, close, no music, no other sounds' },
+  { name: 'gallop', seconds: 4, prompt: 'A single horse galloping hard along a sandy beach at night, heavy fast hoofbeats thudding on wet sand and its harness jingling, passing close by, no music, no voices' },
+  { name: 'headless', seconds: 3, prompt: 'A ghostly horseman giving a deep, echoing, sinister laugh that rings out across the dark, theatrical and spooky, with a cold hollow reverb, no music, no other sounds' },
+  { name: 'giant', seconds: 4, prompt: 'Something enormous breathing slowly in a dark forest at night, a long deep rattling inhale and exhale like wind through a hollow tree, with old wood creaking, eerie and low, no music, no voices' },
+  ...[1, 2].map((i) => ({ name: `stomp-${i}`, seconds: 1, prompt: 'One slow heavy footstep of a giant creature on a forest floor, a deep muffled thud with twigs snapping under it, no music, no other sounds' })),
+  ...[1, 2].map((i) => ({ name: `wail-${i}`, seconds: 4, prompt: 'A long, eerie, inhuman wail rising out of a dark forest at night, a hollow wavering cry somewhere between a moan and a distant scream, drawn out and echoing between the trees, unsettling, heard from a little way off, no music, no voices, no words' })),
+
   // Sinterklaas: his steamboat at the dock, sounding its whistle
   { name: 'steam-whistle', seconds: 3, prompt: 'An old steamboat sounding its steam whistle twice at a harbour, a warm hooting toot toot, with a hiss of steam after, no voices, no music' },
 ];
@@ -191,6 +229,7 @@ function apiKey(): string {
 }
 
 async function generate(s: Sfx, key: string): Promise<Buffer> {
+  if (s.music) return compose(s, key);
   const res = await fetch('https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_192', {
     method: 'POST',
     headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
@@ -206,24 +245,35 @@ async function generate(s: Sfx, key: string): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer());
 }
 
+async function compose(s: Sfx, key: string): Promise<Buffer> {
+  const res = await fetch('https://api.elevenlabs.io/v1/music?output_format=mp3_44100_192', {
+    method: 'POST',
+    headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: s.prompt, music_length_ms: s.seconds * 1000, model_id: 'music_v2_5', force_instrumental: true }),
+  });
+  if (!res.ok) throw new Error(`${s.name}: ${res.status} ${await res.text()}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /**
  * Level and encode: beds stereo and whole, one-shots mono with the silence around them trimmed.
  * One fixed gain per file (measured first), then a limiter to catch the peaks: a loudness
  * normaliser that rides the level would pump, and put a jump in a bed where it loops.
  */
 function level(s: Sfx, raw: string, out: string) {
-  const trim = s.loop ? [] : ['silenceremove=start_periods=1:start_threshold=-50dB', 'areverse', 'silenceremove=start_periods=1:start_threshold=-60dB', 'areverse'];
-  const mix = ['-ar', '44100', '-ac', s.loop ? '2' : '1'];
+  const whole = s.loop || s.music;
+  const trim = whole ? [] : ['silenceremove=start_periods=1:start_threshold=-50dB', 'areverse', 'silenceremove=start_periods=1:start_threshold=-60dB', 'areverse'];
+  const mix = ['-ar', '44100', '-ac', whole ? '2' : '1'];
   // ebur128 prints its summary to stderr; the integrated loudness is the last "I:" in it
   const report = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', raw, '-af', [...trim, 'ebur128'].join(','), ...mix, '-f', 'null', '-'], { encoding: 'utf8' }).stderr;
   const lufs = Number([...report.matchAll(/I:\s+(-?[\d.]+) LUFS/g)].at(-1)?.[1]);
   if (!Number.isFinite(lufs)) throw new Error(`${s.name}: couldn't measure its loudness`);
-  const gain = (s.lufs ?? (s.loop ? BED_LUFS : SHOT_LUFS)) - lufs;
+  const gain = (s.lufs ?? (s.music ? MUSIC_LUFS : s.loop ? BED_LUFS : SHOT_LUFS)) - lufs;
   execFileSync('ffmpeg', [
     '-y', '-loglevel', 'error', '-i', raw,
     '-af', [...trim, `volume=${gain.toFixed(2)}dB`, `alimiter=limit=0.7:attack=2:release=60:level=false`].join(','),
     ...mix,
-    '-codec:a', 'libmp3lame', '-b:a', s.loop ? '112k' : '64k',
+    '-codec:a', 'libmp3lame', '-b:a', s.music ? '128k' : s.loop ? '112k' : '64k',
     out,
   ]);
 }

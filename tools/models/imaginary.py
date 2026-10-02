@@ -1,7 +1,7 @@
 """Imaginary creatures (src/island/scene/sightings.ts), from the 2022 blog posts where GPT-3 wrote
 the field notes and DALL·E painted them: the island's rarest visitors, each with its own weather.
 
-  snorble      a curl of russet fur round a pale head and a long pink snout, napping in a sunbeam
+  snorble      a round heap of caramel fluff on short pink legs, a cream cap and a long pink snout
   balloonbug   a bug blown up into an orange and pink teardrop, drifting over on a still afternoon
   fosha        a small blue fox with curled ears, sat on the high meadow looking up at the stars
   treestrider  a leaf-green wedge on five metres of stilt legs, wading the shallows on a misty morning
@@ -20,16 +20,22 @@ from mathutils import Vector
 import palette as P
 from kit import Model
 
-# the snorble's fur "can appear to have multiple colours": russet, caramel and honey, with a
-# rosy sheen, and a halo of cream fluff round the edge; its face is pale and pink
-SNORBLE = ["#b8784c", "#a4643e", "#c98e5a", "#b87a68"]
-SNORBLE_DARK = "#8a5636"
-SNORBLE_FLUFF = "#ecd6bc"
-SNORBLE_FACE = "#f6e2e2"
-SNORBLE_EAR = "#7a3e4c"
-SNOUT = "#f2c2cc"
-SNOUT_TIP = "#e898b0"
-SNOUT_NOSE = "#5a2c3c"
+# the snorble's fur "can appear to have multiple colours": caramel and apricot with rosy and
+# golden lights, a paler fringe underneath; a cream cap over its head and neck, all else pink
+SNORBLE = ["#d08a62", "#c47a5e", "#e0a070", "#b86c58"]
+SNORBLE_BELLY = "#efd2b4"
+SNORBLE_CAP = "#f8ecdc"
+SNORBLE_FACE = "#f8d6d0"
+SNORBLE_EAR = "#b85a6e"
+SNORBLE_EYE = "#2a1a1e"
+SNORBLE_BH = 0.24       # the body's centre when it stands
+SNORBLE_HIP_Z = -0.08   # its hips and shoulders, below that
+SNOUT = "#f09cb0"
+SNOUT_TIP = "#f2c4c8"
+SNOUT_NOSE = "#4a2430"
+DAISY = "#fbf8ee"
+DAISY_HEART = "#f2c632"
+DAISY_STEM = "#5a9a3c"
 
 # the balloonbug is orange on top, blushing to a pink-magenta underneath, with gold streaks
 BUG = "#ec6a32"
@@ -81,38 +87,92 @@ def _limb(m: Model, a, b, r0, r1, color, segs=5, glow=False):
 
 
 def snorble(root):
-    """Curled up asleep in a ring of russet fluff (`snorble_body`, which breathes), its pale head
-    tucked in at the front and the long pink snout laid out on the grass (`snorble_head`, which
-    lifts to sniff the air), a round ear cocked even in its sleep."""
+    """A round ball of caramel fluff on four short pink legs (`snorble_body`, with
+    `snorble_leg_fl/fr/bl/br` hung from their hips so they can walk and fold away), a cream cap
+    from the crown down its neck, and a long pink snout (`snorble_head`, which tips down to sniff
+    the grass and turns to look). `snorble_eyes` and `snorble_lids` take turns; `snorble_flower`
+    is the daisy it sits up to sniff, brought out when it does."""
+    from mathutils import Matrix
+
+    bh = SNORBLE_BH
     b = Model("snorble_body", seed=7)
-    b.ball(0.28, (-0.08, 0, 0.24), SNORBLE_DARK, subdiv=2, scale=(1.1, 1.05, 0.8), jitter=0.01)  # the hollow of the curl
-    # the curl: from its shoulders, round the back, to a tail tucked in by its nose
-    n = 12
-    for i in range(n):
-        k = i / (n - 1)
-        a = math.radians(55 + k * 250)
-        r = 0.2 - k * 0.08
-        x, y = math.cos(a) * 0.3 - 0.08, math.sin(a) * 0.3
-        b.ball(r, (x, y, 0.1 + r * 1.1), SNORBLE[i % 4], subdiv=2, scale=(1.15, 1.15, 1.25), jitter=0.012)
-        # a halo of cream fluff round the outside, where the sun catches it
-        for da in ((0, 0.5) if i < n - 1 else (0,)):
-            a2 = a + math.radians(da * 250 / (n - 1))
-            out = 0.3 + r * 0.62
-            b.ball(r * 0.66, (math.cos(a2) * out - 0.08, math.sin(a2) * out, 0.1 + r * 1.35), SNORBLE_FLUFF,
-                   subdiv=1, scale=(1.2, 1.2, 0.85), jitter=0.012)
-    b.ball(0.15, (0.12, 0.04, 0.18), SNORBLE_FACE, subdiv=1, scale=(1.2, 1.2, 1.0), jitter=0.01)  # the pale scruff behind its head
-    body = b.build(root)
-    h = Model("snorble_head")  # pivots under the brow, the snout reaching out along +x
-    h.ball(0.17, (0.0, 0, 0.0), SNORBLE_FACE, subdiv=2, scale=(1.25, 1.05, 0.95), jitter=0.006)
-    _limb(h, (0.08, 0, -0.03), (0.52, 0, -0.12), 0.125, 0.045, SNOUT, segs=8)              # the long snout, on the grass
-    _limb(h, (0.07, 0, -0.028), (0.24, 0, -0.064), 0.13, 0.102, SNORBLE_FACE, segs=8)     # pale where it meets the face
-    h.ball(0.05, (0.52, 0, -0.12), SNOUT_TIP, subdiv=1, scale=(1.1, 1.0, 0.9))
-    h.ball(0.026, (0.565, 0, -0.115), SNOUT_NOSE, subdiv=1)                                # its nose, dark at the tip
+    b.ball(0.2, (-0.02, 0, 0), SNORBLE[0], subdiv=2, scale=(1.2, 0.95, 0.9), jitter=0.01)  # the core
+    # lobes of fur round the body in its shades, so it reads as fluff and not a ball; the front
+    # of the top is left to the cream cap and the head
+    rng = b.rng
+    for ring, (el, r, n) in enumerate(((0.7, 0.1, 11), (0.25, 0.12, 14), (-0.2, 0.11, 14))):
+        for i in range(n):
+            a = math.tau * (i + ring * 0.5 + rng.uniform(-0.15, 0.15)) / n
+            e = el + rng.uniform(-0.12, 0.12)
+            x = math.cos(a) * 0.19 * math.cos(e) - 0.03
+            y = math.sin(a) * 0.16 * math.cos(e)
+            z = math.sin(e) * 0.16
+            if x > 0.1 and abs(y) < 0.1:
+                continue  # the head, the cap and the pale chest go here
+            b.ball(r * rng.uniform(0.85, 1.1), (x, y, z), SNORBLE[rng.randrange(len(SNORBLE))], subdiv=2,
+                   scale=(1.15, 1.0, 0.85), jitter=0.012)
+    for x, r, c in ((-0.15, 0.12, 3), (-0.05, 0.13, 2), (0.03, 0.11, 0)):  # the crown of the back
+        b.ball(r, (x, 0, 0.1), SNORBLE[c], subdiv=2, scale=(1.2, 1.15, 0.9), jitter=0.012)
+    # the fur skirt hanging low round the legs, with a pale fringe under the chest and belly
+    for i in range(12):
+        a = math.tau * i / 12
+        x, y = math.cos(a) * 0.17 - 0.02, math.sin(a) * 0.13
+        col = SNORBLE_BELLY if math.cos(a) > 0.55 else SNORBLE[(i + 1) % len(SNORBLE)]
+        b.ball(0.075, (x, y, -0.11), col, subdiv=1, scale=(1.2, 1.1, 0.9), jitter=0.012)
+    for x, z in ((0.16, -0.08), (0.17, -0.02), (0.08, -0.125), (-0.04, -0.125)):
+        b.ball(0.075, (x, 0, z), SNORBLE_BELLY, subdiv=1, scale=(1.1, 1.5, 0.8), jitter=0.01)
+    # the cream cap running back from the head over the neck onto the front of the back
+    for x, z, r in ((0.15, 0.1, 0.09), (0.08, 0.15, 0.095), (0.0, 0.18, 0.085), (-0.08, 0.19, 0.06)):
+        b.ball(r, (x, 0, z), SNORBLE_CAP, subdiv=2, scale=(1.3, 1.1, 0.75), jitter=0.008)
+    # soft wisps sticking up off the back, like the sheet's
+    for x, y, c in ((-0.1, 0.04, 2), (-0.18, -0.05, 0), (-0.03, -0.06, 2), (-0.22, 0.07, 3)):
+        b.ball(0.035, (x, y, 0.2), SNORBLE[c], subdiv=1, scale=(1.6, 0.8, 0.7), rot=(0, 0.6, 0), jitter=0.006)
+    body = b.build(root, loc=(0, 0, bh))
+
+    # legs: each hangs straight down from its hip so the runtime can swing and fold it
+    drop = bh + SNORBLE_HIP_Z  # hip to the bottom of the paw
+    for name, (x, y) in (("fl", (0.12, 0.09)), ("fr", (0.12, -0.09)), ("bl", (-0.12, 0.09)), ("br", (-0.12, -0.09))):
+        g = Model(f"snorble_leg_{name}")
+        g.cyl(0.032, drop - 0.015, (0, 0, -(drop - 0.01)), SNOUT, segs=6, r_top=0.036)
+        g.ball(0.034, (0.012, 0, -drop + 0.017), SNOUT, subdiv=1, scale=(1.35, 1.0, 0.55))  # the paw
+        for cy in (-0.016, 0.0, 0.016):
+            g.box((0.016, 0.009, 0.01), (0.054, cy, -drop + 0.006), SNOUT_NOSE)  # little dark claws
+        g.build(body, loc=(x, y, SNORBLE_HIP_Z))
+
+    # the head pivots at the neck; everything reaches forward from there
+    h = Model("snorble_head", seed=3)
+    h.ball(0.088, (0.05, 0, 0.0), SNORBLE_FACE, subdiv=2, scale=(1.25, 0.95, 0.9), jitter=0.004)
+    h.ball(0.085, (0.02, 0, 0.04), SNORBLE_CAP, subdiv=2, scale=(1.4, 1.05, 0.7), jitter=0.005)  # the cap
+    h.ball(0.075, (-0.04, 0, 0.02), SNORBLE_CAP, subdiv=1, scale=(1.1, 1.1, 1.0), jitter=0.005)
+    _limb(h, (0.1, 0, -0.01), (0.3, 0, -0.07), 0.05, 0.022, SNOUT, segs=8)        # the long snout, tapering down
+    _limb(h, (0.08, 0, -0.002), (0.15, 0, -0.025), 0.06, 0.047, SNOUT_TIP, segs=8)  # pale where it meets the face
+    h.ball(0.025, (0.305, 0, -0.072), SNOUT_NOSE, subdiv=1, scale=(1.0, 1.0, 0.85))  # the dark nose
     for s in (1, -1):
-        h.box((0.065, 0.02, 0.016), (0.1, s * 0.15, 0.03), P.INK, rot=(0, 0.25, 0))         # eyes shut: two dark lines
-        h.cyl(0.085, 0.03, (-0.1, s * 0.11, 0.09), SNOUT, segs=8, rot=(-s * 1.2, 0, 0))     # a round ear, pink-rimmed
-        h.cyl(0.055, 0.03, (-0.1, s * 0.125, 0.095), SNORBLE_EAR, segs=8, rot=(-s * 1.2, 0, 0))
-    h.build(body, loc=(0.3, 0, 0.16))
+        h.cyl(0.045, 0.022, (0.0, s * 0.07, 0.055), SNOUT, segs=8, rot=(-s * 1.35, 0, 0.25 * s))   # round pink ears
+        h.cyl(0.03, 0.012, (0.003, s * 0.09, 0.057), SNORBLE_EAR, segs=8, rot=(-s * 1.35, 0, 0.25 * s))
+    head = h.build(body, loc=(0.2, 0, 0.04))
+    e = Model("snorble_eyes")
+    lids = Model("snorble_lids")
+    for s in (1, -1):
+        e.ball(0.016, (0.1, s * 0.063, 0.025), SNORBLE_EYE, subdiv=1, scale=(1.0, 0.7, 1.0))
+        lids.box((0.032, 0.012, 0.008), (0.1, s * 0.068, 0.022), SNORBLE_EYE, rot=(0, 0.2, 0))
+    e.build(head)
+    lids.build(head)
+
+    # the daisy it sits up to sniff
+    f = Model("snorble_flower")
+    f.cyl(0.011, 0.22, (0, 0, 0), DAISY_STEM, segs=5)
+    for s, z in ((1, 0.05), (-1, 0.09)):  # two leaves, held out to the sides
+        f.ball(0.04, (0.0, s * 0.042, z + 0.012), DAISY_STEM, subdiv=1, scale=(0.55, 1.0, 0.25), rot=(-s * 0.5, 0, 0))
+    tilt = Matrix.Rotation(-0.45, 4, "Y")  # the head nods back toward the snorble
+    top = Vector((0, 0, 0.22))
+    for i in range(7):
+        m = tilt @ Matrix.Rotation(math.tau * i / 7, 4, "Z")
+        f.ball(0.025, tuple(top + (m @ Vector((0.034, 0, 0)))), DAISY, subdiv=1, scale=(1.5, 0.85, 0.45),
+               rot=tuple(m.to_euler()))
+    f.ball(0.02, tuple(top + tilt @ Vector((0, 0, 0.008))), DAISY_HEART, subdiv=1, scale=(1, 1, 0.75),
+           rot=tuple(tilt.to_euler()))
+    f.build(root, loc=(0.36, 0, 0))
 
 
 def balloonbug(root):

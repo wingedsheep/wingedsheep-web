@@ -6,7 +6,8 @@
     obj = m.build()
 
 Every colour becomes a shared flat material. Materials named "glow_*" are emissive and the
-runtime brightens them at night. Custom properties on objects are exported as glTF extras.
+runtime brightens them at night; "wear_*" ones (a Wear colour) are clothes, which the runtime's
+wardrobe recolours with the day's outfit. Custom properties on objects are exported as glTF extras.
 Keyframes set with animate() become named glTF animation clips.
 """
 from __future__ import annotations
@@ -30,11 +31,21 @@ def rgb(hex_: str) -> tuple[float, float, float]:
     return tuple(_srgb_to_linear(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4))
 
 
+class Wear(str):
+    """A colour someone wears, in a named slot: it builds in its own colour, and the runtime's
+    wardrobe (src/island/scene/wardrobe.ts) gives the slot the day's colour instead."""
+
+    def __new__(cls, slot: str, hex_: str):
+        s = super().__new__(cls, hex_)
+        s.slot = slot
+        return s
+
+
 _MATS: dict[str, bpy.types.Material] = {}
 
 
 def material(hex_: str, glow: bool = False) -> bpy.types.Material:
-    key = f"{'glow' if glow else 'c'}_{hex_.lstrip('#').lower()}"
+    key = f"wear_{hex_.slot}" if isinstance(hex_, Wear) else f"{'glow' if glow else 'c'}_{hex_.lstrip('#').lower()}"
     if key in _MATS:
         return _MATS[key]
     mat = bpy.data.materials.new(key)

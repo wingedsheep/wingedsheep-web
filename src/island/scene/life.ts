@@ -1,11 +1,12 @@
 import * as THREE from 'three';
+import { fridayNight } from './bedtime';
 import { Beike, HANGOUTS, type Hangout } from './beike';
 import { Bottle } from './bottle';
 import { Companion } from './companion';
 import { Days } from './days';
 import { Fauna } from './fauna';
 import { Floaters } from './floaters';
-import type { Island } from './island';
+import { GREEN_FIRE, type Island } from './island';
 import { Mischief } from './mischief';
 import { Particles } from './particles';
 import { Revel } from './revel';
@@ -80,6 +81,8 @@ export class Life {
   private pass?: { t: number; from: THREE.Vector3; via: THREE.Vector3; to: THREE.Vector3 };
   private nextPass = rand(8, 20);
   private ufo?: THREE.Object3D;
+  /** On Halloween, bats round the lighthouse lamp (holidays.py): out only after dark, and not in a storm. */
+  private bats?: THREE.Object3D;
   private mixer: THREE.AnimationMixer;
   private idles = new Map<string, THREE.AnimationAction>();
   readonly beike: Beike;
@@ -111,6 +114,8 @@ export class Life {
   /** Seconds since the music stopped (or Vincent left the fire), so Beike can get up and go. */
   private quiet = 0;
   private kick = 0;
+  /** Friday evening, between songs: a swig of his IPA now and then (0..1 through one), and the wait till the next. */
+  private swig = { t: 0, next: rand(4, 10) };
   /** Where Beike lies down for a fuss, and his head's way (in front of whoever's kneeling in his meadow). */
   private lap?: { at: THREE.Vector3; face: THREE.Vector3 };
   /** How hard it's raining (or hailing), 0..1 (set every frame). */
@@ -160,6 +165,7 @@ export class Life {
     if (this.sheep) this.sheep.visible = false; // until its first pass
     this.ufo = island.get('ufo');
     if (this.ufo) this.ufo.visible = false;
+    this.bats = island.get('bats');
     this.beike = new Beike(island);
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
     this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours());
@@ -209,7 +215,10 @@ export class Life {
     }
 
     this.mixer = new THREE.AnimationMixer(island.root);
-    for (const clip of island.clips.filter((c) => c.name.endsWith('_idle'))) {
+    // (an idle for something that isn't out today, like Halloween's ghost in June, is left be)
+    const here = (c: THREE.AnimationClip) =>
+      c.tracks.every((k) => island.root.getObjectByName(THREE.PropertyBinding.parseTrackName(k.name).nodeName));
+    for (const clip of island.clips.filter((c) => c.name.endsWith('_idle') && here(c))) {
       const idle = this.mixer.clipAction(clip).play();
       idle.time = Math.random() * clip.duration; // so the cats don't breathe in step
       this.idles.set(clip.name.slice(0, -'_idle'.length), idle);
@@ -287,6 +296,7 @@ export class Life {
     const cat = this.island.part('cat', 'cat_body');
     if (cat) cat.scale.set(1, 1 + Math.sin(t * 1.8) * 0.04, 1);
 
+    if (this.bats) this.bats.visible = night > 0.5 && this.storm < 0.5;
     this.mixer.update(dt);
     this.flinch();
     this.hutFlag();
@@ -450,7 +460,8 @@ export class Life {
    * Vincent: idle he rests his hands and looks around; playing he strums down on every beat of
    * the song and up in between, moves his fretting hand along the neck when the chord changes,
    * nods on the beat and taps his right foot. `groove` blends between the two, so he also rests
-   * before the first beat and after the last.
+   * before the first beat and after the last. On a Friday evening his IPA's by his foot, and
+   * between songs he takes his hand off the guitar for a swig.
    */
   private strum(dt: number) {
     const t = this.clock;
@@ -466,10 +477,29 @@ export class Life {
     this.fretPos = THREE.MathUtils.damp(this.fretPos, place, 14, dt);
     this.kick = Math.max(0, this.kick - dt / 0.6);
     const flick = Math.sin(this.kick * Math.PI); // toes up and through the ball, and back
+    const friday = fridayNight(this.sky.time);
+    const w = this.swig;
+    if (w.t > 0 || (friday && g < 0.05 && (w.next -= dt) < 0)) {
+      w.t = Math.min(1, w.t + dt / 3.2);
+      if (w.t >= 1) Object.assign(w, { t: 0, next: rand(12, 26) });
+    }
+    // up to his mouth, a long pull, and back down to the grass
+    const sip = THREE.MathUtils.smoothstep(Math.min(w.t / 0.25, (1 - w.t) / 0.25, 1), 0, 1);
+    const drinking = sip > 0.1;
     for (const me of [this.island.get('vincent'), ...this.guitarists]) {
       if (!me) continue;
       const arm = me.getObjectByName('arm_strum');
       if (arm?.userData.swing) arm.quaternion.setFromAxisAngle(axis.fromArray(arm.userData.swing), stroke * SWING * g);
+      const can = me.getObjectByName('arm_sip');
+      if (can && arm) {
+        arm.visible = !drinking;
+        const upper = me.getObjectByName('arm_strum_upper');
+        if (upper) upper.visible = !drinking;
+        can.visible = drinking;
+        can.rotation.x = (1 - sip) * 0.6; // rising from his lap
+        const ipa = me.getObjectByName('ipa');
+        if (ipa) ipa.visible = friday && !drinking;
+      }
       const fret = me.getObjectByName('arm_fret');
       if (fret?.userData.slide) {
         const rest = (fret.userData.rest ??= fret.position.clone()) as THREE.Vector3;
@@ -478,7 +508,7 @@ export class Life {
       }
       const head = me.getObjectByName('head');
       if (head) {
-        head.rotation.x = nod * 0.12 * g - 0.05 * (1 - g);
+        head.rotation.x = nod * 0.12 * g - 0.05 * (1 - g) - sip * 0.3;
         head.rotation.z = Math.sin(t * 0.4) * 0.25 * (1 - g) + Math.sin(swing / 4) * 0.06 * g;
       }
       const foot = me.getObjectByName('foot_tap');
@@ -659,7 +689,7 @@ export class Life {
           wobble: 0.3 + blown * 0.4,
         });
       } else if (e.kind === 'embers' && this.every(key, 0.12, dt)) {
-        p.emit({ position: e.position.clone().add(V(rand(-0.3, 0.3), 0, rand(-0.3, 0.3))), velocity: V(rand(-0.2, 0.2), rand(1.2, 2.2), rand(-0.2, 0.2)), color: rand(0, 1) < 0.5 ? '#ffd070' : '#ff9a3c', life: rand(0.8, 1.6), wobble: 0.4 });
+        p.emit({ position: e.position.clone().add(V(rand(-0.3, 0.3), 0, rand(-0.3, 0.3))), velocity: V(rand(-0.2, 0.2), rand(1.2, 2.2), rand(-0.2, 0.2)), color: ((e.owner === 'campfire' && GREEN_FIRE?.embers) || ['#ffd070', '#ff9a3c'])[rand(0, 1) < 0.5 ? 0 : 1], life: rand(0.8, 1.6), wobble: 0.4 });
       } else if (e.kind === 'sparkle' && this.every(key, 0.3, dt)) {
         // the cairns on the trail: a few golden motes rise round each token, so they catch the eye
         p.emit({ position: e.position.clone().add(V(rand(-0.6, 0.6), rand(-0.2, 0.4), rand(-0.6, 0.6))), velocity: V(rand(-0.1, 0.1), rand(0.4, 0.7), rand(-0.1, 0.1)), color: rand(0, 1) < 0.7 ? '#ffe28a' : '#fffbe6', life: rand(1.4, 2.2), wobble: 0.3 });

@@ -14,6 +14,7 @@ from mathutils import Vector
 
 import fae
 import imaginary
+import monsters
 import sightings
 import palette as P
 from kit import Model, group
@@ -623,6 +624,7 @@ ALL = {
     **fae.ALL,  # the fair folk, and their ring
     **sightings.ALL,  # the balloon, the seal, the ships and the fisherman
     **imaginary.ALL,  # the made-up ones, from the blog
+    **monsters.ALL,  # Halloween's
 }
 
 

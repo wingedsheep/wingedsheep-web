@@ -12,6 +12,7 @@ import { type Outside, Windows } from './windows';
 import { sundayMorning } from './bedtime';
 import { occasions } from './calendar';
 import { post, shelf } from './almanac';
+import { wardrobe } from './wardrobe';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -93,6 +94,7 @@ export class HutRoom {
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
+      if (x.wear && !(o as THREE.Mesh).isMesh) wardrobe.adopt(o, true);
       if (x.guests) guests.push(...o.children);
       if (x.emit === 'steam') this.steam.push({ at: o.getWorldPosition(V()), from: o });
       if (x.emit === 'notes') this.notesAt = o.getWorldPosition(V());
@@ -104,7 +106,7 @@ export class HutRoom {
         const glow = src.name.startsWith('glow_');
         if (glass) panes.push(mesh);
         if (o.name.startsWith('forecast_slate') || o.parent?.name.startsWith('forecast_slate')) slate = mesh;
-        mesh.material = glass ? this.glass : toonIndoors(src.color, glow);
+        mesh.material = wardrobe.adopt(o, true) ?? (glass ? this.glass : toonIndoors(src.color, glow));
         mesh.castShadow = !glass && !glow;
         mesh.receiveShadow = true;
       }

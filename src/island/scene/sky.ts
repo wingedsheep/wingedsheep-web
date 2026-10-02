@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Island } from './island';
 import type { PixelRenderer } from './pixel-renderer';
+import { occasions } from './calendar';
 import { season } from './season';
 import { moonLux, moonPosition, sunPosition, visitorLocation } from './sun';
 import { glowMaterials } from './toon';
@@ -26,6 +27,12 @@ const DAWN: Mood = { sun: '#ffb38a', sunI: 1.3, sky: '#c29ac4', ground: '#5a4660
 const DAY: Mood = { sun: '#fff4e2', sunI: 2.45, sky: '#cad9f2', ground: '#838a68', hemiI: 1.15, fog: '#b4dcee', lamps: 0, grade: [0.97, 1.02, 1.02], shade: '#d4dcff', light: '#fff4e2' };
 const GOLDEN: Mood = { sun: '#ffaa5c', sunI: 3.1, sky: '#aaa8e0', ground: '#7a5a64', hemiI: 1.1, fog: '#f2b184', lamps: 0.25, grade: [1.05, 1.06, 1.03], shade: '#bcb8ff', light: '#ffe4bc' };
 const DUSK: Mood = { sun: '#e07a9a', sunI: 1.1, sky: '#7a6ab4', ground: '#3a2c50', hemiI: 0.95, fog: '#5a4a80', lamps: 0.8, grade: [1.0, 1.05, 1.0], shade: '#b4bcff', light: '#ffe4dc' };
+
+// Halloween week goes a bit Halloween Town: a dim, washed-out day under a lilac sky, and nights of
+// deep blue and violet, shadows leaning lilac, every candle orange
+const SPOOK_DAY: Mood = { sun: '#ffd6b0', sunI: 2.0, sky: '#a89cc8', ground: '#6a6a60', hemiI: 1.05, fog: '#9098b4', lamps: 0, grade: [0.84, 1.06, 0.97], shade: '#c0bce0', light: '#ffdcb8' };
+const SPOOK_NIGHT: Mood = { sun: '#b4c4f0', sunI: 1.5, sky: '#6a50a0', ground: '#2a2c48', hemiI: 1.25, fog: '#121a30', lamps: 1, grade: [0.92, 1.12, 0.98], shade: '#c4b8f0', light: '#ffc488' };
+const spooky = occasions.has('halloween');
 
 // keyed by the sun's elevation in degrees; mornings and evenings get different colours
 const RISING: [number, Mood][] = [[-10, NIGHT], [0, DAWN], [10, DAY]];
@@ -239,7 +246,8 @@ export class Sky {
     const { lat, lon } = this.where;
     const { alt, az } = sunPosition(now, lat, lon);
     const climb = sunPosition(now + 6e5, lat, lon).alt - sunPosition(now - 6e5, lat, lon).alt;
-    const m = moodFor(alt, climb);
+    let m = moodFor(alt, climb);
+    if (spooky) m = { ...blend(m, blend(SPOOK_DAY, SPOOK_NIGHT, m.lamps), 0.55), lamps: m.lamps };
     this.lamps = m.lamps;
     this.alt = alt;
     const moon = moonPosition(now, lat, lon);

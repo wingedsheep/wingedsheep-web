@@ -7,7 +7,8 @@ so it only comes out on its day; the ones that move are parked out of sight till
   postday   Tuesdays and Fridays: the post boat (`postboat`, a parcel in its stern) and the parcel
             it leaves on the pier (`parcel`)
   trawler   Wednesdays: a trawler, outriggers down, working offshore (`trawler`)
-  friday    a crate of beer by the fire and a second mug (`borrel`), for the evening
+  friday    a crate of beer by the fire and a second mug (`borrel`), for the evening; her
+            beer and his IPA come with them (companion.py `fireside`, characters.py `ipa`)
   sunday    a kite (`kite`) and its line (`kite_line`, a metre long up its z, for the runtime to stretch)
 
 and, on any day, Vincent on his feet with nothing in his hands (`vincent_about`), for fetching the
@@ -254,11 +255,10 @@ def borrel(t: Terrain):
             m.cyl(0.04, 0.2, (bx, by, 0.12), "#6a3a1a", segs=6)
             m.cyl(0.016, 0.06, (bx, by, 0.32), "#6a3a1a", segs=4)
             m.cyl(0.02, 0.012, (bx, by, 0.38), P.GOLD, segs=5)
-    # and the two open ones, stood on the grass by the log
-    for bx, by in ((0.35, -0.18), (0.44, -0.02)):
-        m.cyl(0.04, 0.2, (bx, by, 0), "#6a3a1a", segs=6)
-        m.cyl(0.016, 0.07, (bx, by, 0.2), "#6a3a1a", segs=4)
-        m.box((0.06, 0.005, 0.07), (bx, by - 0.04, 0.08), "#e8d8a8")
+    # one of the two is in her hands (companion.py `fireside`); the other, empty, back by the crate
+    m.cyl(0.04, 0.2, (0.36, -0.12, 0), "#6a3a1a", segs=6)
+    m.cyl(0.016, 0.07, (0.36, -0.12, 0.2), "#6a3a1a", segs=4)
+    m.box((0.06, 0.005, 0.07), (0.36, -0.16, 0.08), "#e8d8a8")
     m.build(root)
     # the mug, on the other side of his log
     mx, my = cx + 1.0, cy + 1.55

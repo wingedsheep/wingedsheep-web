@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { occasions } from '../scene/calendar';
 import { createFoliage } from '../scene/foliage';
 import { createGrass } from '../scene/grass';
-import type { CanopyMarker } from '../scene/island';
+import { type CanopyMarker, GREEN_FIRE } from '../scene/island';
 import { leavesAt, season } from '../scene/season';
 import { toon } from '../scene/toon';
 import type { RiverAssets } from './assets';
@@ -63,8 +64,12 @@ export function highAt(look: Look, seed: number, s: number) {
   return look.alpine * (base + (1 - base) * smooth(0.62, 0.8, along(s, seed + 3, 300)));
 }
 
-/** 0..1: how thick the fog is at s: banks of it lying in the valley here and there, thinning between. */
+/**
+ * 0..1: how thick the fog is at s: banks of it lying in the valley here and there, thinning
+ * between (and through Halloween week, on every river, more of them and thicker, as on the island).
+ */
 export function fogAt(look: Look, seed: number, s: number) {
+  if (HALLOWEEN) return Math.max(look.mood.mist, 0.7) * smooth(0.55, 0.78, along(s, seed + 11, 200));
   return look.mood.mist * smooth(0.7, 0.86, along(s, seed + 11, 200));
 }
 
@@ -138,6 +143,18 @@ export function flicker(l: Pick<Lamp, 'flicker' | 'seed'>, time: number) {
 const BUOY_GLOW = '#ff8048';
 const GATE_GLOW = '#6dffa0';
 const WINDOW = ['#ffc46b', '#ffd88a', '#ffb35a'];
+/** Christmas on the river: fairy lights strung from tree to tree along the banks (as on the island, holidays.py). */
+const CHRISTMAS = occasions.has('christmas');
+/**
+ * Halloween week on the river (as on the island, scene/calendar.ts): jack-o'-lanterns on the
+ * banks and at the cottage doors, the scarecrows' heads carved, the fires burning a witch's
+ * green, and the fog lying thicker in the valleys.
+ */
+const HALLOWEEN = occasions.has('halloween');
+const BULBS = ['#ffd27a', '#ff6a4a', '#fff0c8', '#ffd27a', '#7ad28a', '#fff0c8', '#ffb050'].map((c) => toon(C(c), { glow: true }));
+const WIRE = toon(C('#2a2331'));
+const BULB = new THREE.IcosahedronGeometry(0.13, 0);
+const STRAND = new THREE.BoxGeometry(1, 1, 1);
 /** Foxfire: the cold green-blue glow of the fungus in rotting wood. */
 const FOXFIRE = ['#9cffc8', '#7fe8e0', '#b4ff9a'];
 
@@ -554,6 +571,8 @@ export class Land {
     this.springs(chunk, s0, s1, rng(course.seed * 104729 + c));
     this.islands(chunk, s0, s1, r);
     this.forsaken(chunk, s0, s1, rng(course.seed * 32452843 + c));
+    this.bulbs(chunk, s0, rng(mix(course.seed, c, 5)));
+    if (HALLOWEEN) this.lanterns(chunk, s0, rng(mix(course.seed, c, 6)));
     if (chunk.canopies.length) {
       chunk.foliage = createFoliage(chunk.canopies, group);
       group.add(chunk.foliage);
@@ -762,13 +781,18 @@ export class Land {
     const flames: THREE.Object3D[] = [];
     m.traverse((o) => {
       if (o.userData.flame) flames.push(o);
+    });
+    // (over Halloween a fire burns green, a witch's fire, as the island's does)
+    const green = GREEN_FIRE && flames.length ? GREEN_FIRE : null;
+    m.traverse((o) => {
       if (o.userData.ember) chunk.embers.push(o.getWorldPosition(new THREE.Vector3()));
       if (!o.userData.light) return;
       const d = o.userData;
       this.lightAt(chunk, o.getWorldPosition(new THREE.Vector3()), {
-        color: d.color, radius: d.radius, intensity: d.intensity ?? 1, flicker: d.flicker ?? 0, size: d.radius * 0.55, seed: Math.random() * 100,
+        color: green ? green.light : d.color, radius: d.radius, intensity: d.intensity ?? 1, flicker: d.flicker ?? 0, size: d.radius * 0.55, seed: Math.random() * 100,
       });
     });
+    if (green) for (const f of flames) f.traverse((o) => witchy(o as THREE.Mesh, green));
     for (const f of flames) {
       chunk.group.attach(f);
       f.userData = { flicker: 1, seed: Math.random() * 100 };
@@ -975,6 +999,14 @@ export class Land {
       if (m) {
         chunk.clearings.push({ x: at.x, z: at.z, r: 6 });
         this.glowAt(chunk, m);
+        // over Halloween, a jack-o'-lantern or two on the step (the model's -y is +z here)
+        if (HALLOWEEN) {
+          for (const x of r() < 0.5 ? [-0.75] : [-0.75, 0.75]) {
+            const step = m.localToWorld(new THREE.Vector3(x, 0, 2.35));
+            const j = this.put(chunk, x < 0 ? 'pumpkin_0' : 'pumpkin_2', { x: step.x, y: this.heightAt(step.x, step.z) + 0.02, z: step.z }, m.rotation.y + (r() - 0.5) * 0.5, 0.7);
+            if (j) this.glowAt(chunk, j);
+          }
+        }
         m.updateMatrixWorld(true);
         m.traverse((o) => {
           if (o.userData.chimney) chunk.chimneys.push(o.getWorldPosition(new THREE.Vector3()));
@@ -1225,10 +1257,12 @@ export class Land {
       const at = this.beside(s, side, e0 + r() * (e1 - e0));
       if (!at || this.cleared(chunk, at)) continue;
       const turn = place.turn === 'along' ? -p.a + Math.PI / 2 + (r() - 0.5) * 0.3 : place.turn === 'river' ? inland + (r() - 0.5) * (kind === 'beehives' ? 0.8 : 0.3) : r() * Math.PI * 2;
-      const model = place.variants ? `${kind}_${Math.floor(r() * place.variants)}` : kind;
+      const model = place.variants ? `${kind}_${Math.floor(r() * place.variants)}` : HALLOWEEN && kind === 'scarecrow' ? 'scarecrow_halloween' : kind;
       // (out in the water it sits at the waterline, and it's something to steer round)
       const y = place.solid ? p.y : at.y - 0.05;
-      if (!this.put(chunk, model, { ...at, y }, turn)) continue;
+      const m = this.put(chunk, model, { ...at, y }, turn);
+      if (!m) continue;
+      if (model === 'scarecrow_halloween') this.glowAt(chunk, m);
       chunk.clearings.push({ x: at.x, z: at.z, r: place.room });
       if (place.solid) this.solid(chunk, { kind: 'rock', x: at.x, z: at.z, r: place.solid, s, variant: 0 });
     }
@@ -1278,6 +1312,53 @@ export class Land {
    * On the hard rivers, nobody does: what's left of somebody's boat on the rocks by the white
    * water, banks of mist lying on the water, and a board by the bank before every big fall.
    */
+  /**
+   * Crocuses and snowdrops from late winter into spring, as on the island (season.ts): drifts of
+   * them on the banks and under the trees, most on the meadowy rivers, none in the snow.
+   */
+  private bulbs(chunk: Chunk, s0: number, r: () => number) {
+    const { crocuses, snowdrops } = season;
+    const out = Math.max(crocuses, snowdrops);
+    if (out < 0.05 || this.look.snow > 0.5) return;
+    for (let n = out * (0.5 + this.look.meadow) * 4 + r(); n >= 1; n--) {
+      const s = s0 + r() * CHUNK;
+      const p = this.course.at(s);
+      if (r() < p.gorge) continue;
+      const side = r() < 0.5 ? -1 : 1;
+      const e = 0.6 + Math.pow(r(), 1.4) * 12;
+      for (let k = 2 + Math.floor(r() * 5); k > 0; k--) {
+        const at = this.beside(s + (r() - 0.5) * 3, side, e + (r() - 0.5) * 2.5);
+        if (!at) continue;
+        // snowdrops alone early on, crocuses alone late, and the two together in between
+        const drop = r() * (crocuses + snowdrops) < snowdrops;
+        const both = Math.min(crocuses, snowdrops) > 0.3 && r() < 0.35;
+        const kind = both ? 4 : drop ? 3 : Math.floor(r() * 3);
+        this.put(chunk, `bulbs_${kind}`, at, r() * 6.3, 1.25 + r() * 0.35);
+      }
+    }
+  }
+
+  /**
+   * Halloween week: jack-o'-lanterns put out on the bank, grinning at the river, lit after dark.
+   * Plenty where people live; out on the wild rivers now and then one on its own, and nobody
+   * knows who carried it up there.
+   */
+  private lanterns(chunk: Chunk, s0: number, r: () => number) {
+    const course = this.course;
+    for (let n = 0.25 + this.look.homely * 0.9 + r(); n >= 1; n--) {
+      const s = s0 + 4 + r() * (CHUNK - 8);
+      const p = course.at(s);
+      if (p.gorge > 0.5 || p.isle > 0 || Math.abs(s - course.finish) < 30) continue;
+      const side = r() < 0.5 ? -1 : 1;
+      const at = this.beside(s, side, 0.9 + r() * 2.5);
+      if (!at || this.cleared(chunk, at)) continue;
+      const m = this.put(chunk, `pumpkin_${Math.floor(r() * 3)}`, { ...at, y: at.y - 0.03 }, facing(-side * Math.cos(p.a), -side * Math.sin(p.a)) + (r() - 0.5) * 0.6, 0.85 + r() * 0.3);
+      if (!m) continue;
+      chunk.clearings.push({ x: at.x, z: at.z, r: 1.2 });
+      this.glowAt(chunk, m);
+    }
+  }
+
   private forsaken(chunk: Chunk, s0: number, s1: number, r: () => number) {
     const course = this.course;
     // (in a bank of fog, lying thick on the water)
@@ -1318,6 +1399,8 @@ export class Land {
    * crags along the tops of the gorges. And the places animals will be.
    */
   private banks(chunk: Chunk, s0: number, s1: number, r: () => number) {
+    /** The trees near the water on each bank, in order downstream, for Christmas's lights. */
+    const near: Record<number, THREE.Vector3[]> = { [-1]: [], 1: [] };
     for (let s = s0; s < s1; s++) {
       const p = this.course.at(s);
       const high = highAt(this.look, this.course.seed, s);
@@ -1332,7 +1415,8 @@ export class Land {
           // (on the hard rivers, the storms have had a good few of them: dead and silver)
           const dead = r() < this.look.grim * (0.16 + p.rough * 0.2);
           const kind = dead ? `snag_${Math.floor(r() * 2)}` : pine ? `pine_${Math.floor(r() * 3)}` : r() < this.look.birch ? `birch_${Math.floor(r() * 2)}` : `tree_${Math.floor(r() * 3)}`;
-          this.put(chunk, kind, at, r() * Math.PI * 2, (0.85 + r() * 0.5) * (e < 6 ? 0.85 : 1));
+          const scale = (0.85 + r() * 0.5) * (e < 6 ? 0.85 : 1);
+          if (this.put(chunk, kind, at, r() * Math.PI * 2, scale) && !dead && e < 14) near[side].push(new THREE.Vector3(at.x, at.y + 2.1 * scale, at.z));
         }
         // the undergrowth: ferns and bushes, thickest near the water
         if (r() < 0.32) {
@@ -1429,7 +1513,51 @@ export class Land {
         else if (this.look.meadow > 1 && p.gorge < 0.3 && pick < 0.2 + this.look.meadow * 0.07) add('sheep', 4 + r() * 6);
       }
     }
+    if (CHRISTMAS) {
+      for (const trees of Object.values(near)) {
+        for (let i = 1; i < trees.length; i++) {
+          const d = trees[i].distanceTo(trees[i - 1]);
+          if (d > 2.5 && d < 9) this.fairyLights(chunk, trees[i - 1], trees[i]);
+        }
+      }
+    }
   }
+
+  /**
+   * A string of fairy lights from a to b, sagging between them: bulbs that glow (and, after
+   * dark, a spark of light in the middle of the string). Plain meshes, so the chunk batches them.
+   */
+  private fairyLights(chunk: Chunk, a: THREE.Vector3, b: THREE.Vector3) {
+    const n = Math.max(3, Math.round(a.distanceTo(b) / 0.55));
+    const pts = Array.from({ length: n + 1 }, (_, i) => {
+      const t = i / n;
+      return a.clone().lerp(b, t).setY(a.y + (b.y - a.y) * t - 0.6 * 4 * t * (1 - t));
+    });
+    const k0 = Math.floor(hash2(a.x, a.z) * BULBS.length);
+    for (let i = 0; i < n; i++) {
+      const [p, q] = [pts[i], pts[i + 1]];
+      const wire = new THREE.Mesh(STRAND, WIRE);
+      wire.position.copy(p).add(q).multiplyScalar(0.5);
+      wire.lookAt(q);
+      wire.scale.set(0.04, 0.04, p.distanceTo(q));
+      chunk.group.add(wire);
+      if (i === 0) continue;
+      const bulb = new THREE.Mesh(BULB, BULBS[(k0 + i) % BULBS.length]);
+      bulb.position.copy(p).y -= 0.1;
+      chunk.group.add(bulb);
+    }
+    this.lightAt(chunk, pts[n >> 1].clone(), { color: '#ffd8a0', radius: 0, intensity: 0, flicker: 0.05, size: 1.6, seed: hash2(b.x, b.z) * 100, far: true });
+  }
+}
+
+/** A flame's colours swapped for the witch's fire's: the brightest for its core, the rest its flame. */
+function witchy(mesh: THREE.Mesh, green: NonNullable<typeof GREEN_FIRE>) {
+  if (!mesh.isMesh) return;
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  const bright = (m: THREE.Material) => (m as THREE.MeshBasicMaterial).color?.getHSL({ h: 0, s: 0, l: 0 }).l ?? 0;
+  const top = Math.max(...mats.map(bright));
+  const swap = mats.map((m) => toon(C(mats.length > 1 && bright(m) >= top ? green.core : green.flame), { glow: true }));
+  mesh.material = Array.isArray(mesh.material) ? swap : swap[0];
 }
 
 /**

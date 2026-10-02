@@ -41,6 +41,10 @@ export interface Season {
   fall: number;
   /** 0..1: wild flowers in the grass. */
   flowers: number;
+  /** 0..1: snowdrops out under the trees (February into April). */
+  snowdrops: number;
+  /** 0..1: crocuses out in the grass (late February to the end of April). */
+  crocuses: number;
   /** 0..1: dandelion fluff and pollen drifting in the sun. */
   fluff: number;
 }
@@ -73,6 +77,7 @@ export function seasonFor(day: number): Season {
     weights[b] = t;
     break;
   }
+  const early = y > 300 ? y - 365 : y; // February counts back from 1 March
   const name = (Object.keys(weights) as SeasonName[]).reduce((m, k) => (weights[k] > weights[m] ? k : m), 'winter');
   return {
     day,
@@ -82,6 +87,8 @@ export function seasonFor(day: number): Season {
     ...leavesAt(y),
     blossom: ramp(y, 22, 36) * (1 - ramp(y, 62, 78)), // most of April
     flowers: ramp(y, 15, 55) * (1 - ramp(y, 200, 255)),
+    snowdrops: ramp(early, -35, -14) * (1 - ramp(early, 35, 70)),
+    crocuses: ramp(early, -20, 4) * (1 - ramp(early, 52, 80)),
     fluff: ramp(y, 75, 100) * (1 - ramp(y, 165, 195)),
   };
 }
@@ -152,4 +159,48 @@ export function dressIsland(island: Island, s = season) {
     }
     mesh.visible = s.flowers > best[1];
   });
+
+  stand(island, s);
+}
+
+/**
+ * Things there are thousands of, all alike (the crocuses and snowdrops, tools/models/nature.py;
+ * the fairy lights in the trees at Christmas, holidays.py): each is modelled once, parked out of
+ * sight with the `spots` it stands at (x, y, z, turn, size, bloom), and stood at all of them here
+ * as instances. A bulb comes out once its season has reached its `bloom`, so a patch fills in and
+ * thins out a clump at a time. (The templates hang under groups at the origin.)
+ */
+function stand(island: Island, s: Season) {
+  const templates: THREE.Object3D[] = [];
+  island.root.traverse((o) => {
+    if (o.userData.spots) templates.push(o);
+  });
+  const up = new THREE.Vector3(0, 1, 0);
+  const [at, turn, size, rel] = [new THREE.Vector3(), new THREE.Quaternion(), new THREE.Vector3(), new THREE.Matrix4()];
+  for (const one of templates) {
+    one.visible = false;
+    const { bulb, spots } = one.userData as { bulb?: string; spots: number[] };
+    const out = !bulb ? 1 : bulb.startsWith('snowdrop') ? s.snowdrops : s.crocuses;
+    const where: THREE.Matrix4[] = [];
+    for (let i = 0; i < spots.length; i += 6) {
+      if (spots[i + 5] >= out) continue;
+      at.set(spots[i], spots[i + 2], -spots[i + 1]); // Blender's (x, y, z) is (x, z, -y) here
+      turn.setFromAxisAngle(up, spots[i + 3]);
+      where.push(new THREE.Matrix4().compose(at, turn, size.setScalar(spots[i + 4])));
+    }
+    if (!where.length || !one.parent) continue;
+    const back = one.matrixWorld.clone().invert();
+    const home = one.parent;
+    one.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      rel.multiplyMatrices(back, mesh.matrixWorld);
+      const inst = new THREE.InstancedMesh(mesh.geometry, mesh.material, where.length);
+      where.forEach((m, i) => inst.setMatrixAt(i, m.clone().multiply(rel)));
+      inst.receiveShadow = true; // (too small to throw a shadow worth the cost)
+      inst.matrixAutoUpdate = false;
+      inst.computeBoundingSphere();
+      home.add(inst);
+    });
+  }
 }

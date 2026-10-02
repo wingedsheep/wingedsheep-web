@@ -30,7 +30,8 @@ export class RiverAssets {
         if (!mesh.isMesh) return;
         const src = mesh.material as THREE.MeshStandardMaterial;
         const glow = src.name.startsWith('glow_');
-        mesh.material = toon(src.color, { glow });
+        // nothing settles on the kayak: it's moving, and the spray keeps it clear
+        mesh.material = toon(src.color, { glow, bare: kind === 'kayak' });
         mesh.castShadow = !glow;
         mesh.receiveShadow = true;
       });

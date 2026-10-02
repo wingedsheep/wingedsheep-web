@@ -5,7 +5,7 @@ import math
 
 import palette as P
 from kit import Model, group
-from mathutils import Matrix, Vector
+from mathutils import Euler, Matrix, Vector
 
 
 # dreadnought outline in the guitar's own frame: x runs along the neck, z across the body
@@ -39,38 +39,97 @@ def guitar(root, loc, tilt):
     return obj
 
 
-def head(parent, name: str, loc, rot=(0, 0, 0), cap=True):
-    """His head, pivoting at the neck: tanned, short beard going grey at the chin, big grin, and
-    (unless he's in bed) his cap on backwards."""
+def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, sport=False):
+    """His head, pivoting at the neck: tanned, short beard going grey at the chin, big grin. With
+    `cap` (not in bed) he's dressed for the day: his cap on backwards, or whatever hat the outfit
+    has (hats), and his face can take Halloween's paint."""
     h = Model(name)
     hz = 1.45                                                                            # built where it sits on him
-    h.box((0.42, 0.4, 0.44), (0, 0.0, 1.68 - hz), P.SKIN)
-    h.box((0.44, 0.225, 0.15), (0, -0.0925, 1.535 - hz), P.BEARD)                        # jaw and sideburns, no further back than the ears
-    h.box((0.14, 0.03, 0.06), (0, -0.2, 1.485 - hz), P.BEARD_GREY)
+    face = P.V_FACE if cap and not sport else P.SKIN
+    h.box((0.42, 0.4, 0.44), (0, 0.0, 1.68 - hz), face)
+    # jaw and sideburns, no further back than the ears, reaching a little under the face (level
+    # with it, the two flicker where you see his chin from below: lying in bed)
+    h.box((0.44, 0.225, 0.16), (0, -0.0925, 1.53 - hz), P.BEARD)
+    h.box((0.14, 0.03, 0.07), (0, -0.2, 1.475 - hz), P.BEARD_GREY)
     h.box((0.22, 0.03, 0.035), (0, -0.203, 1.62 - hz), P.BEARD)                          # moustache
     h.box((0.14, 0.03, 0.035), (0, -0.207, 1.575 - hz), P.TEETH)                         # smile
-    h.box((0.07, 0.05, 0.08), (0, -0.215, 1.67 - hz), P.SKIN)                            # nose
+    h.box((0.07, 0.05, 0.08), (0, -0.215, 1.67 - hz), face)                              # nose
     for x in (-0.1, 0.1):
         h.box((0.06, 0.02, 0.06), (x, -0.205, 1.72 - hz), P.INK)                         # eyes
         h.box((0.1, 0.02, 0.025), (x, -0.205, 1.775 - hz), P.HAIR)                       # brows
     for x in (-0.22, 0.22):
-        h.box((0.04, 0.1, 0.12), (x, 0.02, 1.68 - hz), P.SKIN)                           # ears
+        h.box((0.04, 0.1, 0.12), (x, 0.02, 1.68 - hz), face)                             # ears
         h.box((0.03, 0.34, 0.14), (x * 0.99, 0.02, 1.83 - hz), P.HAIR)                   # short sides
     h.box((0.4, 0.04, 0.3), (0, 0.205, 1.71 - hz), P.HAIR)                               # back of the head, down to the nape
-    if cap:
-        # cap on backwards: brim over the neck, snapback strap over the forehead
-        h.box((0.46, 0.44, 0.14), (0, 0.0, 1.93 - hz), P.CAP)
-        h.box((0.38, 0.36, 0.07), (0, 0.0, 2.03 - hz), P.CAP)
-        h.box((0.06, 0.06, 0.03), (0, 0.0, 2.075 - hz), P.CAP_DARK)                      # button
-        h.box((0.36, 0.26, 0.035), (0, 0.33, 1.9 - hz), P.CAP_DARK, rot=(0.25, 0, 0))   # brim
-        h.box((0.16, 0.02, 0.04), (0, -0.225, 1.93 - hz), P.CAP_DARK)                    # strap
-        h.box((0.12, 0.02, 0.05), (0, -0.226, 1.88 - hz), P.HAIR)                        # hair through the gap
-    else:
-        h.box((0.44, 0.42, 0.1), (0, 0.0, 1.93 - hz), P.HAIR)                            # short on top
+    h.box((0.44, 0.42, 0.1), (0, 0.0, 1.93 - hz), P.HAIR)                                # short on top, under any hat
+    if not cap:
         h.box((0.3, 0.04, 0.06), (0.03, -0.2, 1.91 - hz), P.HAIR)                        # and a bit ruffled
     o = h.build(parent, loc=loc)
     o.rotation_euler = rot
+    if cap:
+        hats(o, name, hz, sport)
     return o
+
+
+def hats(o, name: str, hz: float, sport=False):
+    """What he has on his head, one part each, for the wardrobe to pick from (`wear`, see
+    src/island/scene/wardrobe.ts): his cap on backwards, a knitted beanie, nothing (his hair a
+    bit ruffled), and for Halloween his steampunk top hat with the goggles on it."""
+    k = "vs" if sport else "v"
+    c = Model(f"{name}_cap")                                                             # brim over the neck, snapback strap over the forehead
+    c.box((0.46, 0.44, 0.14), (0, 0.0, 1.93 - hz), P.CAP)
+    c.box((0.38, 0.36, 0.07), (0, 0.0, 2.03 - hz), P.CAP)
+    c.box((0.06, 0.06, 0.03), (0, 0.0, 2.075 - hz), P.CAP_DARK)                          # button
+    c.box((0.36, 0.26, 0.035), (0, 0.33, 1.9 - hz), P.CAP_DARK, rot=(0.25, 0, 0))       # brim
+    c.box((0.16, 0.02, 0.04), (0, -0.225, 1.93 - hz), P.CAP_DARK)                        # strap
+    c.box((0.12, 0.02, 0.05), (0, -0.226, 1.88 - hz), P.HAIR)                            # hair through the gap
+    c.build(o, wear=f"{k}_cap")
+    b = Model(f"{name}_beanie")                                                          # a knitted one, cuff turned up
+    b.box((0.47, 0.45, 0.13), (0, 0.0, 1.93 - hz), P.BEANIE)
+    b.box((0.4, 0.38, 0.06), (0, 0.0, 2.02 - hz), P.BEANIE)
+    b.box((0.49, 0.47, 0.07), (0, 0.0, 1.87 - hz), P.BEANIE_DARK)
+    for x in (-0.12, 0.0, 0.12):                                                         # its ribs
+        b.box((0.03, 0.472, 0.07), (x, 0.0, 1.87 - hz), P.BEANIE)
+    b.ball(0.07, (0, 0.0, 2.08 - hz), P.WHITE, subdiv=1)                                 # bobble
+    b.build(o, wear=f"{k}_beanie")
+    if sport:
+        return
+    # nothing on: short and a bit tousled, tufts standing up more towards the front, the fringe
+    # pushed up and swept off to his left
+    r = Model(f"{name}_bare", seed=7)
+    for i, x in enumerate((-0.13, 0.0, 0.13)):
+        for j, y in enumerate((0.12, 0.0, -0.12)):
+            up = 0.02 + 0.015 * j + r.rng.uniform(0, 0.02)
+            r.box((0.15, 0.14, up), (x, y, 1.975 + up / 2 - hz), (P.HAIR, P.HAIR_LIGHT)[(i + j) % 2],
+                  rot=(0, 0, r.rng.uniform(-0.15, 0.15)))
+    r.box((0.36, 0.08, 0.08), (0.02, -0.19, 1.97 - hz), P.HAIR, rot=(0.45, 0, 0))       # the fringe, pushed up
+    r.box((0.14, 0.07, 0.06), (0.13, -0.2, 2.03 - hz), P.HAIR_LIGHT, rot=(0.6, 0, -0.35))   # a flick off to the side
+    r.box((0.1, 0.06, 0.05), (-0.12, -0.18, 2.01 - hz), P.HAIR_LIGHT, rot=(0.5, 0, 0.3))
+    r.build(o, wear="v_bare")
+    # the top hat: flaring a little to the crown, worn tipped back, the goggles on the front
+    # and a brass cog with a chain on the side
+    t = Model(f"{name}_tophat")
+    t.box((0.66, 0.62, 0.035), (0, 0.0, 1.9 - hz), P.TOPHAT)                             # brim
+    t.box((0.47, 0.45, 0.42), (0, 0.0, 2.12 - hz), P.TOPHAT, taper=1.08)                 # crown
+    t.box((0.5, 0.48, 0.035), (0, 0.0, 2.335 - hz), P.TOPHAT)                            # its top
+    t.box((0.48, 0.46, 0.07), (0, 0.0, 1.96 - hz), P.TOPHAT_BAND)                        # band
+    for x in (-0.11, 0.11):
+        t.cyl(0.085, 0.05, (x, -0.235, 2.04 - hz), P.GOGGLE, segs=8, rot=(math.pi / 2, 0, 0))
+        t.cyl(0.06, 0.02, (x, -0.26, 2.04 - hz), P.GOGGLE_GLASS, segs=8, rot=(math.pi / 2, 0, 0))
+    t.box((0.08, 0.04, 0.03), (0, -0.24, 2.04 - hz), P.GOGGLE)                           # the bridge
+    t.box((0.08, 0.02, 0.08), (0.17, -0.235, 2.22 - hz), P.GOLD, rot=(0, 0.4, 0))       # the cog
+    t.box((0.02, 0.02, 0.14), (0.2, -0.235, 2.13 - hz), P.GOLD)                          # its chain
+    hat = t.build(o, wear="v_tophat")
+    hat.rotation_euler = (0.12, 0.06, 0)
+    p = Model(f"{name}_paint")                                                           # a vampire: hollow round the eyes, and fangs
+    for x in (-0.1, 0.1):
+        p.box((0.11, 0.01, 0.1), (x, -0.203, 1.715 - hz), P.FACE_SHADE)
+        p.box((0.06, 0.012, 0.03), (x * 0.9, -0.2015, 1.645 - hz), P.FACE_SHADE)          # sunken cheeks
+    for x in (-0.045, 0.045):
+        p.box((0.03, 0.02, 0.06), (x, -0.214, 1.545 - hz), P.TEETH)
+        p.box((0.015, 0.02, 0.025), (x, -0.214, 1.505 - hz), P.TEETH)                    # their points
+    p.box((0.02, 0.02, 0.04), (0.045, -0.215, 1.47 - hz), P.BLOOD)                       # a drop
+    p.build(o, wear="v_paint")
 
 
 def log(root):
@@ -86,20 +145,15 @@ def vincent(root):
     `foot_tap` while he plays. Reference photos of the real Vincent are in tools/reference."""
     m = Model("vincent")
     for x in (-0.16, 0.16):
-        m.box((0.21, 0.52, 0.21), (x, -0.24, 0.62), P.SHORTS)                             # thighs
-        m.box((0.16, 0.16, 0.52), (x, -0.5, 0.33), P.SKIN)                                # bare shins
+        m.box((0.21, 0.52, 0.21), (x, -0.24, 0.62), P.V_LEGS)                             # thighs
+        m.box((0.16, 0.16, 0.52), (x, -0.5, 0.33), P.V_SHIN)                              # bare shins
     m.box((0.2, 0.34, 0.1), (0.16, -0.56, 0.1), P.SHOE)
     m.box((0.21, 0.35, 0.05), (0.16, -0.56, 0.025), P.SOLE)
     foot = Model("foot_tap")                                                             # right foot, pivots at the heel
     foot.box((0.2, 0.34, 0.1), (0, -0.17, 0.1), P.SHOE)
     foot.box((0.21, 0.35, 0.05), (0, -0.17, 0.025), P.SOLE)
     foot.build(root, loc=(-0.16, -0.39, 0))
-    m.box((0.56, 0.34, 0.66), (0, 0.02, 1.05), P.TEE)                                    # torso
-    m.prism([(-0.1, 0), (0.1, 0), (0, -0.17)], 0.01, (0, -0.152, 1.385), P.SKIN)          # v-neck
-    for z in (1.31, 1.22):                                                               # shades hooked on the collar
-        m.box((0.08, 0.02, 0.07), (-0.08, -0.158, z), P.SHADES)
-    m.box((0.02, 0.02, 0.16), (-0.08, -0.158, 1.29), P.SHADES_FRAME)
-    m.box((0.2, 0.2, 0.12), (0, 0.0, 1.43), P.SKIN)                                      # neck
+    _tee(m, 0.72, root, cape=0.25)
     head(root, "head", (0, 0, 1.45))
     loc, tilt = (-0.14, -0.29, 0.97), 0.33
     frame = Matrix.Translation(loc) @ Matrix.Rotation(-tilt, 4, "Y")
@@ -120,12 +174,12 @@ def vincent(root):
     along, across, out = (frame.to_3x3() @ Vector(v) for v in ((1, 0, 0), (0, 0, 1), (0, -1, 0)))
     # fretting (left) arm: sleeve and upper arm, then the forearm, watch and hand, which slide
     # along the neck (`slide`) from chord to chord, lifting off the strings in between (`lift`)
-    m.plank_line((0.33, -0.02, 1.32), (0.37, -0.08, 1.16), 0.15, 0.15, P.TEE)
-    m.plank_line((0.37, -0.08, 1.16), (0.4, -0.16, 1.0), 0.12, 0.12, P.SKIN)
+    m.plank_line((0.33, -0.02, 1.32), (0.37, -0.08, 1.16), 0.15, 0.15, P.V_TOP)
+    m.plank_line((0.37, -0.08, 1.16), (0.4, -0.16, 1.0), 0.12, 0.12, P.V_ARM)
     elbow, hand = Vector((0.4, -0.16, 1.0)), Vector((0.57, -0.36, 1.22))
     fret = Model("arm_fret")
-    fret.box((0.12, 0.12, 0.12), (0, 0, 0), P.SKIN)                                     # elbow
-    fret.plank_line((0, 0, 0), Vector((0.14, -0.17, 0.16)), 0.11, 0.11, P.SKIN)
+    fret.box((0.12, 0.12, 0.12), (0, 0, 0), P.V_ARM)                                    # elbow
+    fret.plank_line((0, 0, 0), Vector((0.14, -0.17, 0.16)), 0.11, 0.11, P.V_ARM)
     fret.plank_line((0.1, -0.13, 0.1), (0.12, -0.15, 0.13), 0.13, 0.13, P.WATCH)
     fret.box((0.1, 0.12, 0.13), hand - elbow, P.SKIN)
     fret.build(root, loc=elbow, slide=y_up(along), lift=turning(hand - elbow, out))
@@ -134,28 +188,127 @@ def vincent(root):
     # elbow rests just past its edge and the forearm lies across the top, clear of the strings
     shoulder, elbow = Vector((-0.31, -0.08, 1.3)), on_guitar(-0.26, -0.21, 0.45)
     hand = on_guitar(0.0, -0.2, 0.06)                                                   # between soundhole and bridge
-    m.plank_line(shoulder, shoulder.lerp(elbow, 0.4), 0.15, 0.15, P.TEE)
-    m.plank_line(shoulder.lerp(elbow, 0.4), elbow, 0.12, 0.12, P.SKIN)
+    upper = Model("arm_strum_upper")                                                    # its own, to put away while he drinks
+    upper.plank_line(shoulder, shoulder.lerp(elbow, 0.4), 0.15, 0.15, P.V_TOP)
+    upper.plank_line(shoulder.lerp(elbow, 0.4), elbow, 0.12, 0.12, P.V_ARM)
+    upper.build(root)
     m.build(root)
     guitar(root, loc, tilt)
+    ipa(root, shoulder)
     # the forearm pivots at the elbow and swings parallel to the top, so it never goes through
     # the guitar; `swing` turns it for a downstroke
     down = out * math.copysign(1, (hand - elbow).cross(-across).dot(out))
     arm = Model("arm_strum")
-    arm.box((0.13, 0.13, 0.13), (0, 0, 0), P.SKIN)                                     # elbow
-    arm.plank_line((0, 0, 0), (hand - elbow) * 0.85, 0.11, 0.11, P.SKIN)
+    arm.box((0.13, 0.13, 0.13), (0, 0, 0), P.V_ARM)                                    # elbow
+    arm.plank_line((0, 0, 0), (hand - elbow) * 0.85, 0.11, 0.11, P.V_ARM)
     arm.box((0.11, 0.1, 0.12), hand - elbow, P.SKIN)
     arm.build(root, loc=elbow, swing=y_up(down))
 
 
-def _tee(m: Model, z: float):
-    """His torso in the tee with the v-neck and his shades on the collar, the bottom of it at z."""
-    m.box((0.56, 0.34, 0.66), (0, 0.02, z + 0.33), P.TEE)
-    m.prism([(-0.1, 0), (0.1, 0), (0, -0.17)], 0.01, (0, -0.152, z + 0.665), P.SKIN)
-    for dz in (0.59, 0.5):
-        m.box((0.08, 0.02, 0.07), (-0.08, -0.158, z + dz), P.SHADES)
-    m.box((0.02, 0.02, 0.16), (-0.08, -0.158, z + 0.57), P.SHADES_FRAME)
+def _ipa_can(m: Model, loc, rot=(0, 0, 0)):
+    """His IPA: a tall can, teal with an orange band, nothing like the brown bottles in the crate."""
+    turn = Matrix.Translation(loc) @ Euler(rot).to_matrix().to_4x4()
+    m.cyl(0.036, 0.16, loc, "#2a8a80", segs=8, rot=rot)
+    m.cyl(0.037, 0.03, turn @ Vector((0, 0, 0.07)), "#e8902a", segs=8, rot=rot)
+    m.cyl(0.03, 0.008, turn @ Vector((0, 0, 0.16)), "#d8dde2", segs=8, rot=rot)
+
+
+def ipa(root, shoulder: Vector):
+    """Friday evening (the runtime shows it): an IPA on the grass by his right foot (`ipa`), and,
+    between songs, his right arm off the guitar with it up at his mouth (`arm_sip`, pivoting at the
+    shoulder; the runtime swaps it in for `arm_strum` and `arm_strum_upper` and lifts it)."""
+    g = Model("ipa")
+    _ipa_can(g, (-0.44, -0.24, 0))
+    g.build(root)
+    elbow, hand = Vector((-0.36, -0.3, 1.04)), Vector((-0.1, -0.36, 1.58))
+    a = Model("arm_sip")
+    a.plank_line((0, 0, 0), (elbow - shoulder) * 0.4, 0.15, 0.15, P.V_TOP)
+    a.plank_line((elbow - shoulder) * 0.4, elbow - shoulder, 0.12, 0.12, P.V_ARM)
+    a.plank_line(elbow - shoulder, hand - shoulder, 0.11, 0.11, P.V_ARM)
+    a.box((0.11, 0.1, 0.12), hand - shoulder, P.SKIN)
+    # tipped up, the can's end at his lips and its bottom in the air, in front of his hand
+    bottom, lips = Vector((-0.04, -0.46, 1.67)), Vector((0, -0.23, 1.6))
+    _ipa_can(a, bottom - shoulder, Vector((0, 0, 1)).rotation_difference((lips - bottom).normalized()).to_euler())
+    a.build(root, loc=shoulder)
+
+
+def _tee(m: Model, z: float, root=None, sport=False, cape=0.5):
+    """His torso in the tee with the v-neck and his shades on the collar, the bottom of it at z
+    (`sport`: his sports tee, crew-necked, nothing on the collar). Given the `root` the body is
+    built in, it also builds what can come out over it with an outfit (dressing), the cape
+    reaching `cape` below z."""
+    if sport:
+        m.box((0.56, 0.34, 0.66), (0, 0.02, z + 0.33), P.VS_TOP)
+        m.box((0.2, 0.2, 0.12), (0, 0.0, z + 0.71), P.SKIN)                                # neck
+        return
+    m.box((0.56, 0.34, 0.66), (0, 0.02, z + 0.33), P.V_TOP)
+    m.prism([(-0.1, 0), (0.1, 0), (0, -0.17)], 0.01, (0, -0.152, z + 0.665), P.V_NECK)
     m.box((0.2, 0.2, 0.12), (0, 0.0, z + 0.71), P.SKIN)                                 # neck
+    s = Model(f"{m.name}_shades") if root else m                                        # hooked on the collar
+    for dz in (0.59, 0.5):
+        s.box((0.08, 0.02, 0.07), (-0.08, -0.158, z + dz), P.SHADES)
+    s.box((0.02, 0.02, 0.16), (-0.08, -0.158, z + 0.57), P.SHADES_FRAME)
+    if root:
+        s.build(root, wear="v_shades")
+        dressing(root, m.name, z, cape)
+
+
+# the white dots on his Christmas jumper, (x, height up the front)
+_SNOW = [(-0.22, 0.6), (-0.06, 0.62), (0.13, 0.58), (0.23, 0.48), (-0.17, 0.47), (0.0, 0.5), (-0.23, 0.34),
+         (0.21, 0.3), (-0.2, 0.2), (-0.12, 0.08), (0.23, 0.15)]
+
+
+def dressing(root, name: str, z: float, cape: float):
+    """What comes out over his tee with an outfit (`wear`, see src/island/scene/wardrobe.ts),
+    for a torso from z up: a scarf when it's cold; at Christmas the jumper's knitted front, snow
+    falling round a reindeer with a scarf on and a nose that lights up; and on Halloween the
+    waistcoat and red bow tie, and the black cape with its collar turned up."""
+    y = -0.152                                                                           # the front of the tee
+    f = Model(f"{name}_scarf")
+    f.box((0.3, 0.3, 0.11), (0, 0.0, z + 0.71), P.SCARF)
+    f.box((0.11, 0.03, 0.34), (0.1, y - 0.03, z + 0.5), P.SCARF)
+    for dz in (0.42, 0.52):
+        f.box((0.112, 0.032, 0.03), (0.1, y - 0.03, z + dz), P.SCARF_DARK)
+    f.build(root, wear="v_scarf")
+
+    j = Model(f"{name}_reindeer")
+    for x, dz in _SNOW:
+        j.box((0.05, 0.012, 0.05), (x, y - 0.004, z + dz), P.WHITE)
+    j.box((0.56, 0.012, 0.07), (0, y - 0.004, z + 0.04), P.WHITE)                         # snow along the hem
+    for s in (-1, 1):                                                                    # antlers
+        j.plank_line((0.03 + s * 0.06, y - 0.006, z + 0.36), (0.03 + s * 0.13, y - 0.006, z + 0.52), 0.035, 0.012, P.REINDEER_DARK)
+        j.plank_line((0.03 + s * 0.1, y - 0.006, z + 0.44), (0.03 + s * 0.19, y - 0.006, z + 0.48), 0.03, 0.012, P.REINDEER_DARK)
+        j.box((0.05, 0.012, 0.04), (0.03 + s * 0.13, y - 0.005, z + 0.33), P.REINDEER_DARK)   # ears
+    j.box((0.2, 0.012, 0.18), (0.03, y - 0.004, z + 0.27), P.REINDEER)                    # head
+    j.box((0.14, 0.014, 0.08), (0.03, y - 0.006, z + 0.2), P.REINDEER_LIGHT)              # muzzle
+    for s in (-1, 1):
+        j.box((0.05, 0.014, 0.05), (0.03 + s * 0.045, y - 0.006, z + 0.31), P.WHITE)      # eyes
+        j.box((0.025, 0.016, 0.03), (0.03 + s * 0.045, y - 0.008, z + 0.305), P.INK)
+    j.box((0.2, 0.014, 0.05), (0.03, y - 0.006, z + 0.13), P.RED)                         # his scarf
+    j.box((0.05, 0.014, 0.1), (0.1, y - 0.006, z + 0.08), P.RED)
+    j.box((0.06, 0.03, 0.05), (0.03, y - 0.015, z + 0.215), P.RED, glow=True)              # the nose, lit
+    j.build(root, wear="v_reindeer")
+
+    w = Model(f"{name}_waistcoat")                                                       # over the white shirt
+    w.box((0.58, 0.36, 0.5), (0, 0.02, z + 0.25), P.WAISTCOAT)
+    w.prism([(-0.09, 0), (0.09, 0), (0, -0.2)], 0.01, (0, y - 0.012, z + 0.5), P.SHIRT)
+    for dz in (0.14, 0.24):
+        w.box((0.03, 0.012, 0.03), (0.02, y - 0.012, z + dz), P.GOLD)                     # buttons
+    for s in (-1, 1):
+        w.box((0.08, 0.02, 0.05), (s * 0.08, y - 0.01, z + 0.66), P.SHIRT, rot=(0, s * 0.5, 0))   # collar points
+        w.box((0.09, 0.03, 0.07), (s * 0.06, y - 0.025, z + 0.6), P.BOWTIE, rot=(0, s * 0.3, 0))  # the bow
+    w.box((0.04, 0.035, 0.05), (0, y - 0.03, z + 0.6), P.BOWTIE)
+    w.build(root, wear="v_waistcoat")
+
+    c = Model(f"{name}_cape")                                                            # off the shoulders, down the back
+    bottom = z - cape
+    c.prism([(-0.36, z + 0.7), (0.36, z + 0.7), (0.46, bottom), (-0.46, bottom)], 0.04, (0, 0.23, 0), P.CAPE_BLACK)
+    for s in (-1, 1):
+        c.box((0.04, 0.26, z + 0.66 - bottom), (s * 0.45, 0.1, (z + 0.66 + bottom) / 2), P.CAPE_BLACK)
+        c.box((0.14, 0.24, 0.05), (s * 0.36, 0.08, z + 0.69), P.CAPE_BLACK)                # over the shoulders
+        c.box((0.24, 0.03, 0.32), (s * 0.15, 0.28, z + 0.86), P.CAPE_BLACK, rot=(-0.25, s * 0.35, 0))       # the collar, up
+        c.box((0.2, 0.01, 0.28), (s * 0.145, 0.26, z + 0.85), P.CAPE_LINING, rot=(-0.25, s * 0.35, 0))
+    c.build(root, wear="v_cape")
 
 
 def vincent_kayak(root):
@@ -167,16 +320,20 @@ def vincent_kayak(root):
     m.ball(0.3, (0, 0.1, 0.22), P.INK, subdiv=1, scale=(1, 1.6, 0.4))                  # the cockpit
     m.box((0.5, 0.5, 0.06), (0, 0.08, 0.3), P.INK)                                      # spray deck round him
     m.box((0.2, 0.5, 0.04), (0, 1.1, 0.28), "#2a5da8")                                  # a dry bag behind him
-    _tee(m, 0.28)
+    _tee(m, 0.28, sport=True)
+    m.box((0.62, 0.4, 0.4), (0, 0.02, 0.58), P.KAYAK_VEST)                              # his buoyancy aid
+    m.box((0.5, 0.36, 0.06), (0, 0.02, 0.81), P.KAYAK_VEST_DARK)
+    m.box((0.64, 0.42, 0.05), (0, 0.02, 0.44), P.INK)                                   # its waist strap
+    m.box((0.06, 0.02, 0.06), (0.12, -0.19, 0.44), P.TUNER)
     for s in (-1, 1):                                                                   # upper arms, out to the elbows
-        m.plank_line((s * 0.3, 0.0, 0.88), (s * 0.36, -0.22, 0.68), 0.14, 0.14, P.TEE)
+        m.plank_line((s * 0.3, 0.0, 0.88), (s * 0.36, -0.22, 0.68), 0.14, 0.14, P.VS_TOP)
     m.build(root)
-    head(root, "head", (0, 0, 1.0))
+    head(root, "head", (0, 0, 1.0), sport=True)
     p = Model("paddle")
     p.plank_line((-1.15, 0, 0), (1.15, 0, 0), 0.05, 0.05, P.WOOD_DARK)
     for s in (-1, 1):
         p.box((0.36, 0.05, 0.16), (s * 1.25, 0, 0), "#2a5da8", rot=(0, s * 0.3, 0))    # blades, feathered a little
-        p.plank_line((s * 0.36, 0.2, 0.02), (s * 0.3, 0.0, 0.0), 0.11, 0.11, P.SKIN)    # forearms
+        p.plank_line((s * 0.36, 0.2, 0.02), (s * 0.3, 0.0, 0.0), 0.11, 0.11, P.VS_ARM)  # forearms
         p.box((0.1, 0.12, 0.12), (s * 0.3, 0, 0), P.SKIN)                               # hands on the shaft
     p.plank_line((0.3, 0.06, 0.0), (0.3, 0.12, 0.0), 0.13, 0.13, P.WATCH)
     p.build(root, loc=(0, -0.42, 0.7))
@@ -190,17 +347,18 @@ def vincent_coding(root):
     up = seat - 0.56
     m = Model("vincent_coding_body")
     for x in (-0.16, 0.16):
-        m.box((0.21, 0.52, 0.21), (x, -0.24, 0.62 + up), P.SHORTS)                        # thighs
-        m.box((0.16, 0.16, 0.52 + up), (x, -0.5, (0.52 + up) / 2 + 0.07), P.SKIN)         # bare shins
+        m.box((0.21, 0.52, 0.21), (x, -0.24, 0.62 + up), P.V_LEGS)                        # thighs
+        m.box((0.16, 0.16, 0.52 + up), (x, -0.5, (0.52 + up) / 2 + 0.07), P.V_SHIN)       # bare shins
         m.box((0.2, 0.34, 0.1), (x, -0.56, 0.05), P.SHOE)
-    _tee(m, 0.72 + up)
+    _tee(m, 0.72 + up, root, cape=0.2)
     for s in (-1, 1):
-        m.plank_line((s * 0.31, -0.02, 1.3 + up), (s * 0.34, -0.14, 1.02 + up), 0.15, 0.15, P.TEE)
+        m.plank_line((s * 0.31, -0.02, 1.3 + up), (s * 0.33, -0.08, 1.16 + up), 0.15, 0.15, P.V_TOP)
+        m.plank_line((s * 0.33, -0.08, 1.16 + up), (s * 0.34, -0.14, 1.02 + up), 0.13, 0.13, P.V_ARM)
     m.build(root)
     for s, name in ((-1, "type_r"), (1, "type_l")):
         a = Model(name)
-        a.box((0.12, 0.12, 0.12), (0, 0, 0), P.SKIN)
-        a.plank_line((0, 0, 0), (-s * 0.1, -0.4, -0.13), 0.11, 0.11, P.SKIN)
+        a.box((0.12, 0.12, 0.12), (0, 0, 0), P.V_ARM)
+        a.plank_line((0, 0, 0), (-s * 0.1, -0.4, -0.13), 0.11, 0.11, P.V_ARM)
         a.box((0.11, 0.13, 0.07), (-s * 0.12, -0.46, -0.15), P.SKIN)
         if s > 0:
             a.plank_line((-0.06, -0.26, -0.08), (-0.07, -0.3, -0.1), 0.13, 0.13, P.WATCH)
@@ -240,20 +398,20 @@ def vincent_podcast(root):
     then to make a point to nobody with his right hand (`pod_arm_r`) while `pod_head` nods."""
     hip = 0.84
     m = Model("vincent_podcast_body")
-    m.box((0.5, 0.3, 0.2), (0, 0, hip + 0.02), P.SHORTS)
-    _tee(m, hip - 0.12)
+    m.box((0.5, 0.3, 0.2), (0, 0, hip + 0.02), P.V_LEGS)
+    _tee(m, hip - 0.12, root)
     m.box((0.05, 0.1, 0.16), (0.27, -0.08, hip + 0.05), P.PHONE)                        # his phone, in his pocket
     m.build(root)
     for s, side in ((1, "l"), (-1, "r")):
         g = Model(f"pod_leg_{side}")
-        g.box((0.2, 0.22, 0.34), (0, 0, -0.17), P.SHORTS)
-        g.box((0.16, 0.16, 0.44), (0, 0, -0.52), P.SKIN)
+        g.box((0.2, 0.22, 0.34), (0, 0, -0.17), P.V_LEGS)
+        g.box((0.16, 0.16, 0.44), (0, 0, -0.52), P.V_SHIN)
         g.box((0.2, 0.34, 0.1), (0, -0.05, -0.79), P.SHOE)
         g.box((0.21, 0.35, 0.05), (0, -0.05, -0.835), P.SOLE)
         g.build(root, loc=(s * 0.13, 0, hip))
         a = Model(f"pod_arm_{side}")
-        a.box((0.15, 0.15, 0.22), (0, 0, -0.11), P.TEE)
-        a.box((0.12, 0.12, 0.36), (0, 0, -0.38), P.SKIN)
+        a.box((0.15, 0.15, 0.22), (0, 0, -0.11), P.V_TOP)
+        a.box((0.12, 0.12, 0.36), (0, 0, -0.38), P.V_ARM)
         a.box((0.11, 0.12, 0.1), (0, 0, -0.6), P.SKIN)
         if s > 0:
             a.box((0.13, 0.13, 0.05), (0, 0, -0.5), P.WATCH)
@@ -276,8 +434,8 @@ def vincent_standing(root, prefix: str, apron=False):
     the shoulders, and turns `<prefix>_head`."""
     hip = 0.84
     m = Model(f"{prefix}_body")
-    m.box((0.5, 0.3, 0.2), (0, 0, hip + 0.02), P.SHORTS)
-    _tee(m, hip - 0.12)
+    m.box((0.5, 0.3, 0.2), (0, 0, hip + 0.02), P.V_LEGS)
+    _tee(m, hip - 0.12, root)
     if apron:
         m.box((0.46, 0.04, 0.7), (0, -0.165, hip + 0.1), P.CANVAS)
         m.box((0.3, 0.05, 0.12), (0, -0.18, hip + 0.1), P.WOOD_LIGHT)                    # its pocket, a pencil in it
@@ -287,14 +445,14 @@ def vincent_standing(root, prefix: str, apron=False):
     m.build(root)
     for s, side in ((1, "l"), (-1, "r")):
         g = Model(f"{prefix}_leg_{side}")
-        g.box((0.2, 0.22, 0.34), (0, 0, -0.17), P.SHORTS)
-        g.box((0.16, 0.16, 0.44), (0, 0, -0.52), P.SKIN)
+        g.box((0.2, 0.22, 0.34), (0, 0, -0.17), P.V_LEGS)
+        g.box((0.16, 0.16, 0.44), (0, 0, -0.52), P.V_SHIN)
         g.box((0.2, 0.34, 0.1), (0, -0.05, -0.79), P.SHOE)
         g.box((0.21, 0.35, 0.05), (0, -0.05, -0.835), P.SOLE)
         g.build(root, loc=(s * 0.13, 0, hip))
         a = Model(f"{prefix}_arm_{side}")
-        a.box((0.15, 0.15, 0.22), (0, 0, -0.11), P.TEE)
-        a.box((0.12, 0.12, 0.36), (0, 0, -0.38), P.SKIN)
+        a.box((0.15, 0.15, 0.22), (0, 0, -0.11), P.V_TOP)
+        a.box((0.12, 0.12, 0.36), (0, 0, -0.38), P.V_ARM)
         a.box((0.11, 0.12, 0.1), (0, 0, -0.6), P.SKIN)
         if s > 0:
             a.box((0.13, 0.13, 0.05), (0, 0, -0.5), P.WATCH)
@@ -308,8 +466,8 @@ def vincent_hiking(root):
     the hips and `hike_arm_l/_r` from the shoulders; `hike_head` looks around at the top."""
     hip = 0.84
     m = Model("vincent_hiking_body")
-    m.box((0.5, 0.3, 0.2), (0, 0, hip + 0.02), P.SHORTS)
-    _tee(m, hip - 0.12)
+    m.box((0.5, 0.3, 0.2), (0, 0, hip + 0.02), P.VS_LEGS)
+    _tee(m, hip - 0.12, sport=True)
     m.box((0.46, 0.26, 0.56), (0, 0.3, hip + 0.3), P.PACK)                               # the pack
     m.box((0.4, 0.1, 0.22), (0, 0.46, hip + 0.18), P.PACK_DARK)                          # its pocket
     m.cyl(0.1, 0.5, (-0.25, 0.3, hip + 0.64), P.TENT_GREEN, segs=6, rot=(0, math.pi / 2, 0))  # a jacket, rolled
@@ -318,19 +476,19 @@ def vincent_hiking(root):
     m.build(root)
     for s, side in ((1, "l"), (-1, "r")):
         g = Model(f"hike_leg_{side}")
-        g.box((0.2, 0.22, 0.34), (0, 0, -0.17), P.SHORTS)
-        g.box((0.16, 0.16, 0.44), (0, 0, -0.52), P.SKIN)
+        g.box((0.2, 0.22, 0.34), (0, 0, -0.17), P.VS_LEGS)
+        g.box((0.16, 0.16, 0.44), (0, 0, -0.52), P.VS_SHIN)
         g.box((0.2, 0.34, 0.14), (0, -0.05, -0.77), P.BOOT)
         g.box((0.21, 0.35, 0.04), (0, -0.05, -0.83), P.SOLE)
         g.build(root, loc=(s * 0.13, 0, hip))
         a = Model(f"hike_arm_{side}")
-        a.box((0.15, 0.15, 0.22), (0, 0, -0.11), P.TEE)
-        a.box((0.12, 0.12, 0.36), (0, 0, -0.38), P.SKIN)
+        a.box((0.15, 0.15, 0.22), (0, 0, -0.11), P.VS_TOP)
+        a.box((0.12, 0.12, 0.36), (0, 0, -0.38), P.VS_ARM)
         a.box((0.11, 0.12, 0.1), (0, 0, -0.6), P.SKIN)
         if s > 0:
             a.box((0.13, 0.13, 0.05), (0, 0, -0.5), P.WATCH)
         a.build(root, loc=(s * 0.34, 0, hip + 0.48))
-    head(root, "hike_head", (0, 0, hip + 0.61))
+    head(root, "hike_head", (0, 0, hip + 0.61), sport=True)
 
 
 # Yoga (vincent_yoga below, companion.yoga): the poses they flow through, as joints in the frame of
@@ -359,7 +517,7 @@ POSES = {
 
 def _person(g, prefix: str, j: dict, look: dict, make_head):
     """A whole person in `g`, jointed as `j` says (see POSES), in `look`'s colours (top, sleeve,
-    thigh, shin, skin, feet if not bare, and wider for broader shoulders). An `arm_r` is their
+    arm below the sleeve, thigh, shin, skin, feet if not bare, and wider for broader shoulders). An `arm_r` is their
     right arm as its own part (`<prefix>_stroke`), pivoting at the shoulder."""
     m = Model(f"{prefix}_body")
     m.plank_line(j["hips"], j["neck"], 0.5 * look.get("wide", 1.0), 0.3, look["top"])
@@ -368,8 +526,8 @@ def _person(g, prefix: str, j: dict, look: dict, make_head):
         sh, el, hand = (Vector(v) - at for v in (sh, el, hand))
         mid = sh.lerp(el, 0.45)
         m.plank_line(sh, mid, 0.14, 0.14, look["sleeve"])
-        m.plank_line(mid, el, 0.12, 0.12, look["skin"])
-        m.plank_line(el, hand, 0.11, 0.11, look["skin"])
+        m.plank_line(mid, el, 0.12, 0.12, look.get("arm", look["skin"]))
+        m.plank_line(el, hand, 0.11, 0.11, look.get("arm", look["skin"]))
         m.box((0.1, 0.11, 0.1), hand, look["skin"])
 
     for side in (1, -1):
@@ -422,21 +580,22 @@ def petting(root, prefix: str, pet: str, look: dict, make_head):
 
 
 def vincent_yoga(root):
-    """Vincent on his mat (rust red), barefoot, flowing through the POSES; she sometimes joins
+    """Vincent on his mat (rust red), barefoot in his sports things, flowing through the POSES; she sometimes joins
     him on the next mat along (companion.yoga)."""
     m = Model("vincent_yoga_mat")
     m.box((0.8, 1.9, 0.02), (0, 0, 0.01), P.PACK)
     m.box((0.8, 0.04, 0.021), (0, 0.9, 0.011), P.PACK_DARK)
     m.cyl(0.05, 0.22, (-0.62, 0.7, 0), P.WHITE, segs=8)                                # water bottle
     m.build(root)
-    yoga_poses(root, "vincent_yoga", dict(top=P.TEE, sleeve=P.TEE, thigh=P.SHORTS, shin=P.SKIN, skin=P.SKIN, wide=1.1),
-               lambda parent, name, loc, rot: head(parent, name, loc, rot=rot))
+    yoga_poses(root, "vincent_yoga", dict(top=P.VS_TOP, sleeve=P.VS_TOP, arm=P.VS_ARM, thigh=P.VS_LEGS, shin=P.VS_SHIN,
+                                          skin=P.SKIN, wide=1.1),
+               lambda parent, name, loc, rot: head(parent, name, loc, rot=rot, sport=True))
 
 
 def vincent_petting(root, pet: str):
     """Vincent on his knees in the grass, petting the cats on their bench or Beike (PETTING)."""
     petting(root, f"vincent_petting_{pet}", pet,
-            dict(top=P.TEE, sleeve=P.TEE, thigh=P.SHORTS, shin=P.SKIN, skin=P.SKIN, foot=P.SHOE, wide=1.1),
+            dict(top=P.V_TOP, sleeve=P.V_TOP, arm=P.V_ARM, thigh=P.V_LEGS, shin=P.V_SHIN, skin=P.SKIN, foot=P.SHOE, wide=1.1),
             lambda parent, name, loc, rot: head(parent, name, loc, rot=rot))
 
 

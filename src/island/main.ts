@@ -33,6 +33,7 @@ import { dressIsland, season } from './scene/season';
 import { Sky } from './scene/sky';
 import { createWater } from './scene/water';
 import { Weather } from './scene/weather';
+import { wardrobe } from './scene/wardrobe';
 import { Sound } from './sound';
 import { River } from './river';
 import { Trail } from './trail';
@@ -128,6 +129,14 @@ export async function bootIsland(host: HTMLElement) {
   // the special days (scene/calendar.ts): New Year's fireworks, and the sounds the day needs
   const fireworks = occasions.has('newyear') ? new Fireworks(scene, island, reducedMotion) : null;
   if (fireworks || occasions.has('steamboat')) sound.festive();
+  if (wardrobe.outfit === 'halloween') sound.festive('costumes');
+  if (occasions.has('halloween')) sound.festive('graveyard');
+  // and now and then after dark, a groan or a long wooo from the graveyard, louder the nearer you are
+  const graves = occasions.has('halloween') ? island.get('graves')?.getWorldPosition(new THREE.Vector3()) : undefined;
+  let haunting = 6;
+  // the season's quiet score, all day: Halloween's, or Christmas's
+  const tune = occasions.has('halloween') ? 'halloween-tune' : occasions.has('christmas') ? 'christmas-tune' : null;
+  if (tune) sound.tune = { name: tune, level: 1 };
   if (fireworks) {
     fireworks.onSound = (kind, at, big) => {
       if (!sound.outdoors && kind !== 'burst') return;
@@ -309,6 +318,7 @@ export async function bootIsland(host: HTMLElement) {
     ctx.forecast = await fetchForecast();
     const f = ctx.forecast;
     if (f && !preview) weather.set(f.kind, f.intensity, { wind: f.wind, gusts: f.gusts, direction: f.direction, lying: f.lying, temperature: f.temperature, instant: first });
+    if (f && !preview) wardrobe.feel(f.temperature); // and they dress for it
     if (f && !preview && first) {
       life.shelter.settle(); // raining when you arrive: they're already in
       life.companion.settle();
@@ -319,6 +329,7 @@ export async function bootIsland(host: HTMLElement) {
   if (preview) {
     const num = (k: string) => (params.has(k) ? Number(params.get(k)) : undefined);
     weather.set(preview, num('k') ?? 0.8, { wind: num('wind'), gusts: num('gusts'), direction: num('dir'), temperature: num('temp'), instant: true });
+    if (params.has('temp') || preview === 'warm' || preview === 'hot') wardrobe.feel(weather.temperature);
     life.shelter.settle();
     life.companion.settle();
     life.vincent.settle();
@@ -417,6 +428,13 @@ export async function bootIsland(host: HTMLElement) {
     sound.birdsong = BIRDSONG[season.name] * (1 - sky.lamps) * (0.45 + dawn * 0.55) * (1 - wet * 0.85) * (1 - Math.min(1, weather.gust) * 0.5);
     sound.fog = weather.now.fog;
     sound.mosslits = life.sightings.imaginary.mosslitsNear(rig.target, rig.view);
+    sound.revel = life.revel.music(rig.target, rig.view);
+    if (graves) sound.hum('gallop', sound.outdoors ? life.sightings.hooves(rig.target, rig.view) : 0);
+    if (graves && (haunting -= dt) < 0) {
+      haunting = 14 + Math.random() * 22;
+      const near = THREE.MathUtils.clamp(1.3 - graves.distanceTo(rig.target) / 25, 0, 1);
+      if (near > 0.1 && sky.lamps > 0.3) sound.haunt(Math.random() < 0.6 ? 'groan' : 'moan', near * 0.7);
+    }
     sound.night = sky.lamps;
     sound.telly = lighthouse.programme;
     sound.diorama = trail.showingId;

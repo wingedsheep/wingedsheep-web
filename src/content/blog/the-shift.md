@@ -9,7 +9,7 @@ shelf: ai
 
 **The Shift**
 
-<audio controls preload="metadata" src="https://wingedsheep.com/content/media/2024/10/The-Shift.mp3"></audio>
+<audio controls preload="metadata" src="/blog/the-shift/The-Shift.mp3"></audio>
 
 ## I. A Day in the Life of Alex
 

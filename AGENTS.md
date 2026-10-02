@@ -9,8 +9,8 @@
   and special days, and the weather, including the visitor's real forecast. If a line mentions
   the sun, it shouldn't show in a downpour. Rare sightings keep to their conditions (`Outlook`
   in `scene/sightings.ts`).
-- **Words:** the river game addresses the player as *you*, never Vincent. The companion is
-  never named on the site. One light joke per beat at most. Career text says "worked on" for
+- **Words:** the river game addresses the player as *you*, never Vincent. The companion is Eef: name her
+  sparingly on the site, mostly *she*. One light joke per beat at most. Career text says "worked on" for
   team work.
 
 ## Good to know
@@ -25,7 +25,8 @@
 - The pixel renderer draws small things only a few texels big, mostly outline. Check new
   visuals in the browser, at normal zoom and zoomed in.
 - Preview a moment with query params: `?time=`, `?season=`, `?date=`, `?holiday=`,
-  `?weather=` (and `&k=`, `&wind=`, `&temp=`), `?animal=`, `?vincent=`, `?companion=`.
+  `?weather=` (and `&k=`, `&wind=`, `&temp=`), `?animal=`, `?vincent=`, `?companion=`,
+  `?outfit=` (what they wear: `scene/wardrobe.ts`).
 - Visitor progress lives in `localStorage` under `wingedsheep:*` (the journal is
   `wingedsheep:found`). When testing in the user's browser, put it back afterwards.
 - `just sounds` reads the ElevenLabs key from `config.yaml`, which stays out of git.

@@ -41,7 +41,7 @@ const SPECIMENS = [
   ['boar', 'Wild boar', 'All shoulders and snout, rooting up the bank. The piglets are striped like humbugs.'],
   ['highland', 'Highland cow', 'Ginger, shaggy, horns like handlebars. Looking back at me through its fringe, I think.'],
   // the imaginary ones, out of the 2022 blog posts and onto the island
-  ['snorble', 'Snorble', 'Unconfirmed. A heap of fluff with a pink snout, asleep in a sunbeam, and then two metres up in the air.'],
+  ['snorble', 'Snorble', 'Unconfirmed. A heap of fluff with a pink snout and two little ones, asleep in a sunbeam, and then two metres up in the air.'],
   ['balloonbug', 'Balloonbug', 'Unconfirmed. Blown up like a little balloon, legs dangling, drifting over on nothing at all.'],
   ['fosha', 'Fosha', 'Unconfirmed. Blue as the hour before dawn, ears up, watching the stars and not me.'],
   ['treestrider', 'Treestrider', 'Unconfirmed. Legs as tall as a house, wading out to sea in the mist.'],

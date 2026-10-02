@@ -38,13 +38,17 @@ export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa'
   | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
   | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'
-  // the tromb's song (scene/imaginary.ts)
-  | 'tromb'
-  | 'burner' | 'horn' | 'murmur' | 'seal'
+  // the tromb's song, and the treestrider's feet in the water, its knees and its call (scene/imaginary.ts)
+  | 'tromb' | 'wade' | 'creak' | 'strider'
+  // the snorbles': a sniff at the grass, a snore in the sun, a squeak as it jumps, the young ones' chirrups
+  | 'sniff' | 'snooze' | 'squeak' | 'chirrup'
+  | 'burner' | 'horn' | 'typhon' | 'murmur' | 'seal'
   // over from the river now and then: the eagle, the boar, the Highland cow
   | 'eagle' | 'boar' | 'moo'
   // the week (week.ts): the post boat's horn, the church bell over the water, Beike joining in with the siren
-  | 'toot' | 'toll' | 'toll-low' | 'aroo';
+  | 'toot' | 'toll' | 'toll-low' | 'aroo'
+  // Halloween's monsters (monsters.ts): the Horseman's horse and his laugh, the tall one's breath, its steps and its cry
+  | 'neigh' | 'gallop' | 'headless' | 'giant' | 'stomp' | 'wail';
 
 /** Friday the 13th (by the visit's calendar): the black sheep can hardly stay away. */
 export const FRIDAY_13 = (() => {
@@ -69,11 +73,11 @@ const LUCK = (() => {
     eagle: want('eagle') || chance(1 / 8),
     eagleSoon: want('eagle'),
     // the very rare ones
-    starsheep: want('starsheep') || chance(1 / 20),
-    rocky: want('rocky') || chance(1 / 25),
-    gandalf: want('gandalf') || chance(1 / 30),
+    starsheep: want('starsheep') || chance(1 / 15),
+    rocky: want('rocky') || chance(1 / 18),
+    gandalf: want('gandalf') || chance(1 / 18),
     gandalfSoon: want('gandalf'),
-    supersheep: want('supersheep') || chance(1 / 30),
+    supersheep: want('supersheep') || chance(1 / 18),
     supersheepSoon: want('supersheep'),
     whaleSoon: want('whale'),
     serpentSoon: want('serpent'),

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Ground } from './beike';
 import { post } from './almanac';
+import { fridayNight } from './bedtime';
 import { daily, occasions, onTheDay } from './calendar';
 import { Body } from './fauna';
 import type { Island } from './island';
@@ -90,8 +91,8 @@ export class Week {
     this.boat?.update(dt, w);
     this.trawler?.update(dt, w, hour);
     this.kite?.update(dt, w);
-    // Friday: the crate comes out towards the end of the afternoon
-    for (const o of this.borrel) o.visible = hour >= 16 || hour < 4;
+    // Friday: the crate comes out towards the end of the afternoon (and not a moment before)
+    for (const o of this.borrel) o.visible = fridayNight(w.time, 16);
     // Sunday: the bell over the water, calling them in to the ten o'clock service
     if (occasions.has('sunday') && hour > 9.9 && hour < 10) {
       if ((this.tolled -= dt) < 0) {
