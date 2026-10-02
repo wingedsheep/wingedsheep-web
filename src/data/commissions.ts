@@ -94,7 +94,7 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     examples: [
       { label: 'This island', href: '/', text: 'a pixel-art 3D world with a kayak game, seasons and the real weather' },
       { label: 'Argentum', href: 'https://magic.wingedsheep.com/', text: 'a Magic: The Gathering rules engine and game client that I worked on with others. It’s roughly 2,600 hours of work so far, which without AI would have taken a team years', more: { label: 'how it was built', href: '/blog/building-argentum-a-magic-the-gathering-rules-engine/' } },
-      { label: 'Talespinner', href: 'https://talespinner.io/', text: 'interactive stories spun with AI, that grow as you play' },
+      { label: 'Talespinner', href: 'https://talespinner.io/', text: 'a tool for writers, to spin stories together with AI' },
       { label: 'The blog', href: '/blog/', text: 'what I’ve learned along the way' },
     ],
     howHeading: 'How it works',
@@ -167,7 +167,7 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     examples: [
       { label: 'Dit eiland', href: '/', text: 'een 3D-wereld in pixelart, met een kajakspel, seizoenen en het echte weer' },
       { label: 'Argentum', href: 'https://magic.wingedsheep.com/', text: 'een regelengine en spelclient voor Magic: The Gathering, waar ik met anderen aan werkte. Het is tot nu toe zo’n 2.600 uur werk, waar een team zonder AI jaren over had gedaan', more: { label: 'hoe het gebouwd is (Engelstalig)', href: '/blog/building-argentum-a-magic-the-gathering-rules-engine/' } },
-      { label: 'Talespinner', href: 'https://talespinner.io/', text: 'interactieve verhalen, gesponnen met AI, die groeien terwijl je speelt' },
+      { label: 'Talespinner', href: 'https://talespinner.io/', text: 'een tool voor schrijvers, om samen met AI verhalen te spinnen' },
       { label: 'De blog', href: '/blog/', text: 'wat ik onderweg leer (Engelstalig)' },
     ],
     howHeading: 'Hoe het werkt',

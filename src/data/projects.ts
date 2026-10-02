@@ -35,8 +35,8 @@ export const projects: Project[] = [
     year: 2023,
     thing: 'a quill that writes by itself',
     href: 'https://talespinner.io/',
-    blurb: 'Stories spun together with AI: interactive tales that grow as you play.',
-    tags: ['AI', 'Storytelling'],
+    blurb: 'A tool for writers: stories spun together with AI.',
+    tags: ['AI', 'Writing'],
     color: '#b5562d',
   },
   {
