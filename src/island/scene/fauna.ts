@@ -35,7 +35,7 @@ const daylit = (e: Env) => e.night < 0.35;
 
 /** Sounds the animals make (the island plays them; silent while sound is off). */
 export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap' | 'lap' | 'sip' | 'grind' | 'brew' | 'crunch'
-  | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin'
+  | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin' | 'puff' | 'dip'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
   | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'
   // the tromb's song, and the treestrider's feet in the water, its knees and its call (scene/imaginary.ts)
@@ -1222,6 +1222,9 @@ class Pod {
   private wait = LUCK.dolphinsSoon ? 3 : rand(50, 200);
   private from = V();
   private dir = 1;
+  private chatter = 0;
+  /** A breath as one breaks the surface, a splash as it goes back in, and their calls now and then. */
+  onCall?: (call: Call, at: THREE.Vector3) => void;
 
   constructor(template: THREE.Object3D, scene: THREE.Scene, private particles: Particles) {
     for (let i = 0; i < 4; i++) this.members.push({ body: new Body('dolphin', template, scene), lag: i * 2.2 + rand(0, 1), lane: rand(-2.5, 2.5), phase: rand(0, Math.PI * 2), up: false });
@@ -1236,6 +1239,7 @@ class Pod {
       this.wait -= dt;
       if (this.wait > 0 || (e.night > 0.6 && !LUCK.dolphinsSoon)) return;
       this.t = 0;
+      this.chatter = rand(1, 3);
       this.dir = chance(0.5) ? 1 : -1;
       this.from.set(-60 * this.dir, 0, rand(32, 35)); // clear of the end of the dock
     }
@@ -1248,8 +1252,14 @@ class Pod {
       const y = cycle < 0.34 ? Math.sin(k * Math.PI) * 1.2 - 0.3 : -2;
       const b = m.body;
       const out = cycle < 0.34 && Math.abs(x) < 60;
-      if (out && !m.up) splash(this.particles, V(x, 0, this.from.z + m.lane), 1);
-      if (!out && m.up && Math.abs(x) < 60) splash(this.particles, V(x + this.dir * 1.5, 0, this.from.z + m.lane), 0.7);
+      if (out && !m.up) {
+        splash(this.particles, V(x, 0, this.from.z + m.lane), 1);
+        if (chance(0.45)) this.onCall?.('puff', V(x, 0.5, this.from.z + m.lane));
+      }
+      if (!out && m.up && Math.abs(x) < 60) {
+        splash(this.particles, V(x + this.dir * 1.5, 0, this.from.z + m.lane), 0.7);
+        if (chance(0.35)) this.onCall?.('dip', V(x + this.dir * 1.5, 0, this.from.z + m.lane));
+      }
       m.up = out;
       if (!out) {
         if (b.shown) b.hide();
@@ -1261,6 +1271,12 @@ class Pod {
       orient(b.root, this.dir > 0 ? 0 : Math.PI, Math.cos(k * Math.PI) * 0.7);
       const tail = b.part('tail');
       if (tail) tail.rotation.z += Math.sin(this.t * 8) * 0.3;
+    }
+    this.chatter -= dt;
+    const up = this.members.filter((m) => m.body.shown);
+    if (this.chatter <= 0 && up.length) {
+      this.chatter = rand(3, 7);
+      this.onCall?.('dolphin', pick(up).body.root.position.clone());
     }
     if (this.t > 150 / 5.5 + 12) {
       this.t = -1;
@@ -2334,6 +2350,8 @@ export class Fauna {
     const dolphin = T('dolphin');
     if (dolphin) {
       this.pod = new Pod(dolphin, scene, particles);
+      // heard from offshore, like the whale (an ambient call would be lost at that distance)
+      this.pod.onCall = (call, at) => this.onCall?.(call, at);
       this.pod.bodies.forEach((body) => this.all.push({ species: 'dolphin', body }));
     }
     const whale = T('whale');
@@ -2547,7 +2565,6 @@ export class Fauna {
     this.voice('snuffle', [20, 50], () => walking('hedgehog') ?? walking('badger'));
     this.voice('chatter', [40, 100], () => walking('squirrel'));
     this.voice('fox', [70, 180], () => (quiet ? undefined : walking('fox')));
-    this.voice('dolphin', [5, 12], () => shown(this.pod?.bodies ?? []));
     this.voice('boar', [60, 150], () => walking('boar'));
     this.voice('moo', [50, 140], () => walking('highland'));
     this.voice('bellow', [35, 90], () => (e.season === 'autumn' ? walking('stag') : undefined));

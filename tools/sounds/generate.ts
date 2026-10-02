@@ -149,7 +149,14 @@ export const SOUNDS: Sfx[] = [
   { name: 'pant', seconds: 2, prompt: 'A happy dog panting after running, quick breathy pants, close, no barking' },
   { name: 'whine', seconds: 1.5, prompt: 'A dog giving one short, eager, hopeful whine, asking to play' },
   { name: 'mrrp', seconds: 1, prompt: 'A sleepy cat giving one soft chirruping mrrp, a trilling little greeting, close' },
-  { name: 'dolphin', seconds: 2.5, prompt: 'Dolphins surfacing at sea, a quick puff of breath and high chirping whistles and clicks' },
+  // the pod passing: their calls now and then, and with every leap a breath as one breaks the surface and a splash going back in
+  ...[
+    'Bottlenose dolphins whistling to each other at the sea surface, bright rising and falling signature whistles, a little distant, no music',
+    'Dolphins chattering at sea, rapid clicks and a buzzing creak with a short squeaky whistle, a little distant, no music',
+    'A dolphin calling with a few short excited squeals and chirps at the surface of the sea, gentle waves, no music',
+  ].map((prompt, i) => ({ name: `dolphin-${i + 1}`, seconds: 2, prompt })),
+  ...[1, 2].map((i) => ({ name: `puff-${i}`, seconds: 0.6, prompt: 'A single dolphin breathing out through its blowhole as it breaks the surface, one short sharp wet puff of breath, no voice, no music' })),
+  ...[1, 2].map((i) => ({ name: `dip-${i}`, seconds: 0.8, prompt: 'A dolphin diving cleanly back into the sea after a leap, a short smooth slicing splash, no voice, no music' })),
   // the rare sightings (src/island/scene/sightings.ts)
   { name: 'burner', seconds: 2.5, prompt: 'A hot air balloon burner firing overhead on a calm evening, a roaring whoosh of propane flame for two seconds, then cutting off, a little distant, no voices' },
   { name: 'horn', seconds: 4, prompt: 'A passenger ferry sounding its horn once far out at sea, one long deep blast carrying over calm water, distant, fading away' },

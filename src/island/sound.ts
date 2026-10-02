@@ -19,7 +19,7 @@
  *    through its headphones: close and dry, with a faint tape hiss under it.
  *  - the winged sheep: a baa when you click it; Beike: a bark (short clips, decoded up front)
  *  - Charlie and George: a synthesised purr when you pet them
- *  - the wildlife: gulls, robins, the owl, ducks, geese and the whale's blow
+ *  - the wildlife: gulls, robins, the owl, ducks, geese, the dolphins passing and the whale's blow
  *  - weather: rain, rolling thunder, gusting wind and cicadas on a hot day
  *  - the river: its water, the falls, the paddle, the hull on the rocks, and whatever lives on the banks
  *  - the season's score: an eerie Halloween soundscape all through that week, quiet Christmas music all
@@ -79,7 +79,7 @@ type Clip = keyof typeof CLIPS;
  */
 const SFX = {
   island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, 'tap-run': 1, 'tap-off': 1, lap: 2, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
-    rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 1,
+    rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 3, puff: 2, dip: 2,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
     flurry: 1, stroke: 3, burner: 1, horn: 1, typhon: 1, murmur: 1, seal: 1,
     strider: 1, creak: 2, wade: 2, sniff: 2, snooze: 1, squeak: 2, chirrup: 2,
@@ -111,7 +111,7 @@ const LEVEL: Record<string, number> = {
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
-  dolphin: 0.4, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45,
+  dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45,
   'door-library': 0.25, 'door-hut': 0.25, 'door-lighthouse': 0.22, bell: 0.25, hatch: 0.25, bottle: 0.5, clink: 0.35, jump: 0.25,
   flurry: 0.45, press: 0.35, engine: 2.5, quill: 0.3, page: 0.35, zap: 0.25, 'robot-servo': 0.35, 'robot-tinker': 0.3,
   'robot-snore': 0.3, 'robot-clank': 0.45, 'robot-beep': 0.35, ding: 0.35, snore: 0.3,
@@ -672,6 +672,12 @@ export class Sound {
       case 'blow':
         hiss(0, 1.4, 500, 0.35);
         hiss(0.1, 1.0, 1800, 0.12);
+        break;
+      case 'puff': // a dolphin's breath as it surfaces
+        hiss(0, 0.25, 1400, 0.12);
+        break;
+      case 'dip': // and back in
+        hiss(0, 0.3, 900, 0.12);
         break;
       case 'splash':
         hiss(0, 1.6, 700, 0.5);
