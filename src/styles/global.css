@@ -6,7 +6,7 @@
   --paper-edge: #c9b48a;
   --wood: #6c3f2b;
   --gold: #e8b24a;
-  --accent: #b8452f;
+  --accent: #a63d29;
   --moss: #3f7a5f;
   --sea: #17466a;
   --night: #141a36;
@@ -115,7 +115,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .filters button { padding: 6px 9px; }
 .filters button:hover { background: #f1e3c2; }
 .filters button[aria-pressed='true'] { background: var(--ink); color: var(--paper); box-shadow: inset 0 -2px 0 #000; }
-.filters .count { font-size: 12px; opacity: 0.6; }
+.filters .count { font-size: 12px; opacity: 0.75; }
 .subject .swatch { width: 7px; height: 14px; background: var(--spine); box-shadow: inset 0 3px 0 var(--gold), inset 0 -3px 0 var(--gold); }
 .tag-filters button { padding: 4px 8px; font-size: 14px; }
 .tags-more { display: contents; }
@@ -156,7 +156,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card-stamp {
   grid-column: 2; grid-row: 1; align-self: start; display: grid; justify-items: center; padding: 2px 6px 1px;
   color: #8a3b52; border: 2px solid currentColor; font: 12px/1 var(--ui); letter-spacing: 0.08em;
-  transform: rotate(-7deg); opacity: 0.8; mix-blend-mode: multiply;
+  transform: rotate(-7deg); opacity: 0.9; mix-blend-mode: multiply;
 }
 .card-stamp b { font-size: 17px; letter-spacing: 0; }
 .card-excerpt {
@@ -393,6 +393,31 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .prose hr::after { content: '◆ ◆ ◆'; font-size: 11px; letter-spacing: 1.2em; color: var(--gold); }
 .prose audio { width: 100%; margin: 1em 0; }
 .prose .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.3em 0; }
+/* charts and diagrams in a post, drawn in HTML so they take the page's colours and fit a phone */
+.prose .chart { font: 12px/1.3 var(--ui); color: var(--page-ink); }
+.prose .chart-key { display: flex; gap: 16px; justify-content: flex-end; margin-bottom: 10px; color: var(--page-soft); }
+.prose .chart-key i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; background: var(--key); vertical-align: -1px; }
+.prose .cols { display: flex; align-items: flex-end; gap: 6px; height: 210px; padding-top: 22px; border-bottom: 2px solid var(--page-rule); }
+.prose .col { position: relative; flex: 1; height: calc(var(--v) * 100%); min-height: 2px; border-radius: 4px 4px 0 0; background: var(--page-accent); }
+.prose .col:hover { filter: brightness(1.15); }
+.prose .col b { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; font-weight: 400; white-space: nowrap; }
+.prose .col-axis { display: flex; gap: 6px; margin-top: 6px; color: var(--page-soft); }
+.prose .col-axis span { flex: 1; text-align: center; }
+.prose .bars { display: grid; grid-template-columns: minmax(6.5em, max-content) 1fr 3.4em; gap: 8px 10px; align-items: center; }
+.prose .bar { position: relative; height: 14px; }
+.prose .bar::before, .prose .bar::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; }
+.prose .bar::before { width: calc(var(--now) * 100%); min-width: 2px; background: var(--page-accent); }
+.prose .bar::after { width: calc(var(--then) * 100%); background: var(--page-ink); box-shadow: 2px 0 0 var(--page); }
+.prose .bars > span:nth-child(3n) { text-align: right; color: var(--page-soft); }
+.prose .flow { list-style: none; counter-reset: step; margin: 0; padding: 0; font-size: 14px; }
+.prose .flow > li { counter-increment: step; position: relative; margin: 0 0 22px; padding: 12px 14px 12px 50px; background: var(--page-well); border-radius: 4px; }
+.prose .flow > li::before { content: counter(step); position: absolute; left: 14px; top: 11px; width: 24px; height: 24px; border-radius: 50%; background: var(--page-accent); color: var(--page); text-align: center; line-height: 24px; }
+.prose .flow > li:not(:last-child)::after { content: '↓'; position: absolute; left: 0; right: 0; bottom: -20px; text-align: center; color: var(--page-soft); }
+.prose .flow strong { display: block; font-weight: 400; font-size: 15px; }
+.prose .flow small { display: block; margin-top: 2px; font: 15px/1.4 var(--serif); color: var(--page-soft); }
+.prose .flow .prs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.prose .flow .prs span { padding: 2px 7px; border: 2px solid var(--page-accent); border-radius: 4px; font-size: 12px; }
+.prose .flow-loop { margin-top: -6px; text-align: center; color: var(--page-soft); }
 /* the GPT-4 post's transcript: who's speaking, by colour (as its key describes) and by name */
 .prose :is(.user-text, .game-text, .gpt-text, .remark-text, .clarification-text) {
   display: block; padding: 8px 14px 10px 18px; margin-bottom: 10px; font-size: 0.9em; clip-path: var(--notch);
@@ -435,6 +460,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .plain .inline { display: flex; gap: 16px; list-style: none; padding: 0; font: 17px var(--ui); }
 /* the commissions page (src/components/Commissions.astro) */
 .commissions-nav { display: flex; justify-content: space-between; gap: 16px; font: 16px var(--ui); }
+.commissions-elsewhere { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 16px; }
+.commissions-nav a { display: inline-block; padding: 3px 0; } /* big enough to tap, wrapped two lines deep */
+.contact { display: flex; flex-wrap: wrap-reverse; align-items: flex-end; /* (the top, wrapped in reverse) */ gap: 8px 28px; }
+.contact > div { flex: 1 1 320px; }
+.contact-photo { flex: none; width: 200px; height: auto; margin-top: 6px; clip-path: var(--notch); }
+.contact > div > p:first-child { margin-top: 0; }
 .commissions-lede { font-size: 21px; line-height: 1.5; }
 .offers { list-style: none; padding: 0; display: grid; gap: 10px; }
 .offer { padding: 12px 16px 4px; background: var(--paper-2); clip-path: var(--notch); }

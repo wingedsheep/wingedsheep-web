@@ -118,6 +118,7 @@ export class Hut implements RoomInput {
   /** Fetch the room ahead of time, so the door opens without a wait. */
   load() {
     this.loading ??= HutRoom.load()
+      .then((room) => this.pixels.warm(room.scene, room.camera).then(() => room))
       .then((room) => {
         this.room = room;
         room.onSound = (name, volume) => this.inside && this.ctx.sound.here(name, volume);

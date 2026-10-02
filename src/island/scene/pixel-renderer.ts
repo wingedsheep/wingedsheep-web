@@ -197,6 +197,19 @@ export class PixelRenderer {
     this.blit.uniforms.uPixel.value = this.pixelSize * this.renderer.getPixelRatio();
   }
 
+  /**
+   * Compile a scene's shaders before its first frame. Where the browser can do that off the main
+   * thread (KHR_parallel_shader_compile) the page keeps scrolling meanwhile, instead of freezing
+   * for a second or more on that frame. Compiled for the texel target, as they'll be drawn.
+   */
+  async warm(scene: THREE.Scene, camera: THREE.Camera) {
+    const before = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(this.target);
+    const ready = this.renderer.compileAsync(scene, camera);
+    this.renderer.setRenderTarget(before);
+    await ready;
+  }
+
   render(scene: THREE.Scene, camera: THREE.OrthographicCamera, subTexel: THREE.Vector2) {
     this.post.uniforms.uNear.value = camera.near;
     this.post.uniforms.uFar.value = camera.far;

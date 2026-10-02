@@ -1,7 +1,28 @@
 ---
+import { getCollection } from 'astro:content';
 import IslandShell from '../../components/IslandShell.astro';
+import { site } from '../../data/site';
 import Base from '../../layouts/Base.astro';
+
+const home = Astro.site!.href;
+const posts = (await getCollection('blog')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  '@id': `${home}blog/#blog`,
+  name: `The library · ${site.handle}`,
+  url: `${home}blog/`,
+  inLanguage: 'en',
+  author: { '@type': 'Person', '@id': `${home}#person`, name: site.name, url: home },
+  blogPost: posts.map((p) => ({
+    '@type': 'BlogPosting',
+    '@id': `${home}blog/${p.id}/#post`,
+    headline: p.data.title,
+    url: `${home}blog/${p.id}/`,
+    datePublished: p.data.date.toISOString(),
+  })),
+};
 ---
-<Base title="The library" description="Every post by Vincent Bons on wingedsheep: AI and machine learning experiments, games, music and craft.">
-  <IslandShell />
+<Base title="The library" description="Every post by Vincent Bons on wingedsheep: AI and machine learning experiments, games, music and craft." jsonLd={jsonLd}>
+  <IslandShell open="library" />
 </Base>

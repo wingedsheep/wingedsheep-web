@@ -3,6 +3,7 @@ import type { RiverAssets } from './assets';
 import { CREST_LEAN, type Course, type Gate, type Hole, type Ledge, type Obstacle, type Pickup, type Sample, type Thing, type Tongue, type Train, channel, waveAt } from './course';
 import { type Intent, NEUTRAL } from './controls';
 import { waterAt } from './flow';
+import { TIP } from './limits';
 import { gap } from './outline';
 
 const HULL = [1.45, 0, -1.45]; // collision circles along the hull, from the bow (m)
@@ -29,9 +30,7 @@ const BACKING = 0.8; // backing up, the blade moves this much slower than it doe
 const SPRINT = 3;
 const RECOVER = 7;
 
-/** How far over it can go (radians of roll) before it wants to keep going. */
-export const TIP = 0.95;
-/** …and past this it's over, unless you brace. */
+/** Past TIP it wants to keep going, and past this it's over, unless you brace. */
 const OVER = 1.45;
 /** A brace this far over (and still up) is a perfect one. */
 const PERFECT = 1.0;

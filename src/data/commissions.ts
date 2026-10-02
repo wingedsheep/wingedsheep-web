@@ -46,9 +46,11 @@ export interface CommissionsCopy {
   faqHeading: string;
   faq: { q: string; a: string }[];
   examplesHeading: string;
-  examples: { label: string; href: string; text: string }[];
+  examples: { label: string; href: string; text: string; more?: { label: string; href: string } }[];
   contactHeading: string;
   contact: string;
+  /** the photo beside the contact details */
+  photoAlt: string;
   mailButton: string;
   noscriptMail: string;
   elsewhere: string;
@@ -141,12 +143,13 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     examplesHeading: 'Things I’ve made',
     examples: [
       { label: 'This island', href: '/', text: 'a pixel-art 3D world with a kayak game, seasons and the real weather' },
-      { label: 'Argentum', href: 'https://magic.wingedsheep.com/', text: 'a Magic: The Gathering rules engine and game client' },
+      { label: 'Argentum', href: 'https://magic.wingedsheep.com/', text: 'a Magic: The Gathering rules engine and game client that I worked on with others. It’s roughly 2,600 hours of work so far, which without AI would have taken a team years', more: { label: 'how it was built', href: '/blog/building-argentum-a-magic-the-gathering-rules-engine/' } },
       { label: 'Talespinner', href: 'https://talespinner.io/', text: 'interactive stories spun with AI, that grow as you play' },
       { label: 'The blog', href: '/blog/', text: 'what I’ve learned along the way' },
     ],
     contactHeading: 'Get in touch',
-    contact: 'Tell me what you’d like to make, and roughly when, and I’ll send you a quote. Or we can start with a short call.',
+    contact: 'Tell me what you’d like to make, and roughly when, and I’ll send you a quote. Or we can start with a short call. Or a cup of coffee?',
+    photoAlt: 'Vincent with a cup of coffee, in the sun',
     mailButton: 'Send me an email',
     noscriptMail: 'vincentbons89 (at) gmail (dot) com',
     elsewhere: 'Or find me on',
@@ -236,12 +239,13 @@ export const COMMISSIONS: Record<Lang, CommissionsCopy> = {
     examplesHeading: 'Wat ik heb gemaakt',
     examples: [
       { label: 'Dit eiland', href: '/', text: 'een 3D-wereld in pixelart, met een kajakspel, seizoenen en het echte weer' },
-      { label: 'Argentum', href: 'https://magic.wingedsheep.com/', text: 'een regelengine en spelclient voor Magic: The Gathering' },
+      { label: 'Argentum', href: 'https://magic.wingedsheep.com/', text: 'een regelengine en spelclient voor Magic: The Gathering, waar ik met anderen aan werkte. Het is tot nu toe zo’n 2.600 uur werk, waar een team zonder AI jaren over had gedaan', more: { label: 'hoe het gebouwd is (Engelstalig)', href: '/blog/building-argentum-a-magic-the-gathering-rules-engine/' } },
       { label: 'Talespinner', href: 'https://talespinner.io/', text: 'interactieve verhalen, gesponnen met AI, die groeien terwijl je speelt' },
       { label: 'De blog', href: '/blog/', text: 'wat ik onderweg leer (Engelstalig)' },
     ],
     contactHeading: 'Neem contact op',
-    contact: 'Vertel wat je wilt maken, en ongeveer wanneer, dan stuur ik je een offerte. Of we beginnen met een kort gesprek.',
+    contact: 'Vertel wat je wilt maken, en ongeveer wanneer, dan stuur ik je een offerte. Of we beginnen met een kort gesprek. Of een kop koffie?',
+    photoAlt: 'Vincent met een kop koffie, in de zon',
     mailButton: 'Stuur me een mail',
     noscriptMail: 'vincentbons89 (apenstaartje) gmail (punt) com',
     elsewhere: 'Of vind me op',

@@ -62,6 +62,7 @@ export class Library implements RoomInput {
   /** Fetch the room ahead of time, so the door opens without a wait. */
   load() {
     this.loading ??= Interior.load(this.books)
+      .then((interior) => this.pixels.warm(interior.scene, interior.camera).then(() => interior))
       .then((interior) => {
         this.interior = interior;
         this.ctx.interior = interior;

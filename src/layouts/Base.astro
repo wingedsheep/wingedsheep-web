@@ -35,6 +35,9 @@ const ogImageAlt = 'A pixel-art island at dusk: a lighthouse, a library, a works
     {alternates && Object.entries(alternates).map(([code, path]) => <link rel="alternate" hreflang={code} href={new URL(path, Astro.site)} />)}
     {alternates?.en && <link rel="alternate" hreflang="x-default" href={new URL(alternates.en, Astro.site)} />}
     <meta name="author" content={site.name} />
+    <!-- the text face, fetched with the page rather than once the styles ask for it: it lands before
+         the first paint more often, so the words don't jump when it swaps in -->
+    <link rel="preload" href="/fonts/Newsreader-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

@@ -5,6 +5,7 @@ import { Controls } from './controls';
 import { Course, type Piece, type SetPiece, type Split, type Stretch } from './course';
 import { BOOF_WINDOW, Kayak, LIP_AT, NEEDLE } from './kayak';
 import { Land, type Lamp, flicker, fogAt, highAt } from './land';
+import { FLIP } from './limits';
 import { type Goal, RARE, RIVERS, type Rare, type RiverDef } from './rivers';
 import { waterAt } from './flow';
 import { HIT, outlineOf, reach } from './outline';
@@ -43,7 +44,6 @@ const BOOF = 30;
 const SPIN = 100;
 const BRACE = 25;
 const THREAD = 80;
-export const FLIP = 300;
 /** What getting through each kind of set piece clean is called (the fork's just picking a side). */
 const SETS: Partial<Record<Piece, string>> = {
   slalom: 'Clean slalom!', strainers: 'Through the strainers!', doors: 'Every door!', funnel: 'Threaded the slot!', weir: 'Through the weir!', balls: 'Carved the S!',

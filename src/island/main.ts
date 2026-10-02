@@ -79,6 +79,8 @@ export async function bootIsland(host: HTMLElement) {
   renderer.setPixelRatio(pixelRatioFor(host.clientWidth, host.clientHeight));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  // reading each shader's log waits for it to finish compiling: only worth it while developing
+  renderer.debug.checkShaderErrors = import.meta.env.DEV;
   host.append(renderer.domElement);
 
   const island = await Island.load();
@@ -386,7 +388,11 @@ export async function bootIsland(host: HTMLElement) {
   const clock = new THREE.Clock();
   let notes = 0;
   let hushed = false; // said so, at the start of the fourth of May's silence
+  await pixels.warm(scene, rig.camera); // so the first frame doesn't hold up the page
+  let frame = 0;
   renderer.setAnimationLoop(() => {
+    // behind an open book, dimmed, a third of the frames will do: the page scrolls smoother for it
+    if (ui.reading && frame++ % 3) return;
     const dt = Math.min(clock.getDelta(), 0.1);
     wind.value += dt * (1 + Math.min(weather.wind, 15) / 20); // the grass sways faster on a windy day
     water.uniforms.uTime.value += dt;

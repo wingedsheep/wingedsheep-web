@@ -19,8 +19,10 @@ import RiverTipArt from './RiverTipArt.astro';
 
 interface Props {
   hasArticle?: boolean;
+  /** a panel that's open as the page arrives (/blog/ is the library), there before the island is */
+  open?: 'library';
 }
-const { hasArticle = false } = Astro.props;
+const { hasArticle = false, open } = Astro.props;
 const BrandHeading = hasArticle ? 'p' : 'h1';
 
 // the river game's what-to-do-when, on the start card and the pause card (and one at a time,
@@ -77,7 +79,7 @@ const places = [
 ];
 ---
 <div class="island-page">
-  <div id="island" class="island" aria-label="An island you can explore. Use the places menu to navigate with a keyboard.">
+  <div id="island" class="island" role="region" aria-label="An island you can explore. Use the places menu to navigate with a keyboard.">
     <p class="island-loading">Rowing over…</p>
   </div>
 
@@ -97,7 +99,7 @@ const places = [
   <p class="hint">Drag to explore · scroll to zoom · Q/E to turn · click what looks interesting</p>
 
   <!-- panels ------------------------------------------------------------------------ -->
-  <section class="panel panel-library" data-panel="library" hidden aria-labelledby="library-title">
+  <section class="panel panel-library" data-panel="library" hidden={open !== 'library'} aria-labelledby="library-title">
     <button class="sheet-grip" data-grip aria-label="Fold the catalogue down or up"></button>
     <button class="panel-close" data-close aria-label="Put the catalogue away"><PixelIcon name="close" /></button>
     <h2 id="library-title" tabindex="-1">The library</h2>
@@ -519,10 +521,28 @@ const places = [
 </div>
 
 <script>
-  import { bootIsland } from '../island/main';
   const host = document.getElementById('island')!;
-  bootIsland(host).catch((err) => {
-    console.error(err);
-    host.innerHTML = '<p class="island-loading">The island is hidden in fog. <a href="/plain/">Here is everything in plain text.</a></p>';
+  // the page (and on a post, the book) loads and paints first; the island comes in behind it, so
+  // its download and set-up never hold up the words
+  const loaded = new Promise((done) => (document.readyState === 'complete' ? done(0) : addEventListener('load', done, { once: true })));
+  // (the browser says when it has painted; where it can't, a second is plenty)
+  const painted = new Promise((done) => {
+    if (performance.getEntriesByName('first-contentful-paint').length) return done(0);
+    try {
+      new PerformanceObserver((list, observer) => {
+        if (!list.getEntriesByName('first-contentful-paint').length) return;
+        observer.disconnect();
+        done(0);
+      }).observe({ type: 'paint', buffered: true });
+    } catch {}
+    setTimeout(done, 1000);
   });
+  Promise.all([loaded, painted])
+    .then(() => new Promise((next) => setTimeout(next)))
+    .then(() => import('../island/main'))
+    .then(({ bootIsland }) => bootIsland(host))
+    .catch((err) => {
+      console.error(err);
+      host.innerHTML = '<p class="island-loading">The island is hidden in fog. <a href="/plain/">Here is everything in plain text.</a></p>';
+    });
 </script>

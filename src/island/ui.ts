@@ -32,6 +32,11 @@ export class UI {
   private returnTo: PanelName = 'library';
   private articleCache = new Map<string, Promise<string>>();
 
+  /** Whether a book is open over the island. */
+  get reading() {
+    return this.current?.kind === 'article';
+  }
+
   constructor(private events: UIEvents) {
     for (const btn of $$('[data-close]')) {
       btn.addEventListener('click', (e) => {

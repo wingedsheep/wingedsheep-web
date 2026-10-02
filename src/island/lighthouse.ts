@@ -200,6 +200,7 @@ export class Lighthouse implements RoomInput {
   /** Fetch a floor ahead of time, so the door (or the hatch) opens without a wait. */
   load(floor: Floor = 'quarters') {
     this.loading[floor] ??= (floor === 'lamp' ? LampRoom.load() : QuartersRoom.load())
+      .then((room) => this.pixels.warm(room.scene, room.camera).then(() => room))
       .then((room) => {
         (this.rooms as Record<Floor, Room>)[floor] = room;
         if (room instanceof QuartersRoom) {

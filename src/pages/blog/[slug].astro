@@ -2,6 +2,7 @@
 import 'katex/dist/katex.min.css';
 import { getCollection, render } from 'astro:content';
 import IslandShell from '../../components/IslandShell.astro';
+import { size } from '../../lib/rehype-pages.mjs';
 import { projects } from '../../data/projects';
 import { SUBJECTS, spineColor } from '../../data/subjects';
 import { site } from '../../data/site';
@@ -27,19 +28,43 @@ const ownContents = ((post.body ?? '').match(/\]\(#/g) ?? []).length >= 3;
 const contents = ownContents ? [] : headings.filter((h) => h.depth === 2);
 const subject = SUBJECTS[post.data.shelf];
 const url = new URL(`/blog/${post.id}/`, Astro.site).href;
+const home = Astro.site!.href;
+// the cover's real size: the image keeps its place as it loads, and search engines get it too
+const coverSize = post.data.cover ? size(post.data.cover) : null;
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'BlogPosting',
-  headline: post.data.title,
-  description: post.data.excerpt,
-  datePublished: post.data.date.toISOString(),
-  url,
-  mainEntityOfPage: url,
-  image: new URL(post.data.cover ?? '/og.png', Astro.site).href,
-  keywords: post.data.tags.join(', ') || undefined,
-  articleSection: subject.name,
-  wordCount: words,
-  author: { '@type': 'Person', '@id': `${Astro.site!.href}#person`, name: site.name, url: Astro.site!.href },
+  '@graph': [
+    {
+      '@type': 'BlogPosting',
+      '@id': `${url}#post`,
+      headline: post.data.title,
+      description: post.data.excerpt,
+      datePublished: post.data.date.toISOString(),
+      inLanguage: 'en',
+      url,
+      mainEntityOfPage: url,
+      image: {
+        '@type': 'ImageObject',
+        url: new URL(post.data.cover ?? '/og.png', Astro.site).href,
+        ...(post.data.cover ? coverSize && { width: coverSize[0], height: coverSize[1] } : { width: 1200, height: 630 }),
+      },
+      keywords: post.data.tags.join(', ') || undefined,
+      articleSection: subject.name,
+      wordCount: words,
+      timeRequired: `PT${minutes}M`,
+      author: { '@type': 'Person', '@id': `${home}#person`, name: site.name, url: home },
+      publisher: { '@id': `${home}#person` },
+      isPartOf: { '@type': 'Blog', '@id': `${home}blog/#blog`, name: `The library · ${site.handle}`, url: `${home}blog/` },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: site.handle, item: home },
+        { '@type': 'ListItem', position: 2, name: 'The library', item: `${home}blog/` },
+        { '@type': 'ListItem', position: 3, name: post.data.title },
+      ],
+    },
+  ],
 };
 // a post that tells a project's story links to the project itself
 const project = projects.find((p) => p.post === post.id);
@@ -66,7 +91,7 @@ const out = (href: string) => (href.startsWith('http') ? { target: '_blank', rel
         {project.source && project.source !== project.href && <a href={project.source} {...out(project.source)}>Source ↗</a>}
       </aside>
     )}
-    {post.data.cover && <figure class="article-cover"><img src={post.data.cover} alt="" /></figure>}
+    {post.data.cover && <figure class="article-cover"><img src={post.data.cover} alt="" width={coverSize?.[0]} height={coverSize?.[1]} fetchpriority="high" /></figure>}
     {contents.length >= 3 && (
       <nav class="article-contents" aria-label="Contents">
         <p class="article-contents-title">In this book</p>

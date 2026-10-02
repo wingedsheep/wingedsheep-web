@@ -27,9 +27,14 @@ export default defineConfig({
   site: 'https://wingedsheep.com',
   server: phone ? { host: true } : {},
   vite: {
+    // the island's code is imported only once the page has loaded, so Vite would find three.js
+    // late, re-bundle it mid-visit and fail that import ("Outdated Optimize Dep"): bundle it up front
+    optimizeDeps: { include: ['three', 'three/examples/jsm/loaders/GLTFLoader.js'] },
     define: { __MODELS__: JSON.stringify(models.digest('hex').slice(0, 12)) },
     ...(phone && { server: { https: { key: readFileSync('.cert/key.pem'), cert: readFileSync('.cert/cert.pem') } } }),
   },
+  // the styles go in the page itself: one request fewer before anything can be drawn
+  build: { inlineStylesheets: 'always' },
   redirects: { ...legacyRedirects, '/rss': '/rss.xml' },
   markdown: {
     remarkPlugins: [[remarkMath, { singleDollarTextMath: false }]],

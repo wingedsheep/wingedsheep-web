@@ -1,12 +1,13 @@
 // Laying out a post's pictures at build time:
 // - every local image gets its real width and height, so the page keeps its shape while lazy
 //   images load (and a jump from the contents lands on the heading, not where it was);
+// - every image loads lazily, once it nears the screen;
 // - three or more pictures in a row, with no text between them, become one gallery.
 import { readFileSync } from 'node:fs';
 import { raw } from 'hast-util-raw';
 
 /** The pixel size of a webp, png, gif or jpeg in public/, or null if it can't be read. */
-function size(src) {
+export function size(src) {
   let b;
   try {
     b = readFileSync(`./public${decodeURIComponent(src.split(/[?#]/)[0])}`);
@@ -54,6 +55,10 @@ function isPicture(n) {
 }
 
 function measure(n) {
+  if (isElement(n, 'img')) {
+    n.properties.loading ??= 'lazy';
+    n.properties.decoding ??= 'async';
+  }
   if (isElement(n, 'img') && n.properties.src?.startsWith('/') && n.properties.width == null) {
     const wh = size(n.properties.src);
     if (wh) [n.properties.width, n.properties.height] = wh;

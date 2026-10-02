@@ -21,6 +21,8 @@ const mail = [...'vincentbons89@gmail.com'].map((c) => c.charCodeAt(0) + 7).join
 
 const film = t.offers.find((o) => o.film)?.film;
 const ogImage = '/work/og-house.jpg';
+// LinkedIn and GitHub, up top for anyone checking who they'd be working with
+const profiles = site.links.filter((l) => l.label === 'LinkedIn' || l.label === 'GitHub');
 const abs = (path: string) => new URL(path, Astro.site).href;
 
 const jsonLd = {
@@ -110,7 +112,10 @@ const jsonLd = {
   <main class="plain commissions">
     <p class="commissions-nav">
       <a href="/">{t.back}</a>
-      <a href={COMMISSION_PATHS[other]} hreflang={other} lang={other}>{t.otherLanguage}</a>
+      <span class="commissions-elsewhere">
+        {profiles.map((l) => <a href={l.href} rel="me noopener">{l.label}</a>)}
+        <a href={COMMISSION_PATHS[other]} hreflang={other} lang={other}>{t.otherLanguage}</a>
+      </span>
     </p>
     <h1>{t.heading}</h1>
     {t.lede.map((p) => <p class="commissions-lede">{p}</p>)}
@@ -157,19 +162,24 @@ const jsonLd = {
 
     <h2>{t.examplesHeading}</h2>
     <ul class="commissions-examples">
-      {t.examples.map((e) => <li><a href={e.href}>{e.label}</a>: {e.text}</li>)}
+      {t.examples.map((e) => <li><a href={e.href}>{e.label}</a>: {e.text}{e.more && <> (<a href={e.more.href}>{e.more.label}</a>)</>}</li>)}
     </ul>
 
     <h2 id="contact">{t.contactHeading}</h2>
-    <p>{t.contact}</p>
-    <p class="mail-line">
-      <a class="exhibit-btn mail-btn" data-mail={mail} hidden>{t.mailButton}</a>
-      <span class="mail-address" data-mail-address></span>
-    </p>
-    <noscript><p>{t.noscriptMail}</p></noscript>
-    <p>{t.elsewhere} {site.links.filter((l) => l.href.startsWith('http')).map((l, i, all) => (
-      <><a href={l.href} rel="me noopener">{l.label}</a>{i < all.length - 2 ? ', ' : i === all.length - 2 ? (lang === 'nl' ? ' of ' : ' or ') : '.'}</>
-    ))}</p>
+    <div class="contact">
+      <img class="contact-photo" src="/work/coffee.webp" width="480" height="640" alt={t.photoAlt} loading="lazy" decoding="async" />
+      <div>
+        <p>{t.contact}</p>
+        <p class="mail-line">
+          <a class="exhibit-btn mail-btn" data-mail={mail} hidden>{t.mailButton}</a>
+          <span class="mail-address" data-mail-address></span>
+        </p>
+        <noscript><p>{t.noscriptMail}</p></noscript>
+        <p>{t.elsewhere} {site.links.filter((l) => l.href.startsWith('http')).map((l, i, all) => (
+          <><a href={l.href} rel="me noopener">{l.label}</a>{i < all.length - 2 ? ', ' : i === all.length - 2 ? (lang === 'nl' ? ' of ' : ' or ') : '.'}</>
+        ))}</p>
+      </div>
+    </div>
     <p class="commissions-company">{t.registration} {KVK}</p>
   </main>
 </Base>

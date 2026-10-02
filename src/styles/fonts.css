@@ -1,4 +1,5 @@
-/* Self-hosted Google Fonts (OFL), latin subset. */
+/* Self-hosted Google Fonts (OFL), latin subset. Newsreader upright keeps only the weights used
+   (400–600; fontTools varLib.instancer), which takes a third off it. */
 @font-face {
   font-family: 'Pixelify Sans';
   font-style: normal;

@@ -82,6 +82,7 @@ export class Trail implements RoomInput {
     let p = this.loading.get(c.id);
     if (!p) {
       p = Diorama.load(c.id)
+        .then((room) => this.pixels.warm(room.scene, room.camera).then(() => room))
         .then((room) => {
           room.onSound = (name) => this.showingId === c.id && this.ctx.sound.here(name);
           this.rooms.set(c.id, room);
