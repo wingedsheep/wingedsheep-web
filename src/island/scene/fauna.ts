@@ -1282,6 +1282,8 @@ class Whale {
   private heading = 0;
   private breach = false;
   private blown = 0;
+  private speed = 1.1;
+  private dist = 0;
   onBlow?: (at: THREE.Vector3) => void;
   onSplash?: () => void;
 
@@ -1300,6 +1302,8 @@ class Whale {
       if (this.wait > 0) return;
       this.t = 0;
       this.blown = 0;
+      this.speed = 1.1;
+      this.dist = 0;
       this.at.copy(pick(this.spots));
       // swimming along the coast, not away from it
       this.heading = headingOf(-this.at.z, this.at.x) + (chance(0.5) ? Math.PI : 0) + rand(-0.3, 0.3);
@@ -1308,41 +1312,48 @@ class Whale {
     }
     this.t += dt;
     const t = this.t;
+    const ss = THREE.MathUtils.smoothstep;
     const fwd = V(Math.cos(this.heading), 0, -Math.sin(this.heading));
-    let y = -0.5;
-    let pitch = 0;
+    // up from below, easing to a stop, then lolling at the surface with a gentle swell
+    let y = -3.5 + 3 * (1 - (1 - Math.min(1, t / 3)) ** 2) + Math.sin(t * 0.9) * 0.06 * ss(t, 1, 3);
+    let pitch = Math.sin(Math.min(1, t / 3) * Math.PI) * 0.12; // nose up a little as it comes up
     let roll = Math.sin(t * 0.4) * 0.05;
     let fluke = 0;
-    if (t < 3) y = -3.5 + (t / 3) * 3;
     const blowAt = [3, 9];
     if (this.blown < blowAt.length && t > blowAt[this.blown]) {
       this.blown++;
       this.blow();
     }
-    if (this.breach && t > 11 && t < 16) {
-      // up out of the sea, twisting, and down on its side with an almighty splash
-      const k = (t - 11) / 5;
-      y = -3 + Math.sin(Math.min(1, k * 1.25) * Math.PI) * 7 * (k < 0.8 ? 1 : 1);
-      pitch = 1.3 - k * 1.6;
-      roll = k * 1.6;
-      if (k > 0.72 && k - dt / 5 <= 0.72) {
+    if (this.breach && t > 11) {
+      // down out of sight, swinging nose up, then up out of the sea, twisting, and down on its
+      // side with an almighty splash
+      const d = ss(t, 11, 13);
+      const up = clamp((t - 13) / 3.5, 0, 1);
+      y += -3 * d;
+      pitch += -0.5 * Math.sin(Math.min(1, (t - 11) / 1.2) * Math.PI) * (t < 12.2 ? 1 : 0) + 1.3 * ss(t, 12, 13) - 1.7 * up;
+      roll += 1.6 * ss(up, 0, 0.7);
+      if (t > 13) y += Math.sin(up * Math.PI) * 7.5 - Math.max(0, t - 16.5) * 2;
+      const was = this.body.root.position.y;
+      if (t > 14 && was > -0.4 && y <= -0.4) {
         splash(this.particles, this.body.root.position.clone(), 6);
         this.onSplash?.();
       }
     } else if (t > 11) {
-      // the dive: back arching over, then the flukes lifted clear
-      const k = Math.min(1, (t - 11) / 5);
-      pitch = -k * 0.9;
-      y = -0.5 - k * 1.4;
-      fluke = Math.sin(k * Math.PI) * 1.1;
+      // the dive: back arching over, the flukes lifted clear, and down
+      const k = (t - 11) / 6.5;
+      pitch += -0.9 * ss(k, 0, 0.6);
+      y += -4.5 * k * k;
+      fluke = Math.sin(ss(k, 0.1, 0.85) * Math.PI) * 1.1;
     }
-    const moveK = this.breach && t > 11 ? 0.3 : 1;
+    // it slows right down for a breach, gradually, not all at once
+    this.speed = damp(this.speed, this.breach && t > 11 ? 0.3 : 1.1, 1.5, dt);
+    this.dist += this.speed * dt;
     b.relax();
-    b.root.position.copy(this.at).addScaledVector(fwd, t * 1.1 * moveK).setY(y);
+    b.root.position.copy(this.at).addScaledVector(fwd, this.dist).setY(y);
     orient(b.root, this.heading, pitch, roll);
     const tail = b.part('tail');
     if (tail) tail.rotation.z -= fluke + Math.sin(t * 0.8) * 0.08; // negative lifts it (the tail points along -x)
-    if (t > 17.5) {
+    if (t > (this.breach ? 18 : 17.5)) {
       b.hide();
       this.t = -1;
       this.wait = rand(300, 600);
