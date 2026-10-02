@@ -534,7 +534,7 @@ A lot of cherry picking was still required to fit all the music together. And on
 
 "Quantum Trap" is the result of the hard work of our team and I'm really proud of the song we created!
 
-<iframe width="267" height="200" src="https://www.youtube.com/embed/KmK5788gixo?feature=oembed" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe>
+<iframe width="356" height="200" src="https://www.youtube.com/embed/YSn5pBdFjS4?feature=oembed" title="Lovelace &amp; The Machines - Quantum Trap (AI Song Contest 2021)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe>
 
 ## Follow-up
 
