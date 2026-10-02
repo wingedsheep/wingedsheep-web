@@ -25,6 +25,8 @@ export class UI {
   private articleBody = $('#article-body')!;
   private articleBack = $('.book-back')!;
   private sketch = $('#sketch')!;
+  /** Whether the last press on a zoomed-in picture dragged it, rather than clicked it. */
+  private dragged = false;
   private stowed = $('#stowed')!;
   private reader = new Reader(this.article);
   private current: Open = null;
@@ -51,13 +53,19 @@ export class UI {
       if (!this.sketch.hidden) this.sketch.hidden = true;
       else this.back();
     });
-    this.sketch.addEventListener('click', () => (this.sketch.hidden = true));
-    // a picture in one of a book's galleries is held up larger
+    this.sketch.addEventListener('click', (e) => {
+      if (this.dragged) return;
+      if (this.sketch.classList.contains('zoomed')) this.sketch.classList.remove('zoomed');
+      else if (this.sketch.classList.contains('zoomable') && e.target instanceof HTMLImageElement) this.zoomIn(e);
+      else this.sketch.hidden = true;
+    });
+    this.panWithMouse();
+    // a picture in one of a book's galleries is held up larger; a big one (data-zoom) can be looked into
     this.articleBody.addEventListener('click', (e) => {
-      const img = (e.target as Element).closest<HTMLImageElement>('.gallery img');
+      const img = (e.target as Element).closest<HTMLImageElement>('.gallery img, img[data-zoom]');
       if (!img) return;
       const caption = img.closest('figure')?.querySelector('figcaption')?.textContent?.trim();
-      this.showDrawing(img.currentSrc || img.src, caption || img.alt, true);
+      this.showDrawing(img.currentSrc || img.src, caption || img.alt, true, img.dataset.zoom);
     });
 
     // books in the library open in place, without a page load
@@ -210,9 +218,16 @@ export class UI {
 
   /** Hold up a drawing or painting over whatever is on screen; a click or Escape puts it down again.
    *  A photo is shown at up to its own size, smoothly, where a drawing is blown up in crisp pixels. */
-  showDrawing(src: string, alt: string, photo = false) {
+  /**
+   * Hold a picture up over everything. With `zoom` it can be looked into: a click zooms in on
+   * that spot, to `zoom` CSS pixels wide (or the picture's own width when it's empty).
+   */
+  showDrawing(src: string, alt: string, photo = false, zoom?: string) {
     const img = $<HTMLImageElement>('img', this.sketch)!;
     this.sketch.classList.toggle('photo', photo);
+    this.sketch.classList.toggle('zoomable', zoom !== undefined);
+    this.sketch.classList.remove('zoomed');
+    img.style.setProperty('--zoom', zoom || '');
     img.src = src;
     img.alt = alt;
     this.sketch.setAttribute('aria-label', alt);
@@ -223,6 +238,41 @@ export class UI {
       img.style.setProperty('--h', String(img.naturalHeight || 1));
       this.sketch.hidden = false;
     });
+  }
+
+  /** Zoom a held-up picture in on the clicked spot, keeping that spot under the pointer. */
+  private zoomIn(e: MouseEvent) {
+    const img = e.target as HTMLImageElement;
+    const r = img.getBoundingClientRect();
+    const fx = (e.clientX - r.left) / r.width;
+    const fy = (e.clientY - r.top) / r.height;
+    this.sketch.classList.add('zoomed');
+    img.style.setProperty('--zoom', img.style.getPropertyValue('--zoom') || String(img.naturalWidth));
+    this.sketch.scrollLeft = fx * img.offsetWidth - e.clientX;
+    this.sketch.scrollTop = fy * img.offsetHeight - e.clientY;
+  }
+
+  /** Drag a zoomed-in picture around with the mouse (touch scrolls it natively). */
+  private panWithMouse() {
+    let last: { x: number; y: number } | null = null;
+    this.sketch.addEventListener('pointerdown', (e) => {
+      this.dragged = false;
+      if (e.pointerType !== 'mouse' || !this.sketch.classList.contains('zoomed')) return;
+      last = { x: e.clientX, y: e.clientY };
+      this.sketch.setPointerCapture(e.pointerId);
+    });
+    this.sketch.addEventListener('pointermove', (e) => {
+      if (!last) return;
+      const dx = e.clientX - last.x;
+      const dy = e.clientY - last.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) this.dragged = true;
+      this.sketch.scrollLeft -= dx;
+      this.sketch.scrollTop -= dy;
+      last = { x: e.clientX, y: e.clientY };
+    });
+    const end = () => (last = null);
+    this.sketch.addEventListener('pointerup', end);
+    this.sketch.addEventListener('pointercancel', end);
   }
 
   private showArticle(slug: string) {

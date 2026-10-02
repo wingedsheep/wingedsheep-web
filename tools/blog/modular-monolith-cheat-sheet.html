@@ -1,0 +1,331 @@
+<!doctype html>
+<!--
+  Cheat sheet for src/content/blog/building-a-modular-monolith.md.
+  Render: just figures
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="render" content="public/blog/building-a-modular-monolith/image-64.webp 2800 1900">
+<title>Modular Monolith Cheat Sheet</title>
+<style>
+  :root {
+    --paper: #f6f0e3;
+    --card: #fffdf8;
+    --ink: #2b2620;
+    --muted: #6f665a;
+    --line: #e4dccb;
+    --accent: #2f6f73;
+    --code: #f1ebdd;
+    --never: #b4533c;
+    --never-bg: #f8e6df;
+    --rule-bg: #e3efe9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 2800px;
+    padding: 48px 56px 56px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 17px/1.45 "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 32px; }
+  h1 { font: 700 40px/1.1 Georgia, "Times New Roman", serif; letter-spacing: -0.5px; }
+  header p { color: var(--muted); font-size: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 28px; }
+  section { background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 22px 24px 24px; }
+  h2 {
+    font: 700 15px/1 "Inter", "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 1.4px; text-transform: uppercase; color: var(--accent);
+    padding-bottom: 12px; margin-bottom: 14px; border-bottom: 2px solid var(--line);
+  }
+  h3 { font-size: 16px; font-weight: 700; margin: 16px 0 6px; }
+  h2 + h3 { margin-top: 0; }
+  p, li { font-size: 16px; }
+  ul { padding-left: 20px; }
+  li + li { margin-top: 3px; }
+  pre {
+    background: var(--code); border-radius: 8px; padding: 12px 14px; margin-top: 6px;
+    font: 14px/1.5 "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; white-space: pre;
+  }
+  code { font: 14.5px "JetBrains Mono", "SF Mono", Menlo, monospace; background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  pre .c { color: var(--muted); }
+  pre .k { color: var(--accent); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 6px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .never, .rule { margin-top: 12px; padding: 9px 12px; border-radius: 8px; font-size: 15px; }
+  .never { background: var(--never-bg); border-left: 4px solid var(--never); }
+  .rule { background: var(--rule-bg); border-left: 4px solid var(--accent); }
+  .never b { color: var(--never); }
+  .rule b { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Modular Monolith Cheat Sheet</h1>
+  <p>Kotlin + Spring Boot 4 · Spring Modulith 2 · kotlin-result</p>
+</header>
+
+<div class="grid">
+
+<!-- ───────── Column 1: structure and data ───────── -->
+<div class="col">
+  <section>
+    <h2>Module Structure</h2>
+<pre>products/
+├── products-api/    <span class="c"># public contract</span>
+└── products-impl/   <span class="c"># everything else, internal</span></pre>
+    <h3>Dependency rules</h3>
+    <table>
+      <tr><th>From</th><th>May depend on</th></tr>
+      <tr><td><code>x-impl</code></td><td>own <code>-api</code>, other <code>-api</code>s, <code>common</code></td></tr>
+      <tr><td><code>x-api</code></td><td>lower-level <code>-api</code>s, <code>common</code></td></tr>
+      <tr><td><code>testFixtures</code></td><td>same rules as main code</td></tr>
+      <tr><td><code>application</code></td><td>all <code>-impl</code> modules</td></tr>
+    </table>
+    <div class="never"><b>Never:</b> <code>-impl</code> → other <code>-impl</code>, <code>-api</code> → <code>-impl</code>, cycles.</div>
+    <div class="rule"><b>Arrows point down.</b> Foundations (Products, Users) know nothing above them. Need to go up? Event or SPI.</div>
+  </section>
+
+  <section>
+    <h2>What Lives Where</h2>
+    <h3><code>-api</code> (public)</h3>
+    <ul>
+      <li>Service interfaces: <code>ProductServiceApi</code></li>
+      <li>DTOs and value types: <code>ProductDto</code>, <code>ProductId</code></li>
+      <li>Events: <code>ProductRenamedEvent</code></li>
+      <li>Sealed errors: <code>ProductError</code></li>
+      <li>SPIs: <code>ProductDeletionBlocker</code></li>
+      <li>testFixtures: builders, <code>FakeProductService</code>, contract tests</li>
+    </ul>
+    <h3><code>-impl</code> (internal)</h3>
+    <ul>
+      <li>Domain model with behavior: <code>Product</code>, <code>Money</code></li>
+      <li>Service implementations, handlers</li>
+      <li>Persistence, migrations, controllers, listeners</li>
+    </ul>
+    <h3><code>common</code> (shared kernel)</h3>
+    <ul>
+      <li>A few stable types: <code>Money</code>, <code>Email</code>, the Result setup</li>
+      <li>No business logic, no types owned by one module</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Data Isolation</h2>
+<pre><span class="k">CREATE SCHEMA</span> shipping;
+<span class="k">CREATE ROLE</span> shipping_module <span class="k">LOGIN</span>;
+<span class="k">GRANT USAGE ON SCHEMA</span> shipping <span class="k">TO</span> shipping_module;
+<span class="k">GRANT</span> SELECT, INSERT, UPDATE, DELETE
+  <span class="k">ON ALL TABLES IN SCHEMA</span> shipping <span class="k">TO</span> shipping_module;
+
+<span class="k">CREATE TABLE</span> shipping.shipment (
+  id           VARCHAR(255) PRIMARY KEY,
+  product_id   VARCHAR(255) NOT NULL, <span class="c">-- no FK</span>
+  weight_grams INT NOT NULL           <span class="c">-- copied</span>
+);</pre>
+    <div class="never"><b>Never:</b> cross-schema joins, writes or foreign keys.</div>
+    <div class="rule"><b>Run module tests as the module's role:</b> a stray join fails in CI.</div>
+  </section>
+</div>
+
+<!-- ───────── Column 2: communication ───────── -->
+<div class="col">
+  <section>
+    <h2>Synchronous Calls</h2>
+<pre><span class="k">val</span> product = productService.getProduct(id)
+    .getOrElse { <span class="k">return</span> Err(ShipmentError.ProductNotFound(id)) }</pre>
+    <h3>Translate at the boundary</h3>
+<pre><span class="k">internal class</span> ProductAdapter(
+    <span class="k">private val</span> productService: ProductServiceApi,
+) {
+    <span class="k">fun</span> getShippableItem(id: ProductId): ShippableItem? {
+        <span class="k">val</span> dto = productService.getProduct(id).get() ?: <span class="k">return null</span>
+        <span class="k">return</span> ShippableItem(id, dto.weightGrams, ...)
+    }
+}</pre>
+    <div class="rule"><b>Keep chains short</b> (one or two hops) and keep <b>one module per transaction</b>.</div>
+  </section>
+
+  <section>
+    <h2>Cross-Module Queries</h2>
+    <h3>Batch, then join in memory</h3>
+<pre><span class="k">val</span> orders = orderService.getOrders(ids)
+<span class="k">val</span> products = productService
+    .getProducts(orders.map { it.productId }.distinct())
+    .associateBy { it.id }
+orders.map { OrderSummary(it, products[it.productId]) }</pre>
+    <h3>Sorted or paged by foreign data? Read model</h3>
+<pre><span class="c">// orders-impl: keeps orders.product_name up to date</span>
+<span class="k">@ApplicationModuleListener</span>
+<span class="k">fun</span> on(event: ProductRenamedEvent) {
+    productNames.upsert(event.productId, event.newName)
+}</pre>
+    <div class="rule"><b>History?</b> Copy at write time: an order keeps the price it was sold at.</div>
+  </section>
+
+  <section>
+    <h2>Events</h2>
+<pre><span class="c">// payment-api</span>
+<span class="k">data class</span> PaymentCompletedEvent(
+    <span class="k">val</span> paymentId: String,
+    <span class="k">val</span> orderReference: String,
+    <span class="k">val</span> amountInCents: Long,
+)
+
+<span class="c">// publisher, inside its @Transactional method</span>
+eventPublisher.publishEvent(PaymentCompletedEvent(...))
+
+<span class="c">// shipping-impl</span>
+<span class="k">@ApplicationModuleListener</span>  <span class="c">// after commit, async, own tx</span>
+<span class="k">fun</span> on(event: PaymentCompletedEvent) {
+    <span class="k">val</span> order = OrderReference(event.orderReference)
+    shipmentService.startFulfillment(order)
+}</pre>
+    <h3>Persist them: the registry is your outbox</h3>
+<pre>implementation(
+    <span class="k">"org.springframework.modulith:spring-modulith-starter-jdbc"</span>
+)
+spring.modulith.events.republish-outstanding-events-on-restart=<span class="k">true</span></pre>
+    <ul style="margin-top:10px">
+      <li>At-least-once delivery: make listeners <b>idempotent</b></li>
+      <li>Events are stored contracts: add fields with defaults, never rename</li>
+    </ul>
+    <div class="never"><b>Never:</b> a bare <code>@TransactionalEventListener</code> that writes. It runs on the caller's thread and its writes are lost.</div>
+  </section>
+</div>
+
+<!-- ───────── Column 3: errors, validation, SPI ───────── -->
+<div class="col">
+  <section>
+    <h2>Errors as Values</h2>
+<pre><span class="c">// products-api</span>
+<span class="k">sealed interface</span> ProductError {
+    <span class="k">data class</span> NotFound(<span class="k">val</span> id: ProductId) : ProductError
+    <span class="k">data class</span> InvalidData(<span class="k">val</span> reason: String) : ProductError
+    <span class="k">data object</span> DuplicateName : ProductError
+    <span class="k">data object</span> DeletionBlocked : ProductError
+}
+
+<span class="k">interface</span> ProductServiceApi {
+    <span class="k">fun</span> getProduct(id: ProductId): Result&lt;ProductDto, ProductError&gt;
+}</pre>
+    <h3>To HTTP, at the controller</h3>
+<pre><span class="k">@GetMapping</span>(<span class="k">"/products/{id}"</span>)
+<span class="k">fun</span> getProduct(<span class="k">@PathVariable</span> id: ProductId): ProductDto =
+    productService.getProduct(id)
+        .getOrElse { <span class="k">throw</span> it.toResponseStatusException() }
+
+<span class="k">private fun</span> ProductError.toResponseStatusException() = <span class="k">when</span> (<span class="k">this</span>) {
+    <span class="k">is</span> NotFound    -&gt; ResponseStatusException(NOT_FOUND)
+    <span class="k">is</span> InvalidData -&gt; ResponseStatusException(BAD_REQUEST, reason)
+    DuplicateName   -&gt; ResponseStatusException(CONFLICT)
+    DeletionBlocked -&gt; ResponseStatusException(CONFLICT)
+}  <span class="c">// no else: a new error won't compile until it's mapped</span></pre>
+    <div class="rule"><b>Result</b> if the caller can act on it. <b>Throw</b> if the operation should abort.</div>
+  </section>
+
+  <section>
+    <h2>Validation</h2>
+    <table>
+      <tr><th>Kind</th><th>Example</th><th>Where</th></tr>
+      <tr><td>Structural</td><td>quantity &gt; 0, name not blank</td><td><code>require</code> in <code>-api</code> init</td></tr>
+      <tr><td>Business / volatile</td><td>name ≤ 200, email unique</td><td>service → <code>Err(...)</code></td></tr>
+      <tr><td>Invariant</td><td>state the code must never create</td><td><code>check</code> in domain</td></tr>
+    </table>
+<pre><span class="k">data class</span> OrderItemDto(<span class="k">val</span> productId: String, <span class="k">val</span> quantity: Int) {
+    <span class="k">init</span> {
+        require(productId.isNotBlank()) { <span class="k">"Product ID is required"</span> }
+        require(quantity &gt; 0) { <span class="k">"Quantity must be positive"</span> }
+    }
+}</pre>
+    <ul style="margin-top:10px">
+      <li><code>require</code> → 400. <code>check</code> → 500, it's a bug</li>
+      <li>Handle <code>HttpMessageNotReadableException</code>: Jackson wraps the <code>IllegalArgumentException</code></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>SPI: Ask Without Knowing</h2>
+<pre><span class="c">// products-api/spi</span>
+<span class="k">interface</span> ProductDeletionBlocker {
+    <span class="k">fun</span> canDelete(productId: ProductId): Boolean
+}
+
+<span class="c">// orders-impl implements it; products-impl collects them all</span>
+<span class="k">private val</span> deletionBlockers: List&lt;ProductDeletionBlocker&gt;
+
+<span class="k">if</span> (deletionBlockers.any { !it.canDelete(id) }) {
+    <span class="k">return</span> Err(ProductError.DeletionBlocked)
+}</pre>
+  </section>
+</div>
+
+<!-- ───────── Column 4: testing, assembly, agents ───────── -->
+<div class="col">
+  <section>
+    <h2>Testing</h2>
+    <table>
+      <tr><th>Level</th><th>Scope</th><th>Other modules</th></tr>
+      <tr><td>Unit</td><td>domain logic</td><td>none</td></tr>
+      <tr><td>Repository</td><td>complex SQL, Testcontainers</td><td>none</td></tr>
+      <tr><td><b>Module</b></td><td>one module, real DB</td><td>fakes</td></tr>
+      <tr><td>Application</td><td>critical journeys only</td><td>real</td></tr>
+    </table>
+    <h3>Fake + contract, shipped in <code>-api</code> testFixtures</h3>
+<pre><span class="k">abstract class</span> ProductServiceContract {
+    <span class="k">abstract val</span> service: ProductServiceApi
+    <span class="k">abstract fun</span> givenProduct(product: ProductDto)
+
+    <span class="k">@Test</span>
+    <span class="k">fun</span> `returns NotFound for an unknown id`() {
+        <span class="k">val</span> id = ProductId(<span class="k">"unknown"</span>)
+        assertThat(service.getProduct(id).getError())
+            .isEqualTo(ProductError.NotFound(id))
+    }
+}
+<span class="c">// runs against FakeProductService and ProductServiceImpl</span></pre>
+    <div class="rule"><b>Test behavior, not calls.</b> Builders with defaults:<br><code>buildProductDto(weightGrams = 500)</code></div>
+  </section>
+
+  <section>
+    <h2>Putting It Together</h2>
+<pre>project-root/
+├── build-logic/      <span class="c"># conventions, module validation</span>
+├── common/           <span class="c"># shared kernel</span>
+├── products/
+│   ├── products-api/
+│   └── products-impl/
+├── orders/, shipping/, ...  <span class="c"># same shape</span>
+└── application/      <span class="c"># composition root, all -impl</span></pre>
+<pre><span class="c">// application/build.gradle.kts</span>
+implementation(project(<span class="k">":products:products-impl"</span>))
+implementation(project(<span class="k">":orders:orders-impl"</span>))
+<span class="c">// ./gradlew :application:bootJar → one JAR</span></pre>
+    <ul style="margin-top:10px">
+      <li>Module name in logs and metrics</li>
+      <li>Separate executors for heavy listeners</li>
+      <li>Timeouts on everything shared</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>With Coding Agents</h2>
+    <ul>
+      <li>One module + the <code>-api</code>s it uses fits in a context window</li>
+      <li>Every rule the build checks is feedback the agent fixes itself</li>
+      <li>Fast per-module checks: <code>./gradlew :orders:orders-impl:check</code></li>
+      <li>An <code>AGENTS.md</code> per module: what it owns, publishes, listens to, its invariants</li>
+      <li>Build files and validation rules under <code>CODEOWNERS</code></li>
+      <li>Humans review the seams: <code>-api</code>, events, migrations, new dependencies</li>
+    </ul>
+    <div class="never"><b>Never</b> let an agent "fix" a boundary violation by adding a dependency.</div>
+  </section>
+</div>
+
+</div>
+</body>
+</html>

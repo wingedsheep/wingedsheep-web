@@ -82,6 +82,10 @@ sounds *names:
 door-sounds:
     python3 tools/sounds/doors.py
 
+# render the blog figures drawn in HTML (tools/blog/*.html) to WebP
+figures:
+    sh tools/blog/render.sh
+
 # typecheck
 check:
     npx astro check

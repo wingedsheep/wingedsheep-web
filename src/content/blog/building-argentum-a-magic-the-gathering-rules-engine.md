@@ -7,6 +7,8 @@ cover: "/blog/building-argentum-a-magic-the-gathering-rules-engine/cover.webp"
 shelf: games
 ---
 
+> ***Update, 2 October 2026:*** *This post is about the first two weeks. Eight months later, Argentum is a lot bigger, and I'm no longer building it alone. [Where it stands now](#where-it-stands-now-october-2026).*
+
 It started with a friend mentioning it would be fun to run draft tournaments online. MTG Arena doesn't support private tournaments—you can play against each other, but organizing an actual draft pod with friends and running a bracket? Not happening.
 
 So I figured: how hard could it be?
@@ -208,5 +210,72 @@ Because I like challenges and I like playing Magic. The comprehensive rules are 
 Without AI assistance, this would have stayed on my "someday" list forever. Instead, it's live. The layer system handles Humility correctly. Triggered abilities fire in the right order. You can actually draft with friends.
 
 The engine is open source at [github.com/wingedsheep/argentum-engine](https://github.com/wingedsheep/argentum-engine). Play at [magic.wingedsheep.com](https://magic.wingedsheep.com/).
+
+## Where it stands now (October 2026)
+
+When I wrote this post, Argentum had Portal and the start of Onslaught: 231 cards. Eight months later:
+
+| | February 2026 | October 2026 |
+|---|---|---|
+| Distinct cards | 231 | about 14,500 |
+| Complete sets | 1 | 39 |
+| Production code | about 81,000 lines | about 1.37 million lines |
+| Tests | about 400 | about 21,600 |
+| Commits | 468 | 14,400 |
+| Contributors | 1 | 13 |
+
+<figure class="chart" role="img" aria-label="Lines of production code per part, February and October 2026">
+<div class="chart-key"><span><i style="--key:var(--page-ink)"></i>February</span><span><i style="--key:var(--page-accent)"></i>October</span></div>
+<div class="bars">
+<span>Card sets</span><span class="bar" style="--now:1.000;--then:0.009" title="Card sets: 7.9k in February, 855.3k in October"></span><span>855k</span>
+<span>Rules engine</span><span class="bar" style="--now:0.241;--then:0.029" title="Rules engine: 24.8k in February, 205.7k in October"></span><span>206k</span>
+<span>Web client</span><span class="bar" style="--now:0.128;--then:0.028" title="Web client: 23.6k in February, 109.5k in October"></span><span>110k</span>
+<span>SDK</span><span class="bar" style="--now:0.092;--then:0.015" title="SDK: 12.7k in February, 78.8k in October"></span><span>79k</span>
+<span>Game server</span><span class="bar" style="--now:0.042;--then:0.014" title="Game server: 12.3k in February, 35.5k in October"></span><span>36k</span>
+<span>Other tooling</span><span class="bar" style="--now:0.036;--then:0.000" title="Other tooling: new since February, 30.5k in October"></span><span>30k</span>
+<span>Argentum Assay</span><span class="bar" style="--now:0.034;--then:0.000" title="Argentum Assay: new since February, 29.2k in October"></span><span>29k</span>
+<span>AI opponents</span><span class="bar" style="--now:0.029;--then:0.000" title="AI opponents: new since February, 24.6k in October"></span><span>25k</span>
+</div>
+<figcaption>Lines of production code per part, not counting tests. The card sets are mostly declarative card data.</figcaption>
+</figure>
+
+Most of the code is card data, about 855,000 lines of it, and most of the test code is a scenario test for each card. The cards came in faster as the engine learned more of Magic's vocabulary: about 3,100 by June, 7,000 by July, 12,900 by September. The complete sets run from Arabian Nights and Antiquities to Reality Fracture, which came out today.
+
+<figure class="chart" role="img" aria-label="Distinct cards implemented: 226 on 1 February, 3,130 on 1 June, 7,002 on 1 July, about 14,480 on 2 October">
+<div class="cols">
+<div class="col" style="--v:0.015" title="1 February: 226 cards"><b>226</b></div>
+<div class="col" style="--v:0.055" title="1 March: 831 cards"></div>
+<div class="col" style="--v:0.100" title="1 April: 1,496 cards"></div>
+<div class="col" style="--v:0.123" title="1 May: 1,838 cards"></div>
+<div class="col" style="--v:0.209" title="1 June: 3,130 cards"><b>3,130</b></div>
+<div class="col" style="--v:0.467" title="1 July: 7,002 cards"><b>7,002</b></div>
+<div class="col" style="--v:0.553" title="1 August: 8,294 cards"></div>
+<div class="col" style="--v:0.861" title="1 September: 12,916 cards"></div>
+<div class="col" style="--v:0.965" title="2 October: 14,480 cards"><b>14,480</b></div>
+</div>
+<div class="col-axis"><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span></div>
+<figcaption>Distinct cards in Argentum at the start of each month. Hover a column for its number.</figcaption>
+</figure>
+
+**What you can play.** Booster, Winston, Grid and cube drafts, sealed, and tournaments. Commander, and Commander draft. Free-for-All for up to six players, Two-Headed Giant, team against team, and Momir Basic. There are accounts, friends, ranked play with an Elo rating per mode, replays, and a Learn to Play course with four coached games. The opponent you play against is either a built-in AI that searches a few moves ahead, or a language model.
+
+**What's new under the hood.** A gym wraps the engine for reinforcement learning, with self-play through Monte Carlo tree search. And there's Argentum Assay, which reads a card's Oracle text into the SDK and prints it back out. It only counts a reading as right when the text comes back word for word. It reads about 10,200 of Magic's 34,900 cards whole, and by comparing its readings with the hand-written cards it has found real bugs in those.
+
+**It's not just me anymore.** Bjørn-Olav Strand joined in April and has made about 2,700 commits since, implementing whole sets and doing a lot of the work on the rules engine and the SDK. About a dozen others have contributed too, and roughly 400 pull requests have come in from people's own forks. Want to join in? There's a [Discord](https://discord.gg/dy6eSRPWzu).
+
+**How it gets built now.** I still barely write code myself. About 86% of the commits are co-authored with Claude, moving up a model every month or two, from Opus 4.5 in January to Opus 5.5 now. What changed is how the work is organised. A new set starts with a gap analysis: which cards need things the engine can't do yet. Those features get designed and built first. Then agents implement the cards in parallel, each as its own pull request with a test, and anything that touches the engine gets reviewed. A loop can now run a whole set like this, one reviewed pull request at a time. The instructions moved from `CLAUDE.md` to `AGENTS.md` so other agents can follow them as well.
+
+<figure class="chart">
+<ol class="flow">
+<li><strong>Gap analysis</strong><small>Which cards in the set need something the engine can't do yet?</small></li>
+<li><strong>Design and build the missing features</strong><small>New rules in the engine and new words in the SDK, each with tests.</small></li>
+<li><strong>Agents implement the cards in parallel</strong><small>Each card gets a scenario test and its own pull request.</small><span class="prs"><span>PR · card</span><span>PR · card</span><span>PR · card</span><span>PR · card</span><span>…</span></span></li>
+<li><strong>Review</strong><small>Anything that touches the engine or the SDK is reviewed before it merges.</small></li>
+</ol>
+<p class="flow-loop">↻ a loop repeats this, one reviewed pull request at a time, until the set is done</p>
+<figcaption>How a new set gets built now</figcaption>
+</figure>
+
+**What it took.** In February I guessed this would be a six-month hobby project without AI. That was optimistic. Going by commit times, all of us together have put in roughly 2,100 to 3,100 hours, and about two-thirds of those are mine, mostly evenings and weekends. Building the same thing by hand would take a team of six to eight people several years, somewhere around 20 to 35 person-years.
 
 **— Vincent**

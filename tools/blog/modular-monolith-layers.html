@@ -1,0 +1,78 @@
+<!doctype html>
+<!--
+  "Modules as layers" figure for src/content/blog/building-a-modular-monolith.md.
+  Render: just figures
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="render" content="public/blog/building-a-modular-monolith/layers.webp 1200 600">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=block">
+<style>
+  :root {
+    --paper: #f4ead8;
+    --ink: #3a332b;
+    --card: #fffdf8;
+    --top: #e9b48f;
+    --middle: #b9cfa8;
+    --base: #b7c0cc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1200px; height: 600px; position: relative; overflow: hidden;
+    background: var(--paper); color: var(--ink);
+  }
+  svg { position: absolute; inset: 0; }
+  .card {
+    position: absolute; width: 220px; height: 72px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px 0 22px;
+    background: var(--card); border: 2.5px solid var(--ink); border-radius: 12px;
+    font: 700 27px/1 "Helvetica Neue", Arial, sans-serif; letter-spacing: -0.3px;
+  }
+  .card .icon { font-size: 30px; }
+  .top    { box-shadow: 5px 5px 0 -2.5px var(--card), 5px 5px 0 0 var(--top),    10px 10px 0 -2.5px var(--card), 10px 10px 0 0 var(--top); }
+  .middle { box-shadow: 5px 5px 0 -2.5px var(--card), 5px 5px 0 0 var(--middle), 10px 10px 0 -2.5px var(--card), 10px 10px 0 0 var(--middle); }
+  .base   { box-shadow: 5px 5px 0 -2.5px var(--card), 5px 5px 0 0 var(--base),   10px 10px 0 -2.5px var(--card), 10px 10px 0 0 var(--base); }
+  .note {
+    position: absolute; left: 690px;
+    font: 500 33px/1 "Caveat", "Comic Sans MS", cursive; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<svg width="1200" height="600" viewBox="0 0 1200 600">
+  <defs>
+    <marker id="head" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
+      <path d="M1 1 L10 6 L1 11" fill="none" stroke="#3a332b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="#3a332b" stroke-width="2.5" stroke-dasharray="9 7" stroke-linecap="round" marker-end="url(#head)">
+    <!-- Payment, Shipping → Orders -->
+    <path d="M250 126 C 260 160, 320 170, 345 200"/>
+    <path d="M530 126 C 520 160, 460 170, 435 200"/>
+    <!-- Orders → Inventory -->
+    <path d="M360 286 C 340 315, 270 320, 250 352"/>
+    <!-- Inventory → Products -->
+    <path d="M200 438 L 200 482"/>
+    <!-- Orders → Users -->
+    <path d="M430 286 C 455 340, 520 400, 530 482"/>
+  </g>
+</svg>
+
+<div class="card top"    style="left:110px; top:42px">Payment <span class="icon">💳</span></div>
+<div class="card top"    style="left:410px; top:42px">Shipping <span class="icon">🚚</span></div>
+<div class="card middle" style="left:280px; top:204px">Orders <span class="icon">🧾</span></div>
+<div class="card middle" style="left:110px; top:356px">Inventory <span class="icon">📦</span></div>
+<div class="card base"   style="left:110px; top:486px">Products <span class="icon">🏷️</span></div>
+<div class="card base"   style="left:410px; top:486px">Users <span class="icon">👤</span></div>
+
+<div class="note" style="top:48px">← depend on Orders, Users</div>
+<div class="note" style="top:86px; padding-left:38px; font-size:28px">and Shipping on Products</div>
+<div class="note" style="top:224px">← depends on Products, Inventory, Users</div>
+<div class="note" style="top:376px">← depends on Products</div>
+<div class="note" style="top:506px">← foundations: depend on nothing</div>
+
+</body>
+</html>
