@@ -558,6 +558,13 @@ class Mosslits {
   private centre = V();
   private lights: THREE.PointLight[] = [];
   private hazes: THREE.Sprite[] = [];
+  /** The rising: seconds into it (or -1), where it starts from, and when the next one comes. */
+  private rising = -1;
+  private riseFrom = V();
+  private nextRise = LUCK.mosslitsSoon ? 25 : rand(50, 90);
+  /** Where you're looking, and how close (from the sound's question each frame). */
+  private eye = V();
+  private view = 100;
   /** Whether tonight's first light has gone up (with a shimmer you can hear). */
   private woke = false;
   private tint = new THREE.Color();
@@ -696,6 +703,8 @@ class Mosslits {
 
   /** How near the camera's looking to the lit ones, 0..1 (for their sound). */
   near(at: THREE.Vector3, view: number) {
+    this.eye.copy(at);
+    this.view = view;
     let best = 0;
     for (const m of this.colony) {
       if (m.glow < 0.1) continue;
@@ -736,6 +745,17 @@ class Mosslits {
       }
       if (this.ripple > 6) this.ripple = -1;
     }
+    // now and then, the rising: a slow wave through the forest, each one reaching up in turn and
+    // letting go of its light, which drifts away up into the night
+    if (this.rising < 0 && fine && this.dark > 20 && this.ripple < 0 && (this.nextRise -= dt) <= 0) {
+      this.rising = 0;
+      this.riseFrom.copy(pick(this.colony).home);
+      this.nextRise = rand(100, 170);
+      this.onCall?.('shimmer', this.riseFrom.clone());
+    }
+    if (this.rising >= 0 && (this.rising += dt) > 16) this.rising = -1;
+    // close up, the ones near where you're looking notice you
+    const close = this.view < 22;
     for (const m of this.colony) {
       const b = m.body;
       const t = clock + m.seed;
@@ -770,6 +790,10 @@ class Mosslits {
 
       // what it's doing
       if (t - m.seed > 0 && clock > m.until) this.next(m, clock);
+      // its moment in the rising: the wave reaches it a while after it starts, depending how far off it is
+      const k = this.rising < 0 ? -1 : this.rising - Math.hypot(m.home.x - this.riseFrom.x, m.home.z - this.riseFrom.z) * 0.35;
+      const lifted = k > 0 && k < 4 ? Math.sin((k / 4) * Math.PI) : 0;
+      const seen = close ? clamp(1 - Math.hypot(m.pos.x - this.eye.x, m.pos.z - this.eye.z) / 3.5, 0, 1) * m.glow : 0;
       let lean = 0.15;
       let curl = 1.0;
       if (m.mode === 'creep') {
@@ -795,6 +819,10 @@ class Mosslits {
         curl = 1.5;
         m.inch = 0;
       } else m.inch = 0;
+      // rising, or noticing you, it stands tall and unrolls its tail
+      const up = Math.max(lifted, seen * 0.8);
+      lean = THREE.MathUtils.lerp(lean, -0.1, up);
+      curl = THREE.MathUtils.lerp(curl, 0.35, up);
       // dim, it furls up tight and hunkers down
       curl += (1 - m.glow) * 1.0;
       lean = THREE.MathUtils.lerp(lean, 0.6, 1 - m.glow);
@@ -806,7 +834,10 @@ class Mosslits {
       const breathe = 1 + Math.sin(t * 1.3) * 0.04;
       const grow = 0.3 + 0.7 * smooth(Math.min(1, m.glow * 1.5)); // they swell as they light
       b.root.scale.setScalar(m.size * grow);
-      orient(b.root, m.heading + (m.mode === 'reach' ? Math.sin(t * 0.4) * 0.4 : 0), -m.lean);
+      // (turned round to face you, if it's noticed you: you're looking from the south)
+      const facing = m.heading + (m.mode === 'reach' ? Math.sin(t * 0.4) * 0.4 : 0);
+      const toYou = headingOf(0, 1);
+      orient(b.root, facing + Math.atan2(Math.sin(toYou - facing), Math.cos(toYou - facing)) * smooth(seen), -m.lean);
       const body = b.part('body');
       if (body) body.scale.set(breathe * (1 + m.inch * 0.12), 1 / breathe, breathe);
       // the tail: a slight lean back off the body, then rolled up tighter towards the tip, swaying
@@ -821,7 +852,7 @@ class Mosslits {
       // the tip's light, and the halo round the whole of it
       const tip = b.part('light');
       // its own flicker, on a slow swell of brightness that rolls through the whole forest
-      const pulse = (0.85 + Math.sin(t * (1.6 + (m.seed % 1))) * 0.15) * this.swell(m.home, clock);
+      const pulse = (0.85 + Math.sin(t * (1.6 + (m.seed % 1))) * 0.15) * this.swell(m.home, clock) * (1 + lifted * 0.6 + seen * 0.3);
       if (tip) tip.scale.setScalar(0.5 + m.glow * 1.3 * pulse);
       m.halo.visible = true;
       m.halo.position.copy(m.pos).add(V(0, 0.45 * m.size, 0));
@@ -829,6 +860,15 @@ class Mosslits {
       const halo = m.halo.material as THREE.SpriteMaterial;
       halo.opacity = 0.4 * m.glow * pulse * this.on;
       halo.color.copy(this.tinted(m.home, clock));
+      // at the top of its reach in the rising, it lets go of its light, and the motes float up high
+      if (lifted > 0.4 && m.glow > 0.5 && chance(dt * 9 * lifted)) {
+        const from = tip ? tip.getWorldPosition(V()) : m.pos.clone();
+        this.particles.emit({
+          position: from, velocity: V(rand(-0.12, 0.12), rand(0.6, 1.2), rand(-0.12, 0.12)),
+          color: pick(['#e4fff2', '#a8ffd4', '#b8f4ff', '#ffffff']), life: rand(5, 8), size: chance(0.3) ? 2 : 1,
+          wobble: 0.6, drag: 0.08, fadeIn: 0.15, hold: 0.35,
+        });
+      }
       // and motes of light drifting up off it and hanging in the air
       if (m.glow > 0.6 && chance(dt * 2.4)) {
         const from = tip ? tip.getWorldPosition(V()) : m.pos.clone();

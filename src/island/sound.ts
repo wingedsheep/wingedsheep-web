@@ -963,7 +963,7 @@ export class Sound {
       osc.stop(t + 2.7);
       // sometimes a second, a fifth up, a moment after
       if (Math.random() < 0.35) this.tone(t + 0.18, 'sine', [[0, f * 1.5]], peak * 0.5 * near, 2);
-      this.gladeChime = t + 1.6 + Math.random() * 3.5;
+      this.gladeChime = t + (1.6 + Math.random() * 3.5) * (1.4 - near * 0.6); // more of them, the closer you are
     }
     // a breath of air through the leaves, soft and high
     if (t >= this.gladeAir) {
