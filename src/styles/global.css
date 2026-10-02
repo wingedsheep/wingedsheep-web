@@ -529,8 +529,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   box-shadow: inset 0 10px 0 #c9c6c0, inset 0 12px 0 #2b4580, inset 0 -4px 0 #2b4580;
   animation: toast-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
-/* Leave room for the tape and its keys below every notification, including discoveries. */
-body:has(.walkman:not([hidden])) .toasts { bottom: 220px; }
 .walkman-tape {
   display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 12px; background: #1b1820; clip-path: var(--notch);
 }
@@ -614,6 +612,7 @@ body:has(.walkman:not([hidden])) .toasts { bottom: 220px; }
   .workshop-banner { top: 52px; padding: 6px 44px 6px 12px; }
   .workshop-banner p { display: none; }
   .walkman { left: 8px; bottom: 64px; }
+  /* on a phone the tape spans the bottom, so notifications go above it */
   body:has(.walkman:not([hidden])) .toasts { bottom: 240px; }
   .project-list, .project-list-open { top: auto; bottom: 64px; left: 8px; width: calc(100% - 16px); max-height: 46vh; }
   .project-list-open { width: auto; }
@@ -711,6 +710,7 @@ body:has(.walkman:not([hidden])) .toasts { bottom: 220px; }
 .river-word {
   position: absolute; transform: translate(-50%, 0); white-space: nowrap; font: 700 20px/1 var(--ui); color: var(--paper);
   text-shadow: 2px 2px 0 var(--ink), -1px -1px 0 var(--ink); animation: word-up 1.1s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  transition: top 0.16s ease-out;
 }
 .river-word.big { font-size: 30px; color: var(--gold); animation-name: word-big; }
 .river-word.bad { font-size: 16px; color: #ffb4a0; }

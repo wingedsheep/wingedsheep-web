@@ -759,11 +759,37 @@ export class River implements RoomInput {
     const el = document.createElement('span');
     el.className = `river-word${kind ? ` ${kind}` : ''}`;
     el.textContent = text;
-    el.style.left = `${Math.round(at.x + (kind === 'ball' ? 40 : 0))}px`;
-    el.style.top = `${Math.round(at.y - (kind === 'ball' ? 30 : 60))}px`;
+    const x = Math.round(at.x + (kind === 'ball' ? 40 : 0));
+    const y = Math.round(at.y - (kind === 'ball' ? 30 : 60));
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
     this.$.praise.append(el);
+    this.makeRoom(el, x, y);
     setTimeout(() => el.remove(), 1100);
   }
+
+  /** Several at once stack up: the newest takes the spot by the boat, and the ones still in the air
+   * that it would land on get nudged up out of its way, each above the last. */
+  private makeRoom(el: HTMLElement, x: number, y: number) {
+    const GAP = 4;
+    const half = el.offsetWidth / 2;
+    // where each one is headed (its `top`), not where it's drawn mid-nudge
+    let ceiling = y - GAP;
+    const others = [...this.$.praise.children]
+      .filter((o): o is HTMLElement => o !== el)
+      .map((o) => ({ o, top: parseFloat(o.style.top), left: parseFloat(o.style.left) }))
+      .sort((a, b) => b.top + b.o.offsetHeight - (a.top + a.o.offsetHeight));
+    for (const { o, top, left } of others) {
+      const w = o.offsetWidth / 2;
+      if (left + w < x - half - GAP || left - w > x + half + GAP) continue;
+      const bottom = top + o.offsetHeight;
+      if (bottom <= ceiling || top > y + el.offsetHeight) continue;
+      const lift = bottom - ceiling;
+      o.style.top = `${top - lift}px`;
+      ceiling = top - lift - GAP;
+    }
+  }
+
 
   /** Replay a one-off CSS animation on a bit of the HUD. */
   private bounce(el: HTMLElement, name: string) {
