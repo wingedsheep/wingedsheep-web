@@ -38,6 +38,8 @@ export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa'
   | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
   | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'
+  // the tromb's song (scene/imaginary.ts)
+  | 'tromb'
   | 'burner' | 'horn' | 'murmur' | 'seal'
   // over from the river now and then: the eagle, the boar, the Highland cow
   | 'eagle' | 'boar' | 'moo'

@@ -711,6 +711,16 @@ export class Sound {
         tone('sine', 0.02, [[0, 960 * f], [0.5, 1440 * f], [2.2, 1380 * f], [3.0, 860 * f]], 0.025, 3.0);
         break;
       }
+      case 'tromb': { // the tromb's song: slow, sliding, a long way off over the water, like a whale's
+        const f = r(0.92, 1.08);
+        const line = [[0, 330], [0.9, 392], [1.6, 370], [2.6, 494], [3.4, 440], [4.6, 294]] as [number, number][];
+        const song = line.map(([at, hz]) => [at, hz * f] as [number, number]);
+        tone('sine', 0, song, 0.07, 5.2, 1400);
+        tone('triangle', 0.05, song.map(([at, hz]) => [at, hz * 1.5] as [number, number]), 0.012, 5.0, 1200); // a ghost of it a fifth up
+        tone('sine', 0, [[0, 165 * f], [4.6, 147 * f]], 0.02, 5.4);
+        tone('sine', 0.6, song.map(([at, hz]) => [at, hz * 0.998] as [number, number]), 0.025, 5.2, 900); // and back off the cliffs
+        break;
+      }
       case 'hush': // gone: a falling shimmer, and a breath of air through the grass
         [3136, 2637, 2093, 1568, 1319, 1047].forEach((f, i) => tone('sine', i * 0.07, [[0, f]], 0.03, 0.9));
         hiss(0, 1.4, 3000, 0.06);

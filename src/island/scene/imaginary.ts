@@ -34,6 +34,8 @@ const LUCK = (() => {
     treestriderSoon: want('treestrider'),
     mosslits: want('mosslits') || chance(1 / 8),
     mosslitsSoon: want('mosslits'),
+    tromb: want('tromb') || chance(1 / 12),
+    trombSoon: want('tromb'),
   };
 })();
 
@@ -72,7 +74,7 @@ class Snorble {
     this.body = new Body('snorble', template, scene);
     this.size = this.body.root.scale.x;
     // a sunny patch of grass above the beach, either side of the pier, out in the open
-    for (const at of [B(-8, -13.6), B(13, -15.2)].sort(() => Math.random() - 0.5)) {
+    for (const at of [B(-8, -13.6), B(11.2, -15.6)].sort(() => Math.random() - 0.5)) {
       if (firm(ground, at, 0.3, 4)) {
         this.spot.copy(at).setY(ground.at(at.x, at.z));
         break;
@@ -412,9 +414,9 @@ class Fosha {
 // --- the treestrider -----------------------------------------------------------------------
 
 /**
- * A treestrider, on a misty morning: five metres of stilt legs and a leafy back, wading through
+ * A treestrider, on a misty morning: five metres of stilt legs under a leaf-green back, wading through
  * the shallows off the island on its way to somewhere else, the mist round its knees. It walks
- * like a harvestman, two legs at a time. Clicked, it stops, turns its long head to look at you,
+ * like a harvestman, two legs at a time. Clicked, it stops, turns its head to look at you,
  * and walks on.
  */
 class Treestrider {
@@ -582,6 +584,226 @@ class Mosslits {
   }
 }
 
+// --- the tromb ----------------------------------------------------------------------------
+
+const SNOUT = 9; // segments (TROMB_SEGS in imaginary.py)
+
+/**
+ * A tromb, at dusk and into the night: a striped lizard with two long horns, perched on the edge
+ * of the lighthouse rock over the sea, its long snout curled up in a loop. Now and then it
+ * uncurls the snout, rolls its tongue out like a frog's down to the water, and comes up with a
+ * fish (or doesn't). Now and then it sings, a slow sliding call you can hear all over the island.
+ * It's shy: click it and it slips back round the lighthouse, and only comes out again
+ * once you've left it alone a while.
+ */
+class Tromb {
+  readonly body: Body;
+  private state: 'away' | 'coming' | 'perched' | 'going' = 'away';
+  private wait = LUCK.trombSoon ? 2 : rand(20, 120);
+  private k = 0;
+  private edge = V();
+  /** The way round the tower from behind it (out of sight) to the edge: the lighthouse's middle,
+   * how far out to keep, and the angles (Blender's, anticlockwise from east) it goes between. */
+  private centre = B(-31.5, -3);
+  private radius = 0;
+  private from = 0;
+  private to = 0;
+  /** A spot of open water below the lip, where it fishes. */
+  private water = V();
+  private heading = 0;
+  private size = 1;
+  /** Where it is in a catch, seconds (or -1); and whether this one comes up with a fish. */
+  private fishing = -1;
+  private nextFish = rand(12, 25);
+  private caught = false;
+  private splashed = false;
+  private singing = -1;
+  private nextSong = LUCK.trombSoon ? 6 : rand(15, 35);
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
+
+  constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, private particles: Particles) {
+    this.body = new Body('tromb', template, scene);
+    this.size = this.body.root.scale.x;
+    // out from the lighthouse towards the sea, to the last bit of rock before the drop
+    const centre = B(-31.5, -3);
+    for (const a of [-2.3, -2.0, -2.6]) { // south-west-ish, so it's side on to you, looking out
+      const dir = V(Math.cos(a), 0, -Math.sin(a));
+      let last: THREE.Vector3 | null = null;
+      for (let d = 2.5; d < 8; d += 0.1) {
+        const p = centre.clone().addScaledVector(dir, d);
+        const h = ground.at(p.x, p.z);
+        if (Number.isNaN(h) || h < 0.9) break;
+        last = p.setY(h);
+      }
+      if (!last) continue;
+      // its front feet on the lip, its snout out over the drop
+      this.edge.copy(last).addScaledVector(dir, -0.35);
+      this.edge.y = ground.at(this.edge.x, this.edge.z);
+      // it comes round the rock from the far side of the tower, keeping a little in from the lip
+      this.radius = Math.hypot(this.edge.x - centre.x, this.edge.z - centre.z) - 0.15;
+      this.to = a;
+      this.from = a - 1.8; // round by the west, from the north side
+      this.heading = headingOf(dir.x, dir.z);
+      // and the nearest open water out in front of it, below the rock
+      for (let d = 0.8; d < 6; d += 0.1) {
+        const p = this.edge.clone().addScaledVector(dir, d);
+        const h = ground.at(p.x, p.z);
+        if (Number.isNaN(h) || h < -0.3) {
+          this.water.copy(p).addScaledVector(dir, 0.3).setY(-0.05);
+          break;
+        }
+      }
+      return;
+    }
+  }
+
+  get here() {
+    return this.state !== 'away';
+  }
+
+  /** A point on its way round the tower, on the rock (an angle as in `from` and `to`). */
+  private round(angle: number) {
+    let r = this.radius;
+    let p = V();
+    // in a little wherever the rock's lip comes closer, never into the tower
+    for (; r > 2.4; r -= 0.1) {
+      p = this.centre.clone().add(V(Math.cos(angle) * r, 0, -Math.sin(angle) * r));
+      const h = this.ground.at(p.x, p.z);
+      if (!Number.isNaN(h) && h > 1.0) break;
+    }
+    const h = this.ground.at(p.x, p.z);
+    return p.setY(Number.isNaN(h) ? this.edge.y : h);
+  }
+
+  /** Shy: back round the tower it goes. */
+  poke() {
+    if (this.state !== 'perched' && this.state !== 'coming') return;
+    this.state = 'going';
+    this.k = 0;
+    this.fishing = -1;
+    this.singing = -1;
+  }
+
+  update(dt: number, o: Outlook, clock: number) {
+    const b = this.body;
+    if (!this.edge.lengthSq()) return;
+    const fine = LUCK.trombSoon || (LUCK.tromb && o.night > 0.25 && o.night < 0.97 && o.storm < 0.3 && o.wet < 0.5);
+    if (this.state === 'away') {
+      if (!fine || (this.wait -= dt) > 0) return;
+      this.state = 'coming';
+      this.k = 0;
+      b.show(this.round(this.from));
+    }
+    if (this.state === 'perched' && !fine && this.fishing < 0) this.poke();
+    b.relax();
+    let at = this.edge.clone();
+    let heading = this.heading;
+    let size = 1;
+    let crawl = 0;
+    if (this.state === 'coming' || this.state === 'going') {
+      // creeping round the tower from its far side to the edge (or back), low to the rock
+      this.k = Math.min(1, this.k + dt / (this.state === 'coming' ? 5 : 2.5));
+      const k = this.state === 'coming' ? smooth(this.k) : 1 - smooth(this.k);
+      const angle = THREE.MathUtils.lerp(this.from, this.to, k);
+      at = this.round(angle);
+      // facing the way it's going, and at the end turned out to the sea
+      const way = this.state === 'coming' ? 1 : -1;
+      const along = headingOf(-Math.sin(angle) * way, -Math.cos(angle) * way);
+      const settle = smooth(clamp((k - 0.8) / 0.2, 0, 1));
+      heading = along + Math.atan2(Math.sin(this.heading - along), Math.cos(this.heading - along)) * settle;
+      // (out of sight behind the tower at the far end, where it fades in and out)
+      size = this.state === 'coming' ? Math.min(1, this.k * 4) : 1 - Math.max(0, this.k - 0.75) / 0.25;
+      crawl = 1;
+      if (this.k >= 1) {
+        if (this.state === 'coming') this.state = 'perched';
+        else {
+          b.hide();
+          this.state = 'away';
+          this.wait = rand(60, 150);
+          return;
+        }
+      }
+    }
+    b.root.position.copy(at);
+    orient(b.root, heading, 0, crawl ? Math.sin(clock * 9) * 0.04 : 0);
+    b.root.scale.setScalar(Math.max(0.001, size) * this.size);
+
+    // the catch: uncurl, look down, tongue out to the water and back, curl up again
+    let curl = 1; // 1: rolled up in its loop; 0: straight out
+    let reach = 0; // how far the tongue is out, 0..1
+    let look = 0; // the head bowed over the water
+    let lift = 0; // the head up, singing
+    if (this.state === 'perched') {
+      if (this.fishing < 0 && this.singing < 0 && (this.nextFish -= dt) <= 0) {
+        this.fishing = 0;
+        this.caught = chance(0.55);
+        this.splashed = false;
+        this.nextFish = rand(25, 55);
+      }
+      if (this.fishing < 0 && this.singing < 0 && (this.nextSong -= dt) <= 0) {
+        this.singing = 0;
+        this.nextSong = rand(30, 70);
+        this.onCall?.('tromb', b.root.position.clone());
+      }
+    }
+    if (this.fishing >= 0) {
+      const f = (this.fishing += dt);
+      // a long look down at the water, the snout unrolling; then the strike (fast), a moment
+      // under, and back up with whatever it got, rolling the snout up again
+      curl = 1 - smooth(clamp(f / 1.4, 0, 1)) + smooth(clamp((f - 4.2) / 1.2, 0, 1));
+      look = smooth(clamp(f / 1.2, 0, 1)) - smooth(clamp((f - 4.4) / 1, 0, 1));
+      reach = clamp((f - 1.8) / 0.18, 0, 1) - smooth(clamp((f - 2.6) / 0.9, 0, 1));
+      if (f > 6) this.fishing = -1;
+    }
+    if (this.singing >= 0) {
+      const t = (this.singing += dt);
+      lift = Math.sin(clamp(t / 5, 0, 1) * Math.PI);
+      if (t > 5) this.singing = -1;
+    }
+    const head = b.part('head');
+    if (head) {
+      head.rotation.z += -0.15 - look * 0.55 + lift * 0.6;
+      if (this.state === 'perched' && this.fishing < 0) head.rotation.y += Math.sin(clock * 0.31) * 0.25;
+    }
+    // the snout: drooping out of the head, then rolled up into a loop at the tip
+    for (let i = 0; i < SNOUT; i++) {
+      const seg = b.part(`snout_${i}`);
+      if (!seg) continue;
+      const droop = i === 0 ? -0.45 - look * 0.5 : i < 4 ? -0.04 : 0;
+      const roll = i >= 4 ? 1.15 * curl : 0;
+      seg.rotation.z += droop + roll + (lift ? Math.sin(clock * 3 + i) * 0.03 * lift : 0);
+    }
+    const tongue = b.part('tongue');
+    const fish = b.part('fish');
+    if (tongue?.parent) {
+      tongue.visible = reach > 0.01 && this.water.lengthSq() > 0;
+      let length = 0.01;
+      if (tongue.visible) {
+        // rolled out from the snout's tip straight at the water, however the snout lies
+        b.root.updateMatrixWorld(true);
+        const to = tongue.parent.worldToLocal(this.water.clone()).sub(tongue.position);
+        length = Math.max(0.01, to.length() * reach);
+        tongue.quaternion.setFromUnitVectors(V(1, 0, 0), to.normalize());
+        // a wriggle while it's under
+        if (reach > 0.99) tongue.rotateY(Math.sin(clock * 30) * 0.03);
+      }
+      tongue.scale.set(length, 1, 1);
+      if (reach > 0.99 && !this.splashed) {
+        this.splashed = true;
+        splash(this.particles, this.water, 0.6);
+        this.onCall?.('plop', this.water.clone(), true);
+      }
+      if (fish) {
+        fish.visible = this.caught && this.splashed && this.fishing >= 0 && this.fishing < 4.3;
+        fish.scale.x = 1 / Math.max(0.01, length);
+        fish.rotation.x += Math.sin(clock * 20) * 0.5;
+      }
+    }
+    const tail = b.part('tail');
+    if (tail) tail.rotation.y += Math.sin(clock * 0.8) * 0.15 + crawl * Math.sin(clock * 9) * 0.2;
+  }
+}
+
 /** The imaginary creatures, run alongside the rare sightings. */
 export class Imaginary {
   private snorble?: Snorble;
@@ -589,6 +811,7 @@ export class Imaginary {
   private fosha?: Fosha;
   private treestrider?: Treestrider;
   private mosslits?: Mosslits;
+  private tromb?: Tromb;
   onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
   constructor(scene: THREE.Scene, template: (species: string) => THREE.Object3D | undefined, ground: Ground, particles: Particles) {
@@ -616,10 +839,15 @@ export class Imaginary {
     }
     const mosslits = T('mosslits');
     if (mosslits && LUCK.mosslits) this.mosslits = new Mosslits(mosslits, scene, ground, particles);
+    const tromb = T('tromb');
+    if (tromb && LUCK.tromb) {
+      this.tromb = new Tromb(tromb, scene, ground, particles);
+      this.tromb.onCall = call;
+    }
   }
 
   get bodies() {
-    return [this.snorble, this.balloonbug, this.fosha, this.treestrider, this.mosslits].filter((c) => !!c).map((c) => c.body);
+    return [this.snorble, this.balloonbug, this.fosha, this.treestrider, this.mosslits, this.tromb].filter((c) => !!c).map((c) => c.body);
   }
 
   /** How many times the snorble's been woken, for its lines. */
@@ -633,6 +861,7 @@ export class Imaginary {
     if (id === 'fosha') this.fosha?.poke();
     if (id === 'treestrider') this.treestrider?.poke();
     if (id === 'mosslits') this.mosslits?.poke();
+    if (id === 'tromb') this.tromb?.poke();
   }
 
   update(dt: number, o: Outlook, clock: number) {
@@ -641,5 +870,6 @@ export class Imaginary {
     this.fosha?.update(dt, o, clock);
     this.treestrider?.update(dt, o, clock);
     this.mosslits?.update(dt, o, clock);
+    this.tromb?.update(dt, o, clock);
   }
 }

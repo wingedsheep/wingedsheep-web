@@ -528,6 +528,11 @@ const WILDLIFE: Record<string, Place> = {
     'A treestrider, wading between islands on legs as tall as a house. It stops, looks down at you for a long moment, and walks on.',
     'Gentle, the notes say, and it only eats leaves. It’s still hard not to hold your breath.',
   ], 'madeup'),
+  tromb: sighting('tromb', 'A tromb', [
+    'A tromb, perched over the sea. It sees you, and slips away round the lighthouse. Trombs are shy.',
+    'It fishes with its snout, rolled out like a frog’s tongue, so it never has to get its feet wet.',
+    'Back in the shadow. If you hear something singing over the water later, that’s it.',
+  ], 'madeup'),
   mosslits: sighting('mosslits', 'Mosslits', [
     'Mosslits, glowing so they can find each other in the dark. They dim at you, one by one, then think better of it.',
     'Three little lights, creeping up the bark at the speed of moss.',

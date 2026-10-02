@@ -46,6 +46,7 @@ const SPECIMENS = [
   ['fosha', 'Fosha', 'Unconfirmed. Blue as the hour before dawn, ears up, watching the stars and not me.'],
   ['treestrider', 'Treestrider', 'Unconfirmed. Legs as tall as a house, wading out to sea in the mist.'],
   ['mosslits', 'Mosslits', 'Unconfirmed. Little lights in the moss, finding each other in the dark.'],
+  ['tromb', 'Tromb', 'Unconfirmed. Horns, stripes, and a snout it rolls out to the sea. I heard it before I saw it.'],
 ] as const;
 /** The atlas is six sketches wide and eight deep; its thirty-sixth sketch is the feather, not an animal. */
 const FEATHER = 35;
