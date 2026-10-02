@@ -493,17 +493,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .offer-film { margin: 4px 0 12px; }
 .offer-film video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--ink); clip-path: var(--notch); }
 .offer-film figcaption { margin-top: 6px; font-size: 14px; color: var(--ink-soft); }
-.rate { margin: 0 0 10px; font-family: var(--ui); }
-.rate strong { font-size: 30px; color: var(--accent); }
-.rate > span { color: var(--ink-soft); font-size: 16px; }
-.commissions .euro { font-family: var(--serif); font-weight: 600; }
-.indications { width: 100%; border-collapse: collapse; }
-.indications th, .indications td { padding: 10px 0; border-bottom: 2px dashed var(--paper-edge); vertical-align: top; }
-.indications th { font-weight: 400; text-align: left; padding-right: 16px; }
-.indications td { font: 16px var(--ui); text-align: right; white-space: nowrap; }
-.indications small { display: block; color: var(--ink-soft); font-size: 14px; }
-.commissions-notes { padding-left: 1.2em; color: var(--ink-soft); font-size: 16px; }
-.commissions-notes li { margin: 6px 0; }
 .faq dt { font: 600 18px var(--ui); margin-top: 16px; }
 .faq dd { margin: 4px 0 0; }
 .mail-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; }
