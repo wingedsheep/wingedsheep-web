@@ -416,6 +416,7 @@ export async function bootIsland(host: HTMLElement) {
     const dawn = Math.max(0, 1 - Math.abs(hour - 6.5) / 2.5); // the chorus, strongest around half six
     sound.birdsong = BIRDSONG[season.name] * (1 - sky.lamps) * (0.45 + dawn * 0.55) * (1 - wet * 0.85) * (1 - Math.min(1, weather.gust) * 0.5);
     sound.fog = weather.now.fog;
+    sound.mosslits = life.sightings.imaginary.mosslitsNear(rig.target, rig.view);
     sound.night = sky.lamps;
     sound.telly = lighthouse.programme;
     sound.diorama = trail.showingId;

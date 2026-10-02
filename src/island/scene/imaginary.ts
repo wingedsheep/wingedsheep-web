@@ -512,9 +512,10 @@ class Treestrider {
 // --- the mosslits --------------------------------------------------------------------------
 
 const MOSSLIT_TAIL = 12; // the tail's segments (MOSSLIT_SEGS in imaginary.py)
-const COLONY = 26;
-const LIGHTS = 4; // soft lights shared between them (each one costs every lit surface)
+const COLONY = 72;
+const LIGHTS = 8; // soft lights shared between them (each one costs every lit surface)
 const MOSSLIT_GREEN = '#5effb4';
+const MOSSLIT_TEAL = '#4fe8ff';
 
 /** One of the colony, and what it's up to. */
 interface Mosslit {
@@ -556,6 +557,10 @@ class Mosslits {
   private colony: Mosslit[] = [];
   private centre = V();
   private lights: THREE.PointLight[] = [];
+  private hazes: THREE.Sprite[] = [];
+  /** Whether tonight's first light has gone up (with a shimmer you can hear). */
+  private woke = false;
+  private tint = new THREE.Color();
   private on = 0;
   private dark = 0; // seconds into its night
   private wait = LUCK.mosslitsSoon ? 1 : rand(10, 60);
@@ -586,8 +591,8 @@ class Mosslits {
     const woods = trees.filter((t) => trees.filter((u) => Math.hypot(u.x - t.x, u.z - t.z) < 4.5).length >= 4);
     const spots: THREE.Vector3[] = [];
     for (const t of woods) {
-      for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
-        for (const d of [1.2, 1.9, 2.6]) {
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
+        for (const d of [1.1, 1.7, 2.3, 3.0]) {
           const p = t.clone().add(V(Math.cos(a) * d, 0, Math.sin(a) * d));
           if (open(p) && dark(p)) spots.push(p.setY(ground.at(p.x, p.z)));
         }
@@ -598,7 +603,7 @@ class Mosslits {
     const halo = haloTexture();
     for (const p of spots) {
       if (this.colony.length >= COLONY) break;
-      if (this.colony.some((m) => Math.hypot(m.home.x - p.x, m.home.z - p.z) < (chance(0.5) ? 0.5 : 1.4))) continue;
+      if (this.colony.some((m) => Math.hypot(m.home.x - p.x, m.home.z - p.z) < (chance(0.6) ? 0.4 : 0.8))) continue;
       const body = new Body('mosslits', template, scene);
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
         map: halo, color: new THREE.Color(MOSSLIT_GREEN), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0,
@@ -631,10 +636,21 @@ class Mosslits {
       m.delay = m.ring * 0.8 + rand(0, 4); // lit one by one, from each light's middle out
     }
     for (const c of centres) {
-      const light = new THREE.PointLight(MOSSLIT_GREEN, 0, 8, 1.2);
+      const light = new THREE.PointLight(MOSSLIT_GREEN, 0, 11, 1.1);
       light.position.copy(c).add(V(0, 1.3, 0.3));
       scene.add(light);
       this.lights.push(light);
+      // and a wide, faint haze of their light hanging over the glade
+      const haze = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: halo, color: new THREE.Color(MOSSLIT_GREEN), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0,
+      }));
+      haze.renderOrder = 2;
+      haze.raycast = () => {};
+      haze.position.copy(c).add(V(0, 0.7, 0));
+      haze.scale.setScalar(9.5);
+      haze.visible = false;
+      scene.add(haze);
+      this.hazes.push(haze);
     }
     this.centre.copy(centres[0]);
   }
@@ -667,6 +683,28 @@ class Mosslits {
     }
   }
 
+  /** A slow swell of brightness rolling east to west through the woods, 0.7..1.15. */
+  private swell(at: THREE.Vector3, clock: number) {
+    return 0.92 + Math.sin(clock * 0.45 + at.x * 0.18 + at.z * 0.07) * 0.23;
+  }
+
+  /** Their light, drifting slowly between green and teal from place to place. */
+  private tinted(at: THREE.Vector3, clock: number) {
+    const k = 0.5 + Math.sin(clock * 0.12 + at.x * 0.09 - at.z * 0.11) * 0.5;
+    return this.tint.set(MOSSLIT_GREEN).lerp(new THREE.Color(MOSSLIT_TEAL), k * 0.6);
+  }
+
+  /** How near the camera's looking to the lit ones, 0..1 (for their sound). */
+  near(at: THREE.Vector3, view: number) {
+    let best = 0;
+    for (const m of this.colony) {
+      if (m.glow < 0.1) continue;
+      const d = Math.hypot(m.pos.x - at.x, m.pos.z - at.z);
+      best = Math.max(best, m.glow * clamp(1 - d / (6 + view * 0.35), 0, 1));
+    }
+    return best * this.on;
+  }
+
   update(dt: number, o: Outlook, clock: number) {
     if (!this.colony.length) return;
     const fine = LUCK.mosslitsSoon || (LUCK.mosslits && o.night > 0.6 && (o.wet > 0.02 || o.fog > 0.2 || o.season === 'autumn'));
@@ -681,6 +719,8 @@ class Mosslits {
       this.shown = false;
       this.wait = rand(30, 90);
       for (const light of this.lights) light.intensity = 0;
+      for (const haze of this.hazes) haze.visible = false;
+      this.woke = false;
       for (const m of this.colony) {
         m.body.hide();
         m.halo.visible = false;
@@ -707,6 +747,10 @@ class Mosslits {
       }
       const was = m.glow;
       m.glow = damp(m.glow, want, want > m.glow ? 1.4 : 2.2, dt);
+      if (was < 0.5 && m.glow >= 0.5 && !this.woke) {
+        this.woke = true;
+        this.onCall?.('shimmer', m.pos.clone());
+      }
       if (was < 0.5 && m.glow >= 0.5) {
         // a little burst of light as it comes on
         for (let i = 0; i < 6; i++) {
@@ -776,14 +820,17 @@ class Mosslits {
       }
       // the tip's light, and the halo round the whole of it
       const tip = b.part('light');
-      const pulse = 0.85 + Math.sin(t * (1.6 + (m.seed % 1))) * 0.15;
-      if (tip) tip.scale.setScalar(0.4 + m.glow * 0.9 * pulse);
+      // its own flicker, on a slow swell of brightness that rolls through the whole forest
+      const pulse = (0.85 + Math.sin(t * (1.6 + (m.seed % 1))) * 0.15) * this.swell(m.home, clock);
+      if (tip) tip.scale.setScalar(0.5 + m.glow * 1.3 * pulse);
       m.halo.visible = true;
       m.halo.position.copy(m.pos).add(V(0, 0.45 * m.size, 0));
-      m.halo.scale.setScalar(1.1 * m.size * (0.8 + m.glow * 0.4));
-      (m.halo.material as THREE.SpriteMaterial).opacity = 0.28 * m.glow * pulse * this.on;
+      m.halo.scale.setScalar(1.7 * m.size * (0.8 + m.glow * 0.4));
+      const halo = m.halo.material as THREE.SpriteMaterial;
+      halo.opacity = 0.4 * m.glow * pulse * this.on;
+      halo.color.copy(this.tinted(m.home, clock));
       // and motes of light drifting up off it and hanging in the air
-      if (m.glow > 0.6 && chance(dt * 1.6)) {
+      if (m.glow > 0.6 && chance(dt * 2.4)) {
         const from = tip ? tip.getWorldPosition(V()) : m.pos.clone();
         this.particles.emit({
           position: from.add(V(rand(-0.15, 0.15), 0, rand(-0.15, 0.15))), velocity: V(rand(-0.06, 0.06), rand(0.08, 0.25), rand(-0.06, 0.06)),
@@ -791,12 +838,28 @@ class Mosslits {
         });
       }
     }
-    // each light glows with the ones round it, breathing with them
+    // each light glows with the ones round it, breathing with the swell, drifting between green and teal
     this.lights.forEach((light, i) => {
       const near = this.colony.filter((m) => m.light === i);
       const glow = near.reduce((sum, m) => sum + m.glow, 0) / Math.max(1, near.length);
-      light.intensity = glow * 3.2 * (0.9 + Math.sin(clock * 1.1 + i) * 0.1) * this.on;
+      const swell = this.swell(light.position, clock);
+      light.intensity = glow * 5.5 * swell * this.on;
+      light.color.copy(this.tinted(light.position, clock));
+      const haze = this.hazes[i];
+      haze.visible = glow > 0.02;
+      (haze.material as THREE.SpriteMaterial).opacity = 0.28 * glow * swell * this.on;
+      (haze.material as THREE.SpriteMaterial).color.copy(light.color);
     });
+    // and now and then a spark of their light loose in the air, drifting from one to the next
+    const lit = this.colony.filter((m) => m.glow > 0.6);
+    if (lit.length && chance(dt * 3)) {
+      const m = pick(lit);
+      this.particles.emit({
+        position: m.pos.clone().add(V(rand(-0.4, 0.4), rand(0.4, 1.4), rand(-0.4, 0.4))),
+        velocity: V(rand(-0.25, 0.25), rand(-0.05, 0.12), rand(-0.25, 0.25)),
+        color: pick(['#e4fff2', '#a8ffd4', '#b8f4ff']), life: rand(4, 7), size: 1, wobble: 1.2, fadeIn: 0.25, hold: 0.4,
+      });
+    }
   }
 }
 
@@ -1082,6 +1145,11 @@ export class Imaginary {
   /** How many times the snorble's been woken, for its lines. */
   get snorbleWoken() {
     return this.snorble?.woken ?? 0;
+  }
+
+  /** How near the camera is to the lit mosslits, 0..1, for the sound of them. */
+  mosslitsNear(at: THREE.Vector3, view: number) {
+    return this.mosslits?.near(at, view) ?? 0;
   }
 
   poke(id: string) {

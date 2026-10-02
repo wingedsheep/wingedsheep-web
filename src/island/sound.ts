@@ -182,6 +182,8 @@ export class Sound {
   birdsong = 0;
   /** How thick the fog is, 0..1: in a proper one the lighthouse sounds its horn. */
   fog = 0;
+  /** How near the lit mosslits are, 0..1: their glade has a sound of its own. */
+  mosslits = 0;
   private nextHorn = 0;
   /** How dark it is, 0 (day) … 1 (night): the startling sounds are held back after dark. */
   night = 0;
@@ -873,6 +875,103 @@ export class Sound {
     osc.stop(t + length + 0.05);
   }
 
+  private gladeOut?: GainNode;
+  private gladeVoices: OscillatorNode[] = [];
+  private gladeEcho?: GainNode;
+  private gladeChime = 0;
+  private gladeChord = 0;
+  private gladeNextChord = 0;
+  private gladeAir = 0;
+
+  /**
+   * The mosslits' glade, while you're near: tranquil and a little mysterious. A soft, warm pad on
+   * open chords, drifting slowly from one to the next (Dmaj9 and Gmaj9, all fifths and ninths,
+   * nothing that leans), now and then a glassy chime from somewhere in the trees, echoing away,
+   * and the odd breath of air through the leaves. Built the first time it's wanted.
+   */
+  private glade(t: number, near: number) {
+    const ctx = this.ctx!;
+    if (!this.gladeOut) {
+      if (near <= 0.01) return;
+      this.gladeOut = ctx.createGain();
+      this.gladeOut.gain.value = 0;
+      this.gladeOut.connect(this.master!);
+      const soft = ctx.createBiquadFilter();
+      soft.type = 'lowpass';
+      soft.frequency.value = 900;
+      const sweep = ctx.createOscillator(); // the pad opening and closing, very slowly
+      sweep.frequency.value = 0.05;
+      const sweepDepth = ctx.createGain();
+      sweepDepth.gain.value = 350;
+      sweep.connect(sweepDepth).connect(soft.frequency);
+      sweep.start();
+      soft.connect(this.gladeOut);
+      for (let i = 0; i < 5; i++) {
+        const osc = ctx.createOscillator();
+        osc.type = i < 2 ? 'sine' : 'triangle';
+        const drift = ctx.createOscillator(); // a slow shimmer of detune on each voice
+        drift.frequency.value = 0.07 + i * 0.031;
+        const depth = ctx.createGain();
+        depth.gain.value = 4 + i;
+        drift.connect(depth).connect(osc.detune);
+        const voice = ctx.createGain();
+        voice.gain.value = [0.05, 0.035, 0.022, 0.016, 0.012][i] * 0.3; // a bed under the chimes, barely there
+        osc.connect(voice).connect(soft);
+        osc.start();
+        drift.start();
+        this.gladeVoices.push(osc);
+      }
+      // the chimes ring out through a long, soft echo
+      const delay = ctx.createDelay(2);
+      delay.delayTime.value = 0.43;
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.5;
+      const damping = ctx.createBiquadFilter();
+      damping.type = 'lowpass';
+      damping.frequency.value = 2600;
+      this.gladeEcho = ctx.createGain();
+      this.gladeEcho.connect(this.gladeOut);
+      this.gladeEcho.connect(delay).connect(damping).connect(feedback).connect(delay);
+      damping.connect(this.gladeOut);
+      this.gladeNextChord = t;
+    }
+    this.gladeOut.gain.setTargetAtTime(near * 0.9, t, 1.5);
+    if (near <= 0.01) return;
+    // the chord: Dmaj9, then Gmaj9, gliding across over a few seconds, every quarter of a minute or so
+    if (t >= this.gladeNextChord) {
+      const chords = [[146.8, 220, 329.6, 370, 440], [196, 293.7, 370, 440, 493.9]];
+      const chord = chords[this.gladeChord++ % chords.length];
+      this.gladeVoices.forEach((osc, i) => osc.frequency.setTargetAtTime(chord[i], t, 2.5));
+      this.gladeNextChord = t + 14 + Math.random() * 8;
+    }
+    // a chime from somewhere in the trees: high, soft, from the chord's own notes, echoing away
+    if (t >= this.gladeChime) {
+      const bells = this.gladeChord % 2 ? [1174.7, 1318.5, 1480, 1760, 2217.5] : [1568, 1760, 1975.5, 2349.3, 2960];
+      const f = bells[Math.floor(Math.random() * bells.length)];
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      const env = ctx.createGain();
+      const peak = 0.018 + Math.random() * 0.014;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(peak, t + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.0005, t + 2.6);
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = Math.random() * 1.4 - 0.7;
+      osc.connect(env).connect(pan).connect(this.gladeEcho!);
+      osc.start(t);
+      osc.stop(t + 2.7);
+      // sometimes a second, a fifth up, a moment after
+      if (Math.random() < 0.35) this.tone(t + 0.18, 'sine', [[0, f * 1.5]], peak * 0.5 * near, 2);
+      this.gladeChime = t + 1.6 + Math.random() * 3.5;
+    }
+    // a breath of air through the leaves, soft and high
+    if (t >= this.gladeAir) {
+      this.hiss(t, 4, 2400, 0.02 * near);
+      this.gladeAir = t + 9 + Math.random() * 10;
+    }
+  }
+
   /** A burst of filtered noise at time t (breath, spray, a splash). */
   /** A burst of filtered noise: up to `peak` and dying away over `length`, or (steady) held there till the end, like water running. */
   private hiss(t: number, length: number, freq: number, peak: number, steady = false) {
@@ -1314,6 +1413,7 @@ export class Sound {
     this.leafGain?.gain.setTargetAtTime(Math.min(1, this.wind * 1.5) * this.leaves * 0.14 * (this.atRiver ? 1 : walls), t, 1);
     // after the rain, the trees and the eaves drip for a while (and so do the icicles as they thaw)
     this.soaked = Math.max(this.rain, this.soaked - dt / 80);
+    this.glade(t, this.indoors || this.atRiver || this.diorama ? 0 : this.mosslits);
     const drip = Math.min(1, Math.max(0, this.soaked - this.rain * 2) + this.thaw * 0.6);
     this.dripGain?.gain.setTargetAtTime(drip * 0.22 * (this.atRiver ? 0 : walls), t, 1.5);
     this.flagGain?.gain.setTargetAtTime(this.summit * (0.35 + this.wind) * 0.2 * (this.atRiver ? 0 : walls), t, 1);
