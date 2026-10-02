@@ -126,6 +126,7 @@ export const SECRETS = {
   ferry: { title: 'Right on time', hint: 'Out on the hour, back on the half hour. Keep an eye on the sea to the south.' },
   tallship: { title: 'Under full sail', hint: 'Very rarely, something from another century passes on the horizon.' },
   fisherman: { title: 'Early bird', hint: 'On some early mornings, someone has the end of the pier to himself.' },
+  madeup: { title: 'Off the page', hint: 'Some animals were only ever written down. Now and then, in the right weather, one wanders out.' },
 } as const;
 
 let logPage = -1;
@@ -507,6 +508,30 @@ const WILDLIFE: Record<string, Place> = {
     if (!n) return 'He nods at you and doesn’t say a word. Nothing yet. It isn’t really about the fish.';
     return `He nods at you, without a word. ${n === 1 ? 'One' : n === 2 ? 'Two' : n === 3 ? 'Three' : 'A few'} in the bucket so far, and the dock cat is watching the bucket.`;
   }, 'fisherman'),
+  // the imaginary ones (scene/imaginary.ts), from the 2022 blog posts
+  snorble: sighting('snorble', 'A snorble', (ctx) => [
+    'A snorble, asleep in a sunbeam. The field notes say they can jump two metres. It doesn’t look like it could get up.',
+    'Boing. Two metres straight up, just as the field notes said, and straight back down to sleep.',
+    'Up it goes again, and lands in exactly the same dent in the grass.',
+    'That was one wake-up too many. It bounces off to find a quieter sunbeam.',
+  ][Math.min(3, ctx.life.sightings.imaginary.snorbleWoken)], 'madeup'),
+  balloonbug: sighting('balloonbug', 'A balloonbug', [
+    'A balloonbug, drifting over on nothing at all. It eats midges, so it can stay as long as it likes.',
+    'It puffs itself up a little bigger and bobs higher, which is all the opinion a balloonbug has.',
+  ], 'madeup'),
+  fosha: sighting('fosha', 'A fosha', [
+    'A fosha, looking up at the stars. It glances round at you, then back up. You are less interesting than Orion.',
+    'It doesn’t run. It just carries on looking.',
+    'Foshas mate for life, the notes say, and spend their nights watching the sky. Nobody has asked what for.',
+  ], 'madeup'),
+  treestrider: sighting('treestrider', 'A treestrider', [
+    'A treestrider, wading between islands on legs as tall as a house. It stops, looks down at you for a long moment, and walks on.',
+    'Gentle, the notes say, and it only eats leaves. It’s still hard not to hold your breath.',
+  ], 'madeup'),
+  mosslits: sighting('mosslits', 'Mosslits', [
+    'Mosslits, glowing so they can find each other in the dark. They dim at you, one by one, then think better of it.',
+    'Three little lights, creeping up the bark at the speed of moss.',
+  ], 'madeup'),
 };
 
 // Harry Potter, taking turns with the twentieth century

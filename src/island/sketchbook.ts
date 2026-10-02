@@ -40,8 +40,14 @@ const SPECIMENS = [
   ['eagle', 'White-tailed eagle', 'A barn door of a bird on a dead branch, then low over the water, and away with a fish.'],
   ['boar', 'Wild boar', 'All shoulders and snout, rooting up the bank. The piglets are striped like humbugs.'],
   ['highland', 'Highland cow', 'Ginger, shaggy, horns like handlebars. Looking back at me through its fringe, I think.'],
+  // the imaginary ones, out of the 2022 blog posts and onto the island
+  ['snorble', 'Snorble', 'Unconfirmed. A heap of fluff with a pink snout, asleep in a sunbeam, and then two metres up in the air.'],
+  ['balloonbug', 'Balloonbug', 'Unconfirmed. Blown up like a little balloon, legs dangling, drifting over on nothing at all.'],
+  ['fosha', 'Fosha', 'Unconfirmed. Blue as the hour before dawn, ears up, watching the stars and not me.'],
+  ['treestrider', 'Treestrider', 'Unconfirmed. Legs as tall as a house, wading out to sea in the mist.'],
+  ['mosslits', 'Mosslits', 'Unconfirmed. Little lights in the moss, finding each other in the dark.'],
 ] as const;
-/** The atlas is six sketches wide and seven deep; its thirty-sixth sketch is the feather, not an animal. */
+/** The atlas is six sketches wide and eight deep; its thirty-sixth sketch is the feather, not an animal. */
 const FEATHER = 35;
 const tileOf = (specimen: number) => (specimen >= FEATHER ? specimen + 1 : specimen);
 export type Animal = typeof SPECIMENS[number][0];
@@ -96,7 +102,7 @@ export function bindSketchbook() {
   const drawing = (tile: number, label: string) => {
     const art = document.createElement('div'); art.className = 'wildlife-drawing';
     art.setAttribute('role', 'img'); art.setAttribute('aria-label', label);
-    art.style.backgroundPosition = `${tile % 6 * 20}% ${Math.floor(tile / 6) * 100 / 6}%`;
+    art.style.backgroundPosition = `${tile % 6 * 20}% ${Math.floor(tile / 6) * 100 / 7}%`;
     return art;
   };
   const render = () => {

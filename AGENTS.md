@@ -4,7 +4,7 @@
 
 - **A new animal gets a page in the wildlife sketchbook.** Add an entry to `SPECIMENS` in
   `src/island/sketchbook.ts` with an id that matches the one passed to `spotAnimal`, and draw it
-  into the atlas. New drawings go in row seven, drawn in code by `tools/drawings/row-seven.py`.
+  into the atlas. New drawings go in rows seven and eight, drawn in code by `tools/drawings/row-seven.py`.
 - **Fit the moment.** Characters, text and visuals should follow the time of day, the season
   and special days, and the weather, including the visitor's real forecast. If a line mentions
   the sun, it shouldn't show in a downpour. Rare sightings keep to their conditions (`Outlook`

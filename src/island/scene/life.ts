@@ -128,6 +128,9 @@ export class Life {
   gust = 0;
   /** How hot it is, 0..1 (set every frame): Beike off into the shade, the cats flat out on the cool stones. */
   heat = 0;
+  /** Cloud cover and fog, 0..1 each (set every frame): some things only come out under a clear sky, or in the mist. */
+  cloud = 0;
+  fog = 0;
   /** The weathervane's heading, eased: it swings round into the wind. */
   private vaneYaw: number | null = null;
   /** Whether Vincent's song is audible; he eases into and out of playing. */
@@ -310,7 +313,7 @@ export class Life {
     const now = new Date(this.sky.time);
     this.sightings.update(dt, {
       night, season: season.name, wet: this.wet, storm: this.storm, hour: now.getHours() + now.getMinutes() / 60,
-      time: this.sky.time, wind: this.wind, drift: this.drift,
+      time: this.sky.time, wind: this.wind, drift: this.drift, cloud: this.cloud, fog: this.fog, heat: this.heat,
     });
     this.visitors(dt, night);
     this.emitters(dt, night);

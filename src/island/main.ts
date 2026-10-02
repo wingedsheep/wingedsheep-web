@@ -432,6 +432,8 @@ export async function bootIsland(host: HTMLElement) {
     life.songTime = sound.songTime;
     life.rain = weather.now.rain + weather.now.hail + weather.now.snow * 0.8; // nobody sits out in the snow either
     life.storm = weather.now.storm;
+    life.cloud = weather.now.cloud;
+    life.fog = Math.max(weather.now.fog, mist.amount);
     if (!reducedMotion) life.update(dt);
     else life.shelter.update(dt, life.rain, true, life.heat);
     const indoorsNow = hut.inside ? 'hut' : lighthouse.inside ? 'lighthouse' : workshop.inside ? 'workshop' : null;

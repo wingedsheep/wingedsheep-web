@@ -4,6 +4,7 @@ import { occasions } from './calendar';
 import { Body, headingOf, orient, splash, type Call, type Season } from './fauna';
 import type { Island } from './island';
 import type { Particles } from './particles';
+import { Imaginary } from './imaginary';
 import { GRADIENT } from './toon';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -29,6 +30,11 @@ export interface Outlook {
   wind: number;
   /** Which way the wind blows (world x, z), longer the stronger. */
   drift: THREE.Vector2;
+  /** Cloud cover and fog, 0..1 each. */
+  cloud: number;
+  fog: number;
+  /** How hot it is, 0..1. */
+  heat: number;
 }
 
 /** Who's about on this visit. `?animal=<name>` brings one along soon, whatever the hour. */
@@ -668,6 +674,8 @@ export class Sightings {
   private container?: Ship;
   private tallship?: Ship;
   private fisherman?: Fisherman;
+  /** The made-up ones, from the blog: see imaginary.ts. */
+  readonly imaginary: Imaginary;
   private containerWait = LUCK.containerSoon ? 2 : rand(60, 360);
   private tallshipWait = LUCK.tallshipSoon ? 2 : rand(60, 400);
   private tallshipDone = false;
@@ -682,6 +690,8 @@ export class Sightings {
   constructor(scene: THREE.Scene, island: Island, template: (species: string) => THREE.Object3D | undefined, ground: Ground, private particles: Particles) {
     const call = (c: Call, at: THREE.Vector3, ambient?: boolean) => this.onCall?.(c, at, ambient);
     this.murmuration = new Murmuration(scene);
+    this.imaginary = new Imaginary(scene, template, ground, particles);
+    this.imaginary.onCall = call;
     const T = template;
     const balloon = T('balloon');
     if (balloon) {
@@ -714,7 +724,7 @@ export class Sightings {
 
   /** All of them, for the Picker. */
   get pickables() {
-    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.fisherman?.body]
+    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.fisherman?.body, ...this.imaginary.bodies]
       .filter((b): b is Body => !!b).map((b) => b.root).concat(this.murmuration.hit);
   }
 
@@ -723,6 +733,7 @@ export class Sightings {
     if (id === 'balloon') this.balloon?.wave();
     if (id === 'seal') this.seal?.poke();
     if (id === 'fisherman') this.fisherman?.poke();
+    this.imaginary.poke(id);
   }
 
   /** How many fish in the fisherman's bucket. */
@@ -745,6 +756,7 @@ export class Sightings {
     this.murmuration.update(dt, o);
     this.seal?.update(dt, o, t);
     this.fisherman?.update(dt, o, t);
+    this.imaginary.update(dt, o, t);
     const swell = clamp(o.wind / 15, 0, 1);
 
     // the ferry, where the timetable says it is (?animal=ferry: one leaving now)

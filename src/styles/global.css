@@ -907,7 +907,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .wildlife-running-title { align-self: flex-start; font: 11px/1.4 var(--ui); letter-spacing: .1em; opacity: .57; }
 .wildlife-page h3 { align-self: flex-start; margin: 25px 0 0; font: 400 29px/1.15 var(--ui); transform: rotate(-2deg); }
 .wildlife-page-right h3 { transform: rotate(1deg); }
-.wildlife-drawing { flex-shrink: 1; width: 100%; max-width: 335px; min-height: 0; aspect-ratio: 1; margin: 10px auto 0; background-image: url('/art/wildlife-sketches-pixel.png'); background-size: 600% 700%; mix-blend-mode: darken; image-rendering: pixelated; }
+.wildlife-drawing { flex-shrink: 1; width: 100%; max-width: 335px; min-height: 0; aspect-ratio: 1; margin: 10px auto 0; background-image: url('/art/wildlife-sketches-pixel.png'); background-size: 600% 800%; mix-blend-mode: darken; image-rendering: pixelated; }
 .wildlife-note { align-self: center; width: 95%; margin: 10px 0 16px; font: italic 20px/1.4 var(--serif); transform: rotate(-2deg); text-align: left; }
 .wildlife-page-right .wildlife-note { transform: rotate(1deg); }
 .wildlife-date { align-self: flex-end; font: 13px/1.3 var(--ui); opacity: .62; margin: auto 0 0; }
