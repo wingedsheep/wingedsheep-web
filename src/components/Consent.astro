@@ -1,0 +1,44 @@
+---
+// asks once whether Google Analytics may set its cookies; until it's answered (or when it's
+// declined) Consent Mode keeps analytics_storage denied. Any [data-cookie-settings] asks again.
+interface Props {
+  lang: 'en' | 'nl';
+}
+const { lang } = Astro.props;
+const t = {
+  en: { ask: 'The island counts its visitors with Google Analytics, which sets cookies. Is that all right?', yes: 'Fine', no: 'No thanks', label: 'Cookies' },
+  nl: { ask: 'Het eiland telt zijn bezoekers met Google Analytics, en dat zet cookies. Is dat goed?', yes: 'Prima', no: 'Liever niet', label: 'Cookies' },
+}[lang];
+---
+<aside class="consent" aria-label={t.label} hidden>
+  <p>{t.ask}</p>
+  <div class="consent-choices">
+    <button type="button" data-consent="granted">{t.yes}</button>
+    <button type="button" data-consent="denied">{t.no}</button>
+  </div>
+</aside>
+
+<script>
+  declare global { interface Window { gtag?: (...args: unknown[]) => void } }
+
+  const KEY = 'wingedsheep:consent';
+  const banner = document.querySelector<HTMLElement>('.consent')!;
+  let stored: string | null = null;
+  try { stored = localStorage.getItem(KEY); } catch {}
+  if (stored !== 'granted' && stored !== 'denied') banner.hidden = false;
+
+  banner.addEventListener('click', (e) => {
+    const choice = (e.target as HTMLElement).closest<HTMLElement>('[data-consent]')?.dataset.consent;
+    if (!choice) return;
+    try { localStorage.setItem(KEY, choice); } catch {}
+    window.gtag?.('consent', 'update', { analytics_storage: choice });
+    banner.hidden = true;
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('[data-cookie-settings]')) return;
+    e.preventDefault();
+    banner.hidden = false;
+    banner.querySelector('button')?.focus();
+  });
+</script>

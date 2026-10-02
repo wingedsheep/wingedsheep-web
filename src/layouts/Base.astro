@@ -2,6 +2,7 @@
 import '../styles/fonts.css';
 import '../styles/global.css';
 import { site } from '../data/site';
+import Consent from '../components/Consent.astro';
 
 interface Props {
   title?: string;
@@ -29,6 +30,21 @@ const ogImageAlt = 'A pixel-art island at dusk: a lighthouse, a library, a works
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Google tag (gtag.js), in Consent Mode: no analytics cookies until the visitor says yes
+         (the answer lives in localStorage, asked for by components/Consent.astro) -->
+    <script is:inline>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      var consent = null;
+      try { consent = localStorage.getItem('wingedsheep:consent'); } catch (e) {}
+      gtag('consent', 'default', {
+        ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+        analytics_storage: consent === 'granted' ? 'granted' : 'denied',
+      });
+      gtag('js', new Date());
+      gtag('config', 'G-MLCQ7RBJK2');
+    </script>
+    <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-MLCQ7RBJK2"></script>
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
@@ -71,5 +87,6 @@ const ogImageAlt = 'A pixel-art island at dusk: a lighthouse, a library, a works
   </head>
   <body data-title={`${site.handle} · ${site.name}`}>
     <slot />
+    <Consent lang={lang} />
   </body>
 </html>
