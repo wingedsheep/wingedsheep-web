@@ -1,7 +1,7 @@
 ---
 title: "Exploring another planet: AI-generated Nature Photography"
 date: 2023-04-24
-excerpt: "Discovering an alien planet using AI photography with midjourney 5."
+excerpt: "Back among my imaginary creatures, as if on an expedition to an unexplored planet: nature photography of animals that don’t exist, taken with Midjourney 5."
 tags: ["AI Art", "AI Photography", "Midjourney"]
 cover: "/blog/imaginary-creatures-2/cover.webp"
 shelf: ai

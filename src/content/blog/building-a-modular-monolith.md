@@ -1,7 +1,7 @@
 ---
 title: "Building a Modular Monolith"
 date: 2025-12-13
-excerpt: "A practical guide to building a modular monolith in Kotlin and Spring Boot"
+excerpt: "A practical guide to a modular monolith in Kotlin and Spring Boot: where to draw the boundaries, how to make the build enforce them, and how modules talk."
 tags: ["Software Architecture"]
 cover: "/blog/building-a-modular-monolith/cover.webp"
 shelf: craft

@@ -1,7 +1,7 @@
 ---
 title: "GPT-3 as a muse: generating lyrics"
 date: 2022-04-22
-excerpt: "Using a finetuned version of GPT-3 to write lyrics in the preferred style."
+excerpt: "I’ve always wanted to write lyrics I’m proud of. Here’s how I used GPT-3, from simple prompts to a finetuned model, to write them in the style I wanted."
 tags: ["Music Generation", "GPT-3"]
 cover: "/blog/songwriting-with-gpt-3/cover.webp"
 shelf: music

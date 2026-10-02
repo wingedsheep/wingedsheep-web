@@ -1,7 +1,7 @@
 ---
 title: "Imaginary creatures"
 date: 2022-07-18
-excerpt: "Created by GPT-3, Dall-e 2 and me"
+excerpt: "Fantastic beasts I made up the names for, described by GPT-3 and painted by DALL·E 2: from the riverbank Klouzet to the Bortodont wading through its swamp."
 tags: ["AI Art", "GPT-3", "Dall-e"]
 cover: "/blog/imaginary-creatures/cover.webp"
 shelf: ai

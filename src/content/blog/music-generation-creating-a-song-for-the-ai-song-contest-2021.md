@@ -1,7 +1,7 @@
 ---
 title: "Music Generation - AI Song Contest 2021"
 date: 2021-06-27
-excerpt: "How we created a song for the AI Song Contest 2021 with the help of transformers and other music generation techniques."
+excerpt: "How our team, Lovelace & The Machines, made a song for the AI Song Contest 2021, letting AI write the chords, melody, lyrics, drums and bass wherever it could."
 tags: ["Music Generation", "Transformers", "GPT-3"]
 cover: "/blog/music-generation-creating-a-song-for-the-ai-song-contest-2021/cover.webp"
 shelf: music

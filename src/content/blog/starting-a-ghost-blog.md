@@ -1,7 +1,7 @@
 ---
 title: "Starting a self-hosted Ghost blog"
 date: 2020-06-06
-excerpt: "A guide for setting up your own self-hosted Ghost CMS blog on Ubuntu 20.04 using Docker Compose."
+excerpt: "How I set up the first version of this blog: a self-hosted Ghost CMS on an Ubuntu 20.04 server with Docker Compose, step by step from a bare server."
 tags: ["Blogging", "Ghost"]
 cover: "/blog/starting-a-ghost-blog/cover.webp"
 shelf: craft

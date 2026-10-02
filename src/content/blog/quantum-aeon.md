@@ -1,7 +1,7 @@
 ---
 title: "Quantum Aeon: A story written by alien intelligence"
 date: 2023-07-25
-excerpt: "A story to read or to listen, written about and by alien intelligence."
+excerpt: "A science fiction story in 26 chapters, to read or listen to: an astrobiologist, a mining giant and an alien world, written about and by alien intelligence."
 tags: ["LLM", "Text-to-speech", "Story generation"]
 cover: "/blog/quantum-aeon/cover.webp"
 shelf: ai

@@ -1,7 +1,7 @@
 ---
 title: "Building a text generation model from scratch"
 date: 2022-11-20
-excerpt: "In this blogpost I am going to code a text generation model from scratch, based on the transformer architecture."
+excerpt: "Building a text generation model from scratch with the transformer architecture, one clear step at a time: tokens, embeddings, attention and the decoder stack."
 tags: ["machine learning"]
 cover: "/blog/building-a-language-model/cover.webp"
 shelf: ai

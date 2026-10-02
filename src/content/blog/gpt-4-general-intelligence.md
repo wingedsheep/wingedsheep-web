@@ -1,7 +1,7 @@
 ---
 title: "Journey into the Dreamhold: Testing GPT-4's General Intelligence Through a Text Adventure Quest"
 date: 2023-03-26
-excerpt: "Exploring GPT-4's General Intelligence. How GPT-4 tackles the challenges of an interactive text adventure."
+excerpt: "Can GPT-4 reason its way through a world? I let it play The Dreamhold, an old-school text adventure, and asked it to explain its moves, map the rooms, and plan."
 tags: ["GPT-4", "machine learning"]
 cover: "/blog/gpt-4-general-intelligence/cover.webp"
 shelf: ai

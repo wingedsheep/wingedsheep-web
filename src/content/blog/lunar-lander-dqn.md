@@ -1,7 +1,7 @@
 ---
 title: "Solving Lunar Lander using DQN with Keras"
 date: 2020-08-03
-excerpt: "Solving the OpenAI gym LunarLander environment with the help of DQN implemented with Keras."
+excerpt: "Teaching an agent to land a spacecraft between two flags: solving OpenAI Gym’s LunarLander with Deep Q-learning in Keras, from the Bellman equation up."
 tags: ["machine learning"]
 cover: "/blog/lunar-lander-dqn/cover.webp"
 shelf: ai

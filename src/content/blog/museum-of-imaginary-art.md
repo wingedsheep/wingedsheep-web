@@ -1,7 +1,7 @@
 ---
 title: "Museum of imaginary art"
 date: 2022-12-02
-excerpt: "A museum with artists imagined by GPT-3 and artworks created by Midjourney."
+excerpt: "A museum where GPT-3 imagined the artists and their stories, and Midjourney made their work. I’m the curator: I chose what hangs on the walls."
 tags: ["AI Art"]
 cover: "/blog/museum-of-imaginary-art/cover.webp"
 shelf: ai

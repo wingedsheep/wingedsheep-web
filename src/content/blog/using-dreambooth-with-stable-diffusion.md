@@ -1,7 +1,7 @@
 ---
 title: "Dreambooth"
 date: 2022-10-09
-excerpt: "Using Dreambooth to create a customized stable diffusion model for my cat."
+excerpt: "How I taught Stable Diffusion what my cat Pip looks like with Dreambooth, step by step: from 39 photos to Pip in any painting or place you can describe."
 tags: ["AI Art", "Stable diffusion", "Dreambooth"]
 cover: "/blog/using-dreambooth-with-stable-diffusion/cover.webp"
 shelf: ai
