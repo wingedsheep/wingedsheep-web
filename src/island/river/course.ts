@@ -1001,7 +1001,7 @@ export class Course {
           }
         }
         gap *= 0.7;
-        if (r() < 0.35) {
+        if (r() < 0.15 + this.wilder() * 0.2) {
           const side = r() < 0.5 ? -1 : 1;
           this.addObstacle({ kind: 'rock', ...across(side * (0.88 + r() * 0.14)), r: 0.5 + r() * 0.3, s, variant: Math.floor(r() * 5) });
         }
@@ -1153,25 +1153,33 @@ export class Course {
     for (let k = 1 + Math.floor(r() * 2); k < t.count; k += every) {
       if (r() > 0.25) side = -side;
       const R = 0.95 + r() * 0.35;
-      const c = side * (0.3 + r() * 0.25) * t.half;
+      const c = side * (0.45 + r() * 0.2) * t.half;
       this.troughRock(t, k, c, R);
     }
   }
 
   /**
-   * A stray rock or two down a wave train in big water, or none at all: wherever they happen to
-   * lie, but never both in the same stretch of troughs, and never so far out there's no way round.
+   * A stray rock down a wave train in big water now and then, or two on the wilder rivers: off
+   * to one side of the line down the middle, never both in the same stretch of troughs, and never
+   * so far out there's no way round.
    */
   private strays(t: Train) {
     const r = this.scatter;
-    const n = r() < 0.4 ? 0 : r() < 0.75 ? 1 : 2;
+    const g = this.wilder();
+    const n = r() < 0.7 - g * 0.3 ? 0 : g > 0 && r() < g * 0.3 ? 2 : 1;
     let last = -Infinity;
     for (let i = 0; i < n; i++) {
       const k = 1 + Math.floor(r() * (t.count - 1));
       if (Math.abs(k - last) < 3) continue;
       last = k;
-      this.troughRock(t, k, (r() * 2 - 1) * 0.6 * t.half, 0.6 + r() * 0.35);
+      const side = r() < 0.5 ? -1 : 1;
+      this.troughRock(t, k, side * (0.45 + r() * 0.25) * t.half, 0.6 + r() * 0.35);
     }
+  }
+
+  /** How wild a river's big water gets, by its grade: 0 on a grade 3, 1 on a grade 5. */
+  private wilder() {
+    return Math.max(0, Math.min(1, (this.profile.grade - 3) / 2));
   }
 
   /** A rock in the trough between crest k-1 and crest k of a wave train, c off its middle. */
