@@ -106,9 +106,10 @@ const WAVE_PULL = 5;
 const PUMP = 0.55;
 /**
  * How much the wildest water eases off (0..1): its random jolts, the rough water's own roll and the
- * crests' roll, and a little more steadiness and damping to settle back upright.
+ * crests' roll, and a little more steadiness and damping to settle back upright. More on the
+ * gentler rivers' big water, down to the least on the hottest.
  */
-const WILD_EASE = 0.25;
+const WILD_EASE: [cool: number, hot: number] = [0.42, 0.25];
 /** Over a crest faster than this (m/s), a big wave throws you off it. */
 const HOP_FROM = 6.8;
 /** A storm's wind across the river at its strongest (m/s²): enough to drift you, not to pin you. */
@@ -957,8 +958,9 @@ export class Kayak {
     // you; sitting back lets them push you about.
     const stance = 1 - Math.max(0, this.pitchNow) * 0.35 + Math.max(0, -this.pitchNow) * 0.4;
     // the wildest water (big water, the hottest rapids) is a bit kinder than it might be: fewer
-    // jolts out of nowhere and a steadier roll, so riding it out is balance, not luck
-    const wild = THREE.MathUtils.smoothstep(this.rough, 0.7, 1) * WILD_EASE;
+    // jolts out of nowhere and a steadier roll, so riding it out is balance, not luck (and kinder
+    // still on the cooler rivers, where it's your first go at it)
+    const wild = THREE.MathUtils.smoothstep(this.rough, 0.7, 1) * THREE.MathUtils.lerp(...WILD_EASE, this.difficulty);
     let torque = this.rough * (3.2 + this.difficulty * 2) * stance * (1 - wild * 0.7) * (Math.sin(t * 2.3 + p.s * 0.3) * 0.6 + Math.sin(t * 3.7 + p.s * 0.11) * 0.4);
     if (Math.random() < dt * this.rough * 2.2 * (1 - wild)) this.tiltV += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.1) * this.rough * stance * (1 - wild * 0.6);
     // (in the washing machine it doesn't keep building: it's already doing its worst, slower too)
