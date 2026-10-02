@@ -639,6 +639,7 @@ export class QuartersRoom {
       }
       if (!indoors.has(id)) {
         walker.visible = false;
+        this.guests.up.delete(id);
         Object.assign(d, { state: 'idle', wait: rand(15, 40) });
         continue;
       }
@@ -647,6 +648,7 @@ export class QuartersRoom {
       d.t += dt;
       if (d.state === 'idle') {
         walker.visible = false;
+        this.guests.up.delete(id); // (back on the sofa)
         if ((d.wait -= dt) > 0 || home || this.drinking > 0) continue;
         sleeper.getWorldPosition(d.from);
         d.start.copy(d.from).setY(0).add(V(BEHIND, 0, 0));
@@ -654,6 +656,7 @@ export class QuartersRoom {
       }
       walker.visible = true;
       sleeper.visible = false; // (it's the standing one now)
+      this.guests.up.add(id);
       const turn = (to: number) => {
         const diff = Math.atan2(Math.sin(to - d.heading), Math.cos(to - d.heading));
         d.heading += diff * Math.min(1, dt * 8);
@@ -757,6 +760,7 @@ export class QuartersRoom {
           if (t >= 5.0) {
             walker.visible = false;
             sleeper.visible = true;
+            this.guests.up.delete(id);
             Object.assign(d, { state: 'idle', wait: rand(45, 110) });
           }
           break;

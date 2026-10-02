@@ -45,6 +45,8 @@ export class Guests {
   private sleepers = new Map<string, Sleeper>();
   private floaters: Floaters;
   private clock = 0;
+  /** The ones up and about (off to the bowls or the tap, quarters.ts): not on the sofa, so no zzz. */
+  readonly up = new Set<string>();
 
   /** `groups` are the children of a room's `guests` marker; the ones that are animals get an id. */
   constructor(
@@ -108,7 +110,7 @@ export class Guests {
 
   update(dt: number) {
     this.clock += dt;
-    for (const g of this.groups) g.visible = indoors.has(g.name);
+    for (const g of this.groups) g.visible = indoors.has(g.name) && !this.up.has(g.name);
     for (const s of this.sleepers.values()) {
       if (!s.root.visible) continue;
       for (const [o, r] of s.rest) {
