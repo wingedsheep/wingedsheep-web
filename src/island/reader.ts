@@ -17,6 +17,7 @@ export class Reader {
   private ribbon: HTMLElement;
   private barTitle: HTMLElement;
   private body: HTMLElement;
+  private stopAiming = () => {};
 
   constructor(private book: HTMLElement) {
     this.ribbon = book.querySelector('[data-progress]')!;
@@ -52,6 +53,7 @@ export class Reader {
 
   /** A new post is on the page. */
   opened() {
+    this.stopAiming();
     this.barTitle.textContent = this.body.querySelector('h1')?.textContent ?? '';
     const target = this.fragmentTarget(location.hash);
     if (target) this.jumpTo(target, false);
@@ -68,10 +70,40 @@ export class Reader {
   }
 
   private jumpTo(target: HTMLElement, smooth: boolean) {
-    // Use the actual toolbar height: its controls can wrap on narrow screens.
-    const clearance = this.book.querySelector('.book-bar')!.getBoundingClientRect().height + 20;
-    const top = target.getBoundingClientRect().top - this.book.getBoundingClientRect().top + this.book.scrollTop - clearance;
-    this.book.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    this.stopAiming();
+    const aim = () => {
+      if (!this.body.contains(target)) return this.stopAiming(); // another post came in
+      // Use the actual toolbar height: its controls can wrap on narrow screens.
+      const clearance = this.book.querySelector('.book-bar')!.getBoundingClientRect().height + 20;
+      const top = target.getBoundingClientRect().top - this.book.getBoundingClientRect().top + this.book.scrollTop - clearance;
+      this.book.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    };
+    aim();
+    // Things on the way can still change size as the book scrolls past them (a picture loading
+    // lazily, a late font, an embed): keep aiming at the heading until the scroll has settled,
+    // unless the reader takes over.
+    let first = true;
+    const watch = new ResizeObserver(() => (first ? (first = false) : aim()));
+    watch.observe(this.body);
+    const stop = () => this.stopAiming();
+    let still = 0;
+    const moving = () => {
+      clearTimeout(still);
+      still = window.setTimeout(stop, 1000);
+    };
+    moving();
+    const cap = setTimeout(stop, 6000);
+    const takeOver = ['wheel', 'touchstart', 'pointerdown', 'keydown'];
+    for (const t of takeOver) this.book.addEventListener(t, stop, { passive: true });
+    this.book.addEventListener('scroll', moving, { passive: true });
+    this.stopAiming = () => {
+      watch.disconnect();
+      clearTimeout(still);
+      clearTimeout(cap);
+      for (const t of takeOver) this.book.removeEventListener(t, stop);
+      this.book.removeEventListener('scroll', moving);
+      this.stopAiming = () => {};
+    };
     // Continue keyboard reading at the destination instead of back in the contents.
     if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
     target.focus({ preventScroll: true });
