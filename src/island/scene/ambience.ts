@@ -100,7 +100,7 @@ export class Ambience {
       const colours = season.fall < 0.3 ? FIRST_LEAVES : season.fall < 0.7 ? FALLING : LAST_LEAVES;
       // every tree in view sheds its own, so the more of the island you see, the more come down
       const trees = this.trees.filter((t) => t.c.position.distanceTo(around) < size);
-      this.spawn(dt, trees.length * shedding * (0.8 + blow * 1.6) * (1 + weather.gust * 2), () => {
+      this.spawn(dt, trees.length * shedding * (0.6 + blow * 1.2) * (1 + weather.gust * 2), () => {
         const { c, ground } = pick(trees);
         const top = c.position.clone().add(V(rand(-1, 1), rand(-0.3, 0.5), rand(-1, 1)).multiplyScalar(c.radius));
         const sink = rand(0.45, 0.75);

@@ -64,7 +64,7 @@ export class RiverAir {
     const blow = air.wind * 0.55 * (1 + air.gust * 0.6);
     this.motes.wind.set(blow * dx, air.gust * 1.4 * (0.4 + 0.6 * Math.max(0, Math.sin(this.clock * 0.9))), blow * dz);
     const colours = season.fall < 0.3 ? FIRST_LEAVES : season.fall < 0.7 ? FALLING : LAST_LEAVES;
-    this.spawn(dt, near.length * shedding * (0.8 + windiness * 1.6) * (1 + air.gust * 2), () => {
+    this.spawn(dt, near.length * shedding * (0.6 + windiness * 1.2) * (1 + air.gust * 2), () => {
       const c = pick(near);
       const top = c.position.clone().add(V(rand(-1, 1), rand(-0.3, 0.5), rand(-1, 1)).multiplyScalar(c.radius));
       const ground = land.heightAt(top.x, top.z);
