@@ -12,7 +12,10 @@ import { chapters } from '../data/career';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
 import { travels, yearsOf } from '../data/travels';
-import { fridayNight, hourOf } from './scene/bedtime';
+import { fridayEvening, fridayNight, hourOf } from './scene/bedtime';
+import { table } from './scene/meals';
+import type { Find, Topic } from './scene/outings';
+import { season } from './scene/season';
 import { clog, occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
 import { wardrobe } from './scene/wardrobe';
@@ -725,6 +728,192 @@ const hearing = inTurn([
   'A guest with three holiday homes calls the last few years “a real struggle”. She rewinds it, just to hear it again.',
 ]);
 
+// out for a stroll (scene/outings.ts): what's on their mind, by where they last stopped and what
+// the day's like. Each line says when it fits; the ones that fit take their turn.
+type Moment = { wet: boolean; sunny: boolean; dark: boolean; fog: boolean; windy: boolean; cold: boolean; found: Find | null; cats: boolean };
+type Thought = [string, (m: Moment) => boolean];
+const always = () => true;
+const THOUGHTS: Record<'v' | 'e', Partial<Record<Topic | 'walk', Thought[]>>> = {
+  v: {
+    walk: [
+      ['Just walking. Thinking about the game he’s making, then about nothing at all, which is the better of the two.', always],
+      ['He’s thinking about a level he can’t get right. Somewhere round the well, he sees how to fix it.', always],
+      ['He hums a tune he hasn’t written yet. It’s nearly there.', (m) => !m.wet],
+    ],
+    sea: [
+      ['He’s watching the waves come in, counting between the big ones. Never the same number twice.', always],
+      ['The sun’s on the water in a thousand pieces. He wonders how you’d write a shader for that, then decides just to look at it.', (m) => m.sunny],
+      ['The sea stops a little way out, into the mist. Anything could be out there. He hopes it’s the whale.', (m) => m.fog],
+      ['The lighthouse beam goes over the water, and for a second he can see right out to the horizon.', (m) => m.dark],
+      ['Whitecaps all the way out. He’s glad the kayak’s tied up.', (m) => m.windy],
+    ],
+    shore: [
+      ['A shell, still wet. He holds it to his ear. Nothing, as usual. He keeps it anyway.', (m) => m.found === 'shell'],
+      ['A flat stone, perfect for skimming. Too good to throw, he decides, and pockets it.', (m) => m.found === 'pebble'],
+      ['A leaf, blown all the way down to the sand. He turns it over: the back’s still green.', (m) => m.found === 'leaf'],
+      ['Something on the sand. He picks it up, turns it over, and looks very pleased with it.', always],
+    ],
+    flowers: [
+      ['Down on his heels by the flowers, watching a bee go from one to the next. It seems to have a system.', () => season.name === 'spring' || season.name === 'summer'],
+      ['Snowdrops, the first of them. He’d like to draw one. He’s seen how hard they are to draw.', () => season.snowdrops > 0.2],
+      ['Mushrooms in the grass, overnight. He looks, and doesn’t touch.', () => season.name === 'autumn'],
+      ['Nothing flowering yet, just the tips of things coming up. He checks on them anyway.', () => season.name === 'winter' && season.snowdrops < 0.2],
+    ],
+    woods: [
+      ['Light coming down through the leaves in patches. It reminds him of the woods by the stream in Arnhem.', (m) => m.sunny && season.leafOut > 0.5 && season.fall < 0.6],
+      ['The beeches have gone copper. He walks through the leaves on purpose, for the sound.', () => season.turn > 0.4 && season.fall < 0.9],
+      ['Bare branches against the sky. You can see the whole shape of a tree in winter.', () => season.fall > 0.85 || season.leafOut < 0.2],
+      ['Something moved in the undergrowth. He waits. It doesn’t move again.', always],
+      ['Rain dripping off the leaves long after it’s stopped. He doesn’t mind.', (m) => m.wet],
+    ],
+    tree: [
+      ['The cherry tree in flower. He stands under it a while, looking up.', () => season.blossom > 0.3],
+      ['He looks up into the cherry tree, as he does every time he passes, to see what it’s up to.', always],
+      ['A robin in the cherry tree. He’s been meaning to draw it for weeks. It knows.', (m) => !m.dark],
+    ],
+    well: [
+      ['He drops a pebble down the well and listens. It’s a long time before the splash.', always],
+      ['He leans over the well. Somewhere a long way down, the sky looks back up.', (m) => !m.dark],
+    ],
+    bench: [
+      ['Charlie and George have the bench. He thinks about sitting down. There isn’t room. There’s never room.', (m) => m.cats],
+      ['The bench is free. He doesn’t sit down; it feels like the cats’ bench now.', (m) => !m.cats],
+    ],
+    lighthouse: [
+      ['Out on the point, wind in his face. He’s thinking about Silksong, and how a world can feel dangerous and inviting at once.', always],
+      ['The lamp’s turning overhead. From out here it looks as if it’s keeping an eye on him.', (m) => m.dark],
+      ['Nothing between him and the horizon but water. He breathes out.', (m) => !m.fog],
+    ],
+    pier: [
+      ['Hands behind his back at the end of the pier, like a harbourmaster expecting a ship.', always],
+      ['He watches the water slap the posts and thinks about coffee. He’s always thinking about coffee.', always],
+      ['The kayak’s knocking gently against the pier. Tomorrow, he tells it.', (m) => m.windy || m.dark],
+    ],
+  },
+  e: {
+    walk: [
+      ['Out for a walk, nowhere in particular. She’s writing a strongly worded letter in her head. She won’t send it.', always],
+      ['Just walking, and thinking about nothing, which takes practice.', always],
+      ['She’s working out what to make for dinner. Pasta, probably. It’s usually pasta.', (m) => !m.dark],
+    ],
+    sea: [
+      ['She’s watching a boat that may or may not be moving. It’s very relaxing, not knowing.', always],
+      ['The wind’s tugging at her hair. She shuts her eyes and lets it.', (m) => m.windy],
+      ['The sea’s glittering. She stands there long enough for her eyes to need a rest.', (m) => m.sunny],
+      ['Mist over the water, and the foghorn of something far off. She listens for it again.', (m) => m.fog],
+    ],
+    shore: [
+      ['A shell for the windowsill in the hut. It has eleven already. Twelve’s a nice number.', (m) => m.found === 'shell'],
+      ['A pebble with a white stripe right round it: a wishing stone, her gran used to say. She makes one.', (m) => m.found === 'pebble'],
+      ['A leaf, red right through. She’ll press it in her book.', (m) => m.found === 'leaf'],
+      ['She picks something up off the sand, looks at it for a while, and puts it back where it was.', always],
+    ],
+    flowers: [
+      ['She’s crouched by the flowers, naming them under her breath. The ones she doesn’t know she names anyway.', () => season.name === 'spring' || season.name === 'summer'],
+      ['Snowdrops! She counts them. Then counts them again, because it’s nice.', () => season.snowdrops > 0.2],
+      ['Mushrooms, a whole ring of them. She keeps her feet out of it, just in case.', () => season.name === 'autumn'],
+      ['Frost on the grass, every blade done separately. She looks closely.', (m) => m.cold],
+    ],
+    woods: [
+      ['Under the trees it smells of earth and leaves. She takes a deep breath of it.', always],
+      ['Leaves coming down all round her. She tries to catch one. It’s harder than it looks.', () => season.turn > 0.4 && season.fall < 0.9],
+      ['Something rustling by the badgers’ sett. She stands very still.', always],
+    ],
+    tree: [
+      ['Under the blossom, looking up, petals coming down on her.', () => season.blossom > 0.3],
+      ['She puts a hand on the cherry tree’s trunk as she passes. Hello, tree.', always],
+    ],
+    well: [
+      ['She leans over the well and says hello. The well says hello back, a moment later.', always],
+      ['A coin down the well. She doesn’t say what she wished for.', always],
+    ],
+    bench: [
+      ['George has stretched out to fill the whole bench. She tells him he’s magnificent. He knows.', (m) => m.cats],
+      ['She stops by the bench, thinks about sitting, and walks on.', (m) => !m.cats],
+    ],
+    lighthouse: [
+      ['Out on the point by the lighthouse, as far west as you can go. She stands there a while.', always],
+      ['The beam goes round over her head. Everything’s lit for a moment, then not.', (m) => m.dark],
+    ],
+    pier: [
+      ['At the end of the pier, watching the water. She’s thinking about something, and isn’t telling.', always],
+    ],
+  },
+};
+const thoughtTurns = new Map<string, number>();
+function thought(ctx: IslandContext, who: 'v' | 'e', topic: Topic | 'walk', found: Find | null): string {
+  const n = ctx.weather.now;
+  const m: Moment = {
+    wet: n.rain + n.snow + n.hail > 0.2,
+    dark: ctx.sky.lamps > 0.5,
+    fog: n.fog > 0.4,
+    sunny: n.rain + n.snow < 0.1 && n.cloud < 0.4 && n.fog < 0.3 && ctx.sky.lamps < 0.35,
+    windy: ctx.weather.wind > 9,
+    cold: ctx.weather.temperature < 4,
+    found,
+    cats: ctx.life.shelter.onTheBench,
+  };
+  const fits = (THOUGHTS[who][topic] ?? []).filter(([, ok]) => ok(m));
+  const lines = fits.length ? fits : (THOUGHTS[who].walk ?? []).filter(([, ok]) => ok(m));
+  const key = `${who}:${topic}`;
+  const i = thoughtTurns.get(key) ?? 0;
+  thoughtTurns.set(key, i + 1);
+  return lines[i % lines.length][0];
+}
+// a cold walk, the two of them, a mug of glühwein each
+const mulled = inTurn([
+  'Glühwein on a cold walk: cinnamon, cloves, and their breath in clouds.',
+  'They’re walking slowly, so it lasts.',
+  'He got the bigger mug. She noticed.',
+  'Both hands round the mug for the warmth, and a sip at every bend in the path.',
+]);
+const mulledXmas = inTurn([
+  'Glühwein, and nearly Christmas. The island’s doing its best impression of a Christmas market.',
+  'A mug each, and the lights are up. They walk the long way round.',
+]);
+const gluhweinLine = () => (occasions.has('christmas') ? mulledXmas() : mulled());
+
+const FILLINGS = { pate: 'vegetarian pâté', pb: 'peanut butter', egg: 'egg salad' } as const;
+const breakfastHim = {
+  pate: inTurn(['Sandwiches with vegetarian pâté, the same as yesterday. It’s a very good pâté.', 'Pâté sandwiches and a black coffee. He isn’t talking yet.']),
+  pb: inTurn(['Peanut butter sandwiches, thick. He eats like someone with a long day ahead.', 'Peanut butter, and a black coffee. The day can start now.']),
+  egg: inTurn(['Egg salad sandwiches. He’s generous with the pepper.', 'Egg salad on brown bread, and a black coffee going cold beside him.']),
+};
+const breakfastHer = inTurn([
+  'Yoghurt with granola and a handful of berries. The berries go first.',
+  'Yoghurt, eaten slowly, looking out at the day.',
+  'She’s scraping the last of the yoghurt out of the bowl. Every last bit.',
+]);
+const DINNERS: Record<'v' | 'e', Record<'pasta' | 'miso' | 'curry' | 'risotto' | 'pizza', () => string>> = {
+  v: {
+    pasta: inTurn(['Pasta tonight, her favourite. He got the bit of the pot with the most sauce, and isn’t mentioning it.', 'Pasta. He twirls it on his fork with great concentration.']),
+    miso: inTurn(['Miso soup, rice and a few little dishes. They both love this one: nobody’s talking.', 'He’s getting better with the chopsticks. The tofu is still winning.']),
+    curry: inTurn(['Curry, his choice. He went easy on the chilli. Well. Easier.', 'Curry and naan. He mops up the last of it with the bread.']),
+    risotto: inTurn(['His risotto, stirred for twenty minutes without once leaving the pan. He’s proud of this one.', 'Risotto, and he’s waiting to hear what she thinks.']),
+    pizza: inTurn(['Pizza, straight out of the box. No plates were harmed.', 'A slice of pizza in each hand. He says it’s for balance.']),
+  },
+  e: {
+    pasta: inTurn(['Pasta, her pick. She’d have it every night if it were up to her. Tonight it is.', 'Pasta, and extra parmesan. She doesn’t look up.']),
+    miso: inTurn(['Miso soup, both hands round the bowl. This one’s a favourite.', 'Rice, edamame and miso soup. She’s quietly very happy.']),
+    curry: inTurn(['His curry. She’s reaching for the water, and says it’s lovely.', 'Curry tonight. She’s picking the peppers out, one by one.']),
+    risotto: inTurn(['His risotto. She asks for more parmesan, and then a bit more.', 'Risotto. She tells him it’s his best yet. He’ll hear that for days.']),
+    pizza: inTurn(['Pizza out of the box, the crust saved for last.', 'Pizza. She’s eyeing the last slice. So is he.']),
+  },
+};
+function mealLine(ctx: IslandContext, who: 'v' | 'e') {
+  const c = table.course;
+  if (!c) return who === 'v' ? 'He’s just finishing up.' : 'She’s just finishing up.';
+  if (c.dish === 'breakfast') return who === 'v' ? breakfastHim[c.filling]() : breakfastHer();
+  if (c.dish === 'pizza' && fridayEvening(ctx.sky.time)) return 'Friday: pizza by the fire, and the crate close at hand.';
+  return DINNERS[who][c.dish]();
+}
+function mealLabel(ctx: IslandContext, who: string) {
+  const c = table.course;
+  const what = !c ? 'at the table' : c.dish === 'breakfast' ? (who === 'Vincent' ? `breakfast, ${FILLINGS[c.filling]} sandwiches` : 'breakfast, yoghurt') : `dinner, ${{ pasta: 'pasta', miso: 'miso soup', curry: 'curry', risotto: 'risotto', pizza: 'pizza' }[c.dish]}`;
+  return who === 'Vincent' ? `Vincent · ${what}` : what[0].toUpperCase() + what.slice(1);
+}
+const walking = (ctx: IslandContext) => ctx.life.vincent.spot === 'gluhwein';
+
 export const PLACES: Record<string, Place> = {
   vincent_podcast: {
     label: 'Vincent · pacing with a podcast',
@@ -742,6 +931,21 @@ export const PLACES: Record<string, Place> = {
   companion_yoga: withHer('Yoga, on the next mat along', yoga),
   vincent_yoga: { label: 'Vincent · yoga by the beach', activate: (ctx) => ctx.toast(hisYoga()) },
   vincent_hiking: { label: 'Vincent · off up the mountain', activate: (ctx) => ctx.toast(climbing()) },
+  vincent_stroll: {
+    label: (ctx) => (walking(ctx) ? 'Vincent · a walk, with glühwein' : 'Vincent · out for a stroll'),
+    activate(ctx, at) {
+      ctx.life.burst('hearts', at);
+      const s = ctx.life.vincent.stroll;
+      ctx.toast(walking(ctx) ? gluhweinLine() : thought(ctx, 'v', s?.topic ?? 'walk', s?.found ?? null));
+    },
+  },
+  companion_stroll: withHer((ctx) => (ctx.life.companion.where === 'gluhwein' ? 'A walk, with glühwein' : 'Out for a stroll'), (ctx) => {
+    if (ctx.life.companion.where === 'gluhwein') return gluhweinLine();
+    const s = ctx.life.companion.stroll;
+    return thought(ctx, 'e', s.topic, s.found);
+  }),
+  vincent_meal: { label: (ctx) => mealLabel(ctx, 'Vincent'), activate: (ctx) => { ctx.life.vincent.notice(); ctx.toast(mealLine(ctx, 'v')); } },
+  companion_meal: withHer((ctx) => mealLabel(ctx, 'her'), (ctx) => mealLine(ctx, 'e')),
   dock: (() => {
     const line = keepsOn('Every visitor arrives here. The water is calm today.', {
       6: 'Still the dock. Still calm. Still here.',
@@ -1504,6 +1708,8 @@ export const HUT_PLACES: Record<string, Place> = {
     activate: say('Sunday morning: a stack of pancakes, stroop and sugar. The first one always goes wrong, and Beike always gets it.'),
   },
   companion_baking: { label: 'Tea, while the pie bakes', activate: (ctx) => ctx.toast(waiting()) },
+  vincent_meal_hut: { label: (ctx) => mealLabel(ctx, 'Vincent'), activate: (ctx) => ctx.toast(mealLine(ctx, 'v')) },
+  companion_meal_hut: { label: (ctx) => mealLabel(ctx, 'her'), activate: (ctx) => ctx.toast(mealLine(ctx, 'e')) },
   vincent_guitar: {
     label: (ctx) => (ctx.sound.playing ? `Vincent · playing ${ctx.sound.playing.title}` : 'Vincent · ask for a song'),
     activate(ctx) {
@@ -1711,13 +1917,13 @@ function dressedUp(places: Record<string, Place>, ids: string[], who: 'vampire' 
     };
   }
 }
-dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike'], 'vampire');
-dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike'], 'witch');
+dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike', 'vincent_stroll', 'vincent_meal'], 'vampire');
+dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike', 'companion_stroll', 'companion_meal'], 'witch');
 dressedUp(WORKSHOP_PLACES, ['vincent_workshop'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['vincent_coding'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['companion_watching'], 'witch');
-dressedUp(HUT_PLACES, ['vincent_guitar'], 'vampire');
-dressedUp(HUT_PLACES, ['companion_baking'], 'witch');
+dressedUp(HUT_PLACES, ['vincent_guitar', 'vincent_meal_hut'], 'vampire');
+dressedUp(HUT_PLACES, ['companion_baking', 'companion_meal_hut'], 'witch');
 
 export function workshopPlaceFor(id: string): Place | undefined {
   return WORKSHOP_PLACES[id];

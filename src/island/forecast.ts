@@ -1,8 +1,12 @@
+import { sunPosition } from './scene/sun';
+
 /**
  * The visitor's current weather, from Open-Meteo (free, no key). We never prompt for location:
  * if the visitor has already let this site use geolocation we take their position, otherwise
  * the city their timezone is named after (Europe/Amsterdam → Amsterdam) stands in for it.
- * Results are cached for a while so reloads don't refetch.
+ * Results are cached for a while so reloads don't refetch. In the Low Countries, Buienradar's
+ * rain radar has the last word on whether it's actually raining right now: a weather model can
+ * be an hour out, the radar sees the shower coming over.
  */
 export const WEATHER_KINDS = ['clear', 'partly', 'cloudy', 'windy', 'warm', 'hot', 'fog', 'drizzle', 'rain', 'showers', 'sleet', 'snow', 'hail', 'storm'] as const;
 export type WeatherKind = (typeof WEATHER_KINDS)[number];
@@ -16,6 +20,12 @@ export interface Forecast {
   lying: number; // 0..1: how much snow is already on the ground
   temperature: number; // °C
   place: string;
+  lat: number;
+  lon: number;
+  /** How heavy the cloud is, 0..1: a thin veil the sun still shines through … a dark, low lid. */
+  thickness: number;
+  /** Rain on the radar right now, mm/h, where there's a radar to ask (Buienradar). */
+  radar?: number;
   /** Today and the next two days, for the board in the mountain hut. */
   days: Day[];
 }
@@ -28,13 +38,17 @@ export interface Day {
   wind: number; // m/s, the day's strongest sustained wind
 }
 
-const CACHE_KEY = 'island-weather-6';
+const CACHE_KEY = 'island-weather-7';
 const CACHE_FOR = 20 * 60 * 1000;
+const RADAR_KEY = 'island-radar-1';
+const RADAR_FOR = 60 * 1000;
 
 /** WMO weather interpretation codes, as Open-Meteo reports them. */
-function interpret(code: number, cover?: number): Pick<Forecast, 'kind' | 'intensity'> {
+function interpret(code: number, cover?: number, thickness?: number): Pick<Forecast, 'kind' | 'intensity'> {
   // a sky with some cloud in it: how much, if we know, decides how many shadows drift over
   if ((code === 1 || code === 2) && typeof cover === 'number') return { kind: 'partly', intensity: cover / 100 };
+  // overcast: a high, thin veil is a bright white sky, a low grey lid a dark one
+  if (code === 3 && typeof thickness === 'number') return { kind: 'cloudy', intensity: 0.2 + thickness * 0.8 };
   const table: [number[], WeatherKind, number][] = [
     [[0], 'clear', 0],
     [[1], 'partly', 0.35],
@@ -62,7 +76,13 @@ function interpret(code: number, cover?: number): Pick<Forecast, 'kind' | 'inten
   return hit ? { kind: hit[1], intensity: hit[2] } : { kind: 'cloudy', intensity: 0.6 };
 }
 
+/** The weather now: the forecast (fetched every twenty minutes or so), checked against the radar. */
 export async function fetchForecast(): Promise<Forecast | null> {
+  const forecast = await fetchModel();
+  return forecast && withRadar(forecast, await fetchRadar(forecast));
+}
+
+async function fetchModel(): Promise<Forecast | null> {
   const cached = readCache();
   if (cached) return cached;
   try {
@@ -71,7 +91,8 @@ export async function fetchForecast(): Promise<Forecast | null> {
     const q = new URLSearchParams({
       latitude: where.lat.toFixed(2),
       longitude: where.lon.toFixed(2),
-      current: 'weather_code,cloud_cover,temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,snow_depth',
+      current: 'weather_code,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,shortwave_radiation,'
+        + 'temperature_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,snow_depth',
       daily: 'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max',
       forecast_days: '3',
       timezone: 'auto',
@@ -80,14 +101,18 @@ export async function fetchForecast(): Promise<Forecast | null> {
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${q}`);
     if (!res.ok) return null;
     const { current, daily } = await res.json();
+    const thickness = heaviness(current, where);
     const forecast: Forecast = {
-      ...interpret(current.weather_code, current.cloud_cover),
+      ...interpret(current.weather_code, current.cloud_cover, thickness),
       wind: current.wind_speed_10m,
       gusts: current.wind_gusts_10m ?? current.wind_speed_10m,
       direction: current.wind_direction_10m ?? 250,
       lying: Math.min(1, (current.snow_depth ?? 0) / 0.08), // 8 cm covers everything
       temperature: current.temperature_2m,
       place: where.name,
+      lat: where.lat,
+      lon: where.lon,
+      thickness,
       days: (daily?.time ?? []).map((date: string, i: number) => ({
         date,
         kind: interpret(daily.weather_code[i]).kind,
@@ -101,6 +126,75 @@ export async function fetchForecast(): Promise<Forecast | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * How heavy the cloud is, 0..1. By day the best measure is how much sunlight gets through,
+ * against what a clear sky would let through with the sun where it is; at night, or with the
+ * sun too low to tell, the cloud's layers: low cloud is thick and grey, high cloud a thin veil.
+ */
+function heaviness(c: Record<string, number | undefined>, where: Where) {
+  const low = c.cloud_cover_low ?? c.cloud_cover ?? 0;
+  const mid = c.cloud_cover_mid ?? 0;
+  const high = c.cloud_cover_high ?? 0;
+  const layers = Math.min(1, (low + mid * 0.6 + high * 0.15) / 100);
+  const alt = sunPosition(Date.now(), where.lat, where.lon).alt;
+  const sun = Math.sin((alt * Math.PI) / 180);
+  if (alt < 8 || typeof c.shortwave_radiation !== 'number') return layers;
+  const clear = 1098 * sun * Math.exp(-0.057 / sun); // W/m² under a clear sky (Haurwitz)
+  const through = c.shortwave_radiation / clear;
+  const dim = Math.min(1, Math.max(0, (0.8 - through) / 0.6)); // 80% of a clear day's light: no gloom at all
+  return dim * 0.7 + layers * 0.3;
+}
+
+/** Roughly the area Buienradar's radar covers well: the Netherlands, Belgium and their borders. */
+const RADAR_AREA = { south: 49.4, north: 54.2, west: 2.4, east: 7.8 };
+
+/** The rain on the radar now (and in five minutes, which is what's arriving), mm/h; null where there's no radar. */
+async function fetchRadar(f: Forecast): Promise<number | null> {
+  const a = RADAR_AREA;
+  if (!(f.lat >= a.south && f.lat <= a.north && f.lon >= a.west && f.lon <= a.east)) return null;
+  try {
+    const { at, lat, lon, rain } = JSON.parse(localStorage.getItem(RADAR_KEY) ?? 'null') ?? {};
+    if (at && Date.now() - at < RADAR_FOR && lat === f.lat && lon === f.lon) return rain;
+  } catch {}
+  try {
+    const q = new URLSearchParams({ lat: f.lat.toFixed(2), lon: f.lon.toFixed(2) });
+    const res = await fetch(`https://gpsgadget.buienradar.nl/data/raintext?${q}`);
+    if (!res.ok) return null;
+    // a line every five minutes for the next two hours: "077|14:25", the value on a log scale
+    const lines = (await res.text()).trim().split(/\s+/).slice(0, 2);
+    const rain = Math.max(0, ...lines.map((l) => {
+      const v = Number(l.split('|')[0]);
+      return v > 0 ? 10 ** ((v - 109) / 32) : 0;
+    }));
+    try {
+      localStorage.setItem(RADAR_KEY, JSON.stringify({ at: Date.now(), lat: f.lat, lon: f.lon, rain }));
+    } catch {}
+    return rain;
+  } catch {
+    return null;
+  }
+}
+
+const RAIN_KINDS: WeatherKind[] = ['rain', 'showers'];
+const DRY_KINDS: WeatherKind[] = ['clear', 'partly', 'cloudy', 'windy', 'warm', 'hot', 'fog'];
+
+/**
+ * The forecast put right by the radar: rain the model expects that isn't falling becomes the grey
+ * sky it falls from, and rain it missed comes down after all, as hard as the radar says. Drizzle is
+ * left be (it's too fine for the radar to see much of), and so are snow, sleet, hail and storms.
+ */
+function withRadar(f: Forecast, rain: number | null): Forecast {
+  if (rain === null) return f;
+  const hard = Math.min(1, 0.3 + Math.log2(1 + rain) * 0.2); // 1 mm/h: 0.5; 10 mm/h: a downpour
+  if (rain < 0.05 && RAIN_KINDS.includes(f.kind)) return { ...f, radar: rain, kind: 'cloudy', intensity: 0.5 + f.thickness * 0.5 };
+  if (rain >= 0.1 && DRY_KINDS.includes(f.kind)) {
+    const kind: WeatherKind = f.temperature <= 1 ? 'snow' : rain < 0.4 ? 'drizzle' : f.kind === 'clear' || f.kind === 'partly' ? 'showers' : 'rain';
+    return { ...f, radar: rain, kind, intensity: hard };
+  }
+  if (rain >= 0.1 && RAIN_KINDS.includes(f.kind)) return { ...f, radar: rain, intensity: hard };
+  return { ...f, radar: rain };
 }
 
 interface Where {

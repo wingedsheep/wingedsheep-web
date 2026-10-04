@@ -13,11 +13,12 @@ import { Revel } from './revel';
 import { Sightings } from './sightings';
 import { petting } from './petting';
 import { season } from './season';
-import { Shelter, type Waypoint } from './shelter';
+import { Shelter, indoors, type Waypoint } from './shelter';
 import type { Sky } from './sky';
 import { Vincent } from './vincent';
 import { windDir } from './grass';
 import { Week } from './week';
+import { showSpread, table } from './meals';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -151,6 +152,8 @@ export class Life {
   private chordIndex = 0;
   /** Where his fretting hand is along the neck, -1..1, easing towards the chord's place. */
   private fretPos = 0;
+  /** What's on the go between them at a meal by the fire (outings.py `spread`). */
+  private spread?: THREE.Object3D;
   /** Other copies of him with the guitar (the hut's, by the stove) that strum along with the campfire's. */
   readonly guitarists = new Set<THREE.Object3D>();
 
@@ -170,7 +173,7 @@ export class Life {
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
     this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours());
     if (Math.random() < 0.2) this.beike.hangAbout(anyHangout(), true); // not in his meadow when you arrive
-    this.companion = new Companion(island);
+    this.companion = new Companion(island, this.beike.ground);
     this.vincent = new Vincent(island, this.beike.ground);
     this.mischief = new Mischief(scene, island, this.fauna.template('gull'));
     this.mischief.onSnatch = (at) => {
@@ -188,6 +191,11 @@ export class Life {
     this.bottle = new Bottle(island, this.beike.ground);
     this.bottle.onLand = (at) => this.fauna.onCall?.('clink', at, true);
     this.vincent.onSound = (call, at) => this.fauna.onCall?.(call, at, true);
+    // out walking, a thought now and then
+    this.vincent.onThought = (at) => this.floaters.add('thought', at);
+    this.companion.onThought = (at) => this.floaters.add('thought', at);
+    this.spread = island.root.getObjectByName('meal_spread');
+    if (this.spread) this.spread.visible = false;
     this.companion.onSound = (call, at, loud) => this.fauna.onCall?.(call, at, true, loud);
     this.bottle.onGlint = (at) => {
       if (this.sky.lamps > 0.6) return; // no sun to catch at night
@@ -326,6 +334,8 @@ export class Life {
       time: this.sky.time, wind: this.wind, drift: this.drift, cloud: this.cloud, fog: this.fog, heat: this.heat,
     });
     this.visitors(dt, night);
+    this.table();
+    this.gluhwein(dt, night);
     this.emitters(dt, night);
     this.breath(dt, night);
     this.floaters.update(dt);
@@ -650,6 +660,31 @@ export class Life {
     this.ufo.rotation.y += dt * 2;
   }
 
+  /** At a meal: what's on the go between them, by the fire, or on the hut's table. */
+  private table() {
+    const eating = (this.vincent.spot === 'meal' || this.companion.where === 'meal') && table.course ? table.course.dish : null;
+    showSpread(this.spread, 'meal_spread', eating && !table.indoors ? eating : null);
+    if (eating && table.indoors) indoors.add('meal_spread_hut');
+    else indoors.delete('meal_spread_hut');
+  }
+
+  /** Steam curling up off their mugs of glühwein, out on a cold walk. */
+  private gluhwein(dt: number, night: number) {
+    for (const id of ['vincent_stroll', 'companion_stroll']) {
+      const mug = this.island.get(id)?.getObjectByName(id === 'vincent_stroll' ? 'stroll_mug' : 'companion_stroll_mug');
+      if (!mug || !this.island.get(id)!.visible || !mug.visible || !this.every(`steam:${id}`, 0.45, dt)) continue;
+      const at = mug.getWorldPosition(MOUTH).add(V(rand(-0.03, 0.03), 0.1, rand(-0.03, 0.03)));
+      this.particles.emit({
+        position: at,
+        velocity: V(this.drift.x * 0.15 + rand(-0.05, 0.05), rand(0.25, 0.4), this.drift.y * 0.15 + rand(-0.05, 0.05)),
+        color: new THREE.Color('#f2eee8').multiplyScalar(1 - night * 0.35),
+        life: rand(0.9, 1.4),
+        size: 1,
+        wobble: 0.15,
+      });
+    }
+  }
+
   /** The siren test (week.ts): the cats on the bench flatten their ears till it's over. */
   private flinch() {
     const k = this.week.siren;
@@ -733,6 +768,12 @@ export class Life {
       head.localToWorld(MOUTH.set(0, 0.12, 0.24));
       FACING.set(0, 0, 1).transformDirection(head.matrixWorld);
       puff(MOUTH, FACING, 2 + Math.round(c * 4));
+    }
+    const hers = this.companion.head;
+    if (hers && this.every('breath:companion', 3.6, dt)) {
+      hers.localToWorld(MOUTH.set(0, 0.1, 0.2));
+      FACING.set(0, 0, 1).transformDirection(hers.matrixWorld);
+      puff(MOUTH, FACING, 1 + Math.round(c * 4));
     }
     if (this.beike.muzzle(MOUTH, FACING) && this.every('breath:beike', 2.2 - this.beike.panting * 1.6, dt)) {
       puff(MOUTH, FACING, 1 + Math.round(c * 3));

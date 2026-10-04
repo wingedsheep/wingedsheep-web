@@ -25,7 +25,8 @@
 - The pixel renderer draws small things only a few texels big, mostly outline. Check new
   visuals in the browser, at normal zoom and zoomed in.
 - Preview a moment with query params: `?time=`, `?season=`, `?date=`, `?holiday=`,
-  `?weather=` (and `&k=`, `&wind=`, `&temp=`), `?animal=`, `?vincent=`, `?companion=`,
+  `?weather=` (and `&k=`, `&wind=`, `&temp=`), `?animal=`, `?vincent=`, `?companion=` (`=stroll` for a walk),
+  `?meal=` (`breakfast`, `pasta`, `miso`, `curry`, `risotto`, `pizza`; `&where=hut|fire`), `?walk=gluhwein`,
   `?outfit=` (what they wear: `scene/wardrobe.ts`).
 - Visitor progress lives in `localStorage` under `wingedsheep:*` (the journal is
   `wingedsheep:found`). When testing in the user's browser, put it back afterwards.

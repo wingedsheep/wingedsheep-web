@@ -12,6 +12,9 @@ import { windDir } from './grass';
 import { heightBetween, indoors, type Waypoint } from './shelter';
 import { occasions } from './calendar';
 import { post } from './almanac';
+import { herNight } from './bedtime';
+import { Eater, courseAt, sitDown, table, tick } from './meals';
+import { ROUTE_NAMES, Stroll, Walker, together } from './outings';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -21,9 +24,12 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
  * for a fuss (petting.ts), and on New Year's Day the sea (dive.ts); on a post day down the pier for
  * the parcel and up to the hut with it, on a windy Sunday the beach with a kite (errands.ts); the
  * rest are indoors: the guitar comes up to the hut's stove when it's wet out, and the workshop's
- * bench is mostly a Saturday's.
+ * bench is mostly a Saturday's. He goes for a stroll round the island now and then, on a cold day
+ * with her and a mug of glühwein each (outings.ts), and sits down to breakfast and dinner with her,
+ * by the fire or up at the hut (meals.ts).
  */
-export type Whereabouts = 'guitar' | 'hut' | 'kayak' | 'yoga' | 'climb' | 'podcast' | 'petting' | 'coding' | 'asleep' | 'dive' | 'post' | 'kite' | 'workshop';
+export type Whereabouts = 'guitar' | 'hut' | 'kayak' | 'yoga' | 'climb' | 'podcast' | 'petting' | 'coding' | 'asleep' | 'dive' | 'post' | 'kite' | 'workshop'
+  | 'stroll' | 'meal' | 'gluhwein';
 /** The yoga poses he flows through (characters.py POSES), in order. */
 export const POSES = ['lotus', 'tree', 'dog'] as const;
 export type Pose = (typeof POSES)[number];
@@ -49,7 +55,12 @@ const STAY: Record<Whereabouts, [number, number]> = {
   post: [1e9, 1e9], // until it's up at the hut
   kite: [150, 300],
   workshop: [220, 420], // a long stint, on a Saturday
+  stroll: [1e9, 1e9], // till he's round
+  meal: [1e9, 1e9], // till they've eaten
+  gluhwein: [1e9, 1e9], // till they're round, or she can't come
 };
+/** Seconds he waits at the start of a glühwein walk for her to come before he gives up on it. */
+const COMPANY_WAIT = 90;
 /** Seconds he waits for nobody to be watching before going to bed anyway, or in off the water in the rain. */
 const BEDTIME_WAIT = 90;
 const SQUALL_WAIT = 20;
@@ -77,6 +88,7 @@ export interface VincentWorld {
   view: number; // world units in view
   room: Room | null; // the room on screen, if any
   playing: boolean; // his song is audible
+  chill?: number; // 0..1: how cold it is (weather.ts)
 }
 
 /**
@@ -89,7 +101,7 @@ export interface VincentWorld {
  * never gets up in the middle of a song. The kayak waits for daylight and fair weather.
  */
 export class Vincent {
-  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep'];
+  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep', 'stroll', 'meal', 'gluhwein'];
   spot: Whereabouts = 'guitar';
   private next: Whereabouts | null = null;
   private stay = rand(...STAY.guitar);
@@ -122,6 +134,17 @@ export class Vincent {
   readonly diver: Diver;
   /** Down the pier for the post, and up the mountain with it; out on the beach with a kite (errands.ts). */
   readonly errands: Errands;
+  /** On his feet for a stroll, on his own (`solo`) or with her (`pair`): see outings.ts. */
+  readonly walker: Walker;
+  readonly solo: Stroll;
+  readonly pair: Stroll;
+  /** Waiting for her to come along with the glühwein (seconds), or -1 once they're off. */
+  private waitingForHer = -1;
+  /** Eating by the fire (the hut's own is hut-room.ts's). */
+  private eater?: Eater;
+  private meal?: THREE.Object3D;
+  /** A thought, over his head, while he's out walking. */
+  onThought?: (at: THREE.Vector3) => void;
   private frustum = new THREE.Frustum();
   private sphere = new THREE.Sphere();
   private matrix = new THREE.Matrix4();
@@ -142,6 +165,13 @@ export class Vincent {
     this.kneel = new Kneeling(island, 'vincent');
     this.diver = new Diver(island, ground);
     this.errands = new Errands(island, ground);
+    this.walker = new Walker(island, 'vincent_stroll', 'stroll');
+    this.solo = new Stroll(ground, this.walker);
+    this.pair = new Stroll(ground, this.walker, new Walker(island, 'companion_stroll', 'companion_stroll', true));
+    this.pair.mugs = true;
+    for (const s of [this.solo, this.pair]) s.onThought = (at) => this.onThought?.(at);
+    this.meal = island.get('vincent_meal');
+    if (this.meal) this.eater = new Eater(this.meal, 'meal_v', 'v');
     if (this.boat) {
       const x = this.boat.userData;
       this.loop.center.copy(this.boat.position);
@@ -159,6 +189,16 @@ export class Vincent {
   /** Whether he's playing up in the hut, by the stove, out of the rain. */
   get inTheHut() {
     return this.spot === 'hut';
+  }
+
+  /** The walk he's on, if he's out on one. */
+  get stroll(): Stroll | null {
+    return this.spot === 'stroll' ? this.solo : this.spot === 'gluhwein' && this.waitingForHer < 0 ? this.pair : null;
+  }
+
+  /** Clicked on while he's eating: he looks up. */
+  notice() {
+    if (this.eater) this.eater.noticed = 1;
   }
 
   /** Straight to a spot (and, on his knees, who to pet), to stay: for previews. */
@@ -187,6 +227,49 @@ export class Vincent {
       if (!this.errands.busy) this.stay = -1; // in at the hut with it: back to the fire, once nobody's watching
     }
     if (this.spot === 'kite') this.errands.fly(still ? 0 : dt, windDir.value);
+    if (this.spot === 'stroll') {
+      this.solo.update(still ? 0 : dt);
+      if (this.solo.done && !this.pinned) this.stay = -1; // round: back to the fire, once nobody's watching
+      else if (this.solo.done) this.solo.begin();
+    }
+    if (this.spot === 'gluhwein') this.outing(still ? 0 : dt);
+    if (this.spot === 'meal') this.dine(still ? 0 : dt, w);
+  }
+
+  /** Off with her and the glühwein once she's come out (till then he's nowhere to be seen), and round. */
+  private outing(dt: number) {
+    if (this.waitingForHer >= 0) {
+      this.waitingForHer += dt;
+      if (together.joined || this.pinned) {
+        this.waitingForHer = -1;
+        this.pair.begin();
+        this.walker.visible = true;
+        this.herWalker(true);
+      } else if (this.waitingForHer > COMPANY_WAIT) this.stay = -1; // she's busy: another time
+      return;
+    }
+    this.pair.update(dt);
+    this.herWalker(together.joined || this.pinned);
+    if (this.pair.done && this.pinned) this.pair.begin();
+    else if (this.pair.done) this.stay = -1;
+  }
+
+  private herWalker(on: boolean) {
+    if (this.pair.beside) this.pair.beside.visible = on;
+  }
+
+  /** At the table: by the fire, or (if it's no weather for it, or it starts raining) up at the hut. */
+  private dine(dt: number, w: VincentWorld) {
+    const c = table.course ?? courseAt(w.time);
+    if (c) sitDown(c, w.time, this.tableWeather(w));
+    if (!this.pinned) tick(w.time, this.tableWeather(w));
+    if (!table.course) this.stay = -1;
+    this.show();
+    this.eater?.update(dt, table.course);
+  }
+
+  private tableWeather(w: VincentWorld) {
+    return { rain: w.rain, chill: w.chill ?? 0, wind: w.wind, night: w.night };
   }
 
   /** The head to breathe out of on a cold day, if he's outdoors and upright. */
@@ -199,6 +282,8 @@ export class Vincent {
     if (this.spot === 'petting') return this.kneel.head;
     if (this.spot === 'dive') return this.diver.head;
     if (this.spot === 'post' || this.spot === 'kite') return this.errands.head;
+    if ((this.spot === 'stroll' || this.spot === 'gluhwein') && this.walker.visible) return this.walker.head;
+    if (this.spot === 'meal' && !table.indoors) return this.eater?.face;
     return undefined;
   }
 
@@ -213,8 +298,10 @@ export class Vincent {
     this.stay -= dt;
     // the post's come: off to fetch it (after the song he's in the middle of)
     const errand = post.waiting && this.spot !== 'post' && allowed.includes('post');
-    const due = !allowed.includes(this.spot) || this.stay < 0 || errand;
+    const mealtime = !errand && allowed.includes('meal') && this.spot !== 'meal';
+    const due = !allowed.includes(this.spot) || this.stay < 0 || errand || mealtime;
     if (errand) this.next = 'post';
+    if (mealtime) this.next = 'meal';
     if (!due || ((this.spot === 'guitar' || this.spot === 'hut') && w.playing && allowed.includes(this.spot)) || (this.spot === 'dive' && this.diver.busy)
       || (this.spot === 'post' && this.errands.busy)) {
       this.waiting = 0;
@@ -232,7 +319,9 @@ export class Vincent {
       // nobody misses the dive at noon, or the silence at eight on the fourth of May
       || ((this.next === 'dive' || silenceNear(w.time)) && this.waiting > SQUALL_WAIT)
       // nor leaves a parcel out on the pier for long
-      || (this.next === 'post' && this.waiting > PATIENCE);
+      || (this.next === 'post' && this.waiting > PATIENCE)
+      // nor lets dinner go cold
+      || (this.next === 'meal' && this.waiting > PATIENCE);
     if (forced || (!this.seen(this.spot, w) && !this.seen(this.next, w))) this.move(this.next);
   }
 
@@ -241,7 +330,9 @@ export class Vincent {
     if (this.diver.ready && diveAt(w.time) !== null) return ['dive'];
     if (silenceNear(w.time)) return ['guitar'];
     if (this.spot === 'post' && this.errands.busy) return ['post'];
-    if ((w.rough ?? 0) > 0.4) return ['coding', 'hut'];
+    // breakfast and dinner, with her (by the fire or up at the hut, whatever the weather)
+    const meal: Whereabouts[] = courseAt(w.time) || (this.spot === 'meal' && table.course) ? ['meal'] : [];
+    if ((w.rough ?? 0) > 0.4) return ['coding', 'hut', ...meal];
     const fair = w.night < 0.5 && w.rain < 0.1 && w.storm < 0.2 && w.wind < 11;
     const hour = hourOf(w.time);
     // the week's own: the post when it's come, a kite on a windy Sunday, the bench by day
@@ -254,9 +345,12 @@ export class Vincent {
     const pets = petting.open('vincent');
     const pet = this.spot === 'petting' ? this.kneel.pet : null;
     const fuss = w.night < 0.5 && w.rain < 0.1 && (pet ? pets.includes(pet) : pets.length > 0);
-    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week];
+    // a cold, dry afternoon or evening: a walk with her and a mug of glühwein (while she's up)
+    const cold = (w.chill ?? 0) > 0.1 && w.rain < 0.1 && w.storm < 0.2 && w.wind < 12 && hour >= 13 && hour < 21.5 && !herNight(w.time);
+    const walks: Whereabouts[] = [...(fair ? ['stroll' as const] : []), ...(cold || this.spot === 'gluhwein' ? ['gluhwein' as const] : [])];
+    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal];
     // a podcast works in the dark; in the wet the guitar comes in to the hut
-    return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), ...week];
+    return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), ...week, ...walks, ...meal];
   }
 
   /**
@@ -268,6 +362,7 @@ export class Vincent {
     const allowed = this.allowed(w);
     if (allowed.length === 1) return allowed[0];
     if (allowed.includes('post') && from !== 'post') return 'post';
+    if (allowed.includes('meal') && from !== 'meal') return 'meal';
     const guitar: Whereabouts = allowed.includes('hut') ? 'hut' : 'guitar';
     // Friday evening, it's drinks by the fire (or the stove): nowhere else he'd rather be
     if (fridayEvening(w.time) && allowed.includes(guitar)) return guitar;
@@ -275,7 +370,7 @@ export class Vincent {
     if (from !== guitar) return guitar;
     const saturday = occasions.has('saturday');
     const odds: [Whereabouts, number][] = [['coding', saturday ? 0.15 : 0.35], ['kayak', 0.2], ['yoga', 0.25], ['climb', 0.2], ['podcast', 0.25], ['petting', 0.2],
-      ['kite', 1.1], ['workshop', saturday ? 1.4 : 0.06]];
+      ['kite', 1.1], ['workshop', saturday ? 1.4 : 0.06], ['stroll', 0.4], ['gluhwein', 0.6]];
     const open = odds.filter(([spot]) => allowed.includes(spot));
     let r = Math.random() * open.reduce((sum, [, p]) => sum + p, 0);
     for (const [spot, p] of open) if ((r -= p) < 0) return spot;
@@ -300,6 +395,12 @@ export class Vincent {
       this.pacing(0);
     }
     if (to === 'post') this.errands.fetch();
+    if (to === 'stroll') this.solo.begin();
+    together.asked = to === 'gluhwein';
+    if (to === 'gluhwein') {
+      together.joined = false;
+      this.waitingForHer = 0;
+    }
     if (to === 'workshop' && !occasions.has('saturday')) this.stay *= 0.5; // just a quick job, on a weekday
     this.show();
   }
@@ -313,6 +414,12 @@ export class Vincent {
     if (this.pacer) this.pacer.visible = this.spot === 'podcast';
     this.diver.visible = this.spot === 'dive';
     this.errands.visible = (this.spot === 'post' && this.errands.busy) || this.spot === 'kite';
+    this.walker.visible = this.spot === 'stroll' || (this.spot === 'gluhwein' && this.waitingForHer < 0);
+    if (this.spot !== 'gluhwein') this.herWalker(false);
+    const eating = this.spot === 'meal' && !!table.course;
+    if (this.meal) this.meal.visible = eating && !table.indoors;
+    if (eating && table.indoors) indoors.add('vincent_meal_hut');
+    else indoors.delete('vincent_meal_hut');
     for (const [spot, r] of Object.entries(ROOMS)) {
       if (spot === this.spot) indoors.add(r.group);
       else indoors.delete(r.group);
@@ -333,6 +440,9 @@ export class Vincent {
       return this.frustum.intersectsSphere(this.sphere);
     };
     if (spot === 'guitar') return at(this.seated, 1.6);
+    if (spot === 'meal') return w.room === 'hut' || at(this.meal, 2);
+    if ((spot === 'stroll' || spot === 'gluhwein') && this.spot === spot && this.walker.visible) return at(this.walker.root, 2.2);
+    if (spot === 'stroll' || spot === 'gluhwein') return ROUTE_NAMES.some((r) => this.near(Stroll.start(r, this.ground), 2));
     if (spot === 'dive') return at(this.diver.body, 3);
     if (spot === 'post') return this.spot === 'post' ? at(this.errands.body, 1.5) : !!this.errands.start && this.near(this.errands.start, 1.5);
     if (spot === 'kite') return at(this.errands.body, 3) || this.near(new THREE.Vector3(6.2, 1, 16.4), 3);

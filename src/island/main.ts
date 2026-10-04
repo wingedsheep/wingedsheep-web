@@ -313,7 +313,8 @@ export async function bootIsland(host: HTMLElement) {
 
   bindHud(ctx, () => !river.inside && !river.wanted);
 
-  // the visitor's own weather, checked again every half hour. To preview: ?weather=rain (any
+  // the visitor's own weather, checked again every minute (the forecast itself is only
+  // fetched every twenty; in between it's the rain radar, forecast.ts). To preview: ?weather=rain (any
   // WEATHER_KINDS), optionally with &k=<0..1 intensity: ?weather=partly&k=0.2 is the odd cloud>,
   // &wind=<m/s>, &gusts=<m/s>, &dir=<degrees it comes from> and &temp=<°C>
   const params = new URLSearchParams(location.search);
@@ -339,7 +340,7 @@ export async function bootIsland(host: HTMLElement) {
     life.companion.settle();
     life.vincent.settle();
   }
-  // and to see her somewhere in particular: ?companion=reading|fireside|workout|podcast|yoga|petting|baking|watching|bed, with
+  // and to see her somewhere in particular: ?companion=reading|fireside|workout|podcast|yoga|petting|baking|watching|bed|stroll, with
   // &show=murder|location|bnb|rail for what's on the telly, or &pet=cats|beike for who's getting a fuss
   const pet = params.get('pet') as Pet | null;
   const fuss = pet && PETS.includes(pet) ? pet : undefined;
@@ -348,9 +349,19 @@ export async function bootIsland(host: HTMLElement) {
     const show = params.get('show') as Show | null;
     life.companion.put(spot, show && SHOWS.includes(show) ? show : undefined, fuss);
   }
-  // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep (and ?time=00:30 to see who's up)
+  // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep|stroll (and ?time=00:30 to see who's up)
   const where = params.get('vincent') as Whereabouts | null;
   if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where, fuss);
+  // the two of them at a meal: ?meal=breakfast|pasta|miso|curry|risotto|pizza (&where=hut|fire, otherwise
+  // the weather decides), or out for a walk with a mug of glühwein each: ?walk=gluhwein
+  if (params.has('meal')) {
+    life.vincent.put('meal');
+    life.companion.put('meal');
+  }
+  if (params.get('walk') === 'gluhwein') {
+    life.vincent.put('gluhwein');
+    life.companion.put('gluhwein');
+  }
   // a bit of mischief, sooner: ?beike=fire (he brings his ball over mid-song), ?mischief (the
   // gull goes for the wrap), ?bottle (one's already washed up), ?revel (the fair folk, at any hour)
   if (params.get('beike') === 'fire') life.beikeToTheFire();
@@ -368,7 +379,7 @@ export async function bootIsland(host: HTMLElement) {
   if (params.has('siren')) life.week.soon('siren');
   if (params.has('post')) life.week.soon('post');
   void live();
-  setInterval(live, 30 * 60 * 1000);
+  setInterval(live, 60 * 1000);
   ui.route(true);
   library.enter(library.wanted, true); // landing on /blog/…: start inside, no iris
   workshop.enter(workshop.wanted, true);
@@ -471,7 +482,7 @@ export async function bootIsland(host: HTMLElement) {
     }, reducedMotion);
     life.vincent.update(dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, rough: weather.blizzard, camera: rig.camera,
-      view: rig.view, room: indoorsNow, playing: life.playing,
+      view: rig.view, room: indoorsNow, playing: life.playing, chill: life.chill,
     }, reducedMotion);
     // the special days' goings-on (days.ts), and the two minutes' silence on the fourth of May
     life.days.update(dt, sky.time, { night: sky.lamps, wet, rain: life.rain, wind: weather.wind }, reducedMotion);

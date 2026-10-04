@@ -22,6 +22,7 @@ import math
 
 import characters
 import companion
+import outings
 import palette as P
 from kit import Model, emitter, group, light
 
@@ -718,6 +719,12 @@ def guest(root):
     characters.vincent_asleep(group("vincent_asleep", (bx + SIDES[0], neck, 0.75), parent=g), top - neck, CELL)
     companion.bed_reading(group("companion_bed_reading", (bx + SIDES[1], sit, 0.55), parent=g, id="companion_bed_reading"), top - sit, CELL)
     companion.bed_asleep(group("companion_bed_asleep", (bx + SIDES[1], neck, 0.75), parent=g), top - neck, CELL)
+    # breakfast or dinner at the long table when it's no weather for eating out (outings.py): side
+    # by side on the north bench, facing the room, what's on the go where the soup is
+    tx, ty = TABLE
+    outings.vincent_eating(group("vincent_meal_hut", (tx - 0.65, ty + 1.06, 0), parent=g, id="vincent_meal_hut"), "hut_meal_v", 0.475)
+    outings.companion_eating(group("companion_meal_hut", (tx + 0.05, ty + 1.06, 0), parent=g, id="companion_meal_hut"), "hut_meal_e", 0.475)
+    outings.spread(g, "meal_spread_hut", (tx - 0.35, ty - 0.1, 0.78))
 
 
 def build():

@@ -14,6 +14,14 @@ export interface ParticleSpec {
   fadeIn?: number;
   /** How much of its life it stays at full brightness before it starts to fade (default 0). */
   hold?: number;
+  /**
+   * How readily it goes with the wind (1/s; default 0, it keeps its own velocity): a leaf eases
+   * towards the Particles' `wind` sideways, and towards sinking at `sink` (plus the wind's lift)
+   * with a seesaw in it, so it answers every gust while it's in the air.
+   */
+  windy?: number;
+  /** For a windy one: how fast it sinks in still air (m/s). */
+  sink?: number;
 }
 
 /**
@@ -33,6 +41,10 @@ export class Particles {
   private drag: Float32Array;
   private rise: Float32Array;
   private keep: Float32Array;
+  private windy: Float32Array;
+  private sink: Float32Array;
+  /** The air the windy ones go with (m/s): sideways the wind, upwards a gust's lift. Set it each frame. */
+  readonly wind = new THREE.Vector3();
   private next = 0;
   private clock = 0;
 
@@ -48,6 +60,8 @@ export class Particles {
     this.drag = new Float32Array(max);
     this.rise = new Float32Array(max);
     this.keep = new Float32Array(max);
+    this.windy = new Float32Array(max);
+    this.sink = new Float32Array(max);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('color', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
@@ -96,6 +110,8 @@ export class Particles {
     this.drag[i] = s.drag ?? 0;
     this.rise[i] = s.fadeIn ?? 0.15;
     this.keep[i] = s.hold ?? 0;
+    this.windy[i] = s.windy ?? 0;
+    this.sink[i] = s.sink ?? 0;
   }
 
   update(dt: number) {
@@ -115,11 +131,21 @@ export class Particles {
         this.vel[i * 3 + 1] *= k;
         this.vel[i * 3 + 2] *= k;
       }
+      if (this.windy[i]) {
+        // carried along, and sinking in fits and starts as it seesaws
+        const k = 1 - Math.exp(-this.windy[i] * dt);
+        const seesaw = 1 + Math.sin(this.clock * 3.1 + i * 1.7) * 0.7;
+        this.vel[i * 3] += (this.wind.x - this.vel[i * 3]) * k;
+        this.vel[i * 3 + 1] += (this.wind.y - this.sink[i] * seesaw - this.vel[i * 3 + 1]) * k;
+        this.vel[i * 3 + 2] += (this.wind.z - this.vel[i * 3 + 2]) * k;
+      }
       this.vel[i * 3 + 1] += this.grav[i] * dt;
       const w = this.wob[i] ? Math.sin(this.clock * 2.3 + i) * this.wob[i] * dt : 0;
       this.pos[i * 3] += this.vel[i * 3] * dt + w;
       this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
-      this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
+      // a windy one swings both ways, round and round as it falls
+      const wz = this.windy[i] && this.wob[i] ? Math.cos(this.clock * 2.3 + i) * this.wob[i] * dt : 0;
+      this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt + wz;
       const r = this.rise[i];
       const k = Math.max(r, this.keep[i]);
       this.col[i * 4 + 3] = t < r ? t / r : t < k ? 1 : 1 - (t - k) / (1 - k);

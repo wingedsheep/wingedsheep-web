@@ -22,6 +22,8 @@ export const ICONS = {
   note: icon(['...##', '...#.', '...#.', '...#.', '.###.', '####.', '.##..'], '#fff3c4'),
   zzz: icon(['###', '..#', '.#.', '#..', '###'], '#cdc6cf'),
   alert: icon(['.#.', '.#.', '.#.', '.#.', '...', '.#.'], '#e4463a'),
+  // a thought bubble, three dots in it, trailing off down to the left
+  thought: icon(['.#####.', '#######', '#.#.#.#', '#######', '.#####.', '.#.....', '#......'], '#f4f1ea'),
 };
 
 interface Floater {

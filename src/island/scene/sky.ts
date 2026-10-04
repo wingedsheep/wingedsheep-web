@@ -274,10 +274,11 @@ export class Sky {
     u.uVignette.value = 0.7;
     this.sun.color.lerp(seasonLight.sun, seasonLight.k * (1 - m.lamps));
 
-    // under a black sky the lamps come on in the middle of the day, and the windows light up
-    const lit = Math.max(m.lamps, this.gloom);
-    // in fog every lamp stands in a soft ball of its own light, bigger and brighter after dark
+    // under a black sky the lamps come on in the middle of the day, and the windows light up;
+    // under an ordinary grey one they stay off. In fog they're on, to be seen by
     const haze = this.haze;
+    const lit = Math.max(m.lamps, THREE.MathUtils.smoothstep(this.gloom, 0.25, 0.5) * this.gloom, haze * 0.35);
+    // in fog every lamp stands in a soft ball of its own light, bigger and brighter after dark
     for (const l of this.lampsList) {
       const f = l.flicker ? 1 - l.flicker * 0.25 * (Math.sin(this.clock * 13 + l.seed) * 0.5 + Math.sin(this.clock * 7.7 + l.seed * 3) * 0.5 + 0.5) : 1;
       const on = l.day ? Math.max(lit, 0.35) : lit;

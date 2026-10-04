@@ -13,6 +13,7 @@ import { sundayMorning } from './bedtime';
 import { occasions } from './calendar';
 import { post, shelf } from './almanac';
 import { wardrobe } from './wardrobe';
+import { Eater, showSpread, table } from './meals';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -74,6 +75,10 @@ export class HutRoom {
   private spin = 0;
   private reels: THREE.Object3D[] = [];
   private notesAt?: THREE.Vector3;
+  /** The two of them at the long table for breakfast or dinner (meals.ts), what's on the go between them, and the soup it takes the place of. */
+  private eaters: Eater[] = [];
+  private spread?: THREE.Object3D;
+  private soup?: THREE.Object3D;
   /** The blackboard by the stove, and the forecast last chalked on it. */
   private board?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; material: THREE.MeshBasicMaterial; shows?: Forecast | null };
 
@@ -129,6 +134,12 @@ export class HutRoom {
     if (room) this.bounds.setFromObject(room);
     this.guests = new Guests(this.scene, guests);
     this.guitarist = this.named.get('vincent_guitar');
+    for (const [id, prefix, who] of [['vincent_meal_hut', 'hut_meal_v', 'v'], ['companion_meal_hut', 'hut_meal_e', 'e']] as const) {
+      const o = root.getObjectByName(id);
+      if (o) this.eaters.push(new Eater(o, prefix, who));
+    }
+    this.spread = root.getObjectByName('meal_spread_hut');
+    this.soup = this.named.get('soup');
     for (const a of this.guests.animals) this.named.set(a.userData.id, a);
     this.windows = new Windows(this.scene, panes, this.glass, this.bounds);
 
@@ -222,6 +233,17 @@ export class HutRoom {
     if (out) this.windows.update(dt, out);
     this.waiting(t);
     this.reader(t, dt);
+    this.dinner(dt);
+  }
+
+  /** At the table: a mouthful now and then, the dish of the day in front of them, and its pot or board between them. */
+  private dinner(dt: number) {
+    for (const e of this.eaters) if (shown(e.root)) e.update(dt, table.course);
+    if (!this.spread) return;
+    const on = this.spread.visible; // the guests decide that (it's in the indoors set while they eat up here)
+    showSpread(this.spread, 'meal_spread_hut', table.course?.dish ?? null);
+    this.spread.visible = on;
+    if (this.soup) this.soup.visible = !on;
   }
 
   /** The Walkman: the reels turn while it plays, and now and then a few notes drift up. */

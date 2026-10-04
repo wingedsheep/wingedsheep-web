@@ -18,6 +18,7 @@ const MIST = new THREE.Color('#c3ccd4');
 const FLASH = new THREE.Color(0.9, 0.92, 1);
 const LEAVES = ['#7fae4a', '#a7c35a', '#d9a441', '#c9713d', '#8c5a3c'];
 const DEAD_LEAVES = ['#8c5a3c', '#6e4a32', '#a07a52'];
+const TURNED_LEAVES = ['#a0392c', '#c04e30', '#cc622c', '#e08a3a', '#d4ae40', '#8c5a3c'];
 const GOLD = new THREE.Color('#ffd9a0');
 const HAZE = new THREE.Color('#efdcbc');
 const ICE = new THREE.Color('#d6e6ff');
@@ -192,10 +193,14 @@ export class Weather {
     return Math.min(1, this.now.snow * 1.25) * THREE.MathUtils.smoothstep(this.gust, 0.15, 0.7);
   }
 
-  /** How dark the day is under the weather, 0..1: enough, under a thunderhead, to put the lamps on. */
+  /**
+   * How dark the day is under the weather, 0..1: enough, under a thunderhead, to put the lamps on.
+   * A light, high overcast hardly dims the day at all; only a thick lid of cloud does.
+   */
   get gloom() {
     const n = this.now;
-    return THREE.MathUtils.clamp(n.cloud * 0.3 + n.storm * 0.45 + n.rain * 0.15 + n.fog * 0.2 + n.snow * 0.15 + this.blizzard * 0.2, 0, 0.75);
+    const lid = THREE.MathUtils.smoothstep(n.cloud, 0.5, 1);
+    return THREE.MathUtils.clamp(lid * 0.3 + n.storm * 0.45 + n.rain * 0.15 + n.fog * 0.2 + n.snow * 0.15 + this.blizzard * 0.2, 0, 0.75);
   }
 
   /** Windiness, eased, with the gusts coming through now and then: for the trees, grass and sound. */
@@ -246,8 +251,9 @@ export class Weather {
     const k = this.intensity;
     return {
       ...look,
-      // cloud cover scales gently with intensity; precipitation fully
-      cloud: look.cloud * (0.5 + k * 0.5),
+      // cloud cover scales gently with intensity, but an overcast sky runs all the way from a
+      // bright white veil to a dark lid; precipitation scales fully
+      cloud: look.cloud * (this.kind === 'cloudy' ? 0.1 + k * 0.9 : 0.5 + k * 0.5),
       // a mostly clear sky has the odd cloud going over; a broken one, most of them
       shadows: look.shadows * k,
       rain: look.rain * k,
@@ -466,7 +472,8 @@ export class Weather {
     spawn(this.windiness * 22 * (1 + this.gust) * (1 - snowy) * (1 - winter * 0.6), () => across((from, speed) => this.flakes.emit({
       position: from.setY(from.y + rand(1, 7)),
       velocity: V(speed * dx + rand(-0.6, 0.6), rand(-0.3, 0.6), speed * dz + rand(-0.6, 0.6)),
-      color: new THREE.Color(pick(winter > 0.5 ? DEAD_LEAVES : LEAVES)).multiplyScalar(dim), // in winter, only the last brown ones
+      // in autumn the turned ones, in winter only the last brown ones
+      color: new THREE.Color(pick(winter > 0.5 ? DEAD_LEAVES : Math.random() < season.turn ? TURNED_LEAVES : LEAVES)).multiplyScalar(dim),
       life: rand(3, 5),
       size: Math.random() < 0.5 ? 2 : 1,
       wobble: 2.5,

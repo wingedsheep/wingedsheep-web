@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Island } from './island';
 import { windDir } from './grass';
+import { Critters } from './critters';
 import { Particles } from './particles';
 import { season } from './season';
 import type { Sky } from './sky';
@@ -10,14 +11,21 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 
+// the leaves coming down: green-gold while the trees are still turning, red and orange at the
+// height of it, and the last of them brown
+const FIRST_LEAVES = ['#a7a84a', '#c9b84a', '#d4ae40', '#e9cf66', '#e08a3a'];
 const FALLING = ['#a0392c', '#c04e30', '#cc622c', '#e08a3a', '#d4ae40', '#e9cf66'];
+const LAST_LEAVES = ['#8c5a3c', '#a0662f', '#b0703a', '#6e4a32', '#c04e30'];
+const DRIP = '#cfe0ee';
 const MOTES = ['#ffe6a8', '#ffd98a', '#fff1c8'];
 const METEOR = 0.9; // seconds a shooting star takes to cross
 
 /**
- * The small things in the air: leaves coming down in autumn, dandelion fluff on a summer day,
- * dust motes lit up at golden hour, and at night the sky in the sea: now and then a shooting
- * star, and on a rare cold, clear night the northern lights.
+ * The small things in the air: leaves coming down in autumn (straight down and seesawing on a
+ * still day, carried off and tumbling in a wind), dandelion fluff on a summer day, dust motes lit
+ * up at golden hour, drips off the trees after the rain, the bees, butterflies, dragonflies, moths
+ * and midges (critters.ts), and at night the sky in the sea: now and then a shooting star, and on
+ * a rare cold, clear night the northern lights.
  */
 export class Ambience {
   private motes = new Particles(700);
@@ -28,6 +36,9 @@ export class Ambience {
   /** Whether tonight is an aurora night: rare, and only when it's cold. */
   private auroraNight: boolean;
   private sea: (x: number, y: number) => boolean;
+  private critters: Critters;
+  /** 1 while it's raining, running down to 0 a couple of minutes after it stops: the trees dripping. */
+  private soaked = 0;
 
   constructor(
     scene: THREE.Scene,
@@ -37,6 +48,7 @@ export class Ambience {
   ) {
     scene.add(this.motes.points);
     this.sea = seaTest(island);
+    this.critters = new Critters(scene, island, this.sea);
     const night = Math.floor((Date.now() - 12 * 3600e3) / 864e5); // changes at noon, so one night is one roll
     const cold = season.weights.winter + season.weights.autumn * 0.3;
     let forced = false;
@@ -60,19 +72,46 @@ export class Ambience {
     const { x: dx, y: dz } = windDir.value;
 
     if (!this.reducedMotion) {
-      // autumn: leaves let go of the trees near you, one by one
+      // autumn: leaves let go of the trees near you, one by one, and in a gust a flurry of them.
+      // On a still day they seesaw down more or less where they came from; in a wind they go
+      // with it (Particles' windy), carried further the harder it blows, and lifted in the gusts
       const shedding = season.turn * (1 - season.fall) + season.fall * (1 - season.fall);
-      this.spawn(dt, shedding * 5 * (1 + weather.gust * 2), () => {
+      const blow = weather.windiness;
+      const air = drift * 0.55 * (1 + weather.gust * 0.6);
+      const lift = weather.gust * 1.4 * (0.4 + 0.6 * Math.max(0, Math.sin(this.clock * 0.9)));
+      this.motes.wind.set(air * dx, lift, air * dz);
+      const colours = season.fall < 0.3 ? FIRST_LEAVES : season.fall < 0.7 ? FALLING : LAST_LEAVES;
+      this.spawn(dt, shedding * (4 + blow * 14) * (1 + weather.gust * 2), () => {
         const c = pick(this.island.canopies);
         if (c.squash < 1 || c.position.distanceTo(around) > size) return;
         const top = c.position.clone().add(V(rand(-1, 1), rand(-0.3, 0.5), rand(-1, 1)).multiplyScalar(c.radius));
+        const sink = rand(0.45, 0.75);
         this.motes.emit({
           position: top,
-          velocity: V(drift * 0.15 * dx + rand(-0.3, 0.3), -rand(0.5, 0.8), drift * 0.15 * dz + rand(-0.3, 0.3)),
-          color: dim(pick(FALLING), night),
-          life: top.y / 0.65,
+          velocity: V(rand(-0.2, 0.2), -sink, rand(-0.2, 0.2)),
+          color: dim(pick(colours), night),
+          life: Math.min(14, (top.y / sink) * (1 + blow)), // in a wind it's a long way down
           size: Math.random() < 0.5 ? 2 : 1,
-          wobble: 1.6,
+          wobble: 1.6 * (1 - blow * 0.5) + 0.3,
+          windy: 1.2 + blow * 1.5,
+          sink,
+        });
+      });
+      // after the rain the trees go on dripping a while, less and less
+      this.soaked = w.rain > 0.15 ? 1 : Math.max(0, this.soaked - dt / 150);
+      const leafy = 0.3 + season.leafOut * (1 - season.fall) * 0.7; // bare twigs drip too, just less
+      this.spawn(dt, w.rain < 0.05 ? this.soaked * 25 * leafy : 0, () => {
+        const c = pick(this.island.canopies);
+        if (c.position.distanceTo(around) > size) return;
+        const from = c.position.clone().add(V(rand(-0.8, 0.8) * c.radius, -c.radius * 0.4, rand(-0.8, 0.8) * c.radius));
+        this.motes.emit({
+          position: from,
+          velocity: V(0, -1, 0),
+          color: dim(DRIP, night),
+          life: Math.sqrt(Math.max(0.2, from.y) / 4.9),
+          gravity: -9.8,
+          fadeIn: 0,
+          hold: 0.8,
         });
       });
       // summer: dandelion fluff and pollen floating over the grass
@@ -94,6 +133,7 @@ export class Ambience {
       }));
     }
 
+    if (!this.reducedMotion) this.critters.update(dt, sky, weather, around, view);
     this.shootingStars(dt, night * clear, around, view);
     const goal = this.auroraNight && night > 0.85 ? clear : 0;
     this.aurora = THREE.MathUtils.damp(this.aurora, goal, 0.3, dt);

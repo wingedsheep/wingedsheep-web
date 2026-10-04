@@ -15,6 +15,7 @@ import fauna
 import holidays
 import layout as L
 import nature
+import outings
 import props
 import week
 from kit import group
@@ -313,3 +314,4 @@ def populate(t: Terrain):
     fauna.populate()
     holidays.populate(t)
     week.populate(t)
+    outings.populate(t)
