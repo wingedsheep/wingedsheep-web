@@ -39,7 +39,7 @@ The result wasn't instantly flawless – there were bugs to fix and adjustments 
 
 With a rendering solution in hand, I could move on to generating the actual content.
 
-```
+```text
 card-rendering/
 ├───example-input.json  # Example Scryfall-like JSON
 ├───helpers.js          # Helper functions for rendering
@@ -66,7 +66,8 @@ I turned to LLMs via the [OpenRouter](https://openrouter.ai/) API. The idea was 
 # Simplified concept from MTGSetGenerator
 def generate_theme(self, inspiration_cards: List[str]) -> str:
     prompt = f"""
-    Based on the following randomly selected Magic: The Gathering card names and types,
+    Based on the following randomly selected Magic: The Gathering
+    card names and types,
     generate a detailed and cohesive theme for a new MTG set.
 
     Inspiration Cards:
@@ -77,7 +78,7 @@ def generate_theme(self, inspiration_cards: List[str]) -> str:
     Make it creative and evocative.
     """
     # ... (Call to OpenRouter API using self.config.openai_client) ...
-    theme_description = # ... response from LLM ...
+    theme_description = ...  # response from LLM
     return theme_description
 ```
 
@@ -100,14 +101,18 @@ Again, I used the OpenRouter API (`main_model`). The process worked in batches (
 
 ```python
 # Simplified concept from MTGSetGenerator
-def generate_batch_cards(self, batch_num: int, current_stats: Dict) -> List[Card]:
+def generate_batch_cards(
+    self, batch_num: int, current_stats: Dict
+) -> List[Card]:
     # ... (Determine target rarities for this batch) ...
-    # ... (Calculate color balance hints based on current_stats and config.color_distribution) ...
+    # ... (Calculate color balance hints from current_stats
+    #      and config.color_distribution) ...
 
     prompt = f"""
     Set Theme: {self.set_theme}
 
-    Generate {total_cards_in_batch} new Magic: The Gathering card concepts for this set.
+    Generate {total_cards_in_batch} new Magic: The Gathering
+    card concepts for this set.
     Ensure they fit the theme.
 
     Desired Rarity Distribution for this Batch:
@@ -119,11 +124,12 @@ def generate_batch_cards(self, batch_num: int, current_stats: Dict) -> List[Card
     Target Color Balance: {self.config.color_distribution}
     {color_balance_hint} # e.g., "Hint: Consider creating more Green cards."
 
-    Provide concepts including name, mana cost, type, rarity, card text, and flavor text.
-    For creatures, include power/toughness. For planeswalkers, include loyalty.
+    Provide concepts including name, mana cost, type, rarity,
+    card text, and flavor text. For creatures, include power/toughness.
+    For planeswalkers, include loyalty.
     """
     # ... (Call LLM, parse response into Card objects) ...
-    generated_cards = # ... parsed Card objects ...
+    generated_cards = ...  # parsed Card objects
     return generated_cards
 
 # Statistics are tracked across batches
@@ -131,7 +137,11 @@ def _calculate_statistics(self, cards: List[Card]) -> Dict:
     rarity_counts = Counter(card.rarity for card in cards)
     color_counts = Counter()
     # ... (count colors) ...
-    return { "card_count": len(cards), "rarity_distribution": ..., "color_distribution": ... }
+    return {
+        "card_count": len(cards),
+        "rarity_distribution": ...,
+        "color_distribution": ...,
+    }
 ```
 
 This iterative, batch-based approach with feedback allowed the set to grow organically while maintaining better control over the final composition.
@@ -152,8 +162,13 @@ Simply using the card name or text as an image prompt often yields generic resul
 ```python
 # From MTGArtGenerator.py
 def generate_art_prompt(self, card: Card, attempt: int = 0) -> str:
-    theme_context = f"Set Theme Context:\n{self.theme}\n..." if self.theme else ""
-    saga_instructions = "IMPORTANT: This is a Saga card which requires VERTICAL art..." if "Saga" in card.type else ""
+    theme_context = (
+        f"Set Theme Context:\n{self.theme}\n..." if self.theme else ""
+    )
+    saga_instructions = (
+        "IMPORTANT: This is a Saga card which requires VERTICAL art..."
+        if "Saga" in card.type else ""
+    )
 
     prompt = f"""
     Create a detailed art prompt for a Magic: The Gathering card...
@@ -164,12 +179,13 @@ def generate_art_prompt(self, card: Card, attempt: int = 0) -> str:
     # ... (include all card details) ...
 
     Make sure that the prompt fits the style of Magic: The Gathering art...
-    The prompt should begin with "Oil on canvas painting. Magic the gathering art. Rough brushstrokes."
+    The prompt should begin with "Oil on canvas painting.
+    Magic the gathering art. Rough brushstrokes."
     {f"Please make sure it is a really SAFE prompt! ..." if attempt > 1 else ""}
     Return only the prompt text...
     """
     # ... (Call LLM via self.client.chat.completions.create) ...
-    art_prompt = # ... response from LLM ...
+    art_prompt = ...  # response from LLM
     return art_prompt
 ```
 
@@ -403,6 +419,7 @@ After generating the main cards and the basic lands, the pipeline renders them a
 <button class="nav-btn next-btn" id="next-btn">&gt;</button>
 </div>
 </div>
+
 <script>
 (async function(){
   const api = 'https://api.github.com/repos/wingedsheep/mtg-card-generator/contents/example-set-2';
