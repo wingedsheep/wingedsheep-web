@@ -17,6 +17,7 @@ import type { Hint, RiverGame, Tally } from './river/game';
 import { FLIP, TIP } from './river/limits';
 import { tilt } from './river/tilt';
 import { RARE, RIVERS, type Rare, type RiverDef } from './river/rivers';
+import { type Air, airOf } from './scene/critters';
 import { darkness } from './scene/sun';
 import type { UI } from './ui';
 
@@ -525,7 +526,12 @@ export class River implements RoomInput {
       u.uLight.value.copy(noon.light);
       const sound = this.ctx.sound;
       sound.rain = sound.hail = sound.snow = sound.wind = sound.fog = 0;
-      game.update(dt, { sun: noon.sun, hemi: noon.hemi, fog: noon.fog, night: 0, rain: 0, snow: 0, fair: true, storm: 0, flash: 0, haze: 0, chill: this.ctx.weather.heat.chill });
+      // (a clear, still day, but still the season's, and as warm or cold as it is)
+      const air: Air = { night: 0, rising: true, alt: 40, wet: 0, cloud: 0, fog: 0, gust: 0, wind: 2, temperature: this.ctx.weather.temperature };
+      game.update(dt, {
+        sun: noon.sun, hemi: noon.hemi, fog: noon.fog, night: 0, rain: 0, snow: 0, fair: true, storm: 0, flash: 0, haze: 0,
+        chill: this.ctx.weather.heat.chill, air: this.reducedMotion ? undefined : air,
+      });
     } else {
       const w = this.ctx.weather.now;
       // the island's evening comes on early (its lamps are its clock): out on the river, lift its
@@ -559,6 +565,8 @@ export class River implements RoomInput {
         flash: w.flash,
         haze: w.fog,
         chill: this.ctx.weather.heat.chill,
+        // the island's air, but the river's own dark
+        air: this.reducedMotion ? undefined : { ...airOf(sky, this.ctx.weather), night },
       });
     }
     // the river's own air over the island's grade: golden and soft on the Dawdle, grey and cold

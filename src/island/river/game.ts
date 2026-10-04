@@ -11,6 +11,8 @@ import { waterAt } from './flow';
 import { HIT, outlineOf, reach } from './outline';
 import { MAX_HOLES, MAX_LIPS, MAX_RIPPLES, MAX_ROCKS, MAX_SHORE, MAX_TONGUES, MAX_TRAINS, riverWater } from './water';
 import { type Cry, Wildlife } from './wildlife';
+import { RiverAir } from './air';
+import type { Air } from '../scene/critters';
 
 const ELEVATION = THREE.MathUtils.degToRad(48);
 const DISTANCE = 140;
@@ -140,6 +142,8 @@ export interface Outside {
   haze?: number;
   /** 0..1: how hard it's freezing (Weather's chill), for the ice on the gorges' walls. */
   chill?: number;
+  /** The air out on the river, for the leaves, the drips and the insects (air.ts); none, with reduced motion. */
+  air?: Air;
 }
 
 export type RiverSound = 'stroke' | 'bump' | 'hit' | 'splash' | 'plunge' | 'ball' | 'gate' | 'croak' | 'capsize' | 'brace' | 'boof' | 'roll' | 'whoosh' | 'hole' | 'best' | 'cleared' | 'dropin' | 'chime' | 'tier' | 'lost' | 'mile' | 'slap' | 'howl' | 'growl' | 'spotted' | Cry;
@@ -207,6 +211,9 @@ export class RiverGame {
   private course!: Course;
   private land!: Land;
   private wildlife: Wildlife;
+  /** The leaves, drips and insects (air.ts), and where it's all kept to: just ahead of you. */
+  private riverAir: RiverAir;
+  private airAt = new THREE.Vector3();
   /** For the wildlife: whether the camera can see a spot on the bank. */
   private sight = new THREE.Raycaster(undefined, undefined, 0, 80);
   private sightDir = new THREE.Vector3();
@@ -334,6 +341,7 @@ export class RiverGame {
     this.scene.add(this.kayak.model);
     this.size = this.kayak.model.scale.clone();
     this.wildlife = new Wildlife(assets, new Course(1));
+    this.riverAir = new RiverAir(this.scene);
     this.scene.add(this.wildlife.group);
     this.wire();
     this.reset();
@@ -376,6 +384,7 @@ export class RiverGame {
     this.course.extend(this.start + 400);
     this.land = new Land(this.course, this.assets, this.water.material, this.halo);
     this.land.onSpots = (spots) => this.wildlife.settle(spots);
+    this.riverAir.reset(this.land, this.course);
     this.scene.add(this.land.group);
     this.wildlife.reset(this.course);
     // ?rare=bear to go and look for one
@@ -513,6 +522,11 @@ export class RiverGame {
     this.lightning(outside.flash ?? 0);
     this.headlamp(outside.night);
     this.wildlife.update(dt, k.pos, k.s, k.speed, outside.night, outside.rain, outside.snow, outside.fair);
+    // the air just ahead of you, where you're looking
+    if (outside.air) {
+      const ahead = this.course.along(k.s + 8);
+      this.riverAir.update(dt, outside.air, this.airAt.set(ahead.x, ahead.y, ahead.z), this.view * this.zoom);
+    }
     this.shade(dt);
     this.bob(dt);
 

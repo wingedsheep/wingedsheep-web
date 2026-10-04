@@ -1,9 +1,12 @@
 import * as THREE from 'three';
-import type { Island } from './island';
+import type { CanopyMarker, Island } from './island';
 import { windDir } from './grass';
-import { Critters } from './critters';
+import { Ground } from './beike';
+import { Critters, airOf, islandHabitat } from './critters';
+import { littered, litter, spread } from './litter';
 import { Particles } from './particles';
 import { season } from './season';
+import { snowCover } from './toon';
 import type { Sky } from './sky';
 import type { Weather } from './weather';
 
@@ -37,6 +40,10 @@ export class Ambience {
   private auroraNight: boolean;
   private sea: (x: number, y: number) => boolean;
   private critters: Critters;
+  /** The trees that shed their leaves (not the bushes), and the ground under each. */
+  private trees: { c: CanopyMarker; ground: number }[] = [];
+  /** The leaves lying under the trees, more the later in autumn it is (litter.ts). */
+  private fallen: THREE.InstancedMesh;
   /** 1 while it's raining, running down to 0 a couple of minutes after it stops: the trees dripping. */
   private soaked = 0;
 
@@ -48,7 +55,16 @@ export class Ambience {
   ) {
     scene.add(this.motes.points);
     this.sea = seaTest(island);
-    this.critters = new Critters(scene, island, this.sea);
+    this.critters = new Critters(scene, islandHabitat(island, this.sea));
+    const down = new THREE.Raycaster(V(), V(0, -1, 0));
+    for (const c of island.canopies) {
+      if (c.squash < 1) continue;
+      down.set(c.position, V(0, -1, 0));
+      this.trees.push({ c, ground: down.intersectObject(island.terrain, false)[0]?.point.y ?? 0 });
+    }
+    const ground = new Ground(island.terrain, island.info.cell);
+    this.fallen = litter(this.trees.map((t) => t.c), (x, z) => ground.at(x, z));
+    scene.add(this.fallen);
     const night = Math.floor((Date.now() - 12 * 3600e3) / 864e5); // changes at noon, so one night is one roll
     const cold = season.weights.winter + season.weights.autumn * 0.3;
     let forced = false;
@@ -62,6 +78,7 @@ export class Ambience {
   update(dt: number, sky: Sky, weather: Weather, around: THREE.Vector3, view: number) {
     this.clock += dt;
     this.motes.update(dt);
+    spread(this.fallen, littered() * (1 - snowCover.value)); // and under the snow, none to be seen
     const w = weather.now;
     const wet = Math.min(1, w.rain + w.snow + w.hail);
     const clear = 1 - Math.min(1, w.cloud + w.fog + wet);
@@ -81,17 +98,18 @@ export class Ambience {
       const lift = weather.gust * 1.4 * (0.4 + 0.6 * Math.max(0, Math.sin(this.clock * 0.9)));
       this.motes.wind.set(air * dx, lift, air * dz);
       const colours = season.fall < 0.3 ? FIRST_LEAVES : season.fall < 0.7 ? FALLING : LAST_LEAVES;
-      this.spawn(dt, shedding * (4 + blow * 14) * (1 + weather.gust * 2), () => {
-        const c = pick(this.island.canopies);
-        if (c.squash < 1 || c.position.distanceTo(around) > size) return;
+      // every tree in view sheds its own, so the more of the island you see, the more come down
+      const trees = this.trees.filter((t) => t.c.position.distanceTo(around) < size);
+      this.spawn(dt, trees.length * shedding * (0.8 + blow * 1.6) * (1 + weather.gust * 2), () => {
+        const { c, ground } = pick(trees);
         const top = c.position.clone().add(V(rand(-1, 1), rand(-0.3, 0.5), rand(-1, 1)).multiplyScalar(c.radius));
         const sink = rand(0.45, 0.75);
         this.motes.emit({
           position: top,
           velocity: V(rand(-0.2, 0.2), -sink, rand(-0.2, 0.2)),
           color: dim(pick(colours), night),
-          life: Math.min(14, (top.y / sink) * (1 + blow)), // in a wind it's a long way down
-          size: Math.random() < 0.5 ? 2 : 1,
+          life: Math.min(14, (Math.max(0.5, top.y - ground) / sink) * (1 + blow)), // in a wind it's a long way down
+          size: Math.random() < 0.8 ? 2 : 1,
           wobble: 1.6 * (1 - blow * 0.5) + 0.3,
           windy: 1.2 + blow * 1.5,
           sink,
@@ -133,7 +151,7 @@ export class Ambience {
       }));
     }
 
-    if (!this.reducedMotion) this.critters.update(dt, sky, weather, around, view);
+    if (!this.reducedMotion) this.critters.update(dt, airOf(sky, weather), around, view);
     this.shootingStars(dt, night * clear, around, view);
     const goal = this.auroraNight && night > 0.85 ? clear : 0;
     this.aurora = THREE.MathUtils.damp(this.aurora, goal, 0.3, dt);

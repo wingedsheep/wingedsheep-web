@@ -4,6 +4,7 @@ import { createFoliage } from '../scene/foliage';
 import { createGrass } from '../scene/grass';
 import { type CanopyMarker, GREEN_FIRE } from '../scene/island';
 import { leavesAt, season } from '../scene/season';
+import { littered, litter, spread } from '../scene/litter';
 import { toon } from '../scene/toon';
 import type { RiverAssets } from './assets';
 import { type Course, type Gate, type Obstacle, type Sample, type Split, rng } from './course';
@@ -92,6 +93,7 @@ function dropChunk(chunk: Chunk) {
   // (the batches share their geometry and materials with the templates: only the instances go)
   for (const b of chunk.batches) b.dispose();
   for (const g of chunk.glows) g.material.dispose();
+  chunk.litter?.dispose();
   if (!chunk.foliage) return;
   const mat = chunk.foliage.material as THREE.MeshToonMaterial;
   mat.map?.dispose();
@@ -239,7 +241,11 @@ interface Chunk {
   spots: Spot[];
   /** Where its trees' leaves go, and the leaf cards grown there (as on the island). */
   canopies: CanopyMarker[];
+  /** The flower heads in its clumps of wild flowers, for the bees and butterflies (river/air.ts). */
+  blooms: THREE.Vector3[];
   foliage?: THREE.InstancedMesh;
+  /** The leaves lying under its broadleaved trees in autumn (scene/litter.ts). */
+  litter?: THREE.InstancedMesh;
   /** Its scenery, folded into one instanced mesh per part (see Land.batch). */
   batches: THREE.InstancedMesh[];
   /** The side streams spilling down its walls: their ribbons, and where each lands in the river. */
@@ -417,6 +423,16 @@ export class Land {
     }
   }
 
+  /** Every clump of wild flowers' heads along the stretch that's built. */
+  *blooms() {
+    for (const chunk of this.chunks.values()) yield* chunk.blooms;
+  }
+
+  /** The broadleaved trees along the stretch that's built (not the bushes), for their falling leaves. */
+  *trees() {
+    for (const chunk of this.chunks.values()) for (const c of chunk.canopies) if (c.squash >= 1 && c.palette !== 'pine') yield c;
+  }
+
   /** The lights in view that light up what's round them (not the far-off windows), for the game's lamps. */
   *lamps() {
     for (const chunk of this.chunks.values()) for (const g of chunk.glows) if (!g.userData.far) yield g;
@@ -508,7 +524,7 @@ export class Land {
     const group = new THREE.Group();
     const water = waterRibbon(course, s0, Math.min(course.samples.length - 1, s1 + 1), this.water);
     group.add(water);
-    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], flames: [], embers: [], spots: [], canopies: [], batches: [], springs: [], feet: [], rainbows: [], wheels: [], ices: [], chimneys: [], mists: [], clearings: [], solids: [] };
+    const chunk: Chunk = { index: c, group, water, things: new Map(), glows: [], flames: [], embers: [], spots: [], canopies: [], blooms: [], batches: [], springs: [], feet: [], rainbows: [], wheels: [], ices: [], chimneys: [], mists: [], clearings: [], solids: [] };
     const r = rng(course.seed * 7919 + c);
 
     for (const thing of course.near(s0, s1)) {
@@ -573,6 +589,13 @@ export class Land {
     this.forsaken(chunk, s0, s1, rng(course.seed * 32452843 + c));
     this.bulbs(chunk, s0, rng(mix(course.seed, c, 5)));
     if (HALLOWEEN) this.lanterns(chunk, s0, rng(mix(course.seed, c, 6)));
+    const broad = chunk.canopies.filter((c) => c.squash >= 1 && c.palette !== 'pine');
+    const lying = littered();
+    if (broad.length && lying > 0.01) {
+      chunk.litter = litter(broad, (x, z) => this.heightAt(x, z), c + 1);
+      spread(chunk.litter, lying);
+      group.add(chunk.litter);
+    }
     if (chunk.canopies.length) {
       chunk.foliage = createFoliage(chunk.canopies, group);
       group.add(chunk.foliage);
@@ -746,6 +769,9 @@ export class Land {
     if (scale !== 1) m.scale.multiplyScalar(scale);
     chunk.group.add(m);
     this.dress(m, chunk);
+    if (kind.startsWith('flowers')) {
+      for (let i = 0; i < 6; i++) chunk.blooms.push(new THREE.Vector3(at.x + (Math.random() - 0.5) * scale, at.y + 0.35 * scale, at.z + (Math.random() - 0.5) * scale));
+    }
     return m;
   }
 

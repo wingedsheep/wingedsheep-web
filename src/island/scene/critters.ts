@@ -4,6 +4,40 @@ import { season } from './season';
 import type { Sky } from './sky';
 import type { Weather } from './weather';
 
+/** Where the small things find what they're after: the island's, or the river's banks (river/air.ts). */
+export interface Habitat {
+  /** Every flower head there is to visit (asked once; the ones near the view are picked out of it every second). */
+  blooms(): THREE.Vector3[];
+  /** The lamps that are on near `around`, for the moths. */
+  lamps(around: THREE.Vector3, size: number): THREE.Vector3[];
+  /** A spot on the water near its edge, at the water's height, for a dragonfly to keep to. */
+  water(around: THREE.Vector3, size: number): THREE.Vector3 | null;
+  /** Flowers that come and go (blooms along a river that's being built as you go): asked again every few seconds. */
+  changing?: boolean;
+}
+
+/** The air the critters come out into. */
+export interface Air {
+  night: number; // 0..1
+  rising: boolean; // the sun climbing: morning rather than evening
+  alt: number; // the sun's elevation, degrees
+  wet: number; // rain, snow and hail, 0..1
+  cloud: number;
+  fog: number;
+  gust: number; // 0..1
+  wind: number; // m/s
+  temperature: number; // °C
+}
+
+/** The island's air, as the critters see it. */
+export function airOf(sky: Sky, weather: Weather): Air {
+  const w = weather.now;
+  return {
+    night: sky.lamps, rising: sky.rising, alt: sky.alt, wet: w.rain + w.snow + w.hail, cloud: w.cloud, fog: w.fog,
+    gust: weather.gust, wind: weather.wind, temperature: weather.temperature,
+  };
+}
+
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
@@ -60,6 +94,7 @@ export class Critters {
   private size = new Float32Array(MAX);
   private bugs: Critter[] = [];
   private blooms: THREE.Vector3[] | null = null;
+  private bloomsIn = 0;
   /** The blooms within reach of the view, refreshed every second or so. */
   private near: THREE.Vector3[] = [];
   private nearIn = 0;
@@ -67,8 +102,7 @@ export class Critters {
 
   constructor(
     scene: THREE.Scene,
-    private island: Island,
-    private sea: (x: number, y: number) => boolean,
+    private habitat: Habitat,
   ) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
@@ -103,33 +137,36 @@ export class Critters {
     scene.add(this.points);
   }
 
-  update(dt: number, sky: Sky, weather: Weather, around: THREE.Vector3, view: number) {
+  update(dt: number, air: Air, around: THREE.Vector3, view: number) {
     this.clock += dt;
     const size = Math.max(16, view * 0.9);
-    this.blooms ??= this.findBlooms();
+    if (!this.blooms || (this.habitat.changing && (this.bloomsIn -= dt) < 0)) {
+      this.blooms = this.habitat.blooms();
+      this.bloomsIn = 3;
+    }
     if ((this.nearIn -= dt) < 0) {
       this.nearIn = 1;
       this.near = this.blooms.filter((b) => Math.abs(b.x - around.x) < size && Math.abs(b.z - around.z) < size);
     }
 
     // what the day allows
-    const w = weather.now;
     const s = season.weights;
-    const temp = weather.temperature;
-    const dry = 1 - smooth(w.rain + w.snow + w.hail, 0, 0.08);
-    const day = smooth(1 - sky.lamps, 0.5, 0.9);
-    const calm = 1 - smooth(weather.gust, 0.2, 0.65);
-    const sun = 1 - Math.min(1, w.cloud * 0.7 + w.fog);
-    const flowering = this.near.length ? 1 : 0;
+    const temp = air.temperature;
+    const dry = 1 - smooth(air.wet, 0, 0.08);
+    const day = smooth(1 - air.night, 0.5, 0.9);
+    const calm = 1 - smooth(air.gust, 0.2, 0.65);
+    const sun = 1 - Math.min(1, air.cloud * 0.7 + air.fog);
+    // zoomed out over the whole island there are more flowers in view, so more of them about
+    const flowering = this.near.length ? THREE.MathUtils.clamp(view / 16, 1, 3) : 0;
     const want: Record<Kind, number> = {
       bee: 14 * (s.spring + s.summer * 0.7 + s.autumn * 0.15) * smooth(temp, 9, 15) * day * dry * calm * (0.4 + sun * 0.6) * flowering,
       butterfly: 8 * (s.spring + s.summer * 0.8 + s.autumn * 0.2) * smooth(temp, 12, 18) * day * dry * calm * (0.25 + sun * 0.75) * flowering,
-      dragonfly: 4 * s.summer * smooth(temp, 17, 22) * day * dry * (1 - smooth(weather.wind, 4, 8)) * (0.5 + sun * 0.5),
+      dragonfly: 4 * s.summer * smooth(temp, 17, 22) * day * dry * (1 - smooth(air.wind, 4, 8)) * (0.5 + sun * 0.5),
       // round the lamps once it's properly dark: a mild night, not the cold or the wet or a wind
-      moth: 3 * (s.summer + s.autumn * 0.6 + s.spring * 0.3) * smooth(temp, 8, 14) * smooth(sky.lamps, 0.6, 0.9) * dry * (1 - smooth(weather.wind, 5, 9)),
+      moth: 3 * (s.summer + s.autumn * 0.6 + s.spring * 0.3) * smooth(temp, 8, 14) * smooth(air.night, 0.6, 0.9) * dry * (1 - smooth(air.wind, 5, 9)),
       // a still summer evening, the sun low and going down
-      midge: 14 * (s.summer + s.spring * 0.5) * smooth(temp, 12, 16) * dry * (1 - smooth(weather.wind, 2, 3.5)) * sun
-        * (!sky.rising && sky.alt > -1 && sky.alt < 10 ? 1 : 0),
+      midge: 14 * (s.summer + s.spring * 0.5) * smooth(temp, 12, 16) * dry * (1 - smooth(air.wind, 2, 3.5)) * sun
+        * (!air.rising && air.alt > -1 && air.alt < 10 ? 1 : 0),
     };
 
     // too far from the view, gone; more than the day wants, off they go
@@ -151,7 +188,7 @@ export class Critters {
       else if (b.kind === 'dragonfly') this.dragonfly(b, dt);
       else this.midge(b);
     }
-    this.draw(1 - sky.lamps * 0.4);
+    this.draw(1 - air.night * 0.4);
   }
 
   // --- who comes out where -----------------------------------------------------------
@@ -161,10 +198,10 @@ export class Critters {
     if (kind === 'bee' || kind === 'butterfly') home = this.near.length ? pick(this.near).clone() : null;
     else if (kind === 'moth') {
       // a lamp that's on, near the view, with fewer than three already round it
-      const lamps = this.island.lights.filter((l) => !l.day && l.position.distanceTo(around) < size
-        && this.bugs.filter((b) => b.kind === 'moth' && b.home.distanceTo(l.position) < 0.1).length < 3);
-      home = lamps.length ? pick(lamps).position.clone() : null;
-    } else if (kind === 'dragonfly') home = this.offshore(around, size);
+      const lamps = this.habitat.lamps(around, size)
+        .filter((l) => this.bugs.filter((b) => b.kind === 'moth' && b.home.distanceTo(l) < 0.1).length < 3);
+      home = lamps.length ? pick(lamps).clone() : null;
+    } else if (kind === 'dragonfly') home = this.habitat.water(around, size)?.add(V(0, rand(0.5, 1), 0)) ?? null;
     else {
       // the midges dance in one column: theirs, if they've started, or somewhere over the flowers
       const other = this.bugs.find((b) => b.kind === 'midge');
@@ -180,61 +217,6 @@ export class Critters {
       kind, pos: start, vel: V(), goal: kind === 'bee' ? home.clone().add(V(0, 0.12, 0)) : home.clone(), home,
       state: 'fly', t: rand(2, 5), phase: rand(0, 100), color, under, fade: 0, leaving: false,
     });
-  }
-
-  /** A spot just off the shore, out of the surf: open water within a few metres of land. */
-  private offshore(around: THREE.Vector3, size: number) {
-    for (let i = 0; i < 20; i++) {
-      const x = around.x + rand(-size, size) * 0.8;
-      const y = -around.z + rand(-size, size) * 0.6; // blender coordinates: y = -z
-      if (!this.sea(x, y)) continue;
-      const a = rand(0, Math.PI * 2);
-      if (this.sea(x + Math.cos(a) * 4, y + Math.sin(a) * 4) && this.sea(x - Math.cos(a) * 4, y - Math.sin(a) * 4)) continue;
-      return V(x, rand(0.5, 1), -y);
-    }
-    return null;
-  }
-
-  /**
-   * Every flower head on the island that's out (the wild flowers dressIsland has left showing),
-   * the crocuses and snowdrops while they're up, and in April the blossom on the cherry tree.
-   */
-  private findBlooms() {
-    const out: THREE.Vector3[] = [];
-    const seen = new Set<string>();
-    const p = V();
-    this.island.root.updateMatrixWorld(true);
-    this.island.root.getObjectByName('flowers')?.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh || !mesh.visible) return;
-      const c = (mesh.material as THREE.MeshToonMaterial).color;
-      if (c && Math.abs(c.r - STEM.r) + Math.abs(c.g - STEM.g) + Math.abs(c.b - STEM.b) < 0.08) return;
-      const at = mesh.geometry.getAttribute('position');
-      for (let i = 0; i < at.count; i++) {
-        p.fromBufferAttribute(at, i).applyMatrix4(mesh.matrixWorld);
-        const key = `${Math.round(p.x / 0.3)},${Math.round(p.z / 0.3)}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(p.clone());
-      }
-    });
-    this.island.root.traverse((o) => {
-      const { bulb, spots } = o.userData as { bulb?: string; spots?: number[] };
-      if (!bulb || !spots) return;
-      const up = bulb.startsWith('snowdrop') ? season.snowdrops : season.crocuses;
-      for (let i = 0; i < spots.length; i += 6) {
-        if (spots[i + 5] >= up) continue;
-        out.push(V(spots[i], spots[i + 2] + 0.12, -spots[i + 1])); // Blender's (x, y, z) is (x, z, -y)
-      }
-    });
-    if (season.blossom > 0.1) {
-      for (const c of this.island.canopies.filter((c) => c.owner === 'blossom')) {
-        for (let i = 0; i < 30; i++) out.push(c.position.clone().add(V(rand(-1, 1), rand(-0.4, 1), rand(-1, 1)).normalize().multiplyScalar(c.radius * 0.95)));
-      }
-    }
-    // plenty to choose from, but not so many that sorting through them every second costs anything
-    while (out.length > MOST_BLOOMS) out.splice(Math.floor(Math.random() * out.length), 1);
-    return out;
   }
 
   /** Another flower near this one, mostly. */
@@ -313,8 +295,7 @@ export class Critters {
     } else {
       b.pos.copy(b.goal).y += Math.sin(this.clock * 9 + b.phase) * 0.02;
       if ((b.t -= dt) < 0) {
-        b.goal.copy(b.home).add(V(rand(-3.5, 3.5), 0, rand(-3.5, 3.5)));
-        b.goal.y = b.leaving ? 4 : rand(0.4, 1.2);
+        b.goal.copy(b.home).add(V(rand(-3.5, 3.5), b.leaving ? 3.5 : rand(-0.3, 0.4), rand(-3.5, 3.5)));
         b.state = 'fly';
       }
     }
@@ -359,4 +340,63 @@ export class Critters {
     g.attributes.color.needsUpdate = true;
     g.attributes.size.needsUpdate = true;
   }
+}
+
+/**
+ * The island as a place to live: its wild flowers that are out (the ones dressIsland has left
+ * showing), the crocuses and snowdrops while they're up, and in April the blossom on the cherry
+ * tree; its lamps; and open water just off the shore, out of the surf.
+ */
+export function islandHabitat(island: Island, sea: (x: number, y: number) => boolean): Habitat {
+  return {
+    blooms() {
+      const out: THREE.Vector3[] = [];
+      const seen = new Set<string>();
+      const p = V();
+      island.root.updateMatrixWorld(true);
+      island.root.getObjectByName('flowers')?.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.visible) return;
+        const c = (mesh.material as THREE.MeshToonMaterial).color;
+        if (c && Math.abs(c.r - STEM.r) + Math.abs(c.g - STEM.g) + Math.abs(c.b - STEM.b) < 0.08) return;
+        const at = mesh.geometry.getAttribute('position');
+        for (let i = 0; i < at.count; i++) {
+          p.fromBufferAttribute(at, i).applyMatrix4(mesh.matrixWorld);
+          const key = `${Math.round(p.x / 0.3)},${Math.round(p.z / 0.3)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(p.clone());
+        }
+      });
+      island.root.traverse((o) => {
+        const { bulb, spots } = o.userData as { bulb?: string; spots?: number[] };
+        if (!bulb || !spots) return;
+        const up = bulb.startsWith('snowdrop') ? season.snowdrops : season.crocuses;
+        for (let i = 0; i < spots.length; i += 6) {
+          if (spots[i + 5] >= up) continue;
+          out.push(V(spots[i], spots[i + 2] + 0.12, -spots[i + 1])); // Blender's (x, y, z) is (x, z, -y)
+        }
+      });
+      if (season.blossom > 0.1) {
+        for (const c of island.canopies.filter((c) => c.owner === 'blossom')) {
+          for (let i = 0; i < 30; i++) out.push(c.position.clone().add(V(rand(-1, 1), rand(-0.4, 1), rand(-1, 1)).normalize().multiplyScalar(c.radius * 0.95)));
+        }
+      }
+      // plenty to choose from, but not so many that sorting through them every second costs anything
+      while (out.length > MOST_BLOOMS) out.splice(Math.floor(Math.random() * out.length), 1);
+      return out;
+    },
+    lamps: (around, size) => island.lights.filter((l) => !l.day && l.position.distanceTo(around) < size).map((l) => l.position),
+    water(around, size) {
+      for (let i = 0; i < 20; i++) {
+        const x = around.x + rand(-size, size) * 0.8;
+        const y = -around.z + rand(-size, size) * 0.6; // blender coordinates: y = -z
+        if (!sea(x, y)) continue;
+        const a = rand(0, Math.PI * 2);
+        if (sea(x + Math.cos(a) * 4, y + Math.sin(a) * 4) && sea(x - Math.cos(a) * 4, y - Math.sin(a) * 4)) continue;
+        return V(x, 0, -y);
+      }
+      return null;
+    },
+  };
 }
