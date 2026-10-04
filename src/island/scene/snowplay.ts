@@ -25,6 +25,7 @@ const PUSH = 0.42; // m/s, rolling a ball that's getting heavier
 const WALK = 1.0; // m/s, about the place
 const THROW = 7.5; // m/s, a snowball across the plaza
 const THROWS: [number, number] = [10, 15]; // each, before they've had enough
+export const BARE = 0.08; // snow on the ground (0..1) below which there's none to build with, or throw
 
 const STILL: Pose = { walk: 0, phase: 0, crouch: 0, lean: 0, look: 0, turn: 0, behind: 0, reach: 0, hold: 0, mug: false, sip: 0 };
 const at = (x: number, y: number) => V(x, 0, -y);
@@ -139,6 +140,8 @@ export class SnowPlay {
   /** When each last laughed (seconds, this.clock), so it isn't every snowball. */
   private laughed = { v: -9, e: -9 };
   private clock = 0;
+  /** The snow on the ground, as of the last frame (0..1). */
+  private lying = 0;
 
   constructor(
     island: Island,
@@ -192,8 +195,9 @@ export class SnowPlay {
     this.show();
   }
 
-  /** Out they come: the snowman first, unless there's one standing already. */
+  /** Out they come: the snowman first, unless there's one standing already (and not at all on bare ground). */
   begin() {
+    if (this.lying < BARE) return;
     for (const p of [this.v, this.e]) {
       Object.assign(p, { thrown: 0, duck: 0, hit: 0, brush: 0, cheer: 0, laugh: 0, act: 'stand', arms: null, incoming: null });
       p.shove.set(0, 0, 0);
@@ -209,7 +213,7 @@ export class SnowPlay {
     }
     this.v.w.visible = this.e.w.visible = true;
     this.unsnow(true);
-    this.update(0, 1);
+    this.update(0, this.lying);
   }
 
   /** Called off (or in for the day): the snowballs put away; a half-built snowman goes too. */
@@ -224,12 +228,16 @@ export class SnowPlay {
 
   /**
    * One frame. `lying`: the snow on the ground (0..1); the snowman slumps as it thaws, and goes
-   * with the last of it.
+   * with the last of it, and so does the fun: nothing to roll or throw on bare grass.
    */
   update(dt: number, lying: number) {
-    if (this.built && lying < 0.08 && this.phase === 'done') {
-      this.built = false; // gone with the snow
-      this.show();
+    this.lying = lying;
+    if (lying < BARE) {
+      if (this.phase !== 'done') this.go('done');
+      if (this.built) {
+        this.built = false; // gone with the snow
+        this.show();
+      }
     }
     this.thaw(lying);
     if (this.phase === 'done') return;
@@ -567,7 +575,7 @@ export class SnowPlay {
   /** Slumping as the snow goes: shorter, a bit wider, its head lower. */
   private thaw(lying: number) {
     if (!this.yard) return;
-    const k = this.built && this.phase === 'done' ? ease(lying, 0.08, 0.3) : 1;
+    const k = this.built && this.phase === 'done' ? ease(lying, BARE, 0.3) : 1;
     this.yard.scale.set(1 + (1 - k) * 0.15, 0.55 + 0.45 * k, 1 + (1 - k) * 0.15);
   }
 

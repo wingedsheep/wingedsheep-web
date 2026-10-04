@@ -27,7 +27,7 @@
 - Preview a moment with query params: `?time=`, `?season=`, `?date=`, `?holiday=`,
   `?weather=` (and `&k=`, `&wind=`, `&temp=`), `?animal=`, `?vincent=`, `?companion=` (`=stroll` for a walk),
   `?meal=` (`breakfast`, `pasta`, `miso`, `curry`, `risotto`, `pizza`; `&where=hut|fire`), `?walk=gluhwein`,
-  `?play=snow` (a snowman, then snowballs: add `&weather=snow`), `?swim` (both in the sea: `scene/swim.ts`; `&beike=swim` and he comes in too), `?outfit=` (what they wear: `scene/wardrobe.ts`).
+  `?play=snow` (a snowman, then snowballs; it brings its own snow), `?swim` (both in the sea: `scene/swim.ts`; `&beike=swim` and he comes in too), `?outfit=` (what they wear: `scene/wardrobe.ts`).
 - Visitor progress lives in `localStorage` under `wingedsheep:*` (the journal is
   `wingedsheep:found`). When testing in the user's browser, put it back afterwards.
 - `just sounds` reads the ElevenLabs key from `config.yaml`, which stays out of git.

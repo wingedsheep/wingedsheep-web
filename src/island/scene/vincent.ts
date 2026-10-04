@@ -16,7 +16,7 @@ import { herNight } from './bedtime';
 import { Eater, courseAt, sitDown, table, tick } from './meals';
 import { ROUTE_NAMES, Stroll, Walker, together } from './outings';
 import { Bather } from './swim';
-import { SnowPlay, play } from './snowplay';
+import { BARE, SnowPlay, play } from './snowplay';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -417,7 +417,7 @@ export class Vincent {
     // snow lying, by day, and not raining on it or blowing a blizzard: out in it with her (now and then)
     const snowy = (w.lying ?? 0) > 0.35 && (w.raining ?? 0) < 0.1 && w.storm < 0.2 && (w.rough ?? 0) < 0.2 && w.wind < 12
       && w.night < 0.35 && hour >= 9.5 && hour < 16.5 && !herNight(w.time);
-    const snow: Whereabouts[] = (snowy && this.clock - this.played > 1800) || (this.spot === 'snow' && (w.raining ?? 0) < 0.1) ? ['snow'] : [];
+    const snow: Whereabouts[] = (snowy && this.clock - this.played > 1800) || (this.spot === 'snow' && (w.raining ?? 0) < 0.1 && (w.lying ?? 0) >= BARE) ? ['snow'] : [];
     if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal, ...swim, ...snow];
     // a podcast works in the dark; in the wet the guitar comes in to the hut
     return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), ...week, ...walks, ...meal, ...snow];

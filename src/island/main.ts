@@ -319,7 +319,8 @@ export async function bootIsland(host: HTMLElement) {
   // WEATHER_KINDS), optionally with &k=<0..1 intensity: ?weather=partly&k=0.2 is the odd cloud>,
   // &wind=<m/s>, &gusts=<m/s>, &dir=<degrees it comes from> and &temp=<°C>
   const params = new URLSearchParams(location.search);
-  const preview = params.get('weather') as WeatherKind | null;
+  // (out in the snow, ?play=snow, comes with snow of its own: there's no snowman on bare grass)
+  const preview = (params.get('weather') ?? (params.get('play') === 'snow' ? 'snow' : null)) as WeatherKind | null;
   let first = true;
   const live = async () => {
     ctx.forecast = await fetchForecast();
@@ -368,7 +369,7 @@ export async function bootIsland(host: HTMLElement) {
     life.vincent.put('swim');
     life.companion.put('swim');
   }
-  // out in the snow together, a snowman and then snowballs: ?play=snow (with ?weather=snow for the snow)
+  // out in the snow together, a snowman and then snowballs: ?play=snow (it snows, unless ?weather= says otherwise)
   if (params.get('play') === 'snow') {
     life.vincent.put('snow');
     life.companion.put('snow');
