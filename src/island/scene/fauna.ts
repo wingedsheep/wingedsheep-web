@@ -35,7 +35,7 @@ const daylit = (e: Env) => e.night < 0.35;
 
 /** Sounds the animals make (the island plays them; silent while sound is off). */
 export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap' | 'lap' | 'sip' | 'grind' | 'brew' | 'crunch'
-  | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin' | 'puff' | 'dip'
+  | 'heron' | 'fox' | 'bellow' | 'hind' | 'thump' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin' | 'puff' | 'dip'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
   // the small wanderer: her call as she dashes off, and a word now and then by the fire
   | 'ewa' | 'chat'
@@ -1256,6 +1256,13 @@ class Pod {
     return this.members.map((m) => m.hit);
   }
 
+  /** One of them calls back (and the pod's own chatter waits a little after). */
+  poke(at: THREE.Vector3) {
+    if (this.t < 0) return;
+    this.chatter = rand(3, 7);
+    this.onCall?.('dolphin', at);
+  }
+
   update(dt: number, e: Env) {
     if (this.t < 0) {
       this.wait -= dt;
@@ -1326,6 +1333,7 @@ class Whale {
   private heading = 0;
   private breach = false;
   private blown = 0;
+  private blewAt = -Infinity;
   private speed = 1.1;
   private dist = 0;
   onBlow?: (at: THREE.Vector3) => void;
@@ -1339,6 +1347,11 @@ class Whale {
     return this.t >= 0;
   }
 
+  /** At the surface, it breathes out (not twice in one breath, and not once it's going down). */
+  poke() {
+    if (this.t > 2 && this.t < 10.5 && this.t - this.blewAt > 2.5) this.blow();
+  }
+
   update(dt: number) {
     const b = this.body;
     if (this.t < 0) {
@@ -1346,6 +1359,7 @@ class Whale {
       if (this.wait > 0) return;
       this.t = 0;
       this.blown = 0;
+      this.blewAt = -Infinity;
       this.speed = 1.1;
       this.dist = 0;
       this.at.copy(pick(this.spots));
@@ -1409,6 +1423,7 @@ class Whale {
     for (let i = 0; i < 45; i++) {
       this.particles.emit({ position: head.clone().add(V(rand(-0.2, 0.2), 0, rand(-0.2, 0.2))), velocity: V(rand(-0.5, 0.5), rand(4, 7.5), rand(-0.5, 0.5)), color: pick(['#ffffff', '#eef6fa', '#d8e8f0']), life: rand(1, 1.8), gravity: -4.5, wobble: 0.4, size: chance(0.4) ? 2 : 1 });
     }
+    this.blewAt = this.t;
     this.onBlow?.(head);
   }
 }
@@ -2635,6 +2650,19 @@ export class Fauna {
     else if (w instanceof Squirrel) {
       w.startle(from);
       this.onCall?.('chatter', at);
+    }
+    else if (w instanceof Rabbit) {
+      w.startle(from);
+      this.onCall?.('thump', at);
+    }
+    else if (w instanceof Fox) {
+      w.startle(from);
+      this.onCall?.('fox', at);
+    }
+    // a gruff bark from the deer as the herd goes; in the rut the stag bellows instead
+    else if (w instanceof Deer) {
+      w.startle(from);
+      this.onCall?.(w.body.species === 'stag' && season.name === 'autumn' ? 'bellow' : 'hind', at);
     } else if (w) w.startle(from);
     if (species === 'gull') {
       this.gulls.find((g) => g.body === c?.body)?.poke();
@@ -2653,6 +2681,9 @@ export class Fauna {
       this.onCall?.('quack', at);
     }
     if (species === 'heron' && this.heron?.poke()) this.onCall?.('heron', at);
+    if (species === 'goose') this.onCall?.('honk', at);
+    if (species === 'dolphin') this.pod?.poke(at);
+    if (species === 'whale') this.whale?.poke();
     if (species === 'serpent') this.serpent?.poke();
     if (species === 'eagle') this.eagle?.poke();
     if (species === 'wanderer') this.wanderer?.dash();

@@ -78,7 +78,7 @@ type Clip = keyof typeof CLIPS;
  * the first time you step into one, and the telly's the first time she has it on while you're in.
  */
 const SFX = {
-  island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, 'tap-run': 1, 'tap-off': 1, lap: 2, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
+  island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, 'tap-run': 1, 'tap-off': 1, lap: 2, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, hind: 1, thump: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 3, puff: 2, dip: 2,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
     flurry: 1, stroke: 3, burner: 1, horn: 1, typhon: 1, murmur: 1, seal: 1,
@@ -112,7 +112,7 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
-  heron: 0.5, fox: 0.45, bellow: 0.6, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
+  heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
   'door-library': 0.25, 'door-hut': 0.25, 'door-lighthouse': 0.22, bell: 0.25, hatch: 0.25, bottle: 0.5, clink: 0.35, jump: 0.25,

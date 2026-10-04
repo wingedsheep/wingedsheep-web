@@ -136,6 +136,8 @@ export const SOUNDS: Sfx[] = [
   { name: 'heron', seconds: 2, prompt: 'A grey heron taking off with a harsh, loud croaking call, one rasping fraank, and a few heavy wingbeats' },
   { name: 'fox', seconds: 2, prompt: 'A red fox vixen screaming once at night in the countryside, an eerie high scream, distant, no other animals' },
   { name: 'bellow', seconds: 4, prompt: 'A red deer stag bellowing during the autumn rut, a deep roaring bellow, twice, across a misty glen' },
+  { name: 'hind', seconds: 1.5, prompt: 'A red deer hind giving one short gruff alarm bark at the edge of a wood, a hoarse cough-like bark, then hooves thudding away through grass, a little distant, no other animals, no music' },
+  { name: 'thump', seconds: 1, prompt: 'A wild rabbit drumming its hind foot on the ground in alarm, two quick soft dull thuds on packed earth, close, quiet meadow, no voices, no music' },
   { name: 'snuffle', seconds: 2, prompt: 'A hedgehog snuffling and snorting in dry leaves, small huffy sniffs, close up' },
   { name: 'plop', seconds: 1, prompt: 'A small fish jumping out of calm sea water and falling back in, a light splash and plop' },
   { name: 'ufo', seconds: 3, prompt: 'A small flying saucer warbling past overhead, a wobbly retro sci-fi theremin hum that swoops by' },
