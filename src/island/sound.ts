@@ -82,8 +82,11 @@ const SFX = {
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 3, puff: 2, dip: 2,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
     flurry: 1, stroke: 3, burner: 1, horn: 1, typhon: 1, murmur: 1, seal: 1,
+    ewa: 2, chat: 13, // the small wanderer's voice: Hornet's own, taken from Silksong rather than made by `just sounds`
     strider: 1, creak: 2, wade: 2, sniff: 2, snooze: 1, squeak: 2, chirrup: 2,
-    eagle: 1, boar: 1, moo: 1 }, // (the river's too, but they turn up here now and then)
+    eagle: 1, boar: 1, moo: 1, // (the river's too, but they turn up here now and then)
+    slosh: 3, duck: 2, swimstroke: 3, gasp: 2, 'gasp-e': 2, shake: 1, dogpaddle: 2, dogshake: 2, // a swim on a hot day (scene/swim.ts), and Beike in after them
+    snowroll: 2, twig: 2, scoop: 2, pack: 3, toss: 2, snowhit: 2, snowsplat: 2, laugh: 2, 'laugh-e': 2, clap: 1 }, // out in the snow (scene/snowplay.ts)
   rooms: {
     simmer: 1, typing: 1, clockwork: 1, workshop: 1, press: 1, engine: 1, quill: 1, page: 1, zap: 1, 'robot-servo': 1,
     'robot-tinker': 1, 'robot-snore': 1, 'robot-clank': 1, 'robot-beep': 1, ding: 1, snore: 1,
@@ -111,7 +114,7 @@ const LEVEL: Record<string, number> = {
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
-  dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45,
+  dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
   'door-library': 0.25, 'door-hut': 0.25, 'door-lighthouse': 0.22, bell: 0.25, hatch: 0.25, bottle: 0.5, clink: 0.35, jump: 0.25,
   flurry: 0.45, press: 0.35, engine: 2.5, quill: 0.3, page: 0.35, zap: 0.25, 'robot-servo': 0.35, 'robot-tinker': 0.3,
   'robot-snore': 0.3, 'robot-clank': 0.45, 'robot-beep': 0.35, ding: 0.35, snore: 0.3,
@@ -120,6 +123,8 @@ const LEVEL: Record<string, number> = {
   stroke: 0.3, hit: 0.85, bump: 0.5, splash: 0.7, capsize: 0.8, roll: 0.55, brace: 0.55, boof: 0.7, dropin: 0.55,
   hole: 0.6, slap: 0.65, howl: 0.6, growl: 0.7, croak: 0.4, whoosh: 0.35, kingfisher: 0.4, otter: 0.4, grunt: 0.65,
   yeti: 0.6, eagle: 0.5, boar: 0.55, moo: 0.6,
+  slosh: 0.3, duck: 0.5, swimstroke: 0.22, gasp: 0.4, 'gasp-e': 0.4, shake: 0.25, dogpaddle: 0.3, dogshake: 0.45,
+  snowroll: 0.3, twig: 0.3, scoop: 0.28, pack: 0.28, toss: 0.15, snowhit: 0.45, snowsplat: 0.32, laugh: 0.4, 'laugh-e': 0.4, clap: 0.4,
   strider: 0.6, creak: 0.35, wade: 0.4, sniff: 0.25, snooze: 0.25, squeak: 0.4, chirrup: 0.25,
   'fw-launch': 0.3, 'fw-burst': 0.75, 'fw-crackle': 0.35, 'steam-whistle': 0.65, cackle: 0.45, vampire: 0.5,
   groan: 0.5, moan: 0.45, bats: 0.35, skitter: 0.3, neigh: 0.55, gallop: 0.5, headless: 0.55, giant: 0.6, stomp: 0.5, wail: 0.6,
@@ -678,6 +683,61 @@ export class Sound {
         break;
       case 'dip': // and back in
         hiss(0, 0.3, 900, 0.12);
+        break;
+      // a swim (scene/swim.ts), if the recordings aren't in: a slosh wading, going under, a stroke, a shake
+      case 'slosh':
+        hiss(0, 0.35, r(500, 800), 0.08);
+        break;
+      case 'duck':
+        hiss(0, 0.9, 600, 0.2);
+        hiss(0.05, 0.4, 220, 0.15);
+        break;
+      case 'swimstroke':
+        hiss(0, 0.5, r(1100, 1500), 0.04);
+        break;
+      case 'shake':
+        for (let i = 0; i < 6; i++) hiss(i * 0.07, 0.05, r(2000, 3200), 0.025);
+        break;
+      case 'dogpaddle':
+        for (let i = 0; i < 5; i++) hiss(i * 0.18 + r(0, 0.05), 0.12, r(900, 1400), 0.04);
+        break;
+      case 'dogshake':
+        for (let i = 0; i < 12; i++) hiss(i * 0.07, 0.06, r(1500, 3000), 0.05);
+        break;
+      case 'gasp':
+      case 'gasp-e': // a sharp breath in
+        hiss(0, 0.25, kind === 'gasp' ? 1800 : 2600, 0.05);
+        break;
+      // out in the snow (scene/snowplay.ts), if the recordings aren't in
+      case 'snowroll': // the snowman's ball packing down as it goes: a slow soft crunch
+        for (let i = 0; i < 6; i++) hiss(i * 0.22 + r(0, 0.05), 0.2, r(1800, 2600), 0.025);
+        break;
+      case 'twig':
+        hiss(0, 0.04, 3500, 0.06);
+        tone('triangle', 0, [[0, 1400], [0.03, 900]], 0.03, 0.04);
+        break;
+      case 'scoop':
+        hiss(0, 0.3, r(2000, 2800), 0.04);
+        break;
+      case 'pack':
+        for (let i = 0; i < 3; i++) hiss(i * 0.16, 0.07, r(2200, 3200), 0.04);
+        break;
+      case 'toss':
+        hiss(0, 0.25, 1200, 0.03);
+        break;
+      case 'snowhit': // a thump on a coat, and the burst of it
+        tone('sine', 0, [[0, 160], [0.08, 90]], 0.18, 0.12);
+        hiss(0, 0.3, 2400, 0.06);
+        break;
+      case 'snowsplat':
+        hiss(0, 0.25, 900, 0.06);
+        break;
+      case 'laugh':
+      case 'laugh-e': // a few breathy ha's
+        for (let i = 0; i < 4; i++) tone('triangle', i * 0.15, [[0, kind === 'laugh' ? 190 : 330], [0.1, kind === 'laugh' ? 160 : 280]], 0.04, 0.11, 1200);
+        break;
+      case 'clap':
+        for (let i = 0; i < 6; i++) hiss(i * 0.23, 0.05, 1500, 0.08);
         break;
       case 'splash':
         hiss(0, 1.6, 700, 0.5);

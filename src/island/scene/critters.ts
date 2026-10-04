@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Island } from './island';
+import { measureTexels } from './particles';
 import { season } from './season';
 import type { Sky } from './sky';
 import type { Weather } from './weather';
@@ -43,12 +44,14 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 const smooth = THREE.MathUtils.smoothstep;
 
-const MAX = 160;
+const MAX = 220;
 const MOST_BLOOMS = 1500;
 /** The wild flowers' heads (nature.py flowers): the stems are this green, and nobody visits a stem. */
 const STEM = new THREE.Color('#3f7d43');
 const BEE = new THREE.Color('#f2c53a');
 const BEE_DARK = new THREE.Color('#3a2a10');
+/** A bumblebee: bigger, slower, furrier, and out on a cool spring day when the honeybees aren't. */
+const BUMBLEBEE = new THREE.Color('#e0aa36');
 const MOTH = new THREE.Color('#efe6cc');
 const MIDGE = new THREE.Color('#ffe3a0');
 const DRAGONFLY = [new THREE.Color('#3f8fd8'), new THREE.Color('#58c0c8')];
@@ -78,20 +81,41 @@ interface Critter {
   under: THREE.Color; // the other colour it flickers to
   fade: number; // 0..1, coming and going
   leaving: boolean;
+  bumble?: boolean;
+  // a butterfly's: the way it's heading (radians), how fast it's climbing or sinking, the time
+  // left flapping (> 0) or gliding (< 0), how far its wings are open (0..1) and the beat they're
+  // at, whether it's basking, and the one it's dancing with, which way round, and for how long
+  yaw?: number;
+  climb?: number;
+  flap?: number;
+  wing?: number;
+  beat?: number;
+  bask?: boolean;
+  partner?: Critter;
+  side?: number;
+  dance?: number;
 }
 
 /**
  * The small life of a fine day, each kind out only when it would be: bees going from flower to
  * flower and butterflies flitting over the grass on a mild, calm, dry day (spring most of all),
  * dragonflies darting off the shore on a warm summer's day, moths round the lamps on a mild night,
- * and on a still summer evening a column of midges dancing in the low sun. All of them a pixel or
- * two, kept near where you're looking; none of them sits still long enough to click on.
+ * and on a still summer evening a column of midges dancing in the low sun. A pixel or two from
+ * afar, as big as they are zoomed in, kept near where you're looking; none of them sits still long
+ * enough to click on.
  */
 export class Critters {
   private points: THREE.Points;
   private pos = new Float32Array(MAX * 3);
   private col = new Float32Array(MAX * 4);
   private size = new Float32Array(MAX);
+  private span = new Float32Array(MAX);
+  private shape = new Float32Array(MAX);
+  private temperature = 15;
+  private sunny = 1;
+  private heading = new Float32Array(MAX * 3);
+  private wings = new Float32Array(MAX);
+  private mat: THREE.ShaderMaterial;
   private bugs: Critter[] = [];
   private blooms: THREE.Vector3[] | null = null;
   private bloomsIn = 0;
@@ -108,32 +132,81 @@ export class Critters {
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('color', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
-    const mat = new THREE.ShaderMaterial({
+    g.setAttribute('span', new THREE.BufferAttribute(this.span, 1).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('shape', new THREE.BufferAttribute(this.shape, 1).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('heading', new THREE.BufferAttribute(this.heading, 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('wing', new THREE.BufferAttribute(this.wings, 1).setUsage(THREE.DynamicDrawUsage));
+    // a pixel or two from afar, but zoomed in they're as big as they are (span, in metres), and
+    // shaped: a butterfly with its body along the way it's flying (turned to the screen here) and
+    // its wings as far open as they are, a bee round and striped
+    const mat = (this.mat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
+      uniforms: { texelsPerMetre: { value: 1 } },
       vertexShader: /* glsl */ `
+        uniform float texelsPerMetre;
         attribute float size;
+        attribute float span;
+        attribute float shape;
+        attribute vec3 heading;
+        attribute float wing;
         attribute vec4 color;
         varying vec4 vColor;
+        varying float vShape;
+        varying float vSize;
+        varying vec2 vDir;
+        varying float vWing;
         void main() {
           vColor = color;
+          vShape = shape;
+          vWing = wing;
+          vSize = max(size, floor(span * texelsPerMetre + 0.5));
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size;
+          vec4 ahead = projectionMatrix * modelViewMatrix * vec4(position + heading * 0.2, 1.0);
+          vec2 d = vec2((ahead.x - gl_Position.x) / projectionMatrix[0][0], (ahead.y - gl_Position.y) / projectionMatrix[1][1]);
+          vDir = length(d) > 1e-5 ? normalize(d) : vec2(1.0, 0.0);
+          gl_PointSize = vSize;
         }
       `,
       fragmentShader: /* glsl */ `
         varying vec4 vColor;
+        varying float vShape;
+        varying float vSize;
+        varying vec2 vDir;
+        varying float vWing;
         void main() {
           if (vColor.a < 0.02) discard;
-          gl_FragColor = vColor;
+          vec2 p = gl_PointCoord - 0.5;
+          vec4 c = vColor;
+          if (vShape > 0.5 && vShape < 1.5 && vSize > 2.5) {
+            // along the body (u) and out from it (s, as a share of how far the wings are spread):
+            // a dark body, the forewings and the smaller hindwings, darker at the tips
+            p.y = -p.y;
+            float u = dot(p, vDir);
+            float v = abs(p.y * vDir.x - p.x * vDir.y);
+            float s = v / max(vWing, 0.12);
+            bool body = v < 0.08 && abs(u) < 0.36;
+            bool fore = pow((u - 0.08) / 0.3, 2.0) + pow((s - 0.27) / 0.27, 2.0) < 1.0;
+            bool hind = pow((u + 0.17) / 0.2, 2.0) + pow((s - 0.2) / 0.2, 2.0) < 1.0;
+            bool middle = max(abs(p.x), abs(p.y)) <= 0.5 / vSize + 0.001;
+            if (!(body || fore || hind || middle)) discard;
+            if (vSize > 4.5 && body) c.rgb *= 0.35;
+            else if (vSize > 4.5 && fore && s > 0.42) c.rgb *= 0.7;
+          }
+          if (vShape > 1.5 && vSize > 2.5) {
+            if (length(p) > 0.45) discard;
+            if (mod(floor(gl_PointCoord.x * vSize), 2.0) > 0.5) c.rgb *= 0.25;
+          }
+          gl_FragColor = c;
           #include <colorspace_fragment>
         }
       `,
-    });
+    }));
     this.points = new THREE.Points(g, mat);
     this.points.frustumCulled = false;
     this.points.renderOrder = 4;
     this.points.raycast = () => {};
+    measureTexels(this.points, mat);
     scene.add(this.points);
   }
 
@@ -154,13 +227,16 @@ export class Critters {
     const temp = air.temperature;
     const dry = 1 - smooth(air.wet, 0, 0.08);
     const day = smooth(1 - air.night, 0.5, 0.9);
-    const calm = 1 - smooth(air.gust, 0.2, 0.65);
+    const calm = 1 - smooth(air.gust, 0.3, 0.8);
+    this.temperature = temp;
     const sun = 1 - Math.min(1, air.cloud * 0.7 + air.fog);
+    this.sunny = sun;
     // zoomed out over the whole island there are more flowers in view, so more of them about
     const flowering = this.near.length ? THREE.MathUtils.clamp(view / 16, 1, 3) : 0;
     const want: Record<Kind, number> = {
-      bee: 14 * (s.spring + s.summer * 0.7 + s.autumn * 0.15) * smooth(temp, 9, 15) * day * dry * calm * (0.4 + sun * 0.6) * flowering,
-      butterfly: 8 * (s.spring + s.summer * 0.8 + s.autumn * 0.2) * smooth(temp, 12, 18) * day * dry * calm * (0.25 + sun * 0.75) * flowering,
+      // the bumblebees are out from 6° or so, the honeybees and most butterflies once it's mild
+      bee: 30 * (s.spring + s.summer * 0.8 + s.autumn * 0.15) * smooth(temp, 6, 13) * day * dry * calm * (0.5 + sun * 0.5) * flowering,
+      butterfly: 24 * (s.spring + s.summer * 0.9 + s.autumn * 0.2) * smooth(temp, 10, 16) * day * dry * calm * (0.35 + sun * 0.65) * flowering,
       dragonfly: 4 * s.summer * smooth(temp, 17, 22) * day * dry * (1 - smooth(air.wind, 4, 8)) * (0.5 + sun * 0.5),
       // round the lamps once it's properly dark: a mild night, not the cold or the wet or a wind
       moth: 3 * (s.summer + s.autumn * 0.6 + s.spring * 0.3) * smooth(temp, 8, 14) * smooth(air.night, 0.6, 0.9) * dry * (1 - smooth(air.wind, 5, 9)),
@@ -176,8 +252,8 @@ export class Critters {
       const goal = Math.round(want[kind]);
       const mine = this.bugs.filter((b) => b.kind === kind && !b.leaving);
       for (let i = goal; i < mine.length; i++) mine[i].leaving = true;
-      // a few at a time, so they arrive rather than appear
-      if (mine.length < goal && this.bugs.length < MAX && Math.random() < dt * 3) this.spawn(kind, around, size);
+      // a few at a time, so they arrive rather than appear (quicker the more there are to come)
+      if (mine.length < goal && this.bugs.length < MAX && Math.random() < dt * (3 + goal * 0.3)) this.spawn(kind, around, size);
     }
 
     for (const b of this.bugs) {
@@ -209,13 +285,16 @@ export class Critters {
     }
     if (!home) return;
     const butterfly = pick(BUTTERFLIES.flatMap(([a, b, n]) => Array.from({ length: n * 2 }, () => [a, b])));
-    const color = kind === 'bee' ? BEE : kind === 'moth' ? MOTH : kind === 'midge' ? MIDGE : kind === 'dragonfly' ? DRAGONFLY[0] : new THREE.Color(butterfly[0]);
+    // on a cool day it's mostly bumblebees out
+    const bumble = kind === 'bee' && Math.random() < 0.2 + 0.6 * (1 - smooth(this.temperature, 9, 16));
+    const color = bumble ? BUMBLEBEE : kind === 'bee' ? BEE : kind === 'moth' ? MOTH : kind === 'midge' ? MIDGE : kind === 'dragonfly' ? DRAGONFLY[0] : new THREE.Color(butterfly[0]);
     const under = kind === 'bee' ? BEE_DARK : kind === 'dragonfly' ? DRAGONFLY[1] : kind === 'butterfly' ? new THREE.Color(butterfly[1]) : color;
     // bees and butterflies come in from a little way off, the rest are where they keep to
     const start = kind === 'bee' || kind === 'butterfly' ? home.clone().add(V(rand(-3, 3), rand(0.8, 2), rand(-3, 3))) : home.clone().add(V(rand(-0.5, 0.5), rand(-0.2, 0.2), rand(-0.5, 0.5)));
     this.bugs.push({
       kind, pos: start, vel: V(), goal: kind === 'bee' ? home.clone().add(V(0, 0.12, 0)) : home.clone(), home,
-      state: 'fly', t: rand(2, 5), phase: rand(0, 100), color, under, fade: 0, leaving: false,
+      state: 'fly', t: rand(2, 5), phase: rand(0, 100), color, under, fade: 0, leaving: false, bumble,
+      yaw: rand(0, Math.PI * 2), climb: 0, flap: rand(0.3, 1), wing: 0.5, beat: rand(0, 6),
     });
   }
 
@@ -236,9 +315,9 @@ export class Critters {
     if (b.state === 'fly') {
       const to = b.goal.clone().sub(b.pos);
       const d = to.length();
-      if (d < 0.08) Object.assign(b, { state: 'hover', t: rand(0.8, 3) });
+      if (d < 0.08) Object.assign(b, { state: 'hover', t: b.bumble ? rand(1.5, 4) : rand(0.8, 3) });
       else {
-        to.multiplyScalar(Math.min(d, 2.2 * dt) / d);
+        to.multiplyScalar(Math.min(d, (b.bumble ? 1.4 : 2.2) * dt) / d);
         b.pos.add(to).add(V(Math.sin(this.clock * 21 + b.phase), Math.sin(this.clock * 17 + b.phase) * 0.5, Math.cos(this.clock * 19 + b.phase)).multiplyScalar(0.25 * dt));
       }
     } else {
@@ -251,29 +330,83 @@ export class Critters {
     }
   }
 
-  /** All over the place, wings going, drifting towards a flower and now and then settling on one. */
+  /**
+   * The way a butterfly gets about: a few beats of its wings that lift it, then a glide with them
+   * held open that lets it down, so it bobs along, never straight, always turning a little this way
+   * and that, drifting from flower to flower and now and then settling on one, wings shut, opening
+   * them in the sun to bask. And now and then two of them meet and spiral up round each other.
+   */
   private butterfly(b: Critter, dt: number) {
+    const beat = (b.beat = (b.beat ?? 0) + dt * 18);
     if (b.state === 'sit') {
       b.pos.copy(b.goal);
-      if ((b.t -= dt) < 0 || b.leaving) Object.assign(b, { state: 'fly', t: rand(3, 6) });
+      if (Math.random() < dt * (b.bask ? 0.25 : 0.3 * this.sunny)) b.bask = !b.bask;
+      const open = b.bask ? 0.95 : 0.08 + Math.max(0, Math.sin(this.clock * 1.3 + b.phase)) * 0.15;
+      b.wing = THREE.MathUtils.damp(b.wing ?? 0, open, 4, dt);
+      if ((b.t -= dt) < 0 || b.leaving) Object.assign(b, { state: 'fly', t: rand(3, 6), flap: rand(0.6, 1), climb: 0.5, bask: false });
       return;
     }
+
+    // dancing: round and round each other about a point they share (their goal) that rises and
+    // drifts, until one of them has had enough
+    const p = b.partner;
+    if (p && (b.dance = (b.dance ?? 0) - dt) > 0 && p.partner === b && !b.leaving && !p.leaving) {
+      if (b.side === 0) b.goal.add(V(Math.sin(this.clock * 0.8 + b.phase) * 0.2 * dt, 0.35 * dt, Math.cos(this.clock * 0.7 + b.phase) * 0.2 * dt));
+      const a = this.clock * 6 + (b.side ?? 0);
+      const to = b.goal.clone().add(V(Math.cos(a) * 0.22, Math.sin(this.clock * 3 + b.phase) * 0.05, Math.sin(a) * 0.22));
+      const step = to.clone().sub(b.pos);
+      if (step.lengthSq() > 1e-6) b.yaw = Math.atan2(step.z, step.x);
+      b.pos.lerp(to, 1 - Math.exp(-6 * dt));
+      b.wing = 0.5 + 0.5 * Math.sin(beat);
+      return;
+    }
+    if (p) {
+      b.partner = undefined;
+      b.goal = b.goal.clone(); // no longer theirs
+      b.t = 0; // off somewhere else after
+    }
+    // or meeting one: another flying close by, on its own
+    if (!b.leaving && Math.random() < dt * 0.05) {
+      const q = this.bugs.find((o) => o !== b && o.kind === 'butterfly' && o.state === 'fly' && !o.partner && !o.leaving && o.pos.distanceToSquared(b.pos) < 6);
+      if (q) {
+        const dance = rand(3, 5);
+        const centre = b.pos.clone().add(q.pos).multiplyScalar(0.5);
+        Object.assign(b, { partner: q, dance, side: 0, goal: centre });
+        Object.assign(q, { partner: b, dance, side: Math.PI, goal: centre });
+        return;
+      }
+    }
+
     if ((b.t -= dt) < 0) {
       b.t = rand(3, 6);
       b.home.copy(this.nextBloom(b.home));
       b.goal.copy(b.home).add(V(0, Math.random() < 0.4 ? 0.06 : rand(0.4, 1.4), 0));
     }
     const to = b.goal.clone().sub(b.pos);
-    if (to.length() < 0.15 && b.goal.y - b.home.y < 0.1 && !b.leaving) {
-      Object.assign(b, { state: 'sit', t: rand(2, 6) });
+    const landing = b.goal.y - b.home.y < 0.1 && !b.leaving;
+    if (landing && to.length() < 0.2) {
+      Object.assign(b, { state: 'sit', t: rand(3, 9), bask: Math.random() < this.sunny * 0.5 });
       return;
     }
-    b.vel.addScaledVector(to.normalize(), 1.6 * dt).add(V(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(5 * dt));
-    if (b.leaving) b.vel.y += 1.5 * dt;
-    const speed = b.vel.length();
-    if (speed > 0.9) b.vel.multiplyScalar(0.9 / speed);
-    b.pos.addScaledVector(b.vel, dt);
-    b.pos.y += Math.sin(this.clock * 6 + b.phase) * 0.5 * dt; // up and down with every few beats
+
+    // flap a few beats (counting down), glide a moment (counting up to 0), flap again
+    if ((b.flap ?? 0) > 0) {
+      if ((b.flap = b.flap! - dt) <= 0) b.flap = -rand(0.3, 0.9);
+    } else if ((b.flap = (b.flap ?? 0) + dt) >= 0) b.flap = rand(0.4, 1.2);
+    const flapping = b.flap > 0;
+
+    // turning: towards where it's going, but never straight there
+    const want = Math.atan2(to.z, to.x);
+    const off = Math.atan2(Math.sin(want - (b.yaw ?? 0)), Math.cos(want - (b.yaw ?? 0)));
+    const wander = Math.sin(this.clock * 2.3 + b.phase) * 2.2 + Math.sin(this.clock * 5.3 + b.phase * 2) * 1.6;
+    b.yaw = (b.yaw ?? 0) + (THREE.MathUtils.clamp(off * 1.6, -2.5, 2.5) + wander) * dt;
+    // up while it flaps, down while it glides, and back towards the height it's after
+    const rise = (flapping ? 0.55 : -0.45) + THREE.MathUtils.clamp(to.y * 1.2, -0.6, 0.6) + (b.leaving ? 0.9 : 0);
+    b.climb = THREE.MathUtils.damp(b.climb ?? 0, rise, 6, dt);
+    const speed = (flapping ? 0.85 : 0.65) * (landing ? THREE.MathUtils.clamp(to.length() * 1.5, 0.35, 1) : 1);
+    b.pos.add(V(Math.cos(b.yaw) * speed * dt, b.climb * dt, Math.sin(b.yaw) * speed * dt));
+    b.pos.y = Math.max(b.pos.y, b.home.y + 0.04);
+    b.wing = flapping ? 0.5 + 0.5 * Math.sin(beat) : THREE.MathUtils.damp(b.wing ?? 0, 0.9, 10, dt);
   }
 
   /** Round and round the lamp, never quite the same circle twice, now and then bumping into it. */
@@ -318,14 +451,26 @@ export class Critters {
       }
       this.pos.set([b.pos.x, b.pos.y, b.pos.z], i * 3);
       let size = 1;
+      let span = 0;
+      let shape = 0;
       let flip = false;
-      if (b.kind === 'bee') flip = Math.sin(t * 40 + b.phase) > 0.4; // stripes, in the buzz
-      else if (b.kind === 'butterfly') {
-        // wings open (two pixels, the top colour) and shut (one, the underside); slow when it's sitting
-        const open = b.state === 'sit' ? Math.sin(t * 2 + b.phase) > 0.6 : Math.sin(t * 14 + b.phase) > 0;
-        size = open ? 2 : 1;
-        flip = !open;
-      } else if (b.kind === 'dragonfly') {
+      if (b.kind === 'bee') {
+        // a flicker of its stripes in the buzz when it's a pixel; zoomed in, round and striped
+        span = b.bumble ? 0.12 : 0.08;
+        flip = span * this.mat.uniforms.texelsPerMetre.value < 2.5 && Math.sin(t * 40 + b.phase) > 0.4;
+        shape = 2;
+      } else if (b.kind === 'butterfly') {
+        // from afar, two pixels with its wings open (their top colour) and one shut (the
+        // underside); zoomed in, its wings as far open as they are, and pointing the way it's going
+        const wing = b.wing ?? 1;
+        size = wing > 0.5 ? 2 : 1;
+        span = 0.17;
+        shape = 1;
+        flip = wing < 0.3;
+        this.wings[i] = wing;
+        this.heading.set([Math.cos(b.yaw ?? 0), 0, Math.sin(b.yaw ?? 0)], i * 3);
+      } else if (b.kind === 'moth') span = 0.08;
+      else if (b.kind === 'dragonfly') {
         flip = Math.sin(t * 25 + b.phase) > 0.5; // the light off its wings
         size = b.state === 'fly' ? 1 : 2;
       }
@@ -334,11 +479,17 @@ export class Critters {
       if (b.kind !== 'moth') tmp.multiplyScalar(light);
       this.col.set([tmp.r, tmp.g, tmp.b, b.fade * (b.kind === 'midge' ? 0.8 : 1)], i * 4);
       this.size[i] = size;
+      this.span[i] = span;
+      this.shape[i] = shape;
     }
     const g = this.points.geometry;
     g.attributes.position.needsUpdate = true;
     g.attributes.color.needsUpdate = true;
     g.attributes.size.needsUpdate = true;
+    g.attributes.span.needsUpdate = true;
+    g.attributes.shape.needsUpdate = true;
+    g.attributes.heading.needsUpdate = true;
+    g.attributes.wing.needsUpdate = true;
   }
 }
 

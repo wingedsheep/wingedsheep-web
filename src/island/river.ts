@@ -529,7 +529,7 @@ export class River implements RoomInput {
       // (a clear, still day, but still the season's, and as warm or cold as it is)
       const air: Air = { night: 0, rising: true, alt: 40, wet: 0, cloud: 0, fog: 0, gust: 0, wind: 2, temperature: this.ctx.weather.temperature };
       game.update(dt, {
-        sun: noon.sun, hemi: noon.hemi, fog: noon.fog, night: 0, rain: 0, snow: 0, fair: true, storm: 0, flash: 0, haze: 0,
+        sun: noon.sun, hemi: noon.hemi, fog: noon.fog, night: 0, rain: 0, snow: 0, fair: true, storm: 0, wind: 0, flash: 0, haze: 0,
         chill: this.ctx.weather.heat.chill, air: this.reducedMotion ? undefined : air,
       });
     } else {
@@ -562,6 +562,7 @@ export class River implements RoomInput {
         snow: w.snow,
         fair: w.storm < 0.3 && w.rain < 0.2,
         storm: w.storm,
+        wind: this.ctx.weather.windiness,
         flash: w.flash,
         haze: w.fog,
         chill: this.ctx.weather.heat.chill,

@@ -7,12 +7,14 @@ import { indoors } from './shelter';
 import type { Ground } from './beike';
 import { Eater, courseAt, sitDown, table, tick } from './meals';
 import { ROUTE_NAMES, Stroll, Walker, together } from './outings';
+import { Bather } from './swim';
+import { play } from './snowplay';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const damp = THREE.MathUtils.damp;
 
 /** Where she can be (tools/models/companion.py): out on the island, or in the rooms. */
-export type Spot = 'reading' | 'fireside' | 'workout' | 'podcast' | 'yoga' | 'petting' | 'baking' | 'watching' | 'bed' | 'stroll' | 'meal' | 'gluhwein';
+export type Spot = 'reading' | 'fireside' | 'workout' | 'podcast' | 'yoga' | 'petting' | 'baking' | 'watching' | 'bed' | 'stroll' | 'meal' | 'gluhwein' | 'swim' | 'snow';
 /** Which room each indoor spot is in, and the group the room shows while she's there. */
 const ROOMS: Partial<Record<Spot, { room: Room; group: string }>> = {
   baking: { room: 'hut', group: 'companion_hut' },
@@ -46,8 +48,10 @@ export interface CompanionWorld {
   camera: THREE.Camera; // the island camera
   room: Room | null; // the room on screen, if any
   yoga?: string | null; // the pose Vincent's in, if he's doing yoga and has asked her along (vincent.ts)
+  warm?: number; // 0..1: how warm it is (weather.ts)
+  wind?: number; // m/s
 }
-type When = Pick<CompanionWorld, 'time' | 'night' | 'rain' | 'chill' | 'yoga'>;
+type When = Pick<CompanionWorld, 'time' | 'night' | 'rain' | 'chill' | 'yoga' | 'warm' | 'wind'>;
 const MEAL_WAIT = 60; // seconds she'll wait for nobody to be looking before sitting down to eat anyway
 
 /**
@@ -62,10 +66,11 @@ const MEAL_WAIT = 60; // seconds she'll wait for nobody to be looking before sit
  * (hut-room.ts, quarters.ts) show her while she's in them, via the same `indoors` set the
  * animals use. Now and then she goes for a stroll round the island on her own (outings.ts), on a
  * cold day out with him and a mug of glühwein (he asks, vincent.ts walks the two of them), and at
- * breakfast and dinner she sits down with him to eat (meals.ts).
+ * breakfast and dinner she sits down with him to eat (meals.ts). On a hot day she goes for a swim,
+ * all the likelier if he's already in (swim.ts).
  */
 export class Companion {
-  static readonly SPOTS: Spot[] = [...DAYTIME, 'yoga', 'bed', 'stroll', 'meal', 'gluhwein'];
+  static readonly SPOTS: Spot[] = [...DAYTIME, 'yoga', 'bed', 'stroll', 'meal', 'gluhwein', 'swim', 'snow'];
   private spot: Spot = 'fireside';
   private next: Spot | null = null;
   private stay = rand(...STAY);
@@ -78,6 +83,9 @@ export class Companion {
   private clock = 0;
   /** Her feet landing on the mat, when she's doing jumping jacks (the island plays it). */
   onSound?: (call: Call, at: THREE.Vector3, loud?: number) => void;
+  /** A podcast in her ears: a little sound rising from her head now and then, so you can tell. */
+  onListen?: (at: THREE.Vector3) => void;
+  private listen = rand(1, 3);
   private groups = new Map<Spot, THREE.Object3D>();
   /** The parts she moves, by name, with the pose they were built in. */
   private parts = new Map<string, { o: THREE.Object3D; rest: THREE.Euler }>();
@@ -115,6 +123,8 @@ export class Companion {
   /** Eating by the fire (the hut's own is hut-room.ts's). */
   private eater?: Eater;
   private meal?: THREE.Object3D;
+  /** In the sea on a hot day, or on her towel (swim.ts). */
+  readonly bather: Bather;
   /** A thought, over her head, while she's out walking. */
   set onThought(f: ((at: THREE.Vector3) => void) | undefined) {
     this.stroll.onThought = f;
@@ -141,7 +151,8 @@ export class Companion {
     this.stroll = new Stroll(ground, this.walker);
     this.meal = island.get('companion_meal');
     if (this.meal) this.eater = new Eater(this.meal, 'meal_e', 'e');
-    this.vincent = island.positionOf('vincent');
+    this.bather = new Bather(island, ground, 'companion_swim', 'companion_swim', 'towel_companion', 'gasp-e');
+    this.vincent =island.positionOf('vincent');
     this.jumpY = this.parts.get('companion_jump')?.o.position.y ?? 0;
     this.move(this.choose(null, { time: 0, night: 0, rain: 0, chill: 0 }));
   }
@@ -166,7 +177,7 @@ export class Companion {
 
   /** The head to breathe out of on a cold day, if she's out on her feet or eating by the fire. */
   get head() {
-    if (this.spot === 'stroll' || this.spot === 'gluhwein') return this.walker.visible ? this.walker.head : undefined;
+    if (this.spot === 'stroll' || this.spot === 'gluhwein' || this.spot === 'snow') return this.walker.visible ? this.walker.head : undefined;
     if (this.spot === 'meal' && !table.indoors && this.meal?.visible) return this.eater?.face;
     if (this.spot === 'fireside') return this.parts.get('companion_fire_head')?.o;
     return undefined;
@@ -191,6 +202,7 @@ export class Companion {
         this.stroll.update(still ? 0 : dt);
         if (this.stroll.done) this.stroll.begin();
       }
+      if (this.spot === 'swim') this.bather.update(still ? 0 : dt);
       if (this.spot === 'meal') {
         this.show();
         this.eater?.update(still ? 0 : dt, table.course ?? courseAt(w.time));
@@ -206,12 +218,17 @@ export class Companion {
       if (this.spot === 'bed') this.drop(herNight(w.time) === 'asleep');
     }
     this.stay -= dt;
+    // the one she's petting has run off: up off her knees and away, rather than kneeling there on her own
+    if (this.spot === 'petting' && this.kneel.pet && !petting.there[this.kneel.pet] && this.seen('petting', w)) this.getUp();
     const asked = allowed.includes('yoga') && this.spot !== 'yoga'; // he's on his mat and would like company
     if (this.spot === 'stroll' && this.stroll.done) this.stay = -1; // round: on to something else, once nobody's looking
     const mealtime = allowed.includes('meal') && this.spot !== 'meal';
-    const lasting = this.spot === 'bed' || this.spot === 'yoga' || this.spot === 'meal' || this.spot === 'gluhwein' || (this.spot === 'stroll' && !this.stroll.done);
+    const lasting = this.spot === 'bed' || this.spot === 'yoga' || this.spot === 'meal' || this.spot === 'gluhwein' || this.spot === 'snow' || (this.spot === 'stroll' && !this.stroll.done);
     if (mealtime) this.next = 'meal';
-    if (asked || mealtime || !allowed.includes(this.spot) || (this.stay < 0 && !lasting)) {
+    // in the sea: out first, and dry, before she's off anywhere
+    const inTheSea = this.spot === 'swim' && !this.bather.ashore;
+    if (inTheSea && (asked || mealtime || !allowed.includes(this.spot) || this.stay < 0)) this.bather.finish();
+    if (!inTheSea && (asked || mealtime || !allowed.includes(this.spot) || (this.stay < 0 && !lasting))) {
       if (!this.next || !allowed.includes(this.next)) this.next = this.choose(this.spot, w);
       this.waiting += dt;
       const forced = (w.rain > 0.1 && this.waiting > RAIN_WAIT && !ROOMS[this.spot])
@@ -224,6 +241,7 @@ export class Companion {
     this.posing(w);
     if (!still) this.animate(dt, w);
     if (this.spot === 'stroll') this.stroll.update(still ? 0 : dt);
+    if (this.spot === 'swim') this.bather.update(still ? 0 : dt);
     if (this.spot === 'meal') {
       // first to the table: the meal's on (he'll be along)
       const c = table.course ?? courseAt(w.time);
@@ -246,16 +264,27 @@ export class Companion {
 
   // --- where she is ------------------------------------------------------------------
 
+  /** Up from where she's kneeling and off round the nearest walk. */
+  private getUp() {
+    const knees = this.kneel.pet && this.kneel.at(this.kneel.pet);
+    this.move('stroll');
+    if (knees) this.stroll.getUp(knees);
+  }
+
   private allowed(w: When): Spot[] {
     if (w.time && herNight(w.time)) return ['bed'];
     // breakfast and dinner, with him, whatever the weather (it's the hut's table if it's wet)
     if (w.time && (courseAt(w.time) || (this.spot === 'meal' && table.course))) return ['meal'];
     if (w.yoga) return ['yoga']; // with him, for as long as he's at it
     if (together.asked) return ['gluhwein']; // a walk, and something warm to drink on it
+    if (play.asked) return ['snow']; // a snowman, and snowballs
     if (w.rain > 0.1) return ['baking', 'watching'];
     if (w.night > 0.5) return ['fireside', 'podcast', 'baking', 'watching']; // the pier's lit
     // a cold day's no excuse; and now and then she's off round the island (twice the odds of anything else)
     const out: Spot[] = [...(w.chill > 0.4 ? DAYTIME.filter((s) => s !== 'reading') : DAYTIME), 'stroll', 'stroll'];
+    // a hot, still, dry day: a swim off the beach (twice the odds, too)
+    const hour = new Date(w.time).getHours() + new Date(w.time).getMinutes() / 60;
+    if ((w.warm ?? 0) > 0.55 && (w.wind ?? 0) < 9 && w.rain < 0.05 && w.night < 0.3 && hour >= 10 && hour < 19.5) out.push('swim', 'swim');
     // on her knees only while there's someone to pet (and the one she's petting is still there)
     const pets = petting.open('companion');
     const pet = this.spot === 'petting' ? this.kneel.pet : null;
@@ -267,12 +296,14 @@ export class Companion {
     // Friday evening she's by the fire with him; Sunday morning she's up at the hut making pancakes
     const habit: Spot | null = w.time && fridayEvening(w.time) ? 'fireside' : w.time && sundayMorning(w.time) ? 'baking' : null;
     if (habit && this.allowed(w).includes(habit) && Math.random() < 0.8) return habit;
+    if (options.includes('swim') && this.bather.other?.swimming && Math.random() < 0.6) return 'swim'; // he's in: she goes in too
     return options[Math.floor(Math.random() * options.length)] ?? from ?? 'fireside';
   }
 
   private move(to: Spot, pet?: Pet) {
     if (to === 'stroll') this.stroll.begin();
     together.joined = to === 'gluhwein';
+    play.joined = to === 'snow';
     if (to === 'watching') telly.show = SHOWS[Math.floor(Math.random() * SHOWS.length)];
     const pets = petting.open('companion');
     this.kneel.set(to === 'petting' ? (pet ?? pets[Math.floor(Math.random() * pets.length)] ?? 'cats') : null);
@@ -280,6 +311,10 @@ export class Companion {
     this.next = null;
     this.waiting = 0;
     this.stay = rand(...STAY);
+    if (to === 'swim') {
+      this.bather.begin();
+      this.stay = rand(180, 360); // and then out, and dry
+    }
     this.asleep = false;
     this.show();
   }
@@ -292,7 +327,8 @@ export class Companion {
 
   private show() {
     for (const [spot, g] of this.groups) g.visible = spot === this.spot;
-    if (this.spot !== 'gluhwein') this.walker.visible = this.spot === 'stroll'; // with him, he walks her (vincent.ts)
+    if (this.spot !== 'gluhwein' && this.spot !== 'snow') this.walker.visible = this.spot === 'stroll'; // with him, he walks her (vincent.ts)
+    this.bather.visible = this.spot === 'swim';
     const eating = this.spot === 'meal' && !!table.course;
     if (this.meal) this.meal.visible = eating && !table.indoors;
     if (eating && table.indoors) indoors.add('companion_meal_hut');
@@ -324,7 +360,12 @@ export class Companion {
     };
     if (spot === 'meal') return w.room === 'hut' || inView(this.meal);
     if (spot === 'stroll' && this.spot === 'stroll') return inView(this.walker.root);
-    if (spot === 'gluhwein') return this.walker.visible && inView(this.walker.root);
+    if (spot === 'gluhwein' || spot === 'snow') return this.walker.visible && inView(this.walker.root);
+    if (spot === 'swim') {
+      if (this.spot === 'swim' && inView(this.bather.root)) return true;
+      this.sphere.center.copy(this.bather.towelAt).y += 0.6;
+      return this.frustum.intersectsSphere(this.sphere);
+    }
     if (spot === 'stroll') return ROUTE_NAMES.some((r) => {
       this.sphere.center.copy(Stroll.start(r, this.ground)).y += 0.6;
       return this.frustum.intersectsSphere(this.sphere);
@@ -411,6 +452,10 @@ export class Companion {
       }
       const arm = this.part('companion_pod_arm');
       if (arm) arm.rotation.x -= Math.max(throwUp, this.noticed) * 1.3;
+      if (head && !w.room && (this.listen -= dt) < 0) {
+        this.listen = rand(3, 6);
+        this.onListen?.(head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, -0.3, 0)));
+      }
     } else if (this.spot === 'workout') {
       this.workout(dt, t);
     } else if (this.spot === 'petting') {

@@ -62,6 +62,8 @@ const turn = (from: number, to: number, k: number, dt: number) =>
 /** A heading's forward and left in the world, and a point that far ahead and to the left of p. */
 const ahead = (p: THREE.Vector3, heading: number, fwd: number, left: number) =>
   p.clone().add(V(Math.cos(heading) * fwd - Math.sin(heading) * left, 0, -Math.sin(heading) * fwd - Math.cos(heading) * left));
+/** Something a snorble goes round rather than through: a stone, a trunk, a lamp post, or another snorble. */
+type Round = { at: THREE.Vector3; r: number };
 
 /**
  * One snorble, grown or young: where it is, which way it faces, and how it holds itself. Its
@@ -93,20 +95,60 @@ class Fluff {
   private gait = 0;
   private pace = 0;
   private stride = 0;
+  /** What it keeps out of: the stones and trunks about, and (a young one) its mother and sister. */
+  avoid: Round[] = [];
+  /** Itself, as a round for the others to keep out of. */
+  readonly round: Round;
 
-  constructor(readonly body: Body, readonly size: number, private ground: Ground) {}
+  constructor(readonly body: Body, readonly size: number, private ground: Ground) {
+    this.round = { at: this.pos, r: this.r };
+  }
 
-  /** A step toward somewhere; true once it's there. */
+  /** How far it reaches from its middle, fur, snout and all. */
+  get r() {
+    return 0.3 * this.size;
+  }
+
+  /**
+   * A step toward somewhere, round whatever's in the way on the side it's already leaning to;
+   * true once it's there, or as near as it can get (its spot's under a stone, or its sister's in it).
+   */
   walk(to: THREE.Vector3, speed: number, dt: number) {
-    const d = to.clone().sub(this.pos).setY(0);
-    const left = d.length();
+    const dir = to.clone().sub(this.pos).setY(0);
+    const left = dir.length();
     if (left < 0.04) return true;
-    this.heading = turn(this.heading, headingOf(d.x, d.z), 7, dt);
+    dir.divideScalar(left);
+    let rounding = false;
+    for (const o of this.avoid) {
+      const reach = o.r + this.r;
+      if (Math.hypot(to.x - o.at.x, to.z - o.at.z) < reach + 0.05) continue; // it's going right up to it
+      const off = V(o.at.x - this.pos.x, 0, o.at.z - this.pos.z);
+      const along = off.dot(dir);
+      const side = dir.x * off.z - dir.z * off.x;
+      if (along <= 0 || along - reach > 0.6 || Math.abs(side) > reach) continue;
+      const aside = V(-off.z, 0, off.x).multiplyScalar(side > 0 ? -1 : 1).normalize();
+      dir.addScaledVector(aside, 2 * clamp(1 - (along - reach) / 0.6, 0, 1)).normalize();
+      rounding = true;
+    }
+    this.heading = turn(this.heading, headingOf(dir.x, dir.z), 7, dt);
     const step = Math.min(left, speed * dt);
-    this.pos.addScaledVector(d.normalize(), step);
-    this.gait += step;
+    const was = this.pos.clone();
+    this.pos.addScaledVector(dir, step);
+    this.keepOut();
+    this.gait += Math.hypot(this.pos.x - was.x, this.pos.z - was.z);
     this.pace = speed;
-    return false;
+    return !rounding && step > 1e-6 && Math.hypot(to.x - this.pos.x, to.z - this.pos.z) > left - step * 0.2;
+  }
+
+  /** Out of anything it's ended up in, or that's come up against it. */
+  keepOut() {
+    for (const o of this.avoid) {
+      const off = V(this.pos.x - o.at.x, 0, this.pos.z - o.at.z);
+      const gap = off.length();
+      const reach = o.r + this.r;
+      if (gap >= reach) continue;
+      this.pos.addScaledVector(gap > 1e-4 ? off.divideScalar(gap) : V(Math.cos(this.heading), 0, -Math.sin(this.heading)), reach - gap);
+    }
   }
 
   face(heading: number, dt: number) {
@@ -129,6 +171,7 @@ class Fluff {
     this.pitch = damp(this.pitch, this.pitchTo, 5, dt);
     this.yaw = damp(this.yaw, this.yawTo, 3, dt);
     this.stride = damp(this.stride, this.pace > 0 ? clamp(this.pace * 1.4, 0.35, 0.8) : 0, 8, dt);
+    this.keepOut();
     const h = this.ground.at(this.pos.x, this.pos.z);
     if (!Number.isNaN(h)) this.pos.y = h;
     b.root.position.copy(this.pos).setY(this.pos.y + this.height);
@@ -213,6 +256,8 @@ class Snorble {
   private target = V();
   private daisy?: THREE.Object3D;
   private daisyAt = V();
+  /** The stones, trunks, lamp posts and log seats round the sunny patch. */
+  private blocks: Round[] = [];
   private t = 0;
   /** In a potter: walking to somewhere, or nose down sniffing there. */
   private sniffFor = 0;
@@ -235,7 +280,7 @@ class Snorble {
   private gone = false;
   onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
-  constructor(template: THREE.Object3D, private scene: THREE.Scene, private ground: Ground) {
+  constructor(template: THREE.Object3D, private scene: THREE.Scene, private ground: Ground, island: Island) {
     this.body = new Body('snorble', template, scene);
     const size = this.body.root.scale.x;
     this.mum = new Fluff(this.body, size, ground);
@@ -247,12 +292,24 @@ class Snorble {
         break;
       }
     }
+    // what's in the way about it, as rounds: a stone or a bush all of it, a tree just its trunk
+    const box = new THREE.Box3();
+    for (const o of island.root.children) {
+      if (!/^(tree|lamp|log|bench)/.test(o.name)) continue;
+      box.setFromObject(o.children.find((c) => /^trunk/.test(c.name)) ?? o);
+      if (box.isEmpty()) continue;
+      const at = box.getCenter(V()).setY(0);
+      if (Math.hypot(at.x - this.spot.x, at.z - this.spot.z) > 22) continue;
+      this.blocks.push({ at, r: Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2 });
+    }
+    this.mum.avoid = this.blocks;
+    this.young.forEach((y, i) => (y.avoid = [...this.blocks, this.mum.round, this.young[1 - i].round]));
     // a daisy in the grass near it, there whether they come or not
     const flower = this.body.part('flower');
     if (flower && this.spot.lengthSq()) {
       for (let i = 0; i < 8; i++) {
         const at = ahead(this.spot, rand(0, Math.PI * 2), rand(1.2, 1.8), 0);
-        if (!firm(ground, at, 0.3, 4)) continue;
+        if (!firm(ground, at, 0.3, 4) || !this.clear(at, 2 * this.mum.r)) continue;
         this.daisy = flower.clone();
         this.daisy.visible = true;
         this.daisy.position.copy(at).setY(ground.at(at.x, at.z));
@@ -277,6 +334,11 @@ class Snorble {
   /** How many times it's been startled (its third is its last), or 0 if the last click found it already in the air. */
   get woken() {
     return this.startled ? this.pokes : 0;
+  }
+
+  /** Room for a snorble there: clear of the stones and trunks, with that much to spare. */
+  private clear(p: THREE.Vector3, room: number) {
+    return this.blocks.every((o) => Math.hypot(o.at.x - p.x, o.at.z - p.z) > o.r + room);
   }
 
   /** Home, in the trees: the nearest one a little way off the sunny patch, or uphill from it. */
@@ -313,9 +375,9 @@ class Snorble {
     let from = this.spot;
     for (let i = 0, stops = 2 + Math.floor(rand(0, 3)); i < 20 && this.route.length < stops; i++) {
       const at = this.spot.clone().add(V(rand(-6, 6), 0, rand(-1.5, 1.5)));
-      // clear grass all the way there, not the beach or the water
+      // clear grass all the way there, not the beach or the water, and room at the stop to stand
       const clear = [0.25, 0.5, 0.75, 1].every((k) => firm(this.ground, from.clone().lerp(at, k), 0.3, 5));
-      if (!clear || at.distanceTo(from) < 1.2) continue;
+      if (!clear || !this.clear(at, this.mum.r + 0.15) || at.distanceTo(from) < 1.2) continue;
       this.route.push(at);
       from = at;
     }
@@ -326,11 +388,12 @@ class Snorble {
     return true;
   }
 
-  /** The young ones start a game, somewhere clear just beside their mother. */
+  /** The young ones start a game, somewhere clear just beside their mother (the ring they run round clear of her too). */
   private startPlay() {
     const m = this.mum;
-    const centre = ahead(m.pos, m.heading, rand(0.3, 0.8), (chance(0.5) ? 1 : -1) * rand(0.6, 1.0));
-    if (!firm(this.ground, centre, 0.3, 5)) {
+    const room = 0.45 + this.young[0].r;
+    const centre = ahead(m.pos, m.heading, rand(0.3, 0.8), (chance(0.5) ? 1 : -1) * (room + m.r + rand(0.1, 0.35)));
+    if (!firm(this.ground, centre, 0.3, 5) || !this.clear(centre, room + 0.1)) {
       this.playWait = 3;
       return;
     }
@@ -341,7 +404,7 @@ class Snorble {
   private wander() {
     for (let i = 0; i < 6; i++) {
       const at = ahead(this.spot, rand(0, Math.PI * 2), rand(0.4, 2.2), 0);
-      if (firm(this.ground, at, 0.3, 4)) return this.target.copy(at);
+      if (firm(this.ground, at, 0.3, 4) && this.clear(at, this.mum.r + 0.15)) return this.target.copy(at);
     }
     return this.target.copy(this.spot);
   }
@@ -351,7 +414,7 @@ class Snorble {
     m.pos.copy(at);
     m.body.show(at);
     this.young.forEach((y, i) => {
-      y.pos.copy(ahead(at, m.heading, -0.5, i ? 0.35 : -0.35));
+      y.pos.copy(ahead(at, m.heading, -0.6, i ? 0.45 : -0.45));
       y.heading = m.heading;
       y.body.show(y.pos);
     });
@@ -369,7 +432,7 @@ class Snorble {
         f.settle();
       }
       this.young.forEach((y, i) => {
-        y.pos.copy(ahead(m.pos, m.heading, -0.05, i ? 0.5 : -0.5));
+        y.pos.copy(ahead(m.pos, m.heading, -0.05, (i ? 1 : -1) * (m.r + y.r + 0.02)));
         y.heading = m.heading + (i ? 0.6 : -0.6);
       });
     } else {
@@ -610,7 +673,7 @@ class Snorble {
     y.pitchTo = 0.1;
     if (p.kind === 'chase') {
       const r = 0.45;
-      const a = p.angle - (i ? 0.9 * p.way : 0);
+      const a = p.angle - (i ? 1.25 * p.way : 0);
       y.walk(p.centre.clone().add(V(Math.cos(a) * r, 0, Math.sin(a) * r)), 1.4, dt);
       y.height = Math.abs(Math.sin(clock * 10 + i * 1.3)) * 0.05;
       if (chance(dt / 5)) this.onCall?.('chirrup', y.pos.clone(), true);
@@ -634,7 +697,7 @@ class Snorble {
       } else if (k < 1.7) {
         const s = (k - 1.2) / 0.5;
         if (pouncer) {
-          y.walk(other.pos.clone().lerp(y.pos, Math.min(1, (0.3 * y.size) / Math.max(0.01, y.pos.distanceTo(other.pos)))), 1.8, dt);
+          y.walk(other.pos.clone().lerp(y.pos, Math.min(1, (y.r + other.r) / Math.max(0.01, y.pos.distanceTo(other.pos)))), 1.8, dt);
           y.height = Math.sin(s * Math.PI) * 0.25;
           y.splayTo = 1;
           y.pitchTo = 0.3;
@@ -652,12 +715,8 @@ class Snorble {
         y.splayTo = 0.5;
       }
     }
-    // never wandering off far from its mother while it plays, and never through its sister
+    // never wandering off far from its mother while it plays
     if (y.pos.distanceTo(this.mum.pos) > 2.2) y.walk(this.mum.pos, 1.2, dt);
-    const apart = y.pos.clone().sub(other.pos).setY(0);
-    const near = 0.32 * y.size;
-    const gap = apart.length();
-    if (gap < near) y.pos.addScaledVector(gap ? apart.divideScalar(gap) : V(1, 0, 0), (near - gap) / 2);
     y.draw(dt, clock);
   }
 
@@ -673,7 +732,7 @@ class Snorble {
     y.pitchTo = 0;
     if (this.state === 'napping' && m.lieTo >= 1) {
       // tucked in against its side, asleep too
-      if (y.walk(ahead(m.pos, m.heading, -0.05, side * 0.5), 0.5, dt)) {
+      if (y.walk(ahead(m.pos, m.heading, -0.05, side * (m.r + y.r + 0.02)), 0.5, dt)) {
         y.face(m.heading + side * 0.6, dt);
         y.lieTo = 1;
         if (m.sleepy) {
@@ -695,7 +754,7 @@ class Snorble {
         } else if (k >= 1) y.yawTo = Math.sin((this.t + i) * 5) * 0.5;
       } else {
         const fleeing = this.state === 'fleeing';
-        const spot = ahead(m.pos, m.heading, -0.55, side * 0.4);
+        const spot = ahead(m.pos, m.heading, -0.6, side * 0.45);
         const far = y.pos.distanceTo(spot);
         if (far > 0.25 || fleeing) y.walk(spot, fleeing ? 3.2 : Math.min(0.9, 0.3 + far), dt);
         else {
@@ -1799,7 +1858,7 @@ export class Imaginary {
     const T = template;
     const snorble = T('snorble');
     if (snorble && LUCK.snorble) {
-      this.snorble = new Snorble(snorble, scene, ground);
+      this.snorble = new Snorble(snorble, scene, ground, island);
       this.snorble.onCall = call;
     }
     const balloonbug = T('balloonbug');

@@ -245,8 +245,10 @@ export class Kayak {
   private puffed = false;
   /** How many times you've rolled up this run: each roll gets harder. */
   rolls = 0;
-  /** 0..1: how stormy it is (set by the game): a chop on even the flattest water, and a wind across it. */
+  /** 0..1: how stormy it is (set by the game): a chop on even the flattest water. */
   storm = 0;
+  /** 0..1: how hard the wind blows (set by the game): a breeze barely nudges you, a gale shoves you about. */
+  gale = 0;
   /** The wind across the river right now (m/s², + towards its right bank), gusting. */
   gust = 0;
   private gustTo = 0;
@@ -695,7 +697,7 @@ export class Kayak {
       fx0 += rx * pull * LIP_PULL.shove;
       fz0 += rz * pull * LIP_PULL.shove;
     }
-    // in a storm, the wind shoves you across the river (paddle into it, or ride it)
+    // the wind shoves you across the river, hard in a gale (paddle into it, or ride it)
     if (up && running && !this.airborne) {
       fx0 += rx * this.gust;
       fz0 += rz * this.gust;
@@ -935,15 +937,15 @@ export class Kayak {
   // --- the roll ---------------------------------------------------------------------------------
 
   /**
-   * The wind in a storm: a gust from one bank that builds, holds a few seconds and eases, and now
-   * and then swings round to come from the other side. Nothing at all on a calm day.
+   * The wind: a gust from one bank that builds, holds a few seconds and eases, and now and then
+   * swings round to come from the other side. As strong as it's blowing: nothing on a still day.
    */
   private blow(dt: number) {
     if ((this.gustIn -= dt) < 0) {
       this.gustIn = 3 + Math.random() * 5;
       if (Math.random() < 0.35) this.gustSide = this.gustSide > 0 ? -1 : 1;
       // a lull between gusts, now and then
-      this.gustTo = this.storm < 0.3 || Math.random() < 0.25 ? 0 : this.gustSide * (0.5 + Math.random() * 0.5) * GUST * this.storm;
+      this.gustTo = Math.random() < 0.25 ? 0 : this.gustSide * (0.5 + Math.random() * 0.5) * GUST * this.gale;
     }
     const flutter = 1 + Math.sin(this.clock * 3.1) * 0.15 + Math.sin(this.clock * 7.3) * 0.08;
     this.gust += (this.gustTo * flutter - this.gust) * (1 - Math.exp(-dt * 1.2));

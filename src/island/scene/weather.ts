@@ -90,6 +90,17 @@ function tintTo(col: THREE.Color, tint: THREE.Color, k: number) {
 
 const WET: WeatherKind[] = ['drizzle', 'rain', 'showers', 'sleet', 'hail', 'storm'];
 
+/** How fast the weather turns (per second, eased): rain or snow coming on or easing off over half a minute. */
+const TURN = 0.12;
+/** …and the wind, which picks up and dies down over a minute or so rather than jumping with the forecast. */
+const WIND_TURN = 0.05;
+
+/**
+ * How hard a wind of `ms` m/s pushes, 0 still … 1 a gale (15 m/s). It goes with the square of the
+ * speed, as the force on a leaf or a flag does: a breeze stirs things a little, a gale a lot.
+ */
+export const windStrength = (ms: number) => THREE.MathUtils.clamp((ms / 15) ** 2, 0, 1);
+
 /**
  * Weather over the island: cloud cover and fog laid over the Sky's light, drifting cloud
  * shadows, rain and drizzle as short pixel streaks that follow the camera, snow, sleet and
@@ -101,8 +112,10 @@ const WET: WeatherKind[] = ['drizzle', 'rain', 'showers', 'sleet', 'hail', 'stor
 export class Weather {
   kind: WeatherKind = 'clear';
   intensity = 0;
-  wind = 3; // m/s
-  gusts = 5; // m/s
+  wind = 3; // m/s, eased towards the forecast's
+  gusts = 5; // m/s, likewise
+  /** The wind the forecast gives, which wind and gusts ease towards. */
+  private aim = { wind: 3, gusts: 5 };
   /** Where the wind comes from, in degrees as weather reports give it (270: a westerly). */
   direction = 250;
   temperature = 15; // °C
@@ -153,20 +166,23 @@ export class Weather {
     if (WET.includes(this.kind) && !WET.includes(kind)) this.afterRain = 90;
     this.kind = kind;
     this.intensity = kind === 'clear' ? 0 : THREE.MathUtils.clamp(intensity, 0.2, 1);
-    this.wind = opts.wind ?? this.wind;
-    this.gusts = Math.max(opts.gusts ?? this.wind * 1.5, this.wind);
+    const aim = this.aim;
+    aim.wind = opts.wind ?? aim.wind;
+    aim.gusts = Math.max(opts.gusts ?? aim.wind * 1.5, aim.wind);
     this.direction = opts.direction ?? this.direction;
     // a storm always brings a gale with it, even if the nearest station reads it calm
     const floor = { windy: [14, 20], storm: [15, 24], hail: [12, 20] }[kind as string];
     if (floor) {
-      this.wind = Math.max(this.wind, floor[0]);
-      this.gusts = Math.max(this.gusts, floor[1]);
+      aim.wind = Math.max(aim.wind, floor[0]);
+      aim.gusts = Math.max(aim.gusts, floor[1]);
     }
     this.lying = opts.lying ?? this.lying;
     this.temperature = kind === 'warm' ? 27 : kind === 'hot' ? 36 : (opts.temperature ?? this.temperature);
     if (opts.instant) {
       // the weather was already like this before the visitor arrived
       Object.assign(this.now, this.goal());
+      this.wind = aim.wind;
+      this.gusts = aim.gusts;
       const mood = MOODS[kind];
       const strength = 0.5 + this.intensity * 0.5;
       this.mood.tint.set(mood.tint);
@@ -183,9 +199,9 @@ export class Weather {
     }
   }
 
-  /** 0 on a calm day … 1 in a gale. */
+  /** 0 on a still day … 1 in a gale, rising with the square of the wind (windStrength). */
   get windiness() {
-    return THREE.MathUtils.clamp((this.wind - 6) / 9, 0, 1);
+    return windStrength(this.wind);
   }
 
   /** Snow in a gale, 0..1: snow driven sideways, spindrift, the distance gone white. */
@@ -266,7 +282,9 @@ export class Weather {
   update(dt: number, camera: THREE.Camera, around: THREE.Vector3, view: number, night: number) {
     const n = this.now;
     const goal = this.goal();
-    for (const k of Object.keys(goal) as (keyof Blend)[]) n[k] = THREE.MathUtils.damp(n[k], goal[k], 0.6, dt);
+    for (const k of Object.keys(goal) as (keyof Blend)[]) n[k] = THREE.MathUtils.damp(n[k], goal[k], TURN, dt);
+    this.wind = THREE.MathUtils.damp(this.wind, this.aim.wind, WIND_TURN, dt);
+    this.gusts = THREE.MathUtils.damp(this.gusts, this.aim.gusts, WIND_TURN, dt);
 
     this.clock += dt;
     // gusts: every so often the wind picks up towards its gust speed for a few seconds
@@ -274,7 +292,7 @@ export class Weather {
       this.gustLeft = rand(1.5, 4);
       this.gustWait = rand(3, 12) * (1.2 - this.windiness * 0.6);
     }
-    const gusting = THREE.MathUtils.clamp((this.gusts - 6) / 9, 0, 1);
+    const gusting = windStrength(this.gusts);
     const target = this.gustLeft > 0 ? Math.max(this.windiness, gusting) : this.windiness;
     this.gust = windGust.value = THREE.MathUtils.damp(this.gust, target, this.gustLeft > 0 ? 1.2 : 0.5, dt);
     this.swell = THREE.MathUtils.damp(this.swell, this.sea, 0.08, dt);
@@ -297,7 +315,7 @@ export class Weather {
     this.lightning(dt);
 
     const mood = MOODS[this.kind];
-    const ease = 1 - Math.exp(-0.6 * dt);
+    const ease = 1 - Math.exp(-TURN * dt);
     const strength = 0.5 + this.intensity * 0.5;
     this.mood.tint.lerp(HUE.set(mood.tint), ease);
     this.mood.k += (mood.k * strength - this.mood.k) * ease;
@@ -430,7 +448,8 @@ export class Weather {
     const blizzard = this.blizzard;
     const sideways = drift * (0.12 + blizzard * 0.55);
     spawn(n.snow * 260 * (1 + blizzard * 1.2), () => {
-      const life = blizzard > 0.3 ? rand(2.5, 4) : rand(5, 8);
+      // the harder it blows, the sooner each flake is gone across the view
+      const life = THREE.MathUtils.lerp(rand(5, 8), rand(2.5, 4), THREE.MathUtils.smoothstep(blizzard, 0.1, 0.5));
       const upwind = sideways * life * 0.5 * Math.min(1, blizzard * 2);
       this.flakes.emit({
         position: around.clone().add(V(rand(-size, size) - upwind * dx, rand(2, size * 0.6), rand(-size, size) - upwind * dz)),

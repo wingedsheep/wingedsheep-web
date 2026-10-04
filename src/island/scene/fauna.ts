@@ -37,6 +37,8 @@ const daylit = (e: Env) => e.night < 0.35;
 export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap' | 'lap' | 'sip' | 'grind' | 'brew' | 'crunch'
   | 'heron' | 'fox' | 'bellow' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin' | 'puff' | 'dip'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
+  // the small wanderer: her call as she dashes off, and a word now and then by the fire
+  | 'ewa' | 'chat'
   | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'
   // the tromb's song, and the treestrider's feet in the water, its knees and its call (scene/imaginary.ts)
   | 'tromb' | 'wade' | 'creak' | 'strider'
@@ -47,6 +49,11 @@ export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa'
   | 'eagle' | 'boar' | 'moo'
   // the week (week.ts): the post boat's horn, the church bell over the water, Beike joining in with the siren
   | 'toot' | 'toll' | 'toll-low' | 'aroo'
+  // a swim on a hot day (swim.ts): wading, going under, a stroke, a gasp at the cold (his, hers), shaking off; Beike paddling, and his shake
+  | 'slosh' | 'duck' | 'swimstroke' | 'gasp' | 'gasp-e' | 'shake' | 'dogpaddle' | 'dogshake'
+  // out in the snow (snowplay.ts): the snowman rolled, sticks snapped, snowballs scooped, packed, thrown, landing on a coat or
+  // in the snow, a laugh (his, hers), a round of applause
+  | 'snowroll' | 'twig' | 'scoop' | 'pack' | 'toss' | 'snowhit' | 'snowsplat' | 'laugh' | 'laugh-e' | 'clap'
   // Halloween's monsters (monsters.ts): the Horseman's horse and his laugh, the tall one's breath, its steps and its cry
   | 'neigh' | 'gallop' | 'headless' | 'giant' | 'stomp' | 'wail';
 
@@ -66,6 +73,7 @@ const LUCK = (() => {
     fox: want('fox') || chance(0.55),
     deerByDay: want('deer') || chance(0.3),
     wanderer: want('wanderer') || chance(1 / 14),
+    wandererSoon: want('wanderer'),
     // over from the river now and then (?animal=boar wakes them at any hour)
     boar: want('boar') || chance(1 / 7),
     boarByDay: want('boar') || chance(0.3),
@@ -1217,7 +1225,7 @@ class Leaper {
 
 /** A pod of dolphins passing along the south of the island, arcing in and out of the water. */
 class Pod {
-  private members: { body: Body; lag: number; lane: number; phase: number; up: boolean }[] = [];
+  private members: { body: Body; hit: THREE.Mesh; lag: number; lane: number; phase: number; up: boolean }[] = [];
   private t = -1;
   private wait = LUCK.dolphinsSoon ? 3 : rand(50, 200);
   private from = V();
@@ -1227,11 +1235,25 @@ class Pod {
   onCall?: (call: Call, at: THREE.Vector3) => void;
 
   constructor(template: THREE.Object3D, scene: THREE.Scene, private particles: Particles) {
-    for (let i = 0; i < 4; i++) this.members.push({ body: new Body('dolphin', template, scene), lag: i * 2.2 + rand(0, 1), lane: rand(-2.5, 2.5), phase: rand(0, Math.PI * 2), up: false });
+    for (let i = 0; i < 4; i++) {
+      // they're small, far out and only up for a moment, so each has a generous unseen catch
+      // that swims along with it, under the water as well as over it
+      const hit = new THREE.Mesh(DOLPHIN_CATCH, new THREE.MeshBasicMaterial({ visible: false }));
+      hit.userData.id = 'dolphin';
+      hit.scale.set(1.9, 1.1, 1.4);
+      hit.visible = false;
+      scene.add(hit);
+      this.members.push({ body: new Body('dolphin', template, scene), hit, lag: i * 2.2 + rand(0, 1), lane: rand(-2.5, 2.5), phase: rand(0, Math.PI * 2), up: false });
+    }
   }
 
   get bodies() {
     return this.members.map((m) => m.body);
+  }
+
+  /** The unseen catches, for the Picker. */
+  get catches() {
+    return this.members.map((m) => m.hit);
   }
 
   update(dt: number, e: Env) {
@@ -1261,6 +1283,8 @@ class Pod {
         if (chance(0.35)) this.onCall?.('dip', V(x + this.dir * 1.5, 0, this.from.z + m.lane));
       }
       m.up = out;
+      m.hit.visible = Math.abs(x) < 60;
+      m.hit.position.set(x, 0.2, this.from.z + m.lane);
       if (!out) {
         if (b.shown) b.hide();
         continue;
@@ -1281,10 +1305,14 @@ class Pod {
     if (this.t > 150 / 5.5 + 12) {
       this.t = -1;
       this.wait = rand(150, 420);
-      this.members.forEach((m) => m.body.hide());
+      this.members.forEach((m) => {
+        m.body.hide();
+        m.hit.visible = false;
+      });
     }
   }
 }
+const DOLPHIN_CATCH = new THREE.SphereGeometry(1, 8, 6);
 
 /**
  * The whale, rarely: it surfaces offshore, blows, rolls along the surface and blows again,
@@ -1742,33 +1770,91 @@ class Heron {
 }
 
 /**
- * Someone small, masked and cloaked in red, who very occasionally comes ashore at the dock,
- * walks up to the campfire to listen for a while, and goes again.
+ * Someone small, masked and cloaked in red, who very occasionally comes ashore at the dock: she
+ * drops onto the end of it in a long leap from out over the water, walks up to the campfire, sits
+ * down by it for a while to listen, and goes the way she came, off the end of the dock in another
+ * leap. By the fire she says something now and then, in her own tongue. Clicked, she bows, needle
+ * raised, calls out, and is gone in a dash, leaving a streak of silk behind.
  */
+const LEAP = 1.1; // seconds in the air
+const CROUCH = 0.3; // gathering herself before she springs
+const BOW = 0.75;
+const DASH = 0.28;
+const SILK = ['#fff6e0', '#f4f0e8', '#f4f0e8', '#b8303a'];
+
 class Wanderer {
   readonly body: Body;
   private route: THREE.Vector3[];
+  private length: number;
   private t = 0;
-  private leg = 0;
-  private phase: 'waiting' | 'in' | 'sit' | 'out' | 'gone' = 'waiting';
-  private wait = rand(20, 90);
+  private phase: 'waiting' | 'land' | 'in' | 'sit' | 'out' | 'leap' | 'gone' = 'waiting';
+  private wait = LUCK.wandererSoon ? 3 : rand(20, 90);
   private pos = V();
   private heading = Math.PI / 2;
+  private facing = Math.PI / 2; // which way she's turned: to the fire when she sits, held still through a bow
   private clock = 0;
+  private stride = 0; // the walk's step cycle
+  private pace = 1.1; // m/s: a quick light step, or a run once she's been startled
+  private air = 0; // seconds into a leap (below 0: crouching for it)
+  private sea = V(); // where the leaps start and end, out over the water
+  private squash = 0; // 1 just landed (or about to spring) … 0
+  private seated = 0; // 0 standing … 1 sat by the fire
+  private bowing = -1; // seconds into a bow, or -1
+  private dashing = 0; // seconds of dash left
+  private chat = rand(6, 14); // seconds till she next says something by the fire
+  private speaking = 0; // seconds since she last spoke
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
 
   constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, route: THREE.Vector3[], private particles: Particles) {
     this.body = new Body('wanderer', template, scene);
     this.route = route;
+    this.length = route.slice(1).reduce((d, p, i) => d + p.distanceTo(route[i]), 0);
+    const out = route[0].clone().sub(route[1]).setY(0).normalize();
+    this.sea.copy(route[0]).addScaledVector(out, 6);
   }
 
-  /** Clicked: a quick dash forward, leaving a streak of silk behind. */
+  /** Clicked: a bow with the needle raised, then a dash, and she's on her way back to the dock. */
   dash() {
-    if (this.phase === 'waiting' || this.phase === 'gone') return;
-    for (let i = 0; i < 12; i++) {
-      this.particles.emit({ position: this.pos.clone().add(V(rand(-0.2, 0.2), rand(0.1, 0.5), rand(-0.2, 0.2))), velocity: V(rand(-0.3, 0.3), rand(0.2, 0.6), rand(-0.3, 0.3)), color: pick(['#fff6e0', '#f4f0e8', '#b8303a']), life: 0.8 });
+    if (!['in', 'sit', 'out'].includes(this.phase) || this.bowing >= 0 || this.dashing > 0) return;
+    if (this.phase !== 'out') this.t = this.phase === 'in' ? this.length - this.t : 0;
+    this.phase = 'out';
+    this.bowing = 0;
+  }
+
+  /** The ground under her, or the planks on the dock. */
+  private floor(p: THREE.Vector3) {
+    const h = this.ground.at(p.x, p.z);
+    const onDock = p.z > 16.8 && Math.abs(p.x) < 1.2;
+    return onDock || Number.isNaN(h) ? Math.max(DECK, h || 0) : h;
+  }
+
+  private silk(n: number, at: THREE.Vector3, spread: number, speed: number) {
+    for (let i = 0; i < n; i++) {
+      this.particles.emit({
+        position: at.clone().add(V(rand(-spread, spread), rand(-spread, spread), rand(-spread, spread))),
+        velocity: V(rand(-speed, speed), rand(-speed, speed) + 0.1, rand(-speed, speed)),
+        color: pick(SILK),
+        life: rand(0.6, 1.1),
+        drag: 2,
+        fadeIn: 0,
+      });
     }
-    if (this.phase === 'sit') this.phase = 'out';
-    this.t += 2; // a few metres further along in the blink of an eye
+  }
+
+  /** Walk the route (or the route backwards) by distance; false past the end. */
+  private along(path: THREE.Vector3[], dt: number) {
+    let d = this.t;
+    let i = 0;
+    while (i < path.length - 1 && d > path[i].distanceTo(path[i + 1])) {
+      d -= path[i].distanceTo(path[i + 1]);
+      i++;
+    }
+    if (i >= path.length - 1) return false;
+    const a = path[i];
+    const c = path[i + 1];
+    this.pos.lerpVectors(a, c, d / a.distanceTo(c));
+    this.heading = turnTo(this.heading, headingOf(c.x - a.x, c.z - a.z), this.bowing >= 0 ? 3 : 8, dt);
+    return true;
   }
 
   update(dt: number, enabled: boolean) {
@@ -1776,56 +1862,147 @@ class Wanderer {
     this.clock += dt;
     if (this.phase === 'waiting') {
       if (!enabled || (this.wait -= dt) > 0) return;
-      this.phase = 'in';
-      this.leg = 0;
-      this.t = 0;
-      this.pos.copy(this.route[0]);
+      this.phase = 'land';
+      this.air = 0;
+      this.pos.copy(this.sea);
       b.show(this.pos);
+      this.silk(14, this.pos.clone().setY(this.floor(this.route[0]) + 2.6), 0.15, 0.8); // out of nowhere, in a whisk of silk
     }
     if (this.phase === 'gone') return;
-    const walk = this.phase === 'in' || this.phase === 'out';
-    if (walk) {
-      const path = this.phase === 'in' ? this.route : [...this.route].reverse();
-      this.t += dt * 1.1;
-      // walk the polyline by distance
-      let d = this.t;
-      let i = 0;
-      while (i < path.length - 1 && d > path[i].distanceTo(path[i + 1])) {
-        d -= path[i].distanceTo(path[i + 1]);
-        i++;
+    const dock = this.route[0];
+    let speed = 0; // how fast she's going, for the stride and the cloak
+    let flying = 0; // 0 … 1 through a leap
+
+    if (this.phase === 'land' || this.phase === 'leap') {
+      this.air += dt;
+      const u = THREE.MathUtils.clamp(this.air / LEAP, 0, 1);
+      const landing = this.phase === 'land';
+      const [from, to] = landing ? [this.sea, dock] : [dock, this.sea];
+      const [y0, y1] = landing ? [this.floor(dock) + 2.6, this.floor(dock)] : [this.floor(dock), this.floor(dock) + 2.6];
+      if (this.air > 0) {
+        this.pos.lerpVectors(from, to, u);
+        this.pos.y = THREE.MathUtils.lerp(y0, y1, u) + 4 * u * (1 - u) * 1.1;
+        flying = u;
+        if (Math.random() < dt * 40) this.silk(1, this.pos.clone().add(V(0, 0.35, 0)), 0.05, 0.05); // a thread of silk behind her
+      } else {
+        this.squash = Math.max(this.squash, (this.air + CROUCH) / CROUCH); // gathering herself
       }
-      if (i >= path.length - 1) {
-        if (this.phase === 'in') {
-          this.phase = 'sit';
+      this.heading = headingOf(to.x - from.x, to.z - from.z);
+      if (u >= 1) {
+        if (landing) {
+          this.phase = 'in';
           this.t = 0;
-          this.wait = rand(60, 120);
+          this.squash = 1;
+          this.silk(6, this.pos.clone().add(V(0, 0.05, 0)), 0.2, 0.4);
         } else {
+          this.silk(16, this.pos.clone().add(V(0, 0.4, 0)), 0.15, 0.9);
           this.phase = 'gone';
           b.hide();
           return;
         }
-      } else {
-        const a = path[i];
-        const c = path[i + 1];
-        this.pos.lerpVectors(a, c, d / a.distanceTo(c));
-        this.heading = turnTo(this.heading, headingOf(c.x - a.x, c.z - a.z), 6, dt);
+      }
+    } else if (this.bowing >= 0) {
+      this.bowing += dt;
+      if (this.bowing >= BOW) {
+        this.bowing = -1;
+        this.dashing = DASH;
+        this.pace = 2.4; // and then she runs
+        this.onCall?.('ewa', this.pos);
+      }
+    } else if (this.phase === 'in' || this.phase === 'out') {
+      const dashing = this.dashing > 0;
+      speed = dashing ? 9 : this.pace;
+      this.t += dt * speed;
+      if (dashing) {
+        this.dashing -= dt;
+        this.silk(3, this.pos.clone().add(V(0, 0.4, 0)), 0.08, 0.1); // the streak she leaves
+      }
+      if (!this.along(this.phase === 'in' ? this.route : [...this.route].reverse(), dt)) {
+        if (this.phase === 'in') {
+          this.phase = 'sit';
+          this.wait = rand(60, 120);
+        } else {
+          this.phase = 'leap';
+          this.air = -CROUCH;
+          this.pos.copy(dock);
+          this.dashing = 0;
+        }
+        speed = 0;
       }
     } else if (this.phase === 'sit' && (this.wait -= dt) < 0) {
       this.phase = 'out';
       this.t = 0;
+    } else if (this.phase === 'sit' && this.seated > 0.9 && (this.chat -= dt) < 0) {
+      this.chat = rand(12, 28);
+      this.speaking = 0;
+      this.onCall?.('chat', this.pos, true);
     }
-    const h = this.ground.at(this.pos.x, this.pos.z);
+    this.speaking += dt;
+
+    const sitting = this.phase === 'sit' && this.bowing < 0;
+    this.seated = THREE.MathUtils.clamp(this.seated + dt * (sitting ? 1.4 : -3), 0, 1);
+    this.squash = Math.max(0, this.squash - (this.phase === 'leap' && this.air < 0 ? 0 : dt * 3));
+    this.stride += dt * speed * 14;
+
     b.relax();
-    const onDock = this.pos.z > 16.8 && Math.abs(this.pos.x) < 1.2;
-    b.root.position.copy(this.pos).setY(onDock || Number.isNaN(h) ? Math.max(DECK, h || 0) : h);
-    orient(b.root, this.phase === 'sit' ? headingOf(0.35, -1) : this.heading); // facing the fire and Vincent
+    b.root.position.copy(this.pos);
+    if (!flying && this.phase !== 'land') b.root.position.y = this.floor(this.pos);
+    if (flying) this.facing = this.heading;
+    else if (this.bowing < 0) this.facing = turnTo(this.facing, this.phase === 'sit' ? headingOf(0.35, -1) : this.heading, 8, dt); // sat facing the fire and Vincent
+    orient(b.root, this.facing);
+
     const trunk = b.part('body');
     const head = b.part('head');
-    if (walk && trunk) {
-      trunk.position.y += Math.abs(Math.sin(this.clock * 9)) * 0.03;
-      trunk.rotation.x += Math.sin(this.clock * 9) * 0.06;
+    const cloak = b.part('cloak');
+    const needle = b.part('needle');
+    const legs = b.parts('leg_l', 'leg_r');
+    if (!trunk) return;
+    const seat = this.seated * this.seated * (3 - 2 * this.seated);
+    const step = Math.sin(this.stride);
+    const moving = Math.min(1, speed / 1.1);
+    const run = THREE.MathUtils.clamp((speed - 1.1) / 1.3, 0, 1);
+    const bow = this.bowing >= 0 ? Math.sin(Math.PI * Math.min(1, this.bowing / (BOW * 0.8))) : 0;
+    const dash = this.dashing > 0 ? 1 : 0;
+    const tuck = this.phase === 'land' || this.phase === 'leap' ? Math.sin(Math.PI * flying) : 0;
+
+    // the walk: quick light steps, a little bob and sway, leaning into a run
+    trunk.position.y += Math.abs(step) * 0.014 * moving - 0.135 * seat;
+    trunk.rotation.x += step * 0.045 * moving;
+    trunk.rotation.z -= 0.05 * moving + 0.12 * run + 0.38 * bow + 0.45 * dash;
+    trunk.scale.y *= 1 - 0.2 * this.squash;
+    trunk.scale.x *= 1 + 0.08 * this.squash;
+    trunk.scale.z *= 1 + 0.08 * this.squash;
+    legs.forEach((l, i) => {
+      const s = i ? -1 : 1;
+      l.rotation.z += s * step * (0.5 + 0.25 * run) * moving + 1.45 * seat + 0.9 * tuck - 0.6 * dash;
+    });
+
+    // the cloak trails behind her and swishes with her steps, flares in the air and pools when she sits
+    if (cloak) {
+      cloak.rotation.z -= 0.1 * moving + 0.2 * run + 0.55 * dash + 0.3 * tuck;
+      cloak.rotation.x -= Math.sin(this.stride - 0.8) * 0.07 * moving;
+      const flare = 0.12 * seat + 0.25 * tuck + 0.15 * this.squash + 0.1 * dash;
+      cloak.scale.x *= 1 + flare;
+      cloak.scale.z *= 1 + flare;
+      cloak.scale.y *= (1 - 0.15 * seat - 0.12 * tuck) * (1 + Math.sin(this.clock * 1.7) * 0.015 * seat); // and breathes
     }
-    if (this.phase === 'sit' && head) head.rotation.z += Math.sin(this.clock * 2.2) * 0.08; // nodding along
+
+    if (head) {
+      head.rotation.x -= step * 0.035 * moving; // keeping her head level
+      head.rotation.z -= 0.28 * bow;
+      if (seat > 0) {
+        head.rotation.z += Math.sin(this.clock * 2.2) * 0.07 * seat; // nodding along
+        head.rotation.x += Math.sin(this.clock * 0.37) * Math.max(0, Math.sin(this.clock * 0.23)) * 0.35 * seat; // a tilt, listening
+        if (this.speaking < 1.2) head.rotation.z -= Math.sin(this.speaking * 13) * 0.06 * (1 - this.speaking / 1.2) * seat; // and a bob of the head as she speaks
+      }
+    }
+
+    // the needle: raised for the bow, held there through the dash, laid across her lap by the fire
+    if (needle) {
+      const raised = this.bowing >= 0 ? Math.min(1, this.bowing / 0.2) : dash;
+      needle.rotation.x -= 1.8 * raised + 0.45 * seat - step * 0.04 * moving;
+      needle.rotation.z -= 0.4 * tuck;
+    }
   }
 }
 
@@ -2387,6 +2564,7 @@ export class Fauna {
     if (wanderer && dock && LUCK.wanderer) {
       const route = [B(-0.5, -26.5), B(-0.3, -17), B(0, -12.5), B(3.6, -9.5), B(9, -11), B(15, -10.5), B(21, -6), B(24.8, -3.6), B(26.9, -3.3)]; // ends by the fire, on the near side
       this.wanderer = new Wanderer(wanderer, scene, this.ground, route, particles);
+      this.wanderer.onCall = (call, at, ambient) => this.onCall?.(call, at, ambient);
       this.all.push({ species: 'wanderer', body: this.wanderer.body });
     }
     const gandalf = T('gandalf');
@@ -2416,7 +2594,7 @@ export class Fauna {
 
   /** Every animal's root, for the Picker. */
   get pickables() {
-    return this.all.map((c) => c.body.root);
+    return [...this.all.map((c) => c.body.root), ...(this.pod?.catches ?? [])];
   }
 
   /** The visible animal of a species nearest to a point (where a click landed). */

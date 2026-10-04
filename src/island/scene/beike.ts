@@ -15,6 +15,9 @@ const BALL_R = 0.07; // the dog (and his ball) are scaled up 1.25× in Blender
 const GREET = 4.2; // seconds: two jumps at you, flop, roll right over, bounce back up
 const ROAM = 3; // m he wanders from his spot when nobody's playing
 const CIRCLE = 1.1; // seconds: round once on the spot before he lies down
+const PADDLE = 0.6; // m/s, dog-paddling
+const AFLOAT = -0.8; // where the sea's deeper than this, he's swimming: his back at the surface, his head out
+const SHAKE = 1.5; // seconds, shaking the sea out of his coat
 
 /**
  * Where else he sometimes spends a while (Blender x, y), and the way there from his meadow; the
@@ -59,9 +62,13 @@ type Mood =
   // too hot: off to lie in the shade of the nearest tree, panting
   | { kind: 'shade'; t: number; down: boolean }
   // Easter: nose down, off after an egg he's smelt (easter.ts), and a good sniff at it when he's there
-  | { kind: 'hunt'; to: THREE.Vector3; t: number; found?: () => void };
+  | { kind: 'hunt'; to: THREE.Vector3; t: number; found?: () => void }
+  // someone's in the sea (swim.ts): down the beach, bounding through the shallows and in, a paddle
+  // round them, then out and a good shake beside their towels
+  | { kind: 'swim'; step: 'run' | 'in' | 'paddle' | 'out' | 'shake'; t: number; length: number; edge: THREE.Vector3; dry: THREE.Vector3;
+    swimmers: () => { at: THREE.Vector3; r: number } | null; side: number; next: number };
 
-export type Poke = 'greet' | 'offer' | 'throw' | 'fussed' | 'round' | 'busy';
+export type Poke = 'greet' | 'offer' | 'throw' | 'fussed' | 'round' | 'swim' | 'shake' | 'busy';
 
 /** Heights straight off the terrain grid's vertices, bilinearly blended between them. */
 export class Ground {
@@ -150,7 +157,9 @@ export class Beike {
   /** Called when he barks (the island plays the sound). */
   onBark?: () => void;
   /** His ball bouncing (how hard, 0..1), him panting when he's brought it back, a whine when nobody throws. */
-  onSound?: (kind: 'bounce' | 'pant' | 'whine' | 'aroo', at: THREE.Vector3, volume: number) => void;
+  onSound?: (kind: 'bounce' | 'pant' | 'whine' | 'aroo' | 'slosh' | 'duck' | 'dogpaddle' | 'dogshake', at: THREE.Vector3, volume: number) => void;
+  /** Water flying: bounding in (`in`), paddling (`paddle`), or shaking himself off (`shake`). */
+  onSpray?: (at: THREE.Vector3, kind: 'in' | 'paddle' | 'shake') => void;
   /** The siren test (week.ts), 0..1 (set every frame): he sits back, nose to the sky, and joins in. */
   siren = 0;
   /** Where he is in a howl (0..1 of it, -1 between howls), and how far his nose is up. */
@@ -261,6 +270,26 @@ export class Beike {
   /** Whether he's after an egg just now. */
   get hunting() {
     return this.mood.kind === 'hunt';
+  }
+
+  /**
+   * In after whoever's swimming (`swimmers`: where they are and how far round them to keep, while
+   * they're in): down to the water at `edge`, out to them and round them, and back out to shake
+   * himself off at `dry`. From his meadow or the shade, ball and all.
+   */
+  bathe(edge: THREE.Vector3, dry: THREE.Vector3, swimmers: () => { at: THREE.Vector3; r: number } | null) {
+    const kind = this.mood.kind;
+    if (!this.root || this.sheltering || this.away || this.outing || this.lap || !this.inMouth) return false;
+    if (kind !== 'idle' && kind !== 'wander' && kind !== 'shade') return false;
+    this.mood = { kind: 'swim', step: 'run', t: 0, length: rand(18, 35), edge: edge.clone(), dry: dry.clone(), swimmers, side: rand(-1, 1), next: 0 };
+    this.joy = 1;
+    this.onBark?.();
+    return true;
+  }
+
+  /** Whether he's off for a swim (or on his way, or shaking off after). */
+  get bathing() {
+    return this.mood.kind === 'swim';
   }
 
   /** Up from his spot by the fire (the song's over, or Vincent's gone) and off home. */
@@ -455,6 +484,7 @@ export class Beike {
       return 'throw';
     }
     if (kind === 'fussed') return 'fussed';
+    if (this.mood.kind === 'swim') return this.mood.step === 'shake' ? 'shake' : 'swim';
     if (this.mood.kind === 'trip' && this.mood.errand === 'round') return 'round';
     if (kind !== 'idle' && kind !== 'wander' && kind !== 'shade') return 'busy'; // not too hot to say hello
     // stand in front of him, a step towards whoever's watching
@@ -615,6 +645,66 @@ export class Beike {
           this.mood = { kind: 'idle', until: this.clock + rand(1, 3) };
         } else this.turnTo(m.to, dt);
         break;
+      case 'swim': {
+        m.t += dt;
+        const p = this.root.position;
+        const at = p.clone().setY(0);
+        const deep = this.ground.at(p.x, p.z) < AFLOAT;
+        const them = m.swimmers();
+        if (m.step === 'run') {
+          target = m.edge;
+          pace = RUN * 0.75;
+          if (this.flatDistance(m.edge) < 0.4) Object.assign(m, { step: 'in', t: 0 });
+        } else if (m.step === 'in') {
+          // bounding through the shallows, sending it everywhere, till he's off his feet
+          target = them?.at ?? m.edge.clone().add(V(0, 0, 3));
+          pace = TROT * 1.6;
+          if ((m.next -= dt) < 0) {
+            m.next = 0.3;
+            this.onSpray?.(at, 'paddle');
+            this.onSound?.('slosh', at, 1);
+          }
+          if (deep) {
+            Object.assign(m, { step: 'paddle', t: 0, next: 0 });
+            this.onSpray?.(at, 'in');
+            this.onSound?.('duck', at, 0.8);
+          }
+        } else if (m.step === 'paddle') {
+          // out to them, and round them (clear of them both), nose up, very serious about it
+          if (them) {
+            const a = m.t * (0.6 / them.r) + m.side * Math.PI;
+            target = them.at.clone().add(V(Math.cos(a) * them.r, 0, Math.sin(a) * them.r * 1.7)); // further up and down the screen: it reads shorter
+            for (let i = 0; i < 30 && this.ground.at(target.x, target.z) > AFLOAT - 0.2; i++) target.z += 0.2; // out of his depth, not up the beach
+          }
+          pace = PADDLE;
+          if ((m.next -= dt) < 0) {
+            m.next = rand(1.4, 2.2);
+            this.onSound?.('dogpaddle', at, 0.8);
+          }
+          if (Math.random() < dt * 2) this.onSpray?.(this.head?.getWorldPosition(V()).setY(0) ?? at, 'paddle');
+          if (!them || m.t > m.length) Object.assign(m, { step: 'out', t: 0, next: 0 });
+        } else if (m.step === 'out') {
+          // in to the beach, the short way, and up to their towels
+          target = deep ? m.edge : m.dry;
+          pace = deep ? PADDLE * 1.3 : TROT * 1.3;
+          if (!deep && (m.next -= dt) < 0 && this.ground.at(p.x, p.z) < 0) {
+            m.next = 0.4;
+            this.onSound?.('slosh', at, 0.7);
+          }
+          if (this.flatDistance(m.dry) < 0.3) {
+            Object.assign(m, { step: 'shake', t: 0 });
+            this.onSound?.('dogshake', p.clone(), 1);
+          }
+        } else {
+          // the shake, nose to tail, and the sea goes everywhere
+          if (m.t < SHAKE * 0.8 && (m.next -= dt) < 0) {
+            m.next = 0.08;
+            this.onSpray?.(p.clone().add(V(0, 0.5, 0)), 'shake');
+          }
+          if (m.t > SHAKE + 0.4) this.mood = { kind: 'idle', until: this.clock + rand(3, 6) };
+        }
+        break;
+      }
       case 'settle':
         m.t += dt;
         if (m.t < CIRCLE) {
@@ -632,6 +722,7 @@ export class Beike {
     const p = this.root.position;
     const on = this.mood.kind === 'trip' ? this.mood : null;
     p.y = (on ? heightBetween(on.path[on.leg - 1], on.path[on.leg], p, this.ground) : this.ground.at(p.x, p.z)) || p.y;
+    if (this.mood.kind === 'swim') p.y = Math.max(p.y, AFLOAT); // afloat, out of his depth
     this.root.rotation.y = this.heading;
 
     const excited = m.kind !== 'idle' && m.kind !== 'wander' && m.kind !== 'settle' && m.kind !== 'fussed' && m.kind !== 'shade';
@@ -904,6 +995,7 @@ export class Beike {
     if (this.mood.kind === 'settle') this.liePose(this.mood.t, this.mood.up);
     if (this.mood.kind === 'fussed' && this.mood.down) this.liePose(this.mood.t);
     if (this.mood.kind === 'shade' && this.mood.down) this.liePose(this.mood.t);
+    if (this.mood.kind === 'swim') this.swimPose(this.mood);
 
     // tail: a lazy sway when calm, a blur when he's excited
     if (tail) {
@@ -968,6 +1060,29 @@ export class Beike {
     const rest = ease(Math.sin(t * 0.12 - 1.2), 0.3, 0.6); // chin on his paws, then up again for a look
     head.rotation.z -= down * rest * 0.45;
     head.rotation.y += down * (1 - rest) * Math.sin(t * 0.3) * 0.25;
+  }
+
+  /** Dog-paddling (nose up, front a little higher, paws going like mad), or shaking himself dry. */
+  private swimPose(m: Extract<Mood, { kind: 'swim' }>) {
+    const { body, head, legs, ears } = this;
+    if (!body || !head || !this.root) return;
+    const t = this.clock;
+    const afloat = THREE.MathUtils.clamp((-this.root.position.y - 0.2) / (-AFLOAT - 0.2), 0, 1);
+    if (afloat > 0) {
+      body.rotation.z += 0.18 * afloat;
+      head.rotation.z += 0.4 * afloat;
+      legs.forEach((l, i) => (l.rotation.z += Math.sin(t * 13 + i * 1.7) * 0.6 * afloat));
+      body.position.y += Math.sin(t * 6.5) * 0.015 * afloat;
+    }
+    if (m.step === 'shake') {
+      // head first, the shake running back along him to the tail, and settling
+      const k = Math.sin(Math.min(1, m.t / SHAKE) * Math.PI);
+      const w = Math.sin(m.t * 38);
+      head.rotation.x += w * 0.55 * k;
+      body.rotation.x += Math.sin(m.t * 38 - 0.8) * 0.3 * k;
+      ears.forEach((e, i) => (e.rotation.x += (i ? -1 : 1) * w * 0.6 * k));
+      legs.forEach((l) => (l.rotation.x += Math.sin(m.t * 38 - 1.2) * 0.08 * k));
+    }
   }
 
   /** Jump up at you, jump again, flop down, roll right over, bounce back up. */

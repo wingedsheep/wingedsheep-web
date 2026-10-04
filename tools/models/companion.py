@@ -64,16 +64,15 @@ def hats(o, name: str, sport=False):
     m.box((0.13, 0.015, 0.02), (0, -0.19, c + 0.22), P.WHITE, rot=(-0.9, 0, 0))
     m.box((0.09, 0.015, 0.018), (0, -0.205, c + 0.195), P.WHITE, rot=(-0.9, 0, 0))
     m.build(o, wear=f"{k}_cap")
-    b = Model(f"{name}_beanie")                                                       # slouchy, cuff turned up, a bobble
-    b.ball(0.226, (0, 0.02, c + 0.17), P.E_BEANIE, subdiv=2, scale=(1.0, 1.0, 0.7))
-    b.cyl(0.235, 0.07, (0, 0.01, c + 0.1), P.E_BEANIE_DARK, segs=14)
-    b.ball(0.07, (0, 0.04, c + 0.34), P.E_BEANIE_DARK, subdiv=1)
+    b = Model(f"{name}_beanie")                                                       # her bright green one: slouchy, a deep cuff turned up
+    b.ball(0.226, (0, 0.03, c + 0.17), P.E_BEANIE, subdiv=2, scale=(1.0, 1.05, 0.72))
+    b.cyl(0.236, 0.1, (0, 0.01, c + 0.09), P.E_BEANIE_DARK, segs=14)
     b.build(o, wear=f"{k}_beanie")
-    if sport:
-        return
     n = Model(f"{name}_bare")
     _bare(n, c)
-    n.build(o, wear="e_bare")
+    n.build(o, wear=f"{k}_bare")
+    if sport:
+        return
     # a witch's hat, red, tall and a bit crooked, with a black band and a buckle
     t = Model(f"{name}_witch")
     t.cyl(0.38, 0.03, (0, 0.01, c + 0.13), P.WITCH, segs=12)                          # brim
@@ -129,10 +128,10 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, ponytail=False, earbud
     h.box((0.09, 0.03, 0.04), (-0.11, -0.19, c + 0.125), P.BLONDE_LIGHT, rot=(0, -0.35, 0))
     if not cap:
         _bare(h, c)
-    if earbuds:                                                                       # peeking out through the hair
+    if earbuds:                                                                       # out past the hair, so they show
         for s in (-1, 1):
-            h.box((0.05, 0.05, 0.05), (s * 0.24, -0.05, c - 0.03), P.EARBUD)
-            h.box((0.025, 0.025, 0.07), (s * 0.24, -0.06, c - 0.09), P.EARBUD)
+            h.box((0.08, 0.09, 0.08), (s * 0.27, -0.06, c - 0.03), P.EARBUD)
+            h.box((0.045, 0.045, 0.12), (s * 0.275, -0.075, c - 0.12), P.EARBUD)         # the stem
     o = h.build(parent, loc=loc)
     o.rotation_euler = rot
     o.scale = (HEAD_SCALE,) * 3
@@ -233,12 +232,13 @@ def _top(m: Model, up: float, root=None):
 
 def dressing(root, name: str, up: float):
     """What comes out over her top with an outfit (`wear`, see src/island/scene/wardrobe.ts),
-    sitting up as in _top: a scarf when it's cold; at Christmas a tree on her jumper, its
+    sitting up as in _top: her chunky green scarf in the snow; at Christmas a tree on her jumper, its
     lights lit; and on Halloween a witch's cloak and the red skirt of her dress."""
     y = -0.11                                                                         # the front of the tee
     f = Model(f"{name}_scarf")
-    f.box((0.26, 0.25, 0.09), (0, 0.02, 1.32 + up), P.E_SCARF)
-    f.box((0.09, 0.03, 0.26), (-0.08, y - 0.03, 1.16 + up), P.E_SCARF)
+    f.box((0.3, 0.29, 0.1), (0, 0.02, 1.33 + up), P.E_SCARF)                           # wound round twice, up to her chin
+    f.box((0.28, 0.27, 0.07), (0, 0.02, 1.25 + up), P.E_SCARF_DARK)
+    f.box((0.1, 0.035, 0.28), (-0.08, y - 0.035, 1.12 + up), P.E_SCARF)
     f.build(root, wear="e_scarf")
 
     j = Model(f"{name}_tree")

@@ -110,6 +110,8 @@ export class Life {
   /** Beike's way over to the fire, and where he drops his ball (at Vincent's feet). */
   private fireRoute: Waypoint[] = [];
   private fireSpot = V();
+  /** Not before this (the clock) will Beike go in for another swim. */
+  private swamAt = 0;
   /** Seconds till Vincent kicks the ball Beike's dropped at his feet, and his foot flicking it. */
   private kickIn = 0;
   /** Seconds since the music stopped (or Vincent left the fire), so Beike can get up and go. */
@@ -139,6 +141,9 @@ export class Life {
   fog = 0;
   /** The weathervane's heading, eased: it swings round into the wind. */
   private vaneYaw: number | null = null;
+  /** How far the flags have flapped, and the balloons bobbed: run on, so a gust speeds them up without a jump. */
+  private flutter = 0;
+  private bob = { x: 0, z: 0 };
   /** Whether Vincent's song is audible; he eases into and out of playing. */
   playing = false;
   /** The beats and chord changes of the song he's playing... */
@@ -194,9 +199,27 @@ export class Life {
     // out walking, a thought now and then
     this.vincent.onThought = (at) => this.floaters.add('thought', at);
     this.companion.onThought = (at) => this.floaters.add('thought', at);
+    this.companion.onListen = (at) => this.floaters.add('waves', at, 0, 1.6); // bigger, so it shows from further off
+    // out in the snow (snowplay.ts): a burst of it where a snowball lands, and hearts now and then
+    this.vincent.snow.onSplat = (at, size = 1) => {
+      for (let i = 0; i < Math.round(10 * size); i++) {
+        const v = V(rand(-1.1, 1.1), rand(0.5, 1.8), rand(-1.1, 1.1)).multiplyScalar(0.4 + size * 0.6);
+        this.particles.emit({ position: at.clone(), velocity: v, color: '#eef3fa', life: rand(0.35, 0.7), size: Math.random() < 0.4 * size ? 2 : 1, gravity: -7 });
+      }
+    };
+    this.vincent.snow.onCheer = (at) => this.burst('hearts', at);
+    this.vincent.snow.onSound = (call, at, loud) => this.fauna.onCall?.(call, at, true, loud);
     this.spread = island.root.getObjectByName('meal_spread');
     if (this.spread) this.spread.visible = false;
     this.companion.onSound = (call, at, loud) => this.fauna.onCall?.(call, at, true, loud);
+    // a swim on a hot day (swim.ts): each knows when the other's in, and the water flies
+    this.vincent.bather.other = this.companion.bather;
+    this.companion.bather.other = this.vincent.bather;
+    for (const b of [this.vincent.bather, this.companion.bather]) {
+      b.onSplash = (at, big) => this.splash(at, big);
+      b.onSound = (call, at, loud) => this.fauna.onCall?.(call, at, true, loud);
+    }
+    this.beike.onSpray = (at, kind) => (kind === 'shake' ? this.shake(at) : this.splash(at, kind === 'in'));
     this.bottle.onGlint = (at) => {
       if (this.sky.lamps > 0.6) return; // no sun to catch at night
       for (let i = 0; i < 3; i++) {
@@ -318,6 +341,7 @@ export class Life {
     this.beike.update(dt);
     this.fetchAtTheFire(dt);
     this.outAndAbout(dt);
+    this.dogPaddle(dt);
     this.week.update(dt, {
       time: this.sky.time, night, rain: this.rain, wind: this.wind, windDir: windDir.value,
       flyer: this.vincent.spot === 'kite' ? (this.vincent.errands.body ?? null) : null,
@@ -351,17 +375,19 @@ export class Life {
     const t = this.clock;
     const { x: dx, y: dz } = this.drift.lengthSq() > 1e-6 ? this.drift.clone().normalize() : new THREE.Vector2(1, 0);
     const out = THREE.MathUtils.clamp(this.wind / 9, 0, 1); // how far out the flag stands
-    const snap = 2.2 + this.wind * 0.7 + this.gust * 4; // how fast it flaps
+    const f = (this.flutter += dt * (2.2 + this.wind * 0.7 + this.gust * 4)); // faster the harder it blows
     const fly = (o: THREE.Object3D | undefined, phase: number, long = 1) => {
       if (!o) return;
       const loose = 0.4 * (1 - out) + 0.06; // a slack flag wanders; a taut one only flutters
-      o.rotation.y = yawAlong(o, dx, dz) + Math.sin(t * snap * 0.45 + phase) * loose + Math.sin(t * snap + phase * 2) * 0.07 * long * (0.4 + out);
-      o.rotation.z = -(1 - out) * 0.9 * (1 - this.gust * 0.5) + Math.sin(t * snap * 0.8 + phase) * 0.04 * out; // hanging down the pole when it's calm
+      o.rotation.y = yawAlong(o, dx, dz) + Math.sin(f * 0.45 + phase) * loose + Math.sin(f + phase * 2) * 0.07 * long * (0.4 + out);
+      o.rotation.z = -(1 - out) * 0.9 * (1 - this.gust * 0.5) + Math.sin(f * 0.8 + phase) * 0.04 * out; // hanging down the pole when it's calm
     };
     fly(this.island.part('summit', 'flag'), 0);
     // on the special days: King's Day's pennant over it, and birthday balloons tugging at their strings
     fly(this.island.get('wimpel'), -0.5, 1.6);
     const lean = Math.min(0.7, this.wind * 0.045) * (1 + this.gust * 0.3);
+    this.bob.x += dt * (0.9 + this.gust);
+    this.bob.z += dt * (1.1 + this.gust);
     for (const id of ['balloons', 'bench_balloons']) {
       const bunch = this.island.get(id);
       if (!bunch) continue;
@@ -369,8 +395,8 @@ export class Life {
       LOCAL.set(dx, 0, dz).applyQuaternion(PARENT.invert());
       bunch.children.forEach((b, i) => {
         const bob = 1 + this.gust * 2;
-        b.rotation.x = LOCAL.z * lean + Math.sin(t * (0.9 + this.gust) + i * 1.7) * 0.06 * bob;
-        b.rotation.z = -LOCAL.x * lean + Math.sin(t * (1.1 + this.gust) + i * 2.9) * 0.04 * bob;
+        b.rotation.x = LOCAL.z * lean + Math.sin(this.bob.x + i * 1.7) * 0.06 * bob;
+        b.rotation.z = -LOCAL.x * lean + Math.sin(this.bob.z + i * 2.9) * 0.04 * bob;
         b.rotation.y = Math.sin(t * 0.7 + i * 2.3) * 0.08;
       });
     }
@@ -389,8 +415,7 @@ export class Life {
     if (!flag) return;
     const { x: dx, y: dz } = this.drift.lengthSq() > 1e-6 ? this.drift.clone().normalize() : new THREE.Vector2(1, 0);
     const out = THREE.MathUtils.clamp(this.wind / 9, 0, 1);
-    const snap = 2.2 + this.wind * 0.7 + this.gust * 4;
-    flag.rotation.set(0, yawAlong(flag, dx, dz) + Math.sin(this.clock * snap * 0.5 + 1) * (0.4 * (1 - out) + 0.08), -(1 - out) * 0.8);
+    flag.rotation.set(0, yawAlong(flag, dx, dz) + Math.sin(this.flutter * 0.5 + 1) * (0.4 * (1 - out) + 0.08), -(1 - out) * 0.8);
   }
 
   /**
@@ -440,6 +465,43 @@ export class Life {
     const r = Math.random();
     if (r < 0.1 && this.sky.lamps < 0.5 && this.heat < 0.5) beike.roundTheIsland();
     else if (r < 0.2) beike.hangAbout(anyHangout());
+  }
+
+  /**
+   * Someone's in the sea: now and then Beike comes charging down from his meadow (it's just above
+   * the beach) and in after them, and comes out to shake himself off beside their towels.
+   */
+  private dogPaddle(dt: number) {
+    if (!this.every('beike:swim', 15, dt) || this.clock < this.swamAt || Math.random() > 0.35) return;
+    this.beikeIn();
+  }
+
+  /** Beike in after whoever's swimming, if anyone is and he's free. */
+  private beikeIn() {
+    const bathers = [this.vincent.bather, this.companion.bather];
+    const them = bathers.filter((b) => b.swimming);
+    if (!them.length) return false;
+    const b = them[Math.floor(Math.random() * them.length)];
+    // between their two towels, at the bottom: as close to both as he can get
+    const dry = bathers[0].towelAt.clone().lerp(bathers[1].towelAt, 0.5).add(V(0, 0, 1.0));
+    // round the two of them (or the one), wide enough to keep clear of them both
+    const round = () => {
+      const them = bathers.filter((x) => x.swimming);
+      if (!them.length) return null;
+      const at = them.length > 1 ? them[0].at.clone().lerp(them[1].at, 0.5) : them[0].at.clone();
+      return { at, r: (them.length > 1 ? them[0].at.distanceTo(them[1].at) / 2 : 0) + 1.8 };
+    };
+    if (!this.beike.bathe(b.waterline, dry, round)) return false;
+    this.swamAt = this.clock + rand(150, 300);
+    return true;
+  }
+
+  /** Beike in for a swim as soon as someone's in and he's free: for previews (?swim&beike=swim). */
+  beikeSwim() {
+    const go = () => {
+      if (!this.beikeIn()) setTimeout(go, 500);
+    };
+    setTimeout(go, 2000);
   }
 
   /** Beike off round the island (`round`), or at one of his other spots, as soon as he can: for previews (?beike=round|well|pier|lighthouse). */
@@ -666,6 +728,32 @@ export class Life {
     showSpread(this.spread, 'meal_spread', eating && !table.indoors ? eating : null);
     if (eating && table.indoors) indoors.add('meal_spread_hut');
     else indoors.delete('meal_spread_hut');
+  }
+
+  /** Beike shaking himself off: water flung out all round him, low and flat. */
+  private shake(at: THREE.Vector3) {
+    for (let i = 0; i < 6; i++) {
+      const a = rand(0, Math.PI * 2);
+      const out = rand(1.2, 2.4);
+      this.particles.emit({
+        position: at.clone().add(V(rand(-0.25, 0.25), rand(-0.1, 0.1), rand(-0.25, 0.25))),
+        velocity: V(Math.cos(a) * out, rand(0.4, 1.4), Math.sin(a) * out),
+        color: i % 3 ? '#e8f4ff' : '#ffffff', life: rand(0.3, 0.55), gravity: 7, fadeIn: 0, size: 1,
+      });
+    }
+  }
+
+  /** Water thrown up by a swimmer: a stroke (a few drops), or going right in. */
+  private splash(at: THREE.Vector3, big: boolean) {
+    for (let i = 0; i < (big ? 18 : 4); i++) {
+      const a = rand(0, Math.PI * 2);
+      const out = rand(0.2, big ? 1 : 0.5);
+      this.particles.emit({
+        position: at.clone().add(V(0, 0.05, 0)),
+        velocity: V(Math.cos(a) * out, rand(0.8, big ? 2.4 : 1.3), Math.sin(a) * out),
+        color: i % 3 ? '#e8f4ff' : '#ffffff', life: rand(0.35, 0.7), gravity: 7, fadeIn: 0, size: 1,
+      });
+    }
   }
 
   /** Steam curling up off their mugs of glühwein, out on a cold walk. */

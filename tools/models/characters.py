@@ -74,7 +74,7 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, sport=False):
 def hats(o, name: str, hz: float, sport=False):
     """What he has on his head, one part each, for the wardrobe to pick from (`wear`, see
     src/island/scene/wardrobe.ts): his cap on backwards, a knitted beanie, nothing (his hair a
-    bit ruffled), and for Halloween his steampunk top hat with the goggles on it."""
+    bit ruffled), and (not for sport) Halloween's steampunk top hat with the goggles on it."""
     k = "vs" if sport else "v"
     c = Model(f"{name}_cap")                                                             # brim over the neck, snapback strap over the forehead
     c.box((0.46, 0.44, 0.14), (0, 0.0, 1.93 - hz), P.CAP)
@@ -84,16 +84,16 @@ def hats(o, name: str, hz: float, sport=False):
     c.box((0.16, 0.02, 0.04), (0, -0.225, 1.93 - hz), P.CAP_DARK)                        # strap
     c.box((0.12, 0.02, 0.05), (0, -0.226, 1.88 - hz), P.HAIR)                            # hair through the gap
     c.build(o, wear=f"{k}_cap")
-    b = Model(f"{name}_beanie")                                                          # a knitted one, cuff turned up
-    b.box((0.47, 0.45, 0.13), (0, 0.0, 1.93 - hz), P.BEANIE)
-    b.box((0.4, 0.38, 0.06), (0, 0.0, 2.02 - hz), P.BEANIE)
-    b.box((0.49, 0.47, 0.07), (0, 0.0, 1.87 - hz), P.BEANIE_DARK)
-    for x in (-0.12, 0.0, 0.12):                                                         # its ribs
-        b.box((0.03, 0.472, 0.07), (x, 0.0, 1.87 - hz), P.BEANIE)
-    b.ball(0.07, (0, 0.0, 2.08 - hz), P.WHITE, subdiv=1)                                 # bobble
+    b = Model(f"{name}_beanie")                                                          # his dark green muts: ribbed, a deep cuff, a round patch
+    b.box((0.47, 0.45, 0.14), (0, 0.0, 1.95 - hz), P.BEANIE)
+    b.box((0.4, 0.38, 0.06), (0, 0.0, 2.05 - hz), P.BEANIE)
+    for x in (-0.15, -0.05, 0.05, 0.15):                                                 # its ribs
+        b.box((0.03, 0.452, 0.14), (x, 0.0, 1.95 - hz), P.BEANIE_DARK)
+    b.box((0.49, 0.47, 0.1), (0, 0.0, 1.87 - hz), P.BEANIE)                              # the cuff
+    for x in (-0.18, -0.06, 0.06, 0.18):
+        b.box((0.03, 0.472, 0.1), (x, 0.0, 1.87 - hz), P.BEANIE_DARK)
+    b.box((0.09, 0.02, 0.08), (0.14, -0.24, 1.87 - hz), P.BEANIE_PATCH)                  # the patch, to his left
     b.build(o, wear=f"{k}_beanie")
-    if sport:
-        return
     # nothing on: short and a bit tousled, tufts standing up more towards the front, the fringe
     # pushed up and swept off to his left
     r = Model(f"{name}_bare", seed=7)
@@ -105,7 +105,9 @@ def hats(o, name: str, hz: float, sport=False):
     r.box((0.36, 0.08, 0.08), (0.02, -0.19, 1.97 - hz), P.HAIR, rot=(0.45, 0, 0))       # the fringe, pushed up
     r.box((0.14, 0.07, 0.06), (0.13, -0.2, 2.03 - hz), P.HAIR_LIGHT, rot=(0.6, 0, -0.35))   # a flick off to the side
     r.box((0.1, 0.06, 0.05), (-0.12, -0.18, 2.01 - hz), P.HAIR_LIGHT, rot=(0.5, 0, 0.3))
-    r.build(o, wear="v_bare")
+    r.build(o, wear=f"{k}_bare")
+    if sport:
+        return
     # the top hat: flaring a little to the crown, worn tipped back, the goggles on the front
     # and a brass cog with a chain on the side
     t = Model(f"{name}_tophat")
@@ -260,17 +262,10 @@ _SNOW = [(-0.22, 0.6), (-0.06, 0.62), (0.13, 0.58), (0.23, 0.48), (-0.17, 0.47),
 
 def dressing(root, name: str, z: float, cape: float):
     """What comes out over his tee with an outfit (`wear`, see src/island/scene/wardrobe.ts),
-    for a torso from z up: a scarf when it's cold; at Christmas the jumper's knitted front, snow
+    for a torso from z up: at Christmas the jumper's knitted front, snow
     falling round a reindeer with a scarf on and a nose that lights up; and on Halloween the
     waistcoat and red bow tie, and the black cape with its collar turned up."""
     y = -0.152                                                                           # the front of the tee
-    f = Model(f"{name}_scarf")
-    f.box((0.3, 0.3, 0.11), (0, 0.0, z + 0.71), P.SCARF)
-    f.box((0.11, 0.03, 0.34), (0.1, y - 0.03, z + 0.5), P.SCARF)
-    for dz in (0.42, 0.52):
-        f.box((0.112, 0.032, 0.03), (0.1, y - 0.03, z + dz), P.SCARF_DARK)
-    f.build(root, wear="v_scarf")
-
     j = Model(f"{name}_reindeer")
     for x, dz in _SNOW:
         j.box((0.05, 0.012, 0.05), (x, y - 0.004, z + dz), P.WHITE)

@@ -410,11 +410,131 @@ def spread(parent, prefix: str, at, rot_z=0.0):
     return g
 
 
+# --- a swim ----------------------------------------------------------------------------------
+
+SWIM_SHORTS = "#2f8fb0"                                                              # sea blue, a white stripe down the side
+SUIT = "#d0506a"                                                                     # her swimsuit, raspberry
+SUIT_DARK = "#a83a52"
+TOWEL_V = "#3f8fc0"
+TOWEL_E = "#f0b83a"
+TOWEL_STRIPE = "#f2ece2"
+# their towels on the sand west of the pier (Blender x, y of the middle), the long way up the beach
+TOWELS = {"vincent": (-10.6, -15.5), "companion": (-9.3, -15.6)}
+
+
+def _swim_legs(core, p: str, x: float, thigh, skin, foot=(0.17, 0.28, 0.07)):
+    """Legs from the hips (`<p>_leg_l/_r`) with knees (`<p>_shin_l/_r`), bare from the thigh down
+    (`thigh`: what covers the top of it, boxes as (size, loc, color), x outwards)."""
+    for s, side in ((1, "l"), (-1, "r")):
+        g = Model(f"{p}_leg_{side}")
+        for size, (bx, by, bz), color in thigh:
+            g.box(size, (s * bx, by, bz), color)
+        g.box((0.16, 0.17, 0.3), (0, 0, -0.27), skin)
+        leg = g.build(core, loc=(s * x, 0, 0))
+        k = Model(f"{p}_shin_{side}")
+        k.box((0.15, 0.16, 0.36), (0, 0, -0.17), skin)
+        k.box(foot, (0, -0.05, -0.38), skin)                                          # bare feet
+        k.build(leg, loc=(0, 0, -0.42))
+
+
+def vincent_bather(root, p: str):
+    """Vincent in his swimming shorts, for a swim on a hot day (swim.ts). Everything hangs off
+    `<p>_core` at his hips, which the runtime tips over to swim, or back to lie on his towel."""
+    hip = 0.84
+    core = group(f"{p}_core", (0, 0, hip), parent=root)
+    m = Model(f"{p}_body")
+    m.box((0.5, 0.3, 0.22), (0, 0, -0.02), SWIM_SHORTS)
+    m.box((0.505, 0.305, 0.035), (0, 0, 0.075), TOWEL_STRIPE)                         # waistband
+    m.box((0.54, 0.32, 0.46), (0, 0.02, 0.31), P.SKIN)                                # bare chest (as tall as his tee, vincent_walker)
+    m.box((0.2, 0.2, 0.12), (0, 0.0, 0.59), P.SKIN)                                   # neck
+    m.build(core)
+    _swim_legs(core, p, 0.13, [((0.2, 0.22, 0.24), (0, 0, -0.08), SWIM_SHORTS),
+                               ((0.01, 0.06, 0.24), (0.1, 0, -0.08), TOWEL_STRIPE)], P.SKIN)          # a stripe down the outside
+    for s, side in ((1, "l"), (-1, "r")):
+        a = Model(f"{p}_arm_{side}")
+        a.box((0.14, 0.14, 0.58), (0, 0, -0.29), P.SKIN)
+        a.box((0.11, 0.12, 0.1), (0, 0, -0.62), P.SKIN)
+        a.build(core, loc=(s * 0.34, 0, 0.48))
+    characters.head(core, f"{p}_head", (0, 0, 0.61), cap=False)
+
+
+def companion_bather(root, p: str):
+    """Her in a swimsuit, hair tied back, for a swim on a hot day (swim.ts): built like him, round
+    `<p>_core` at her hips."""
+    hip = 0.84
+    core = group(f"{p}_core", (0, 0, hip), parent=root)
+    m = Model(f"{p}_body")
+    m.box((0.44, 0.26, 0.18), (0, 0, 0.0), SUIT)
+    m.box((0.42, 0.25, 0.52), (0, 0, 0.35), SUIT)
+    m.box((0.3, 0.255, 0.04), (0, 0, 0.36), SUIT_DARK)                               # a band round the middle
+    for s in (-1, 1):
+        m.box((0.12, 0.22, 0.08), (s * 0.17, 0, 0.64), P.FAIR)                       # bare shoulders
+        m.box((0.07, 0.24, 0.1), (s * 0.1, 0, 0.64), SUIT)                            # straps
+    m.box((0.14, 0.14, 0.1), (0, 0, 0.71), P.FAIR)                                    # neck
+    m.build(core)
+    _swim_legs(core, p, 0.11, [((0.18, 0.2, 0.1), (0, 0, -0.04), SUIT)], P.FAIR, foot=(0.15, 0.26, 0.06))
+    for s, side in ((1, "l"), (-1, "r")):
+        a = Model(f"{p}_arm_{side}")
+        companion._limb(a, (0, 0, 0), (0, 0, -0.56), 0.11, P.FAIR)
+        a.box((0.09, 0.11, 0.11), (0, 0, -0.6), P.FAIR)
+        a.build(core, loc=(s * 0.28, 0, 0.62))
+    companion.head(core, f"{p}_head", (0, 0, 0.76), cap=False, ponytail=True)
+
+
+def towel(t, name: str, at, color, extras):
+    """A towel spread on the sand, following the slope of the beach a strip at a time, and what
+    they've brought down with them on it."""
+    x, y = at
+    z0 = t.sample(x, y)
+    g = group(name, (x, y, z0), id=name)
+    k = Model(name)
+    n = 6
+    for i in range(n):                                                               # strips up the beach
+        dy = -0.85 + (i + 0.5) * 1.7 / n
+        z = t.sample(x, y + dy) - z0
+        k.box((0.82, 1.7 / n + 0.01, 0.03), (0, dy, z + 0.015), TOWEL_STRIPE if i in (0, n - 1) else color)
+    k.build(g)
+    extras(g, lambda dx, dy: t.sample(x + dx, y + dy) - z0)
+    return g
+
+
+def _flipflops(m: Model, x, y, z, color, strap):
+    for dx in (-0.07, 0.07):
+        m.box((0.1, 0.26, 0.02), (x + dx, y, z + 0.01), color)
+        m.box((0.1, 0.03, 0.025), (x + dx, y - 0.04, z + 0.03), strap)                  # the strap, across
+
+
+def _his_things(g, h):
+    m = Model("towel_vincent_things")
+    _flipflops(m, 0.62, -0.5, h(0.62, -0.5), "#e8743a", "#a8482a")
+    m.cyl(0.04, 0.24, (0.6, 0.45, h(0.6, 0.45)), P.TILE_BLUE, segs=8)                  # a water bottle
+    m.cyl(0.028, 0.04, (0.6, 0.45, h(0.6, 0.45) + 0.24), P.WHITE, segs=6)
+    m.box((0.36, 0.26, 0.08), (-0.62, 0.3, h(-0.62, 0.3) + 0.04), P.TEE)             # his tee, folded, and the shades on it
+    m.box((0.18, 0.04, 0.03), (-0.62, 0.28, h(-0.62, 0.3) + 0.095), P.SHADES)
+    m.build(g)
+
+
+def _her_things(g, h):
+    m = Model("towel_companion_things")
+    _flipflops(m, -0.62, -0.45, h(-0.62, -0.45), SUIT, SUIT_DARK)
+    z = h(0.66, 0.25)
+    m.box((0.36, 0.2, 0.3), (0.66, 0.25, z + 0.15), "#e8d6a8", taper=0.85)             # a straw beach bag
+    m.box((0.3, 0.02, 0.06), (0.66, 0.145, z + 0.24), SUIT_DARK)
+    m.box((0.2, 0.04, 0.26), (0.62, 0.25, z + 0.38), P.TILE_BLUE)                    # her book, sticking out of it
+    m.cyl(0.035, 0.16, (0.45, -0.3, h(0.45, -0.3)), P.WHITE, segs=6)                  # suncream
+    m.cyl(0.036, 0.04, (0.45, -0.3, h(0.45, -0.3) + 0.16), "#f08a3a", segs=6)
+    m.build(g)
+
+
 def populate(t):
     """The walkers, parked out of sight till they set off; the two of them at the campfire,
-    hidden till it's time to eat."""
+    hidden till it's time to eat; and their swimming things and towels for a hot day."""
     vincent_walker(group("vincent_stroll", PARKED, id="vincent_stroll"), "stroll")
     companion_walker(group("companion_stroll", PARKED, id="companion_stroll"), "companion_stroll")
+    vincent_bather(group("vincent_swim", PARKED, id="vincent_swim"), "swim")
+    companion_bather(group("companion_swim", PARKED, id="companion_swim"), "companion_swim")
+    towel(t, "towel_vincent", TOWELS["vincent"], TOWEL_V, _his_things)
+    towel(t, "towel_companion", TOWELS["companion"], TOWEL_E, _her_things)
     cx, cy = L.CAMPFIRE
     # on his log on the far side of the fire, and her on the east one (as models.py seats them)
     x, y = cx + 0.2, cy + 2.2

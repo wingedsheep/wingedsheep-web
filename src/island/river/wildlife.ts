@@ -249,8 +249,9 @@ export class Wildlife {
   private frogIn = rand(4, 10);
   private sheepIn = rand(90, 200);
   private ravensIn = rand(6, 14);
-  /** 0..1: how stormy it is on the island (the rain comes in sideways on the wind). */
+  /** 0..1: how stormy it is on the island (the rain comes down harder), and how hard the wind blows (sideways). */
   storm = 0;
+  gale = 0;
   /** The storm's wind across the river right now (x, z; the kayak's gust), for the rain to ride. */
   readonly blow = new THREE.Vector2();
   private beikeDone = false;
@@ -279,7 +280,7 @@ export class Wildlife {
     this.frogIn = rand(4, 10);
     this.sheepIn = rand(90, 200);
     this.ravensIn = rand(6, 14);
-    this.storm = 0;
+    this.storm = this.gale = 0;
     this.beikeDone = false;
     this.beikeFrom = Infinity;
     this.waiting = false;
@@ -516,10 +517,10 @@ export class Wildlife {
       const u = rand(-1.4, 1.4) * q.width / 2;
       this.specks.emit(V(q.x + Math.cos(q.a) * u, q.y + rand(1, 3), q.z + Math.sin(q.a) * u), V(rand(0.4, 0.9) * rx, rand(-0.05, 0.1), rand(0.4, 0.9) * rz), DOWN, rand(6, 10), 2);
     }
-    // rain, and snow, falling round you: in a storm, driven in sideways on the wind
+    // rain, and snow, falling round you: in a gale, driven in sideways on the wind
     const fall = (rain + snow) * 60 * (1 + this.storm);
     // (the way the gusts are blowing, or on a still day just a touch)
-    const sx = 0.4 + this.storm * 2 + this.blow.x * 3.5;
+    const sx = 0.4 + this.gale * 2 + this.blow.x * 3.5;
     const sz = this.blow.y * 3.5;
     for (let n = Math.floor(fall * dt + Math.random()); n > 0; n--) {
       const at = kayak.clone().add(V(rand(-22, 22) - sx * 0.6, rand(8, 14), rand(-30, 12) - sz * 0.6));

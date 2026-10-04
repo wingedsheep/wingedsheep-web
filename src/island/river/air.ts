@@ -3,6 +3,7 @@ import { Critters, type Air, type Habitat } from '../scene/critters';
 import { windDir } from '../scene/grass';
 import { Particles } from '../scene/particles';
 import { season } from '../scene/season';
+import { windStrength } from '../scene/weather';
 import type { Course } from './course';
 import type { Land } from './land';
 
@@ -55,7 +56,7 @@ export class RiverAir {
     const size = Math.max(20, view * 1.1);
     const night = air.night;
     const { x: dx, y: dz } = windDir.value;
-    const windiness = THREE.MathUtils.clamp((air.wind - 6) / 9, 0, 1);
+    const windiness = windStrength(air.wind);
     const near = [...land.trees()].filter((c) => Math.abs(c.position.x - around.x) < size && Math.abs(c.position.z - around.z) < size);
 
     // autumn: every tree near you letting its leaves go, carried off downwind as hard as it's blowing
@@ -73,8 +74,12 @@ export class RiverAir {
         velocity: V(rand(-0.2, 0.2), -sink, rand(-0.2, 0.2)),
         color: dim(pick(colours), night),
         life: Math.min(14, (Math.max(0.5, top.y - ground) / sink) * (1 + windiness)),
-        size: Math.random() < 0.8 ? 2 : 1,
-        wobble: 1.6 * (1 - windiness * 0.5) + 0.3,
+        size: 1,
+        span: rand(0.2, 0.28), // as big as the ones lying on the ground (scene/litter.ts)
+        leaf: windiness,
+        fadeIn: 0.08,
+        hold: 0.9, // whole all the way down, not fading as it falls
+        floor: ground,
         windy: 1.2 + windiness * 1.5,
         sink,
       });

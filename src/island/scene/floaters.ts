@@ -20,6 +20,8 @@ function icon(rows: string[], color: string): THREE.Texture {
 export const ICONS = {
   heart: icon(['.#.#.', '#####', '#####', '.###.', '..#..'], '#e46f5a'),
   note: icon(['...##', '...#.', '...#.', '...#.', '.###.', '####.', '.##..'], '#fff3c4'),
+  // sound coming out of something: a dot and two arcs (her podcast)
+  waves: icon(['.....#.', '..#...#', '...#..#', '#..#..#', '...#..#', '..#...#', '.....#.'], '#fff3c4'),
   zzz: icon(['###', '..#', '.#.', '#..', '###'], '#cdc6cf'),
   alert: icon(['.#.', '.#.', '.#.', '.#.', '...', '.#.'], '#e4463a'),
   // a thought bubble, three dots in it, trailing off down to the left
@@ -47,12 +49,12 @@ export class Floaters {
     private scale = 0.09,
   ) {}
 
-  /** The `i`th of a little group rising from `at`, each a moment after the last. */
-  add(name: keyof typeof ICONS, at: THREE.Vector3, i = 0) {
+  /** The `i`th of a little group rising from `at`, each a moment after the last (`size` times as big). */
+  add(name: keyof typeof ICONS, at: THREE.Vector3, i = 0, size = 1) {
     const k = this.scale / 0.09; // the island's spread, shrunk to match
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: ICONS[name], transparent: true, depthWrite: false, fog: false }));
     const img = ICONS[name].image as HTMLCanvasElement;
-    sprite.scale.set(img.width * this.scale, img.height * this.scale, 1);
+    sprite.scale.set(img.width * this.scale * size, img.height * this.scale * size, 1);
     sprite.position.copy(at).add(V(rand(-0.5, 0.5) * k, (1 + i * 0.3) * k, rand(-0.3, 0.3) * k));
     sprite.renderOrder = 5;
     sprite.raycast = () => {};

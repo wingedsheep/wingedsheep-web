@@ -2,17 +2,21 @@ import * as THREE from 'three';
 import { occasions, visitDate } from './calendar';
 import { season } from './season';
 import { GRADIENT, toon } from './toon';
+import type { Weather } from './weather';
 
 /**
  * What Vincent and Eef have on. Their clothes are built in "wear" colours (kit.Wear in
  * tools/models: one material per slot, `wear_<slot>`), which the wardrobe gives the day's
  * colours, and the things that only come out with an outfit (hats, a scarf, the Christmas
- * jumpers' fronts, the Halloween costumes) are parts tagged `wear=<piece>`, shown only when the
- * outfit has them.
+ * jumpers' fronts, the Halloween costumes) are parts tagged `wear=<piece>`, shown only when they
+ * have them on.
  *
  * The outfit follows the time of year and the visitor's real temperature once the forecast is in:
  * tee and shorts when it's warm, long sleeves and jeans when it's mild (spring's or autumn's
- * colours), jumpers, beanies and scarves when it's cold. From St Nicholas to Twelfth Night
+ * colours), jumpers when it's cold. Hats follow the weather (overheadFor): mostly they go bare-headed,
+ * with caps (and his shades) only when the sun's high and out on a warm day, and in the cold
+ * or the snow their muts, his dark green, hers bright green with the scarf to match. Indoors the hats
+ * come off. From St Nicholas to Twelfth Night
  * (calendar `christmas`) they wear their Christmas jumpers, and from the 29th of October to Halloween
  * itself they're dressed up: Vincent as a steampunk vampire, Eef as a witch in a red dress. Their sports things (his
  * kayak, hiking and yoga, her workout and yoga) only follow the weather.
@@ -21,7 +25,8 @@ import { GRADIENT, toon } from './toon';
  * e_legs e_shorts e_thigh e_shin e_cardi e_cardi_edge, and es_* for hers. Anything an outfit
  * leaves out keeps the colour it was built in (summer's).
  *
- * To preview: ?outfit=summer|spring|autumn|winter|christmas|halloween (and ?temp= moves the weather).
+ * To preview: ?outfit=summer|spring|autumn|winter|christmas|halloween (and ?temp= moves the weather;
+ * ?weather=clear for the caps, ?temp=2 or ?weather=snow for the muts).
  */
 
 export type OutfitName = 'summer' | 'spring' | 'autumn' | 'winter' | 'christmas' | 'halloween';
@@ -42,11 +47,11 @@ const trousers = (who: 'v' | 'e', legs: string): Record<string, string> =>
 
 const OUTFITS: Record<OutfitName, Outfit> = {
   // as built: his black v-neck and navy shorts, her lavender tee, cap and shades
-  summer: { colours: {}, wear: ['v_cap', 'v_shades', 'e_cap'] },
+  summer: { colours: {}, wear: [] },
   // a chambray shirt and grey jeans; a sage long-sleeve and jeans
   spring: {
     colours: { ...sleeves('v', '#6f8fb4'), v_neck: SKIN, ...trousers('v', '#8d96a3'), ...sleeves('e', '#9cb89a'), ...trousers('e', '#4f6392') },
-    wear: ['v_cap', 'v_shades', 'e_cap'],
+    wear: [],
   },
   // a rust flannel over the black tee; a mustard jumper, and her cardigan a warm brown
   autumn: {
@@ -54,15 +59,15 @@ const OUTFITS: Record<OutfitName, Outfit> = {
       ...sleeves('v', '#9c4a32'), v_neck: '#26242b', ...trousers('v', JEANS),
       ...sleeves('e', '#d4a03a'), ...trousers('e', JEANS), e_cardi: '#7a5038', e_cardi_edge: '#5a3826',
     },
-    wear: ['v_cap', 'e_cap'],
+    wear: [],
   },
-  // chunky knits, beanies and scarves
+  // chunky knits
   winter: {
     colours: {
       ...sleeves('v', '#3d6b58'), v_neck: '#3d6b58', ...trousers('v', DARK_JEANS),
       ...sleeves('e', '#ece2cf'), ...trousers('e', DARK_JEANS), e_cardi: '#8e3a4a', e_cardi_edge: '#6e2a38',
     },
-    wear: ['v_beanie', 'v_scarf', 'e_beanie', 'e_scarf'],
+    wear: [],
   },
   // his navy jumper with the reindeer on it; hers red with a tree, both lit up
   christmas: {
@@ -70,7 +75,7 @@ const OUTFITS: Record<OutfitName, Outfit> = {
       ...sleeves('v', '#1f2740'), v_neck: '#1f2740', ...trousers('v', DARK_JEANS),
       ...sleeves('e', '#b8303a'), ...trousers('e', DARK_JEANS), e_cardi: '#ece2cf', e_cardi_edge: '#c9bfae',
     },
-    wear: ['v_reindeer', 'e_tree'], // and a beanie if it's cold (dress)
+    wear: ['v_reindeer', 'e_tree'],
   },
   // a pale vampire in a white shirt, black waistcoat, red bow tie, cape and top hat; a witch in a red dress
   halloween: {
@@ -83,14 +88,14 @@ const OUTFITS: Record<OutfitName, Outfit> = {
 };
 
 const SPORT: Record<'warm' | 'cold', Outfit> = {
-  warm: { colours: {}, wear: ['vs_cap', 'es_cap'] },
+  warm: { colours: {}, wear: [] },
   // long sleeves and tights, her top a warmer blue
   cold: {
     colours: {
       vs_top: '#c8563a', vs_arm: '#c8563a', vs_shin: '#26242b',
       es_top: '#6f9ccc', es_arm: '#6f9ccc',
     },
-    wear: ['vs_beanie', 'es_beanie'],
+    wear: [],
   },
 };
 
@@ -124,18 +129,44 @@ export function outfitFor(temperature: number): OutfitName {
 interface Look {
   colours: Record<string, string>;
   wear: Set<string>;
+  /** What they have on indoors: the same, hats and scarf off. */
+  indoors: Set<string>;
 }
 
-/** Everything they have on, at `temperature`: the day's outfit and the sports things for the weather. */
-function lookFor(outfit: OutfitName, temperature: number): Look {
+/** What it's like out, as far as hats go: the sun out on a warm day, cold (or snow), or neither. */
+type Overhead = 'sun' | 'cold' | 'none';
+
+/** The hats for it, for every head (his and hers, and their sports heads). */
+const HATS: Record<Overhead, string[]> = {
+  sun: ['v_cap', 'v_shades', 'e_cap', 'vs_cap', 'es_cap'],
+  cold: ['v_beanie', 'e_beanie', 'e_scarf', 'vs_beanie', 'es_beanie'],
+  none: [],
+};
+const OFF_INDOORS = new Set([...HATS.sun, ...HATS.cold]);
+const SUNNY = ['clear', 'partly', 'windy', 'warm', 'hot'];
+
+function overheadFor(w: Weather, sunAlt: number): Overhead {
+  if (w.kind === 'snow' || w.kind === 'sleet' || w.lying > 0.2 || w.temperature < 5) return 'cold';
+  const sunny = SUNNY.includes(w.kind) && !(w.kind === 'partly' && w.intensity > 0.5);
+  return sunny && sunAlt > 15 && w.temperature >= 15 ? 'sun' : 'none';
+}
+
+/** Hair, on any head with nothing on it. */
+function bare(wear: Set<string>) {
+  for (const who of ['v', 'e', 'vs', 'es']) {
+    if (!['cap', 'beanie', 'tophat', 'witch'].some((h) => wear.has(`${who}_${h}`))) wear.add(`${who}_bare`);
+  }
+  return wear;
+}
+
+/** Everything they have on, at `temperature`: the day's outfit, the sports things for the weather, and the hats for the sky. */
+function lookFor(outfit: OutfitName, temperature: number, overhead: Overhead): Look {
   const o = OUTFITS[outfit];
   const s = SPORT[temperature < 10 ? 'cold' : 'warm'];
   const wear = new Set([...o.wear, ...s.wear]);
-  if (outfit === 'christmas' && temperature < 6) wear.add('v_beanie').add('e_beanie');
-  for (const who of ['v', 'e']) {
-    if (!['cap', 'beanie', 'tophat', 'witch'].some((h) => wear.has(`${who}_${h}`))) wear.add(`${who}_bare`);
-  }
-  return { colours: { ...o.colours, ...s.colours }, wear };
+  for (const w of HATS[overhead]) if (outfit !== 'halloween' || w.startsWith('vs_') || w.startsWith('es_')) wear.add(w); // the costumes have their own
+  const indoors = bare(new Set([...wear].filter((w) => !OFF_INDOORS.has(w))));
+  return { colours: { ...o.colours, ...s.colours }, wear: bare(wear), indoors };
 }
 
 interface Slot {
@@ -148,14 +179,15 @@ class Wardrobe {
   /** What they're wearing now. */
   outfit: OutfitName;
   private look: Look;
-  private pieces: THREE.Object3D[] = [];
+  private temperature = usual();
+  private overhead: Overhead = 'none';
+  private pieces: { o: THREE.Object3D; indoors: boolean }[] = [];
   /** One material per slot, per kind of room (outdoors has snow on it, indoors doesn't). */
   private slots = new Map<string, Slot>();
 
   constructor() {
-    const t = usual();
-    this.outfit = outfitFor(t);
-    this.look = lookFor(this.outfit, t);
+    this.outfit = outfitFor(this.temperature);
+    this.look = lookFor(this.outfit, this.temperature, this.overhead);
   }
 
   /**
@@ -165,8 +197,9 @@ class Wardrobe {
    */
   adopt(o: THREE.Object3D, indoors = false): THREE.Material | null {
     if (o.userData.wear) {
-      this.pieces.push(o);
-      o.visible = this.look.wear.has(o.userData.wear);
+      const piece = { o, indoors };
+      this.pieces.push(piece);
+      this.show(piece);
     }
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return null;
@@ -187,10 +220,27 @@ class Wardrobe {
 
   /** The weather's in: dress for it. */
   feel(temperature: number) {
+    this.temperature = temperature;
     this.outfit = outfitFor(temperature);
-    this.look = lookFor(this.outfit, temperature);
+    this.dress();
+  }
+
+  /** Every frame, once the weather's known: hats on or off for the sky, with the sun `sunAlt` degrees up. */
+  watch(weather: Weather, sunAlt: number) {
+    const overhead = overheadFor(weather, sunAlt);
+    if (overhead === this.overhead) return;
+    this.overhead = overhead;
+    this.dress();
+  }
+
+  private dress() {
+    this.look = lookFor(this.outfit, this.temperature, this.overhead);
     for (const s of this.slots.values()) this.colour(s);
-    for (const o of this.pieces) o.visible = this.look.wear.has(o.userData.wear);
+    for (const p of this.pieces) this.show(p);
+  }
+
+  private show(p: { o: THREE.Object3D; indoors: boolean }) {
+    p.o.visible = (p.indoors ? this.look.indoors : this.look.wear).has(p.o.userData.wear);
   }
 
   private colour(s: Slot) {

@@ -15,10 +15,12 @@ import { travels, yearsOf } from '../data/travels';
 import { fridayEvening, fridayNight, hourOf } from './scene/bedtime';
 import { table } from './scene/meals';
 import type { Find, Topic } from './scene/outings';
+import type { Doing } from './scene/swim';
 import { season } from './scene/season';
 import { clog, occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
 import { wardrobe } from './scene/wardrobe';
+import { snowCover } from './scene/toon';
 import { FRIDAY_13 } from './scene/fauna';
 import { ambush, beds, coffee, flatOut, indoors, type Nook } from './scene/shelter';
 import { boatStage, shelf } from './scene/almanac';
@@ -913,6 +915,66 @@ function mealLabel(ctx: IslandContext, who: string) {
   return who === 'Vincent' ? `Vincent · ${what}` : what[0].toUpperCase() + what.slice(1);
 }
 const walking = (ctx: IslandContext) => ctx.life.vincent.spot === 'gluhwein';
+// out in the snow, the two of them: a snowman, then snowballs (snowplay.ts)
+const playing = (ctx: IslandContext) => ctx.life.vincent.spot === 'snow';
+const building = (ctx: IslandContext) => ctx.life.vincent.snow.doing === 'building';
+const snowmanMaking = inTurn([
+  'A snowman: he rolls the bottom, she rolls the middle, and the head is still under discussion.',
+  'Pushing a snowball across the plaza until it’s too heavy to push. Then it’s big enough.',
+  'Stick arms, coal for the eyes, a carrot nose and a red scarf. It’s coming along.',
+]);
+const snowballsHim = inTurn([
+  'A snowball fight. He says he’s letting her win. He isn’t.',
+  'He takes his time packing each one. She’s already thrown two.',
+  'Snow down the back of his collar. He’ll be finding it for an hour.',
+]);
+const snowballsHer = inTurn([
+  'She throws from the shoulder, and she doesn’t miss much.',
+  'She’s keeping score. Out loud.',
+  'She ducks, laughing, and his snowball sails past into the snow.',
+]);
+const snowman = inTurn([
+  'A snowman on the plaza: stick arms, coal for a face, a carrot nose and a red scarf.',
+  'His carrot nose points down the pier, as if he’s waiting for the boat.',
+  'Built by the two of them, and every bit as proud of himself as a snowman can be.',
+]);
+
+// a swim on a hot day (swim.ts), whatever they're at: in the water, on the towel, or in between
+const SWIM_LINES: Record<'v' | 'e', Record<Doing, () => string>> = {
+  v: {
+    swimming: inTurn([
+      'Breaststroke, chin up, in no hurry. It’s a swim, not a race.',
+      'Out past the shallows, where the water’s cool. The best place on the island today.',
+      'The sea’s colder than it looks. He isn’t saying so.',
+    ]),
+    floating: inTurn(['On his back, arms out, looking up at the sky. Nothing to do, and all afternoon to do it in.', 'Floating, ears under. The island’s gone very quiet for him.']),
+    sunbathing: inTurn(['Flat out on his towel, a knee up, eyes shut, drying in the sun.', 'Lying in the sun. He’ll be back in the water as soon as he’s warm through.']),
+    sitting: inTurn(['On his towel, looking at the water, working up to going back in.', 'Sitting in the sun, salt drying on his shoulders.']),
+    wading: inTurn(['Wading in. Cold round the knees, and then it isn’t.', 'In up to his waist, hands up out of the water for one last moment.']),
+    drying: inTurn(['Shaking the water out of his hair, much like Beike does.']),
+  },
+  e: {
+    swimming: inTurn(['A slow breaststroke, hair tied up out of the way.', 'She swims out to where it’s deep and cool, and turns to look back at the island.']),
+    floating: inTurn(['On her back, arms out, rising and falling with the swell.', 'Floating, eyes shut against the sun.']),
+    sunbathing: inTurn(['Stretched out on her towel, the book in her bag saved for when she’s dry.', 'Lying in the sun, one knee up, drying off.']),
+    sitting: inTurn(['On her towel, suncream on, deciding whether it’s time to go back in. It is.', 'Sitting in the sun, looking out over the water.']),
+    wading: inTurn(['Wading in, hands held up out of the water, as if that helps.', 'In up to her waist, and then, all at once, the rest of the way.']),
+    drying: inTurn(['Wringing out her ponytail.']),
+  },
+};
+// and Beike in after them (beike.ts)
+const beikeSwimming = inTurn([
+  'Beike, swimming. Nose up, ears floating, ball still in his mouth. He takes this very seriously.',
+  'Beike has come to check that everyone in the water is all right. They are. He’s staying anyway.',
+  'Beike paddles in slow circles round them, keeping an eye on things.',
+]);
+function swimLine(ctx: IslandContext, who: 'v' | 'e') {
+  const me = who === 'v' ? ctx.life.vincent.bather : ctx.life.companion.bather;
+  const other = who === 'v' ? ctx.life.companion.bather : ctx.life.vincent.bather;
+  if (me.swimming && other.swimming && Math.random() < 0.4) return 'The two of them swimming side by side, talking, slowly enough to do both.';
+  return SWIM_LINES[who][me.doing]();
+}
+const swimLabel = (doing: Doing) => (doing === 'sitting' || doing === 'sunbathing' || doing === 'drying' ? 'drying off in the sun' : 'in for a swim');
 
 export const PLACES: Record<string, Place> = {
   vincent_podcast: {
@@ -932,20 +994,49 @@ export const PLACES: Record<string, Place> = {
   vincent_yoga: { label: 'Vincent · yoga by the beach', activate: (ctx) => ctx.toast(hisYoga()) },
   vincent_hiking: { label: 'Vincent · off up the mountain', activate: (ctx) => ctx.toast(climbing()) },
   vincent_stroll: {
-    label: (ctx) => (walking(ctx) ? 'Vincent · a walk, with glühwein' : 'Vincent · out for a stroll'),
+    label: (ctx) => (playing(ctx) ? (building(ctx) ? 'Vincent · building a snowman' : 'Vincent · a snowball fight')
+      : walking(ctx) ? 'Vincent · a walk, with glühwein' : 'Vincent · out for a stroll'),
     activate(ctx, at) {
       ctx.life.burst('hearts', at);
       const s = ctx.life.vincent.stroll;
-      ctx.toast(walking(ctx) ? gluhweinLine() : thought(ctx, 'v', s?.topic ?? 'walk', s?.found ?? null));
+      if (playing(ctx)) ctx.toast(building(ctx) ? snowmanMaking() : snowballsHim());
+      else ctx.toast(walking(ctx) ? gluhweinLine() : thought(ctx, 'v', s?.topic ?? 'walk', s?.found ?? null));
     },
   },
-  companion_stroll: withHer((ctx) => (ctx.life.companion.where === 'gluhwein' ? 'A walk, with glühwein' : 'Out for a stroll'), (ctx) => {
+  companion_stroll: withHer((ctx) => (ctx.life.companion.where === 'snow' ? (building(ctx) ? 'Building a snowman' : 'A snowball fight')
+    : ctx.life.companion.where === 'gluhwein' ? 'A walk, with glühwein' : 'Out for a stroll'), (ctx) => {
+    if (ctx.life.companion.where === 'snow') return building(ctx) ? snowmanMaking() : snowballsHer();
     if (ctx.life.companion.where === 'gluhwein') return gluhweinLine();
     const s = ctx.life.companion.stroll;
     return thought(ctx, 'e', s.topic, s.found);
   }),
+  snowman: {
+    label: (ctx) => (playing(ctx) && building(ctx) ? 'A snowman, half built' : snowCover.value < 0.3 ? 'The snowman, thawing' : 'The snowman'),
+    activate(ctx) {
+      if (playing(ctx) && building(ctx)) ctx.toast(snowmanMaking());
+      else if (snowCover.value < 0.3) ctx.toast('The snowman’s going soft round the middle. The carrot’s holding on.');
+      else if (ctx.sky.lamps > 0.5) ctx.toast('The snowman keeps watch over the plaza in the dark, scarf and all.');
+      else ctx.toast(snowman());
+    },
+  },
   vincent_meal: { label: (ctx) => mealLabel(ctx, 'Vincent'), activate: (ctx) => { ctx.life.vincent.notice(); ctx.toast(mealLine(ctx, 'v')); } },
   companion_meal: withHer((ctx) => mealLabel(ctx, 'her'), (ctx) => mealLine(ctx, 'e')),
+  vincent_swim: {
+    label: (ctx) => `Vincent · ${swimLabel(ctx.life.vincent.bather.doing)}`,
+    activate: (ctx) => ctx.toast(swimLine(ctx, 'v')),
+  },
+  companion_swim: withHer((ctx) => {
+    const s = swimLabel(ctx.life.companion.bather.doing);
+    return s[0].toUpperCase() + s.slice(1);
+  }, (ctx) => swimLine(ctx, 'e')),
+  towel_vincent: {
+    label: 'A towel on the sand · his',
+    activate: say('His towel, his flip-flops, and his tee folded with the shades on top. The water bottle’s already warm.'),
+  },
+  towel_companion: {
+    label: 'A towel on the sand · hers',
+    activate: say('Her towel, flip-flops, suncream, and a straw bag with a book in it for later.'),
+  },
   dock: (() => {
     const line = keepsOn('Every visitor arrives here. The water is calm today.', {
       6: 'Still the dock. Still calm. Still here.',
@@ -1076,6 +1167,14 @@ export const PLACES: Record<string, Place> = {
           break;
         case 'round':
           ctx.toast('Beike is doing his round of the island, ears flying. He’ll be back. He always comes back.');
+          ctx.discover('beike');
+          break;
+        case 'swim':
+          ctx.toast(beikeSwimming());
+          ctx.discover('beike');
+          break;
+        case 'shake':
+          ctx.toast('Beike shakes the whole sea out of his coat, mostly over the towels.');
           ctx.discover('beike');
           break;
         case 'throw': {

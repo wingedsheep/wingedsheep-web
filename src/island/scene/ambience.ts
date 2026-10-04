@@ -109,8 +109,12 @@ export class Ambience {
           velocity: V(rand(-0.2, 0.2), -sink, rand(-0.2, 0.2)),
           color: dim(pick(colours), night),
           life: Math.min(14, (Math.max(0.5, top.y - ground) / sink) * (1 + blow)), // in a wind it's a long way down
-          size: Math.random() < 0.8 ? 2 : 1,
-          wobble: 1.6 * (1 - blow * 0.5) + 0.3,
+          size: 1,
+          span: rand(0.2, 0.28), // as big as the ones lying on the ground (scene/litter.ts)
+          leaf: blow,
+          fadeIn: 0.08,
+          hold: 0.9, // whole all the way down, not fading as it falls
+          floor: ground,
           windy: 1.2 + blow * 1.5,
           sink,
         });

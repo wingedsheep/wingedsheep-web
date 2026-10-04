@@ -157,6 +157,27 @@ export const SOUNDS: Sfx[] = [
   ].map((prompt, i) => ({ name: `dolphin-${i + 1}`, seconds: 2, prompt })),
   ...[1, 2].map((i) => ({ name: `puff-${i}`, seconds: 0.6, prompt: 'A single dolphin breathing out through its blowhole as it breaks the surface, one short sharp wet puff of breath, no voice, no music' })),
   ...[1, 2].map((i) => ({ name: `dip-${i}`, seconds: 0.8, prompt: 'A dolphin diving cleanly back into the sea after a leap, a short smooth slicing splash, no voice, no music' })),
+  // a swim on a hot day (src/island/scene/swim.ts): wading in, going under, breaststroke, shaking off
+  ...[1, 2, 3].map((i) => ({ name: `slosh-${i}`, seconds: 0.8, prompt: 'One step wading through knee-deep calm sea water on a sandy beach, a single soft slosh as a leg pushes through the water, close, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `duck-${i}`, seconds: 1.5, prompt: 'A person ducking forward into calm waist-deep sea water and going under, one full soft splash and the water closing over them, then settling, close, no voices, no music' })),
+  ...[1, 2, 3].map((i) => ({ name: `swimstroke-${i}`, seconds: 1.2, prompt: 'A swimmer doing one slow breaststroke in calm sea water, hands sweeping round through the surface, a gentle swish and trickle of water, close, no splashing, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `gasp-${i}`, seconds: 1.5, prompt: 'A man going into cool sea water on a hot day, one short sharp delighted gasp and a breathy laughing hoo as the water reaches his chest, no words, no music, no other sounds' })),
+  ...[1, 2].map((i) => ({ name: `gasp-e-${i}`, seconds: 1.5, prompt: 'A woman going into cool sea water on a hot day, one short sharp delighted gasp and a little breathy laugh as the water reaches her shoulders, no words, no music, no other sounds' })),
+  // and Beike in after them: paddling about, and shaking the sea out of his coat after
+  ...[1, 2].map((i) => ({ name: `dogpaddle-${i}`, seconds: 1.8, prompt: 'A dog swimming in calm sea, paws dog-paddling busily just under the surface with small quick splashes, and snuffly breaths through its nose, close, no barking, no music' })),
+  ...[1, 2].map((i) => ({ name: `dogshake-${i}`, seconds: 1.5, prompt: 'A wet dog shaking itself dry on a beach, a loud flapping rattle of floppy ears and wet fur and a spray of droplets pattering down, close, no barking, no music' })),
+  { name: 'shake', seconds: 1.2, prompt: 'Someone on a beach shaking sea water out of their wet hair, a quick flurry of droplets pattering onto dry sand, close, no voices, no music' },
+  // out in the snow (src/island/scene/snowplay.ts): rolling the snowman, sticks for its arms, snowballs made, thrown and landing, a laugh, applause
+  ...[1, 2].map((i) => ({ name: `snowroll-${i}`, seconds: 1.8, prompt: 'A big ball of snow being rolled slowly across fresh deep snow, a soft muffled crunching squeak as it packs down and grows, close, no footsteps, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `twig-${i}`, seconds: 0.8, prompt: 'A small dry twig picked up off the snowy ground and snapped in two, a crisp little crack, close, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `scoop-${i}`, seconds: 1, prompt: 'Two hands scooping up a handful of fresh powdery snow off the ground, a short soft crunch, close, no voices, no music' })),
+  ...[1, 2, 3].map((i) => ({ name: `pack-${i}`, seconds: 1, prompt: 'Packing a snowball between two hands, two or three quick squeaky crunching pats of compacting snow, close, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `toss-${i}`, seconds: 0.6, prompt: 'A snowball thrown hard past the microphone, a short quick soft whoosh of air, no impact, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `snowhit-${i}`, seconds: 0.8, prompt: 'A snowball hitting someone in the chest of a thick winter coat, a dull soft thump and a powdery burst of snow, close, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `snowsplat-${i}`, seconds: 0.8, prompt: 'A snowball landing in deep fresh snow on the ground, a soft muffled whump and a little powdery spray, close, no voices, no music' })),
+  ...[1, 2].map((i) => ({ name: `laugh-${i}`, seconds: 2, prompt: 'A man laughing during a playful snowball fight outdoors, a short warm delighted chuckle, a little out of breath, no words, no music, no other sounds' })),
+  ...[1, 2].map((i) => ({ name: `laugh-e-${i}`, seconds: 2, prompt: 'A woman laughing during a playful snowball fight outdoors, a short bright delighted laugh, a little out of breath, no words, no music, no other sounds' })),
+  { name: 'clap', seconds: 1.8, prompt: 'One person clapping their hands outdoors in the snow, about six soft muffled claps, pleased, no voices, no cheering, no music' },
   // the rare sightings (src/island/scene/sightings.ts)
   { name: 'burner', seconds: 2.5, prompt: 'A hot air balloon burner firing overhead on a calm evening, a roaring whoosh of propane flame for two seconds, then cutting off, a little distant, no voices' },
   { name: 'horn', seconds: 4, prompt: 'A passenger ferry sounding its horn once far out at sea, one long deep blast carrying over calm water, distant, fading away' },

@@ -23,6 +23,7 @@ import { greeting, occasions } from './scene/calendar';
 import { Fireworks } from './scene/fireworks';
 import { createFoliage } from './scene/foliage';
 import { createGrass, wind, windDir } from './scene/grass';
+import { snowCover } from './scene/toon';
 import { Icicles } from './scene/icicles';
 import { Island } from './scene/island';
 import type { Call } from './scene/fauna';
@@ -362,12 +363,23 @@ export async function bootIsland(host: HTMLElement) {
     life.vincent.put('gluhwein');
     life.companion.put('gluhwein');
   }
+  // the two of them in for a swim (a hot day's): ?swim (or just one: ?vincent=swim, ?companion=swim)
+  if (params.has('swim')) {
+    life.vincent.put('swim');
+    life.companion.put('swim');
+  }
+  // out in the snow together, a snowman and then snowballs: ?play=snow (with ?weather=snow for the snow)
+  if (params.get('play') === 'snow') {
+    life.vincent.put('snow');
+    life.companion.put('snow');
+  }
   // a bit of mischief, sooner: ?beike=fire (he brings his ball over mid-song), ?mischief (the
   // gull goes for the wrap), ?bottle (one's already washed up), ?revel (the fair folk, at any hour)
   if (params.get('beike') === 'fire') life.beikeToTheFire();
   // ?beike=round (once round the island), or at one of his other spots: ?beike=well|pier|lighthouse
   const off = params.get('beike');
   if (off === 'round' || (off && off in HANGOUTS)) life.beikeOff(off as Hangout | 'round');
+  if (off === 'swim') life.beikeSwim(); // in after them, with ?swim
   // ?cats=in: Charlie and George in the lighthouse (they visit now and then, dry days too)
   // (?cats=go: they hop down off the bench and go in, rather than being in already)
   if (params.get('cats') === 'in') { life.shelter.visitNow(); life.shelter.settle(); }
@@ -415,6 +427,7 @@ export async function bootIsland(host: HTMLElement) {
     sky.gloom = weather.gloom;
     sky.haze = weather.now.fog * (1 - weather.windiness * 0.7);
     sky.update(dt);
+    if (ctx.forecast || preview) wardrobe.watch(weather, sky.alt); // hats on or off
     weather.shade(sky, scene, pixels, water.uniforms);
     mist.update(dt, sky, weather);
     mist.shade(sky, scene);
@@ -479,10 +492,12 @@ export async function bootIsland(host: HTMLElement) {
     life.companion.update(dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, chill: life.chill, playing: life.playing, camera: rig.camera, room: indoorsNow,
       yoga: life.vincent.spot === 'yoga' && life.vincent.company ? life.vincent.pose : null,
+      warm: weather.heat.warm, wind: weather.wind,
     }, reducedMotion);
     life.vincent.update(dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, rough: weather.blizzard, camera: rig.camera,
       view: rig.view, room: indoorsNow, playing: life.playing, chill: life.chill,
+      warm: weather.heat.warm, lying: snowCover.value, raining: weather.now.rain + weather.now.hail,
     }, reducedMotion);
     // the special days' goings-on (days.ts), and the two minutes' silence on the fourth of May
     life.days.update(dt, sky.time, { night: sky.lamps, wet, rain: life.rain, wind: weather.wind }, reducedMotion);

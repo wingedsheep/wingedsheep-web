@@ -395,24 +395,90 @@ def sheep(root, name="sheep"):
     h.build(body, loc=(0.4, 0, 0.12))
 
 
+def _bell(m: Model, rings, folds: int, color, inside, depth=0.3, dip=0.025):
+    """A fluted bell, for a cloak: rings = [(z, r), ...] from the top down. The folds deepen
+    towards the hem, where each fold hangs a little lower, and the underside is a dark hollow."""
+    import bmesh
+    n = folds * 2
+    loops = []
+    for k, (z, r) in enumerate(rings):
+        f = k / (len(rings) - 1)
+        loop = []
+        for i in range(n):
+            a = i / n * math.tau
+            out = i % 2 == 0
+            rr = r * (1 if out else 1 - depth * f * f)
+            loop.append(m.bm.verts.new((rr * math.cos(a), rr * math.sin(a), z - (dip * f * f if out else 0))))
+        loops.append(loop)
+    faces = []
+    for top, low in zip(loops, loops[1:]):
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append(m.bm.faces.new((top[i], low[i], low[j], top[j])))
+    faces.append(m.bm.faces.new(loops[0][::-1]))
+    hollow = m.bm.verts.new((0, 0, rings[-1][0] + (rings[0][0] - rings[-1][0]) * 0.4))
+    under = [m.bm.faces.new((loops[-1][j], loops[-1][i], hollow)) for i, j in ((i, (i + 1) % n) for i in range(n))]
+    bmesh.ops.recalc_face_normals(m.bm, faces=faces + under)
+    for f in faces:
+        f.material_index = m._slot(color, False)
+    for f in under:
+        f.material_index = m._slot(inside, False)
+
+
 def wanderer(root):
-    """A small masked wanderer in a red cloak, carrying a needle. Not from around here."""
+    """A small masked wanderer in a red cloak, carrying a needle. Not from around here.
+
+    The mask is a tall egg, broad at the brow and narrow at the chin, with two big slanted eyes
+    and two long horns sweeping up and out; the cloak gathers into a collar under the chin and
+    flares into folds; thin legs below, and a needle longer than she is, held behind her with
+    its ring pommel up over her shoulder. The runtime walks the legs (`leg_l`, `leg_r`, from the
+    hip), swings the `cloak` (from the collar), tilts the `head` and raises the `needle` (from her
+    hand, its rest pose built into the mesh so a turn about x lifts it to the side)."""
     b = Model("wanderer_body")
-    b.cyl(0.13, 0.32, (0, 0, 0.06), P.CLOAK, segs=6, r_top=0.05)
-    b.cyl(0.14, 0.05, (0, 0, 0.05), P.CLOAK_DARK, segs=6, r_top=0.13)
-    for s in (1, -1):
-        b.box((0.03, 0.03, 0.1), (0, s * 0.05, 0.02), P.INK)                              # thin legs
+    b.cyl(0.05, 0.24, (0, 0, 0.13), P.WANDERER_INK, segs=6, r_top=0.035)               # under the cloak
     body = b.build(root)
-    h = Model("wanderer_head")
-    h.ball(0.1, (0, 0, 0.05), P.MASK, subdiv=2, scale=(0.85, 0.9, 1.05))
+
+    c = Model("wanderer_cloak")  # pivots at the collar, under the chin
+    _bell(c, [(0.02, 0.042), (-0.04, 0.05), (-0.09, 0.09), (-0.17, 0.145), (-0.25, 0.175)], 7,
+          P.CLOAK, P.CLOAK_DARK)
+    c.cyl(0.05, 0.022, (0, 0, -0.035), P.CLOAK_DARK, segs=7)                             # the gather at the collar
+    c.build(body, loc=(0, 0, 0.38))
+
+    for tag, s in (("l", 1), ("r", -1)):
+        g = Model(f"wanderer_leg_{tag}")  # from the hip, inside the cloak
+        _limb(g, (0, 0, 0), (0, 0, -0.15), 0.018, 0.009, P.WANDERER_INK)
+        _limb(g, (-0.008, 0, -0.145), (0.035, 0, -0.152), 0.011, 0.004, P.WANDERER_INK)  # a pointed foot
+        g.build(body, loc=(0, s * 0.04, 0.155))
+
+    h = Model("wanderer_head")  # pivots at the neck
+    mask = h.ball(0.1, (0, 0, 0.115), P.MASK, subdiv=2, scale=(0.82, 0.88, 1.2))
+    for v in {v for f in mask for v in f.verts}:
+        t = max(0.0, (0.115 - v.co.z) / 0.12)                                            # the chin narrows
+        v.co.x *= 1 - 0.38 * t
+        v.co.y *= 1 - 0.45 * t
     for s in (1, -1):
-        h.box((0.03, 0.035, 0.05), (0.08, s * 0.035, 0.04), P.INK)                         # eye holes
-        _limb(h, (-0.01, s * 0.05, 0.12), (-0.03, s * 0.09, 0.26), 0.025, 0.012, P.MASK)  # horns
-    h.build(body, loc=(0, 0, 0.36))
-    n = Model("wanderer_needle")
-    _limb(n, (0, 0, 0), (0.0, 0, 0.42), 0.012, 0.004, P.NEEDLE)
-    n.box((0.02, 0.06, 0.02), (0, 0, 0.02), P.INK)
-    n.build(body, loc=(0.02, -0.15, 0.08)).rotation_euler = (0.3, -0.5, 0)
+        h.ball(0.036, (0.063, s * 0.038, 0.082), P.WANDERER_INK, subdiv=1,
+               scale=(0.45, 0.72, 1.18), rot=(-s * 0.35, 0, s * 0.5))                    # eyes, tops leaning out
+        pts = [(-0.012, s * 0.045, 0.2), (-0.026, s * 0.088, 0.28), (-0.04, s * 0.122, 0.36),
+               (-0.05, s * 0.134, 0.43), (-0.054, s * 0.122, 0.49)]                      # horns, bowing up and out
+        for k, (a, z) in enumerate(zip(pts, pts[1:])):
+            _limb(h, a, z, 0.029 - k * 0.006, 0.023 - k * 0.006, P.MASK)
+    h.build(body, loc=(0, 0, 0.38))
+
+    n = Model("wanderer_needle")  # held behind her right hip: the blade down to the right, the pommel up over her left shoulder
+    tilt, lean = 0.95, 0.12
+    d = Vector((-math.sin(lean), -math.sin(tilt), -math.cos(tilt))).normalized()          # towards the point
+    _limb(n, d * -0.2, d * 0.44, 0.011, 0.003, P.NEEDLE, segs=4)
+    _limb(n, d * -0.01, d * -0.075, 0.014, 0.014, P.WANDERER_INK, segs=4)              # the grip, bound in silk
+    _limb(n, d * 0.0, d * 0.012, 0.024, 0.024, P.NEEDLE, segs=6)                         # the guard
+    ring = d * -0.235
+    side = Vector((0, math.cos(tilt), -math.sin(tilt)))                                   # the ring stands in her back plane
+    for k in range(6):
+        a0, a1 = k / 6 * math.tau, (k + 1) / 6 * math.tau
+        p0 = ring + (d * math.cos(a0) + side * math.sin(a0)) * 0.032
+        p1 = ring + (d * math.cos(a1) + side * math.sin(a1)) * 0.032
+        n.plank_line(tuple(p0), tuple(p1), 0.012, 0.012, P.NEEDLE)
+    n.build(body, loc=(-0.07, -0.06, 0.26))
 
 
 def gandalf(root):

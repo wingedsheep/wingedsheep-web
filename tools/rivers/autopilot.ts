@@ -25,7 +25,8 @@
  *   just autopilot                          12 seeds a river (a few minutes)
  *   just autopilot --seeds 100 --river black --verbose
  *   just autopilot --river coffee --seed 7   one run, told as it goes
- *   just autopilot --storm 1                 out in a storm (0..1): chop, and a wind across the river
+ *   just autopilot --storm 1                 out in a storm (0..1): chop, and its gale across the river
+ *   just autopilot --wind 0.5                a wind across the river (0..1, how hard it pushes; a storm's is 1)
  *
  * The runs are shared out over every core (--cores to say how many). It exits non-zero if any run
  * knocks, capsizes or doesn't get down.
@@ -167,6 +168,7 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
   const kayak = new Kayak({ clone: () => new THREE.Group() } as unknown as RiverAssets);
   kayak.launch(course, start);
   kayak.storm = Number(args.storm ?? 0);
+  kayak.gale = Number(args.wind ?? args.storm ?? 0); // (on the island a storm always brings a gale)
   const auto = autopilot(course, kayak, start, finish);
   const { plan, pilot } = auto;
   const run: Run = {

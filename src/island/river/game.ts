@@ -138,6 +138,8 @@ export interface Outside {
   fair: boolean;
   /** 0..1: how stormy it is, a flash of the island's lightning, and how foggy a day it is. */
   storm?: number;
+  /** 0..1: how hard the wind blows (windStrength): it gusts across the river at you. */
+  wind?: number;
   flash?: number;
   haze?: number;
   /** 0..1: how hard it's freezing (Weather's chill), for the ice on the gorges' walls. */
@@ -517,6 +519,7 @@ export class RiverGame {
     this.wildlife.storm = this.storm = outside.storm ?? 0;
     this.dark = outside.night;
     this.kayak.storm = this.storm;
+    this.wildlife.gale = this.kayak.gale = outside.wind ?? 0;
     const across = k.here?.a ?? 0;
     this.wildlife.blow.set(Math.cos(across), Math.sin(across)).multiplyScalar(k.gust);
     this.lightning(outside.flash ?? 0);

@@ -13,6 +13,7 @@ const DECK = 0.84; // the pier's boards (layout.py SHELTER "deck")
 const THIGH = 0.42; // hip to knee, knee to sole (outings.py)
 const SHIN = 0.42;
 const BESIDE = 0.74; // metres between them, walking side by side
+const RISE = 1.4; // seconds to get up off their knees
 
 /** What they stop to do. */
 export type Act = 'gaze' | 'lookup' | 'crouch' | 'pick' | 'peer';
@@ -190,7 +191,7 @@ export class Walker {
   }
 }
 
-type Phase = 'walk' | 'stop' | 'done';
+type Phase = 'rise' | 'walk' | 'stop' | 'done';
 
 /**
  * A stroll along one of the ROUTES: walking at an easy pace, stopping now and then to look at
@@ -256,6 +257,25 @@ export class Stroll {
     this.update(0);
   }
 
+  /**
+   * Up off their knees where `knees` has them (petting.ts), and away: to the nearest walk, joining
+   * it wherever it comes closest (short of the very end), and on round from there.
+   */
+  getUp(knees: THREE.Object3D) {
+    const from = knees.getWorldPosition(V());
+    const near = (name: RouteName) => Math.min(...ROUTES[name].points.map(([x, y]) => Math.hypot(x - from.x, -y - from.z)));
+    this.begin(ROUTE_NAMES.reduce((a, b) => (near(b) < near(a) ? b : a)));
+    const w = this.way;
+    let join = 0;
+    for (let i = 1; i < w.length - 2; i++) if (from.distanceTo(w[i].at) < from.distanceTo(w[join].at)) join = i;
+    this.way = [{ at: from, fixed: false }, ...w.slice(join)];
+    this.route = { ...this.route, stops: this.route.stops.filter((s) => s.at >= join).map((s) => ({ ...s, at: s.at - join + 1 })) };
+    this.walker.heading = new THREE.Euler().setFromQuaternion(knees.getWorldQuaternion(new THREE.Quaternion()), 'YXZ').y;
+    this.phase = 'rise';
+    this.t = 0;
+    this.place(0);
+  }
+
   /** One frame of it (0 holds them where they are). */
   update(dt: number) {
     const w = this.way;
@@ -285,6 +305,8 @@ export class Stroll {
           break;
         }
       }
+    } else if (this.phase === 'rise') {
+      if ((this.t += dt) > RISE) this.phase = 'walk';
     } else if (this.phase === 'stop') {
       this.t += dt;
       if (this.t > this.length) {
@@ -320,7 +342,8 @@ export class Stroll {
     const h = heightBetween(a, b, at, this.ground);
     if (!Number.isNaN(h)) at.y = h;
     const walking = this.phase === 'walk';
-    let heading = Math.atan2(b.at.x - a.at.x, b.at.z - a.at.z);
+    const rising = this.phase === 'rise' ? 1 - THREE.MathUtils.smoothstep(this.t / RISE, 0, 1) : 0;
+    let heading = rising ? this.walker.heading : Math.atan2(b.at.x - a.at.x, b.at.z - a.at.z);
     const stop = this.stop;
     if (stop) {
       const [lx, ly] = stop.look;
@@ -351,6 +374,7 @@ export class Stroll {
       sip: Math.sin(this.sip * Math.PI),
       turn: walking ? Math.sin(t * 0.5) * 0.25 : Math.sin(t * 0.35) * 0.35 * (act === 'gaze' || act === 'lookup' ? 1 : 0.3),
       look: walking ? 0.05 : 0,
+      crouch: rising,
     });
     if (act === 'gaze') {
       p.behind = this.mugs ? 0 : k;
