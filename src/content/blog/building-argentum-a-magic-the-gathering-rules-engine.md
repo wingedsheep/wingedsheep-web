@@ -265,6 +265,8 @@ Most of the code is card data, about 855,000 lines of it, and most of the test c
 
 **How it gets built now.** I still barely write code myself. About 86% of the commits are co-authored with Claude, moving up a model every month or two, from Opus 4.5 in January to Opus 5.5 now. What changed is how the work is organised. A new set starts with a gap analysis: which cards need things the engine can't do yet. Those features get designed and built first. Then agents implement the cards in parallel, each as its own pull request with a test, and anything that touches the engine gets reviewed. A loop can now run a whole set like this, one reviewed pull request at a time. The instructions moved from `CLAUDE.md` to `AGENTS.md` so other agents can follow them as well.
 
+The agentic loop can now keep going 24/7. It picks up work, implements it, runs the tests, works through review, and moves on to the next card. That changes the rhythm of the project: progress can continue while I'm asleep or doing something else, without me having to start every task by hand. The tests and reviews matter even more when the loop can keep going all night. A mistake in a shared rule can affect hundreds of cards.
+
 <figure class="chart">
 <ol class="flow">
 <li><strong>Gap analysis</strong><small>Which cards in the set need something the engine can't do yet?</small></li>
@@ -272,7 +274,7 @@ Most of the code is card data, about 855,000 lines of it, and most of the test c
 <li><strong>Agents implement the cards in parallel</strong><small>Each card gets a scenario test and its own pull request.</small><span class="prs"><span>PR · card</span><span>PR · card</span><span>PR · card</span><span>PR · card</span><span>…</span></span></li>
 <li><strong>Review</strong><small>Anything that touches the engine or the SDK is reviewed before it merges.</small></li>
 </ol>
-<p class="flow-loop">↻ a loop repeats this, one reviewed pull request at a time, until the set is done</p>
+<p class="flow-loop">↻ the loop can run 24/7, one reviewed pull request at a time, until the set is done</p>
 <figcaption>How a new set gets built now</figcaption>
 </figure>
 
