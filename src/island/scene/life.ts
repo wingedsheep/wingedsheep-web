@@ -82,6 +82,9 @@ export class Life {
   private pass?: { t: number; from: THREE.Vector3; via: THREE.Vector3; to: THREE.Vector3 };
   private nextPass = rand(8, 20);
   private ufo?: THREE.Object3D;
+  /** When (the clock) the UFO's current visit began, or -1; and not before when the next may. */
+  private ufoAt = -1;
+  private nextUfo = rand(20, 60);
   /** On Halloween, bats round the lighthouse lamp (holidays.py): out only after dark, and not in a storm. */
   private bats?: THREE.Object3D;
   private mixer: THREE.AnimationMixer;
@@ -704,22 +707,41 @@ export class Life {
   /** At night, now and then, something unexplained hops across the sky. */
   private visitors(dt: number, night: number) {
     if (!this.ufo) return;
-    const cycle = 50;
-    const t = this.clock % cycle;
-    const active = night > 0.7 && t < 12;
-    this.ufo.visible = active;
-    if (!active) return;
-    const k = t / 12;
-    const hop = Math.floor(k * 4);
-    const local = k * 4 - hop;
-    const ease = local < 0.75 ? 0 : THREE.MathUtils.smootherstep(local, 0.75, 1);
-    // a warble as it sets off on each hop
-    const was = (Math.max(0, t - dt) / 12) * 4;
-    if (local >= 0.75 && (was < hop || was - hop < 0.75)) this.fauna.onCall?.('ufo', this.ufo.position.clone(), true);
+    // it drops in out of the sky, makes four hops across, and shoots back up out of sight
+    const enter = 1.5;
+    const hops = 12;
+    const leave = 2;
+    if (this.ufoAt < 0 && night > 0.7 && this.clock >= this.nextUfo) this.ufoAt = this.clock;
+    const t = this.clock - this.ufoAt;
+    if (this.ufoAt >= 0 && t > enter + hops + leave) {
+      this.ufoAt = -1;
+      this.nextUfo = this.clock + rand(100, 180);
+    }
+    this.ufo.visible = this.ufoAt >= 0;
+    if (!this.ufo.visible) return;
     const pts = [V(-30, 18, 10), V(-10, 20, -14), V(12, 17, 4), V(28, 21, -18), V(50, 24, -10)];
-    this.ufo.position.lerpVectors(pts[hop], pts[hop + 1], ease);
+    // straight up is off screen whichever way the camera's turned
+    const sky = V(0, 140, 0);
+    // a warble as it sets off on each hop, and as it leaves
+    const was = t - dt;
+    const departures = [0, 1, 2, 3].map((h) => enter + ((h + 0.75) / 4) * hops).concat(enter + hops);
+    if (departures.some((s) => was < s && t >= s)) this.fauna.onCall?.('ufo', this.ufo.position.clone(), true);
+    if (t < enter) {
+      const k = 1 - THREE.MathUtils.smootherstep(t, 0, enter);
+      this.ufo.position.copy(pts[0]).addScaledVector(sky, k * k);
+    } else if (t < enter + hops) {
+      const k = (t - enter) / hops;
+      const hop = Math.floor(k * 4);
+      const local = k * 4 - hop;
+      const ease = local < 0.75 ? 0 : THREE.MathUtils.smootherstep(local, 0.75, 1);
+      this.ufo.position.lerpVectors(pts[hop], pts[hop + 1], ease);
+    } else {
+      const k = (t - enter - hops) / leave;
+      this.ufo.position.copy(pts[4]).addScaledVector(sky, k * k * k);
+      this.ufo.position.x += k * k * 25;
+    }
     this.ufo.position.y += Math.sin(this.clock * 2) * 0.2;
-    this.ufo.rotation.y += dt * 2;
+    this.ufo.rotation.y += dt * (t > enter + hops ? 8 : 2);
   }
 
   /** At a meal: what's on the go between them, by the fire, or on the hut's table. */
