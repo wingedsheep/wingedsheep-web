@@ -422,7 +422,7 @@ export async function bootIsland(host: HTMLElement) {
     if (ui.reading && frame++ % 3) return;
     const dt = Math.min(clock.getDelta(), 0.1);
     wind.value += dt * (1 + Math.min(weather.wind, 15) / 20); // the grass sways faster on a windy day
-    water.uniforms.uTime.value += dt;
+    water.tick(dt);
     rig.update(dt);
     weather.update(dt, rig.camera, rig.target, rig.view, sky.lamps);
     sky.gloom = weather.gloom;

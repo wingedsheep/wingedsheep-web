@@ -47,6 +47,14 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       uWind: { value: 0 }, // 0 calm … 1 gale: whitecaps and a restless shore
       uSea: { value: 0 }, // 0 a millpond … 1 a storm: how high the waves are
       uWindDir: { value: new THREE.Vector2(1, 0) }, // which way the waves roll (blender x, y; unit)
+      // clocks that run faster or slower with the wind (see tick): a rate times uTime would
+      // jump wildly whenever the wind changed, the longer the page had been open the worse
+      uSwellT: { value: 0 },
+      uRollT: { value: 0 },
+      uSurgeT: { value: 0 },
+      uWobT: { value: 0 },
+      uBreatheT: { value: 0 },
+      uDrift: { value: new THREE.Vector2() }, // how far the wind has carried things (blender x, y)
       uAurora: { value: 0 }, // 0..1: the northern lights, reflected
       uMeteor: { value: new THREE.Vector4() }, // a shooting star's reflection: head (x, y) and tail (dx, dy)
       uMeteorA: { value: 0 }, // …and how bright it is
@@ -60,11 +68,14 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
     uniforms,
     fog: true,
     vertexShader: /* glsl */ `
-      uniform float uTime;
       uniform sampler2D tShore;
       uniform vec4 uExtent;
       uniform float uSea;
       uniform vec2 uWindDir;
+      uniform float uSwellT;
+      uniform float uRollT;
+      uniform float uSurgeT;
+      uniform vec2 uDrift;
       uniform float uIce;
       uniform float uCold;
       varying vec3 vWorld;
@@ -87,11 +98,10 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         vec2 dir = uWindDir;
         vec2 dirL = vec2(dir.x * 0.88 - dir.y * 0.47, dir.x * 0.47 + dir.y * 0.88);
         vec2 dirR = vec2(dir.x * 0.9 + dir.y * 0.43, -dir.x * 0.43 + dir.y * 0.9);
-        float amp = (0.04 + uSea * uSea * 1.5) * (0.55 + 0.9 * noise(p * 0.025 - dir * uTime * 0.12));
-        float speed = 1.2 + uSea * 2.2;
-        float a1 = dot(p, dir) * 0.42 - uTime * speed * 0.42 + noise(p * 0.04) * 3.0;
-        float a2 = dot(p, dirL) * 0.8 - uTime * speed * 0.62;
-        float a3 = dot(p, dirR) * 1.3 - uTime * speed * 0.85;
+        float amp = (0.04 + uSea * uSea * 1.5) * (0.55 + 0.9 * noise(p * 0.025 - uDrift * 0.12));
+        float a1 = dot(p, dir) * 0.42 - uSwellT * 0.42 + noise(p * 0.04) * 3.0;
+        float a2 = dot(p, dirL) * 0.8 - uSwellT * 0.62;
+        float a3 = dot(p, dirR) * 1.3 - uSwellT * 0.85;
         float crest = sin(a1 + 0.9 * cos(a1) * uSea); // sharp crests, long flat troughs
         float h = sin(a1) * 0.7 + sin(a2) * 0.22 + sin(a3) * 0.08 + crest * crest * crest * 0.25 * uSea;
         float face = cos(a1) * 0.7 + cos(a2) * 0.35;
@@ -99,7 +109,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         // nearer in, the waves turn to come straight at the beach, and the shallows make them
         // stand up taller and steeper until they break
         float open = smoothstep(0.2, 0.55, d);
-        float rp = d * 24.0 + uTime * (1.3 + uSea * 0.9) + noise(p * 0.07) * 3.0;
+        float rp = d * 24.0 + uRollT + noise(p * 0.07) * 3.0;
         float roller = pow(0.5 + 0.5 * sin(rp), 3.0);
         float shoal = (1.0 - open) * smoothstep(0.0, 0.04, d) * (1.4 - d * 1.5);
         vRoll = roller * shoal * step(0.2, uSea);
@@ -108,7 +118,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
 
         // and then the sea surges up the sand, and drains back: a quick rise and a slow retreat,
         // each stretch of beach in its own time. The terrain hides it wherever it stands higher.
-        float s = fract(uTime * (0.1 + uSea * 0.06) + noise(p * 0.05) * 0.8);
+        float s = fract(uSurgeT + noise(p * 0.05) * 0.8);
         float surge = smoothstep(0.0, 0.18, s) * (1.0 - smoothstep(0.18, 1.0, s));
         float run = uSea * uSea * surge * (1.0 - smoothstep(0.0, 0.1, d));
         // under the ice the sea lies still
@@ -138,6 +148,9 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
       uniform float uWind;
       uniform float uSea;
       uniform vec2 uWindDir;
+      uniform float uWobT;
+      uniform float uBreatheT;
+      uniform vec2 uDrift;
       uniform float uAurora;
       uniform vec4 uMeteor;
       uniform float uMeteorA;
@@ -164,7 +177,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         vec3 shallow = chilled(vec3(0.22, 0.78, 0.66), cold);
         vec3 mid = chilled(vec3(0.05, 0.40, 0.52), cold);
         vec3 deep = chilled(vec3(0.03, 0.17, 0.33), cold);
-        float wob = (noise(p * 0.35 + uTime * (0.05 + uWind * 0.2)) - 0.5) * (0.08 + uWind * 0.1);
+        float wob = (noise(p * 0.35 + uWobT) - 0.5) * (0.08 + uWind * 0.1);
         float t = clamp(d + wob, 0.0, 1.0);
         vec3 col = mix(shallow, mid, smoothstep(0.0, 0.25, t));
         col = mix(col, deep, smoothstep(0.2, 0.8, t));
@@ -204,7 +217,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         col *= 1.0 + lit * (0.06 + uSea * 0.14) * smoothstep(0.02, 0.2, d);
         col = mix(col, vec3(0.13, 0.22, 0.27) * (1.0 + lit * 0.25), rough * 0.45);
         // whitecaps: foam spilling off the tops of the crests, more of it the harder it blows
-        float breaking = step(0.9 - uSea * 0.2, vWave) * step(0.76 - uSea * 0.22, noise(p * 1.6 + dir * uTime * 0.6));
+        float breaking = step(0.9 - uSea * 0.2, vWave) * step(0.76 - uSea * 0.22, noise(p * 1.6 + uDrift * 0.6));
         col = mix(col, vec3(0.9, 0.96, 0.95), breaking * smoothstep(0.08, 0.3, d) * min(1.0, max(uWind, uSea) * 1.6));
         // in a gale, long streaks of foam blown out along the wind
         float streak = step(0.8 - uSea * 0.12, noise(vec2(across * 1.6, along * 0.06 - uTime * 0.4)));
@@ -212,7 +225,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         col = mix(col, vec3(0.82, 0.9, 0.9), streak * smoothstep(0.55, 0.9, uSea) * smoothstep(0.1, 0.3, d) * 0.6);
 
         // foam: a line hugging the coast and a second one breathing in and out (surging in a gale)
-        float breathe = sin(uTime * (0.9 + uWind * 0.9)) * (0.012 + uWind * 0.02);
+        float breathe = sin(uBreatheT) * (0.012 + uWind * 0.02);
         float foam = step(d, 0.012 + uSea * 0.03 + breathe * 0.5);
         foam = max(foam, step(abs(d - (0.045 + breathe)), 0.006) * step(0.45, noise(p * 1.2 + uTime * 0.2)));
         // rough seas: rollers marching in to the beach one after another and breaking into
@@ -240,11 +253,11 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
           float edge = uIce * (0.055 + 0.045 * noise(p * 0.18));
           float shelf = step(d, edge);
           float reach = 0.07 * uIce;
-          float grease = (1.0 - smoothstep(edge, edge + reach, d)) * step(0.42, noise(p * 0.22 + 5.0 + uWindDir * uTime * 0.02));
+          float grease = (1.0 - smoothstep(edge, edge + reach, d)) * step(0.42, noise(p * 0.22 + 5.0 + uDrift * 0.02));
           col = mix(col, vec3(0.5, 0.6, 0.66) * (0.9 + 0.1 * step(0.5, noise(p * 0.8))), grease * 0.55 * inside);
-          vec2 pp = p - uWindDir * uTime * 0.04;
+          vec2 pp = p - uDrift * 0.04;
           vec2 cell = floor(pp / 1.6);
-          vec2 at = (cell + 0.5 + (vec2(hash(cell + 2.1), hash(cell + 5.3)) - 0.5) * 0.4) * 1.6 + uWindDir * uTime * 0.04;
+          vec2 at = (cell + 0.5 + (vec2(hash(cell + 2.1), hash(cell + 5.3)) - 0.5) * 0.4) * 1.6 + uDrift * 0.04;
           vec2 auv = (at - uExtent.xy) / uExtent.zw;
           float dc = texture2D(tShore, clamp(auv, 0.0, 1.0)).r; // (how far out the pan's middle is)
           float r = 0.35 + 0.35 * hash(cell + 8.8);
@@ -341,5 +354,18 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
   mesh.position.y = 0;
   mesh.receiveShadow = false;
   mesh.raycast = () => {};
-  return { mesh, uniforms: mat.uniforms };
+  const u = mat.uniforms;
+  /** Moves the sea on by `dt` seconds, at the pace the wind sets. */
+  const tick = (dt: number) => {
+    const sea = u.uSea.value as number;
+    const wind = u.uWind.value as number;
+    u.uTime.value += dt;
+    u.uSwellT.value += dt * (1.2 + sea * 2.2);
+    u.uRollT.value += dt * (1.3 + sea * 0.9);
+    u.uSurgeT.value += dt * (0.1 + sea * 0.06);
+    u.uWobT.value += dt * (0.05 + wind * 0.2);
+    u.uBreatheT.value += dt * (0.9 + wind * 0.9);
+    (u.uDrift.value as THREE.Vector2).addScaledVector(u.uWindDir.value as THREE.Vector2, dt);
+  };
+  return { mesh, uniforms: u, tick };
 }
