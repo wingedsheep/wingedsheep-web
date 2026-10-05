@@ -627,12 +627,13 @@ export class Course {
     const R = 0.36 + 0.1; // (the hull, and a little to spare)
     for (const side of [-1, 1]) {
       for (;;) {
-        // from the bank in, while each rock leaves the boat no way between it and the last
+        // from the bank in, while each rock leaves the boat no fair way between it and the last
+        // (a slot you'd have to hit dead straight is no way out for someone coming in off the bank)
         let inner = edge;
         const wall: { o: Rock; m: number }[] = [];
         for (const l of [...laid].sort((a, b) => (b.m - a.m) * side)) {
           const ext = reach(l.o, rx, rz) * HIT + R;
-          if (side * l.m + ext < inner) break;
+          if (side * l.m + ext + 0.5 < inner) break;
           wall.push(l);
           inner = Math.min(inner, side * l.m - ext);
         }
@@ -1027,9 +1028,11 @@ export class Course {
         const original = { x: o.x, z: o.z };
         const extent = reach(o, rx, rz);
         const insideGap = Math.abs(m - inner) - extent;
-        if (s < split.s0 + (split.s1 - split.s0) * ISLAND_HEAD) {
+        if (s < split.s0 + (split.s1 - split.s0) * ISLAND_HEAD + p.speed + 2.5) {
           // At the widening head the turn itself is the obstacle. Keep the rocks on the
           // outside bank until the channels settle, so the turn and a rock do not overlap.
+          // (And for a second past it: the head shoves you along its shore faster than you can
+          // paddle off it, so nothing tucked against the island just below it.)
           Object.assign(o, across(outer - side * extent * 0.5));
         } else if (insideGap > 0 && insideGap < 2.2) {
           const atShore = inner + side * extent * 0.5;
