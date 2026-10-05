@@ -4,6 +4,8 @@
  * the same paddler runs in the tests (autopilot.ts) and in the game in a browser (record.ts).
  */
 
+import type { Camera } from 'three';
+import { observedCourse, PilotCamera, visibleEnd } from './visibility';
 import type { Intent } from '../../src/island/river/controls';
 import { NEUTRAL } from '../../src/island/river/controls';
 import type { Course, Hole, Ledge, Log } from '../../src/island/river/course';
@@ -21,6 +23,10 @@ const TIP = 0.95;
 export const S = {
   /** How fast (m/s) the planned line may slide across the river: well inside what a boat can ferry. */
   ferry: 1.2,
+  /** Diagnostic comparison only: the old, all-knowing planner. */
+  omniscient: 0,
+  /** Headless viewport aspect ratio. Browser recordings use the actual camera. */
+  aspect: 16 / 9,
   /** Room to spare (m) past the hull when planning. */
   margin: 0.25,
   /** How hard it paddles, 0..1 (sprinting through holes whatever this is). */
@@ -59,22 +65,35 @@ export function configure(o: Partial<typeof S>) {
 }
 
 /**
- * The whole paddler, for one boat on one river: the line planned from the push-off (null if there's
- * no way down at all), and each frame what to do.
+ * The whole paddler: repeatedly plan from the boat through its current observations, then steer.
+ * The whole-river mode is kept only as a diagnostic comparison.
  */
-export function autopilot(course: Course, kayak: Kayak, start: number, finish: number) {
-  const plan = planLine(course, start, finish);
-  const pilot = new Pilot(course, kayak, plan.chart?.line ?? new Float32Array(2), start);
-  const sight = new Foresight(course, kayak, pilot, start);
+export function autopilot(course: Course, kayak: Kayak, start: number, finish: number, camera?: () => Camera) {
+  const headless = new PilotCamera(S.aspect);
+  const view = () => camera ? camera() : headless.camera;
+  headless.update(course, kayak, DT);
+  let end = S.omniscient ? finish + 20 : visibleEnd(course, kayak, view());
+  let seen = S.omniscient ? course : observedCourse(course, end);
+  const plan = planLine(seen, start, S.omniscient ? finish : end, kayak.side, !S.omniscient);
+  const pilot = new Pilot(seen, kayak, plan.chart?.line ?? new Float32Array(2), start);
+  let sight = new Foresight(seen, kayak, pilot, start, S.omniscient ? Infinity : end);
   let frame = 0;
   return {
     plan,
     pilot,
-    /** What to do this frame. */
     intent(dt = DT): Intent {
-      // off the line (knocked, shoved, or swerving round something): a new line from here
-      if (S.reroute && plan.chart && frame++ % S.every === 0 && Math.abs(kayak.side - pilot.uAt(kayak.s)) > S.reroute) {
-        plan.chart.reroute(kayak.s, kayak.side, 80);
+      if (!camera) headless.update(course, kayak, dt);
+      if (frame++ % S.every === 0) {
+        if (!S.omniscient) {
+          end = visibleEnd(course, kayak, view());
+          seen = observedCourse(course, end);
+          const next = planLine(seen, kayak.s, end, kayak.side, true);
+          Object.assign(plan, next, { chart: next.chart });
+          pilot.observe(seen, next.chart?.line ?? new Float32Array([kayak.side, kayak.side]), kayak.s);
+          sight = new Foresight(seen, kayak, pilot, start, end);
+        } else if (S.reroute && plan.chart && Math.abs(kayak.side - pilot.uAt(kayak.s)) > S.reroute) {
+          plan.chart.reroute(kayak.s, kayak.side, 80);
+        }
       }
       if (S.foresight) sight.look();
       return pilot.intent(dt);
@@ -95,14 +114,16 @@ export interface Plan {
  * The line: first which bits of each slice a boat can be in and still get to the take-out
  * (forward from the push-off, then back from the take-out), then through those, the way that
  * keeps furthest from anything, and slides across as little as it can. Out of the holes if it can
- * be; through one if it can't.
+ * be; through one if it can't. strictHull is for geometry audits: do not accept the
+ * centre-only fallback when checking whether a whole kayak has a route.
  */
-export function planLine(course: Course, start: number, finish: number): Plan {
+export function planLine(course: Course, start: number, finish: number, side = 0, bounded = false, strictHull = false): Plan {
+  if (bounded && finish - start < DS) return { kind: 'none', stuckAt: start };
   let stuckAt = start;
   for (const holes of [true, false]) {
     for (const ferry of [S.ferry, 2]) {
       for (const margin of [S.margin, 0.1]) {
-        const chart = new Chart(course, start, finish, holes, ferry, margin);
+        const chart = new Chart(course, start, finish, holes, ferry, margin, side, bounded, strictHull);
         if (chart.ok) return { kind: holes ? 'clean' : 'holes', chart, stuckAt };
         stuckAt = Math.max(stuckAt, chart.stuckAt);
       }
@@ -138,8 +159,10 @@ export class Chart {
   ok = false;
   stuckAt: number;
 
-  constructor(course: Course, readonly start: number, finish: number, holes: boolean, ferry: number, margin: number) {
-    const n = (this.n = Math.ceil((finish + 20 - start) / DS) + 1); // (a bit past the take-out, to paddle on through)
+  constructor(course: Course, readonly start: number, finish: number, holes: boolean, ferry: number, margin: number, side = 0, bounded = false, strictHull = false) {
+    // Only the diagnostic whole-river chart extends past its target.
+    const slices = (finish + (bounded ? 0 : 20) - start) / DS;
+    const n = (this.n = Math.max(2, (bounded ? Math.floor(slices) : Math.ceil(slices)) + 1));
     this.stuckAt = start;
     this.line = new Float32Array(n);
     for (let i = 0; i < n; i++) this.free.push(clear(course, start + i * DS, holes, margin));
@@ -159,10 +182,10 @@ export class Chart {
     }
     this.room = this.free.map(distance);
     // (where it gets stuck, if it does: forward from the push-off, until there's nowhere to be)
-    const reach = this.reach(0, cell(0), n - 1);
+    const reach = this.reach(0, cell(side), n - 1);
     if (!reach) return;
     let path = this.cheapest(0, n - 1, reach, (j) => this.penalty(n - 1, j));
-    if (!path) (this.hull = false), (path = this.cheapest(0, n - 1, reach, (j) => this.penalty(n - 1, j)));
+    if (!path && !strictHull) (this.hull = false), (path = this.cheapest(0, n - 1, reach, (j) => this.penalty(n - 1, j)));
     if (!path) return;
     for (let i = 0; i < n; i++) this.line[i] = uOf(path[i]);
     this.ok = true;
@@ -338,6 +361,12 @@ export class Pilot {
 
   constructor(private course: Course, private k: Kayak, private line: Float32Array, private start: number) {}
 
+  observe(course: Course, line: Float32Array, start: number) {
+    this.course = course;
+    this.line = line;
+    this.start = start;
+  }
+
   /** The same paddler, in another boat (for trying a move out). */
   copy(k: Kayak) {
     const p = new Pilot(this.course, k, this.line, this.start);
@@ -511,7 +540,7 @@ function moves(): Move[] {
 export class Foresight {
   private frame = 0;
 
-  constructor(private course: Course, private k: Kayak, private pilot: Pilot, private start: number) {}
+  constructor(private course: Course, private k: Kayak, private pilot: Pilot, private start: number, private end = Infinity) {}
 
   look() {
     if (this.frame++ % S.every || this.k.balance !== 'up') return;
@@ -563,6 +592,8 @@ export class Foresight {
       capsize: () => (over += soon),
       swim: () => (over += soon),
       ledge: (how) => { if (how === 'flat' || how === 'skew' || how === 'pencil') bad += soon; },
+      // Getting held in the foam is a failed run too, even with a clean landing.
+      tumbler: () => { bad += soon; },
     };
     // trouble soon counts in full; further off, less (there'll be other looks before it comes)
     let soon = 1;
@@ -575,7 +606,11 @@ export class Foresight {
     const from = k.s;
     // (held all the way: trying a move for a moment and then going back to the line did worse, as
     // the line's no longer from where the boat is)
+    let elapsed = 0;
     for (let f = 0; f < frames; f++) {
+      // Leave room for the hull and the next physics step; never simulate unseen water.
+      if (k.s + 3 + Math.max(0, k.speed) * DT >= this.end) break;
+      elapsed += DT;
       soon = Math.max(S.far, 1 - Math.max(0, f * DT - 1) / Math.max(0.01, S.horizon - 1) * (1 - S.far));
       k.update(DT, p.intent(DT), this.course, true);
       if (f % 3 === 0) {
@@ -590,7 +625,7 @@ export class Foresight {
     const cost = hit * 40 + over * 200 + bad * 30 + tight * 40
       + Math.abs(move.bias) * 0.4 + Math.abs(move.power - S.power) * 0.5 + (move.back ? 0.8 : 0)
       // (and hanging back only puts off what's coming: every metre short of drifting down costs)
-      + Math.max(0, this.k.here.speed * S.horizon * 0.8 - (k.s - from)) * S.progress
+      + Math.max(0, this.k.here.speed * (Number.isFinite(this.end) ? elapsed : S.horizon) * 0.8 - (k.s - from)) * S.progress
       // (and wandering off: where it ends up against the line)
       + Math.abs(k.side - p.uAt(k.s)) * S.wander;
     return { cost, safe: !hit && !over && !bad && near > 0.35 };

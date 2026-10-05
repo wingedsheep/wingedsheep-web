@@ -4,6 +4,7 @@
  * on the paddler, not the keys, has the paddle.
  */
 
+import type { Camera } from 'three';
 import type { Intent } from '../../src/island/river/controls';
 import type { Course } from '../../src/island/river/course';
 import type { Kayak } from '../../src/island/river/kayak';
@@ -12,6 +13,7 @@ import { DT, autopilot } from './pilot';
 /** What of the game it needs (private in game.ts, but there all the same). */
 interface Game {
   course: Course;
+  camera: Camera;
   kayak: Kayak;
   start: number;
   state: string;
@@ -20,9 +22,7 @@ interface Game {
 
 (window as unknown as { autopilot: (game: unknown) => { planned: boolean } }).autopilot = (game) => {
   const g = game as Game;
-  // the whole river, not just the next few hundred metres, so there's a line all the way down
-  g.course.extend(g.course.finish + 60);
-  const auto = autopilot(g.course, g.kayak, g.start, g.course.finish);
+  const auto = autopilot(g.course, g.kayak, g.start, g.course.finish, () => g.camera);
   // (counting the knocks, for record.ts to tell)
   const w = window as unknown as { knocks: number };
   w.knocks = 0;

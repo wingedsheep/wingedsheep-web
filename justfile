@@ -68,6 +68,21 @@ autopilot *args:
     @npx esbuild tools/rivers/autopilot.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/autopilot.mjs"
     @node "${TMPDIR:-/tmp}/autopilot.mjs" {{args}}
 
+# a clean landing into the washing machine must not count as a safe approach
+validate-river-foresight:
+    @npx esbuild tools/rivers/foresight.test.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/river-foresight.mjs"
+    @node "${TMPDIR:-/tmp}/river-foresight.mjs"
+
+# hard passages must fit actual rock shapes and connected routes must clear bow and stern
+validate-river-passages:
+    @npx esbuild tools/rivers/passages.test.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/river-passages.mjs"
+    @node "${TMPDIR:-/tmp}/river-passages.mjs"
+
+# hidden river changes must not influence the camera-limited planner or its trial boats
+validate-river-visibility:
+    @npx esbuild tools/rivers/visibility.test.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/river-visibility.mjs"
+    @node "${TMPDIR:-/tmp}/river-visibility.mjs"
+
 # film the autopilot going down the rivers in the game (e.g. just record --river black --seed 3), into recordings/
 record *args:
     @npx esbuild tools/rivers/record.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/record-rivers.mjs"

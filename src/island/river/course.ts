@@ -16,7 +16,7 @@
  * turning more than ~55° off it, so it never doubles back on itself.
  */
 
-import { type Outline, footprint, lying } from './outline';
+import { type Outline, HIT, footprint, gap as rockGap, lying, reach } from './outline';
 import { DEFAULT_PROFILE, type Profile } from './rivers';
 
 export type Kind = 'pool' | 'run' | 'chute' | 'rapids' | 'cascade' | 'gorge' | 'falls';
@@ -90,10 +90,13 @@ export function channel(p: Sample, side: number) {
   return hero ? { speed: 1 + 0.2 * k, rough: 1 + 0.5 * k } : { speed: 1 - 0.22 * k, rough: 1 - 0.6 * k };
 }
 
+/** Fraction of an island's length occupied by its widening entrance. */
+const ISLAND_HEAD = 0.22;
+
 /** The island's shape along its length (0..1): a blunt head, a long tapering tail. */
 function lens(t: number) {
   if (t <= 0 || t >= 1) return 0;
-  const head = Math.sqrt(Math.min(1, t / 0.22));
+  const head = Math.sqrt(Math.min(1, t / ISLAND_HEAD));
   const tail = 1 - Math.pow(Math.max(0, (t - 0.45) / 0.55), 1.6);
   return head * tail;
 }
@@ -568,6 +571,28 @@ export class Course {
     if (!o.post) o.outline = footprint(kind, o.r, o.spin).outline;
   }
 
+  /** Keep the promised passage clear of the actual waterline, including long, turned shards.
+   * Move the rock, without shrinking it or drawing new dice. Alternate passages count too.
+   */
+  private passageRock(o: Rock, p: Sample, lanes: { u: number; half: number }[]) {
+    if (this.profile.grade < 4) return this.addObstacle(o);
+    this.lay(o);
+    const rx = Math.cos(p.a), rz = Math.sin(p.a);
+    const extent = reach(o, rx, rz) * HIT;
+    const from = (o.x - p.x) * rx + (o.z - p.z) * rz;
+    const side = Math.sign(from - lanes[0].u) || 1;
+    let u = from;
+    // Each pass can only move outwards past another lane; overlapping lanes cannot trap it.
+    for (let pass = 0; pass < lanes.length; pass++) {
+      for (const lane of lanes) {
+        if (Math.abs(u - lane.u) < lane.half + extent) u = lane.u + side * (lane.half + extent);
+      }
+    }
+    o.x += rx * (u - from);
+    o.z += rz * (u - from);
+    this.addObstacle(o);
+  }
+
   /** Take one back out (the land's, when its stretch of river is dropped). */
   removeObstacle(o: Obstacle) {
     const i = this.obstacles.indexOf(o);
@@ -901,6 +926,29 @@ export class Course {
       const outer = side * half;
       const w = Math.abs(outer - inner);
       const at = (f: number) => inner + (outer - inner) * f; // 0 by the island … 1 by the bank
+      // A narrow slot by the island can admit the bow but leave too little room to turn.
+      // Join nearby rocks to the shore so that tight inside line does not look like the way through.
+      // Keep the same rocks, sizes and dice: only their placement changes.
+      let moved: { rock: Rock; x: number; z: number } | undefined;
+      const rock = (m: number, radius: number, along: number, variant: number) => {
+        const o: Rock = { kind: 'rock', ...across(m), r: radius, s: along, variant };
+        // Keep the grade-2 teaching layouts intact; adjust the tighter, harder rivers.
+        if (this.profile.grade < 3) return this.addObstacle(o);
+        this.lay(o);
+        const original = { x: o.x, z: o.z };
+        const extent = reach(o, rx, rz);
+        const insideGap = Math.abs(m - inner) - extent;
+        if (s < split.s0 + (split.s1 - split.s0) * ISLAND_HEAD) {
+          // At the widening head the turn itself is the obstacle. Keep the rocks on the
+          // outside bank until the channels settle, so the turn and a rock do not overlap.
+          Object.assign(o, across(outer - side * extent * 0.5));
+        } else if (insideGap > 0 && insideGap < 2.2) {
+          const atShore = inner + side * extent * 0.5;
+          Object.assign(o, across(atShore));
+        }
+        if (o.x !== original.x || o.z !== original.z) moved = { rock: o, ...original };
+        this.addObstacle(o);
+      };
       if (side === split.hero) {
         const line = 0.25 + r() * 0.5;
         if (r() < 0.55 + h * 0.4) {
@@ -908,14 +956,21 @@ export class Course {
           const f = line + (r() < 0.5 ? -1 : 1) * (1.5 + r() * 0.4) / w;
           if (f > 0.05 && f < 0.95) {
             const m = at(f);
-            this.addObstacle({ kind: 'rock', ...across(m), r: 0.55 + r() * 0.45, s: s + (r() - 0.5) * 2, variant: Math.floor(r() * 5) });
+            rock(m, 0.55 + r() * 0.45, s + (r() - 0.5) * 2, Math.floor(r() * 5));
           }
         }
-        if (r() < 0.6) this.file({ kind: 'ball', ...across(at(line)), s, taken: false } satisfies Pickup);
+        if (r() < 0.6) {
+          const pos = across(at(line));
+          // The balls still mark a usable line: don't move a rock into a collectible.
+          if (moved && rockGap(moved.rock, pos.x, pos.z, 1).d < 0.65) {
+            Object.assign(moved.rock, { x: moved.x, z: moved.z });
+          }
+          this.file({ kind: 'ball', ...pos, s, taken: false } satisfies Pickup);
+        }
       } else {
         if (r() < 0.12) {
           const m = at(r() < 0.5 ? 0.15 : 0.85);
-          this.addObstacle({ kind: 'rock', ...across(m), r: 0.5 + r() * 0.3, s, variant: Math.floor(r() * 5) });
+          rock(m, 0.5 + r() * 0.3, s, Math.floor(r() * 5));
         } else if (split.kind === 'isle' && r() < 0.08 * this.profile.snags && w > 5) {
           const base = across(outer + side * 1.2);
           const tip = across(at(0.55));
@@ -1075,7 +1130,8 @@ export class Course {
         if (u < gap) left = true;
         else right = true;
         const at = across(u);
-        this.addObstacle({ kind: 'rock', x: at.x, z: at.z, r: rad, s: s + (r() - 0.5) * 2, variant: Math.floor(r() * 5) });
+        this.passageRock({ kind: 'rock', x: at.x, z: at.z, r: rad, s: s + (r() - 0.5) * 2, variant: Math.floor(r() * 5) }, p,
+          [{ u: gap * half, half: gapHalf * half }, ...alts.map((u) => ({ u: u * half, half: altHalf * half }))]);
         row.push({ u, rad });
       }
       // past a big rock on the far side from the gap, if there's room for a boat there (up to the
@@ -1319,9 +1375,11 @@ export class Course {
     while (this.length < s0 + len + 20) this.grow();
     // nothing near a lip, and nothing past the end of the stretch
     const ok = (s: number) => s < stretch.end - 8 && !this.ledges.some((l) => s > l.s - 8 && s < l.s + 10);
-    const rock = (p: Sample, u: number, rad: number, post = false) => {
+    const rock = (p: Sample, u: number, rad: number, post = false, edge?: { u: number; side: number }) => {
       const at = this.across(p)(u);
-      this.addObstacle({ kind: 'rock', ...at, r: rad, s: p.s + (post ? 0 : (r() - 0.5) * 1.2), variant: Math.floor(r() * (post ? 3 : 5)), post });
+      const o: Rock = { kind: 'rock', ...at, r: rad, s: p.s + (post ? 0 : (r() - 0.5) * 1.2), variant: Math.floor(r() * (post ? 3 : 5)), post };
+      if (edge) this.passageRock(o, p, [{ u: edge.u - edge.side, half: 1 }]);
+      else this.addObstacle(o);
     };
     // boulders from the edge of a gap (at u, the wall running `dir`-wards) to the bank, with a slot
     // between each that a boat can only slip through dead straight (and never be pinned across)
@@ -1330,7 +1388,7 @@ export class Course {
       let rad = first;
       let u = edge + dir * rad * 0.9;
       while (u * dir < bank + 0.5) {
-        rock(p, u, rad);
+        rock(p, u, rad, false, { u: edge, side: dir });
         const next = 0.75 + r() * 0.3;
         u += dir * (rad * 0.9 + next * 0.9 + 1.0 + r() * 0.25);
         rad = next;

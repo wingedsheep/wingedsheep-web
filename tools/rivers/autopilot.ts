@@ -5,18 +5,11 @@
  * clear line at all, this asks whether a boat can actually be paddled down it: with its momentum,
  * the current shoving it about, the waves trying to tip it, the ledges to boof and the falls to tuck.
  *
- * It plans first: the same slices as the validator, the water a boat can be in and get to the
- * take-out from, and through it the line that keeps furthest from everything without swinging about
- * more than it has to, with room for the bow and the stern where it has to point across the current
- * to get over. Then it paddles that line: steering for a speed across the river that closes on it
- * (allowing for whatever the water's doing sideways), sweeping to turn (a reverse sweep when it's
- * badly off), leaning against the roll, bracing past the tipping point, sprinting through holes,
- * letting its strokes go so one catches at a ledge's lip, and tucking straight into a waterfall.
- *
- * And it reads the water ahead. Several times a second it tries what it's doing on a copy of the
- * boat, four seconds on; if that runs into anything it tries the other moves it has (steer either
- * side of the line, point across the current, ease off, drive on, back off) and takes the cleanest.
- * Knocked or pushed off its line, it plans a new one from where it is.
+ * By default it replans only through the water inside the follow camera. Both the route planner
+ * and trial boats receive truncated observations, frozen at the real boat's position. The headless
+ * camera follows game.ts's normal view at --aspect (default 16:9); browser recordings use the
+ * actual camera. This tests screen geometry, not recognition through spray, darkness or scenery.
+ * --omniscient 1 restores the old whole-river planner for paired comparisons.
  *
  * A clean run is to the take-out with no knock (a hit hard enough that the game breaks your flow),
  * no capsize and no bad landing. The seeds are 1, 2, 3…, so a river that goes wrong is one you can
@@ -115,7 +108,7 @@ async function main() {
     console.error(`no river called ${args.river}: ${RIVERS.map((r) => r.id).join(', ')}`);
     process.exit(2);
   }
-  console.log(`${SEEDS} seeds a river, paddling at ${S.power}, a line that ferries at ${S.ferry} m/s with ${S.margin} m to spare\n`);
+  console.log(`${S.omniscient ? 'Whole-river' : `Camera-limited (${S.aspect.toFixed(3)} aspect)`} planning; ${SEEDS} seeds a river, paddling at ${S.power}, a line that ferries at ${S.ferry} m/s with ${S.margin} m to spare\n`);
   console.log(pad('river', 12) + pad('clean', 8) + pad('knocked', 9) + pad('capsized', 10) + pad('swam', 6) + pad('landed', 8) + pad('washed', 8) + pad('short', 7) + pad('off', 7) + pad('knocks', 8) + pad('bumps', 7) + 'time');
   // every run on its own, handed out to the cores as they come free (the long rivers first)
   const jobs: [string, number][] = [...only].reverse().flatMap((r) => Array.from({ length: SEEDS }, (_, i) => [r.id, i + 1] as [string, number]));
@@ -212,7 +205,7 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
     },
     hole: (stuck) => { if (stuck) note('stuck in a hole'); },
   };
-  if (plan.kind === 'none') {
+  if (S.omniscient && plan.kind === 'none') {
     run.stopped = `no line through, ${(plan.stuckAt - start).toFixed(0)} m down`;
     return run;
   }
@@ -280,6 +273,7 @@ function trouble(runs: Run[], river: RiverDef) {
     }
     r.bits.forEach((b, i) => {
       const t = tally.get(b.kind) ?? { seen: 0, hit: 0, events: 0 };
+      if (b.s0 > r.metres) return;
       t.seen++;
       const n = hurt.get(i) ?? 0;
       if (n) {
