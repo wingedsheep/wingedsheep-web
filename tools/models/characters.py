@@ -39,10 +39,11 @@ def guitar(root, loc, tilt):
     return obj
 
 
-def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, sport=False):
+def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, sport=False, shut=False):
     """His head, pivoting at the neck: tanned, short beard going grey at the chin, big grin. With
     `cap` (not in bed) he's dressed for the day: his cap on backwards, or whatever hat the outfit
-    has (hats), and his face can take Halloween's paint."""
+    has (hats), and his face can take Halloween's paint. With `shut` his eyes are closed, and his
+    left one, opening, is its own part (`<name>_peek`), hidden till he peeks."""
     h = Model(name)
     hz = 1.45                                                                            # built where it sits on him
     face = P.V_FACE if cap and not sport else P.SKIN
@@ -55,7 +56,10 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, sport=False):
     h.box((0.14, 0.03, 0.035), (0, -0.207, 1.575 - hz), P.TEETH)                         # smile
     h.box((0.07, 0.05, 0.08), (0, -0.215, 1.67 - hz), face)                              # nose
     for x in (-0.1, 0.1):
-        h.box((0.06, 0.02, 0.06), (x, -0.205, 1.72 - hz), P.INK)                         # eyes
+        if shut:
+            h.box((0.08, 0.02, 0.02), (x, -0.205, 1.705 - hz), P.INK)                    # eyes, closed
+        else:
+            h.box((0.06, 0.02, 0.06), (x, -0.205, 1.72 - hz), P.INK)                     # eyes
         h.box((0.1, 0.02, 0.025), (x, -0.205, 1.775 - hz), P.HAIR)                       # brows
     for x in (-0.22, 0.22):
         h.box((0.04, 0.1, 0.12), (x, 0.02, 1.68 - hz), face)                             # ears
@@ -66,6 +70,10 @@ def head(parent, name: str, loc, rot=(0, 0, 0), cap=True, sport=False):
         h.box((0.3, 0.04, 0.06), (0.03, -0.2, 1.91 - hz), P.HAIR)                        # and a bit ruffled
     o = h.build(parent, loc=loc)
     o.rotation_euler = rot
+    if shut:
+        e = Model(f"{name}_peek")
+        e.box((0.06, 0.02, 0.06), (0.1, -0.208, 1.72 - hz), P.INK)
+        e.build(o)
     if cap:
         hats(o, name, hz, sport)
     return o
@@ -592,6 +600,27 @@ def vincent_petting(root, pet: str):
     petting(root, f"vincent_petting_{pet}", pet,
             dict(top=P.V_TOP, sleeve=P.V_TOP, arm=P.V_ARM, thigh=P.V_LEGS, shin=P.V_SHIN, skin=P.SKIN, foot=P.SHOE, wide=1.1),
             lambda parent, name, loc, rot: head(parent, name, loc, rot=rot))
+
+
+# sitting cross-legged on a cushion, hands resting one in the other in the lap, head a little bowed
+SITTING = dict(hips=(0, 0.05, 0.34), neck=(0, 0.06, 0.92),
+               leg=[(0.12, 0.05, 0.3), (0.42, -0.2, 0.12), (-0.1, -0.32, 0.12)],
+               arm=[(0.3, 0.06, 0.84), (0.33, -0.08, 0.52), (0.04, -0.2, 0.4)],
+               head=((0, 0.06, 0.94), (0.12, 0, 0)))
+
+
+def vincent_meditating(root):
+    """Vincent sitting on a cushion (SITTING), eyes shut, his shoes kicked off beside him. Faces -y;
+    the runtime opens an eye now and then (`vincent_meditate_head_peek`) and nods the head with his breath."""
+    m = Model("vincent_meditate_cushion")
+    m.cyl(0.3, 0.16, (0, 0.0, 0), P.CUSHION, segs=10)
+    m.cyl(0.26, 0.02, (0, 0.0, 0.16), P.CUSHION_TOP, segs=10)
+    for x in (0.5, 0.64):                                                              # his shoes
+        m.box((0.13, 0.26, 0.09), (x, 0.3, 0.045), P.SHOE, rot=(0, 0, 0.2))
+    m.build(root)
+    _person(root, "vincent_meditate", SITTING,
+            dict(top=P.V_TOP, sleeve=P.V_TOP, arm=P.V_ARM, thigh=P.V_LEGS, shin=P.V_SHIN, skin=P.SKIN, wide=1.1),
+            lambda parent, name, loc, rot: head(parent, name, loc, rot=rot, shut=True))
 
 
 def cat(root):

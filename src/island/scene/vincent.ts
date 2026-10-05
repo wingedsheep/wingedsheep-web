@@ -30,12 +30,14 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
  * with her and a mug of glühwein each (outings.ts), and sits down to breakfast and dinner with her,
  * by the fire or up at the hut (meals.ts). On a hot day he goes for a swim off the beach (swim.ts),
  * and with snow on the ground, by day, the two of them build a snowman and have a snowball fight
- * (snowplay.ts).
+ * (snowplay.ts). Some mornings (and the odd evening) he sits down to meditate below the lighthouse
+ * rock: he loved it on a retreat once, and has been meaning to make a habit of it ever since.
  */
 export type Whereabouts = 'guitar' | 'hut' | 'kayak' | 'yoga' | 'climb' | 'podcast' | 'petting' | 'coding' | 'asleep' | 'dive' | 'post' | 'kite' | 'workshop'
   | 'stroll' | 'meal' | 'gluhwein'
   | 'swim'
-  | 'snow';
+  | 'snow'
+  | 'meditate';
 /** The yoga poses he flows through (characters.py POSES), in order. */
 export const POSES = ['lotus', 'tree', 'dog'] as const;
 export type Pose = (typeof POSES)[number];
@@ -66,6 +68,7 @@ const STAY: Record<Whereabouts, [number, number]> = {
   gluhwein: [1e9, 1e9], // till they're round, or she can't come
   swim: [180, 360], // and then out, and dry
   snow: [1e9, 1e9], // till they've had enough, or she can't come
+  meditate: [150, 300], // when he sees it through (often he doesn't: GIVE_UP)
 };
 /** Seconds he waits at the start of a glühwein walk for her to come before he gives up on it. */
 const COMPANY_WAIT = 90;
@@ -84,6 +87,10 @@ const STRIDE = 0.9; // seconds for a step with each foot
 const SUMMIT: [number, number] = [30, 60]; // seconds he takes in the view
 const PACE = 0.9; // m/s, up and down with a podcast on
 const POINT = 3; // seconds he stops to make a point to nobody
+const BREATH = 10; // seconds for a slow breath in and out
+const GIVE_UP: [number, number] = [35, 80]; // seconds he lasts, the times he doesn't see it through
+const STICK = 0.5; // how often he does
+const PEEK = 1.6; // seconds an eye's open, checking how long he's been at it
 
 export interface VincentWorld {
   time: number; // the island's time (sky.ts)
@@ -112,7 +119,7 @@ export interface VincentWorld {
  * never gets up in the middle of a song. The kayak waits for daylight and fair weather.
  */
 export class Vincent {
-  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep', 'stroll', 'meal', 'gluhwein', 'swim', 'snow'];
+  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep', 'stroll', 'meal', 'gluhwein', 'swim', 'snow', 'meditate'];
   spot: Whereabouts = 'guitar';
   private next: Whereabouts | null = null;
   private stay = rand(...STAY.guitar);
@@ -163,7 +170,10 @@ export class Vincent {
   private meal?: THREE.Object3D;
   /** In the sea on a hot day, or on his towel (swim.ts). */
   readonly bather: Bather;
-  /** A thought, over his head, while he's out walking. */
+  private sitter?: THREE.Object3D;
+  /** On the cushion: when his mind next wanders off, and how long the eye he opens after it stays open. */
+  private sit = { wander: rand(15, 30), peek: 0 };
+  /** A thought, over his head, while he's out walking (or sitting still, trying not to have any). */
   onThought?: (at: THREE.Vector3) => void;
   private frustum = new THREE.Frustum();
   private sphere = new THREE.Sphere();
@@ -175,6 +185,7 @@ export class Vincent {
   ) {
     this.seated = island.get('vincent');
     this.mat = island.get('vincent_yoga');
+    this.sitter = island.get('vincent_meditate');
     this.hiker = island.get('vincent_hiking');
     this.route = island.routes.get('climb') ?? [];
     this.pacer = island.get('vincent_podcast');
@@ -218,6 +229,16 @@ export class Vincent {
     return this.spot === 'stroll' ? this.solo : this.spot === 'gluhwein' && this.waitingForHer < 0 ? this.pair : null;
   }
 
+  /** Whether he has an eye open on his cushion (his mind's wandered, or you've clicked on him). */
+  get peeking() {
+    return this.spot === 'meditate' && this.sit.peek > 0;
+  }
+
+  /** Clicked on while he's meditating: one eye opens. */
+  peek() {
+    if (this.spot === 'meditate') this.sit.peek = PEEK;
+  }
+
   /** Clicked on while he's eating: he looks up. */
   notice() {
     if (this.eater) this.eater.noticed = 1;
@@ -241,6 +262,7 @@ export class Vincent {
     if (!this.pinned) this.decide(dt, w);
     if (this.spot === 'kayak') this.paddling(still ? 0 : dt);
     if (this.spot === 'yoga') this.flowing();
+    if (this.spot === 'meditate') this.sitting(still ? 0 : dt);
     if (this.spot === 'climb') this.hiking(still ? 0 : dt);
     if (this.spot === 'podcast') this.pacing(still ? 0 : dt);
     if (this.spot === 'petting' && !still) this.kneel.animate(this.clock);
@@ -324,6 +346,7 @@ export class Vincent {
     if (this.spot === 'climb') return this.hiker?.getObjectByName('hike_head');
     if (this.spot === 'podcast') return this.pacer?.getObjectByName('pod_head');
     if (this.spot === 'yoga') return this.mat?.getObjectByName(`vincent_yoga_${this.pose}_head`);
+    if (this.spot === 'meditate') return this.sitter?.getObjectByName('vincent_meditate_head');
     if (this.spot === 'petting') return this.kneel.head;
     if (this.spot === 'dive') return this.diver.head;
     if (this.spot === 'post' || this.spot === 'kite') return this.errands.head;
@@ -418,7 +441,11 @@ export class Vincent {
     const snowy = (w.lying ?? 0) > 0.35 && (w.raining ?? 0) < 0.1 && w.storm < 0.2 && (w.rough ?? 0) < 0.2 && w.wind < 12
       && w.night < 0.35 && hour >= 9.5 && hour < 16.5 && !herNight(w.time);
     const snow: Whereabouts[] = (snowy && this.clock - this.played > 1800) || (this.spot === 'snow' && (w.raining ?? 0) < 0.1 && (w.lying ?? 0) >= BARE) ? ['snow'] : [];
-    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal, ...swim, ...snow];
+    // a still, dry morning (or evening, before dark), not too cold to sit and no snow to sit in: the cushion
+    const calm = w.rain < 0.05 && w.storm < 0.1 && w.wind < 9 && (w.chill ?? 0) < 0.5 && (w.lying ?? 0) < 0.2
+      && ((hour >= 7 && hour < 10.5) || (hour >= 18 && hour < 21));
+    const sit: Whereabouts[] = calm ? ['meditate'] : [];
+    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal, ...swim, ...snow, ...sit];
     // a podcast works in the dark; in the wet the guitar comes in to the hut
     return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), ...week, ...walks, ...meal, ...snow];
   }
@@ -441,7 +468,8 @@ export class Vincent {
     const saturday = occasions.has('saturday');
     const odds: [Whereabouts, number][] = [['coding', saturday ? 0.15 : 0.35], ['kayak', 0.2], ['yoga', 0.25], ['climb', 0.2], ['podcast', 0.25], ['petting', 0.2],
       ['kite', 1.1], ['workshop', saturday ? 1.4 : 0.06], ['stroll', 0.4], ['gluhwein', 0.6],
-      ['swim', this.bather.other?.swimming ? 3 : 0.9], ['snow', 2.5]]; // all the more if she's in
+      ['swim', this.bather.other?.swimming ? 3 : 0.9], ['snow', 2.5], // all the more if she's in
+      ['meditate', 0.12]]; // he means to, every morning
     const open = odds.filter(([spot]) => allowed.includes(spot));
     let r = Math.random() * open.reduce((sum, [, p]) => sum + p, 0);
     for (const [spot, p] of open) if ((r -= p) < 0) return spot;
@@ -456,6 +484,10 @@ export class Vincent {
     this.waiting = 0;
     this.stay = rand(...STAY[to]);
     if (to === 'kayak') this.loop.at = rand(0, Math.PI * 2);
+    if (to === 'meditate') {
+      Object.assign(this.sit, { wander: rand(15, 30), peek: 0 });
+      if (Math.random() > STICK) this.stay = rand(...GIVE_UP);
+    }
     this.company = to === 'yoga' && Math.random() < JOIN;
     if (to === 'climb') {
       Object.assign(this.hike, { leg: 1, along: 0, phase: 'up', rest: rand(...SUMMIT), up: 0 });
@@ -488,6 +520,7 @@ export class Vincent {
     if (this.moored) this.moored.visible = this.spot !== 'kayak';
     if (this.boat) this.boat.visible = this.spot === 'kayak';
     if (this.mat) this.mat.visible = this.spot === 'yoga';
+    if (this.sitter) this.sitter.visible = this.spot === 'meditate';
     if (this.hiker) this.hiker.visible = this.spot === 'climb';
     if (this.pacer) this.pacer.visible = this.spot === 'podcast';
     this.diver.visible = this.spot === 'dive';
@@ -530,6 +563,7 @@ export class Vincent {
     if (spot === 'post') return this.spot === 'post' ? at(this.errands.body, 1.5) : !!this.errands.start && this.near(this.errands.start, 1.5);
     if (spot === 'kite') return at(this.errands.body, 3) || this.near(new THREE.Vector3(6.2, 1, 16.4), 3);
     if (spot === 'yoga') return at(this.mat, 2);
+    if (spot === 'meditate') return at(this.sitter, 1.6);
     if (spot === 'podcast') return this.spot === 'podcast' ? at(this.pacer, 1.5) : this.walk.some((p) => this.near(p.at, 1.5));
     if (spot === 'petting') {
       const pets = this.spot === 'petting' && this.kneel.pet ? [this.kneel.pet] : petting.open('vincent');
@@ -554,6 +588,26 @@ export class Vincent {
       const g = this.mat?.getObjectByName(`vincent_yoga_${pose}`);
       if (g) g.visible = pose === this.pose;
     }
+  }
+
+  /**
+   * Still on his cushion, eyes shut, the head rising and settling with each slow breath. Every so
+   * often his mind wanders off (a thought, over his head) and an eye opens to see how long he's
+   * been at it; then it shuts again, and back to the breath.
+   */
+  private sitting(dt: number) {
+    const s = this.sit;
+    const head = this.sitter?.getObjectByName('vincent_meditate_head');
+    s.wander -= dt;
+    s.peek = Math.max(0, s.peek - dt);
+    if (s.wander < 0) {
+      s.wander = rand(20, 45);
+      s.peek = PEEK;
+      if (head) this.onThought?.(head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.35, 0)));
+    }
+    if (head) head.rotation.x = 0.12 + Math.sin((this.clock / BREATH) * Math.PI * 2) * 0.05 - (s.peek > 0 ? 0.1 : 0);
+    const peek = this.sitter?.getObjectByName('vincent_meditate_head_peek');
+    if (peek) peek.visible = s.peek > 0;
   }
 
   /**

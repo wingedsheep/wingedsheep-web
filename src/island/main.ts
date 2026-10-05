@@ -351,7 +351,7 @@ export async function bootIsland(host: HTMLElement) {
     const show = params.get('show') as Show | null;
     life.companion.put(spot, show && SHOWS.includes(show) ? show : undefined, fuss);
   }
-  // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep|stroll (and ?time=00:30 to see who's up)
+  // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep|stroll|meditate (and ?time=00:30 to see who's up)
   const where = params.get('vincent') as Whereabouts | null;
   if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where, fuss);
   // the two of them at a meal: ?meal=breakfast|pasta|miso|curry|risotto|pizza (&where=hut|fire, otherwise

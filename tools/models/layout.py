@@ -48,6 +48,7 @@ SUMMIT = (5.0, 18.6)
 PEAK = ((5.0, 18.6), 6.0, 13.5)
 KAYAK = (2.6, -24)
 KAYAK_LOOP = ((9.0, -27.0), 6.0, 3.5)  # where Vincent paddles about: the middle, and the radii east-west and north-south
+MEDITATE = (-27.6, -6.6)           # his cushion on the grass below the lighthouse rock, looking out to sea
 YOGA = (9.0, -14.2)                # his yoga mat on the grass above the beach east of the pier; hers is just east of it
 # Up the mountain: from the foot of the trail at the plaza, up the stairs and the switchbacks to
 # the summit flag (and back down the same way)

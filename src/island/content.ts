@@ -712,6 +712,27 @@ const climbing = inTurn([
   'Halfway up he stops, looks back down at the lighthouse and thinks about coffee. He keeps climbing. He’s still thinking about coffee.',
 ]);
 
+// him on his cushion below the lighthouse: he loved it on a retreat once, and keeps meaning to
+// make it a habit. Each line says when it fits.
+const SITTING: [string, (ctx: IslandContext) => boolean][] = [
+  ['Eyes shut, counting breaths. He got to four, then started thinking about his game. Back to one.', () => true],
+  ['He went on a silent retreat once and loved every minute of it. Ten minutes on his own island is somehow harder.', () => true],
+  ['Day one of the new habit. It’s been day one quite a few times now.', (ctx) => hourOf(ctx.sky.time) < 12],
+  ['In for four, out for six. His mind wanders off, he notices, and he brings it back. That, apparently, is the whole trick.', () => true],
+  ['Sun on his face, the sea breathing in and out below. For once there’s nothing he has to do.', (ctx) => {
+    const n = ctx.weather.now;
+    return n.rain + n.snow < 0.1 && n.cloud < 0.4 && n.fog < 0.3 && ctx.sky.lamps < 0.35;
+  }],
+  ['The light coming on in the tower behind him, the sea going grey. Just the breath, and the waves.', (ctx) => ctx.sky.lamps > 0.2],
+  ['Cold out by the lighthouse. He keeps his eyes shut and breathes out in little clouds.', (ctx) => ctx.weather.temperature < 6],
+];
+let sat = 0;
+function sitting(ctx: IslandContext) {
+  if (ctx.life.vincent.peeking) return 'One eye opens and checks how long it’s been. Not long. It shuts again.';
+  const fits = SITTING.filter(([, ok]) => ok(ctx));
+  return fits[sat++ % fits.length][0];
+}
+
 // him: AI, mostly, and Sam Harris for everything else; big black noise-cancellers, pacing
 const listening = inTurn([
   'Dwarkesh Patel, hour three with an AI researcher. He has paced to the well and back eleven times and is now explaining scaling laws to a gull.',
@@ -993,6 +1014,13 @@ export const PLACES: Record<string, Place> = {
   companion_yoga: withHer('Yoga, on the next mat along', yoga),
   vincent_yoga: { label: 'Vincent · yoga by the beach', activate: (ctx) => ctx.toast(hisYoga()) },
   vincent_hiking: { label: 'Vincent · off up the mountain', activate: (ctx) => ctx.toast(climbing()) },
+  vincent_meditate: {
+    label: 'Vincent · meditating by the lighthouse',
+    activate(ctx) {
+      ctx.toast(sitting(ctx));
+      ctx.life.vincent.peek();
+    },
+  },
   vincent_stroll: {
     label: (ctx) => (playing(ctx) ? (building(ctx) ? 'Vincent · building a snowman' : 'Vincent · a snowball fight')
       : walking(ctx) ? 'Vincent · a walk, with glühwein' : 'Vincent · out for a stroll'),

@@ -53,6 +53,8 @@ def landmarks(t: Terrain):
     # (facing east, side-on to the default camera, so you can see a downward dog for what it is)
     place(t, "vincent_yoga", *L.YOGA, characters.vincent_yoga, rot_z=math.pi / 2, id="vincent_yoga")
     place(t, "companion_yoga", L.YOGA[0] + 0.6, L.YOGA[1] + 1.1, companion.yoga, rot_z=math.pi / 2, id="companion_yoga")
+    # meditating below the lighthouse rock, facing out to sea (and the default camera)
+    place(t, "vincent_meditate", *L.MEDITATE, characters.vincent_meditating, rot_z=0.25, id="vincent_meditate")
     # and climbing the mountain: parked under the island till he sets off up the trail
     characters.vincent_hiking(group("vincent_hiking", (0, 0, -20), id="vincent_hiking"))
     for i, (x, y) in enumerate(L.CLIMB):
