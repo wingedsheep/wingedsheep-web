@@ -15,7 +15,7 @@ So I figured: how hard could it be?
 
 Around the same time, I'd been curious how well AI coding agents actually perform on complex projects. Claude Code had been getting a lot of praise, and this seemed like the perfect test case. Magic: The Gathering has over 28,000 unique cards, each able to interact with every other in ways the designers never anticipated. The comprehensive rules document is over 200 pages long.
 
-I sat down and estimated the effort. Without AI assistance, building a complete platform—SDK, card sets, rules engine, game server, web frontend, deployment pipeline—would easily be a 6-month hobby project. Probably more, given the notorious complexity of MTG's rules. The layer system alone could eat a month.
+I knew what I was up against. Without AI assistance, a complete platform—SDK, card sets, rules engine, game server, web frontend, deployment pipeline—isn't a hobby project at all. The open-source Magic engines that exist took years and hundreds of contributors, and MTG's rules are notoriously complex. The layer system alone is a project.
 
 A week and a half later, I had a working solution.
 
@@ -278,6 +278,6 @@ The agentic loop can now keep going 24/7. It picks up work, implements it, runs 
 <figcaption>How a new set gets built now</figcaption>
 </figure>
 
-**What it took.** In February I guessed this would be a six-month hobby project without AI. That was optimistic. Going by commit times, all of us together have put in roughly 2,100 to 3,100 hours, and about two-thirds of those are mine, mostly evenings and weekends. Building the same thing by hand would take a team of six to eight people several years, somewhere around 20 to 35 person-years.
+**What it took.** Other open-source Magic engines have taken years and hundreds of contributors. Going by when I was actually typing prompts, I've put in roughly 1,200 to 1,400 hours, mostly evenings and weekends; with the other contributors it's around 2,000. Since the loop took over, my own hours have dropped a lot while the work keeps going. Building the same thing by hand would take a team of six to eight people several years, somewhere around 20 to 35 person-years.
 
 **— Vincent**
