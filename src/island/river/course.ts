@@ -329,6 +329,18 @@ export interface SetPiece {
 
 /** How fast a boat can ferry across the current (m/s): no piece asks the line to move faster. */
 const FERRY = 1.25;
+/**
+ * How much river ahead (m) the follow camera always shows at speed v (m/s), at its tightest (it
+ * pulls back the faster you go); how long (s) it takes to see something and act; and how fast
+ * (m/s) a fair paddler gets across once they do (a boat sprinting gets most of half as far again).
+ */
+const sight = (v: number) => Math.min(30, 21.5 + Math.max(0, v - 5) * 1.5);
+const REACT = 0.5;
+const DODGE = 2;
+/** How far (m) a boat's middle keeps from a log's axis to clear it: the log, the hull and a little to spare. */
+const LOG_CLEAR = 0.38 + 0.36 + 0.1;
+/** Water (m) between a rock and the bank narrower than this is no way of its own: the rock goes against the bank. */
+const BANK_SLOT = 2.5;
 
 /** A small seeded random number generator (mulberry32). */
 export function rng(seed: number) {
@@ -412,6 +424,11 @@ export class Course {
   readonly trains: Train[] = [];
   private lastTrain = -999;
   private lastTrainAt: Train | null = null;
+  /**
+   * For each bank (-1 river left, 1 right), the last fallen tree out from it: where, and how far
+   * out from the bank (m, from where the bank shoves a boat back) it made you go to get round it.
+   */
+  private kept: Record<number, { s: number; off: number }> = { [-1]: { s: -Infinity, off: 0 }, [1]: { s: -Infinity, off: 0 } };
 
   /**
    * `finish`: the take-out, where the run ends (a bridge over a last slow pool). Past it the river
@@ -574,8 +591,8 @@ export class Course {
   /** Keep the promised passage clear of the actual waterline, including long, turned shards.
    * Move the rock, without shrinking it or drawing new dice. Alternate passages count too.
    */
-  private passageRock(o: Rock, p: Sample, lanes: { u: number; half: number }[]) {
-    if (this.profile.grade < 4) return this.addObstacle(o);
+  private passageRock(o: Rock, p: Sample, lanes: { u: number; half: number }[], file = true) {
+    if (this.profile.grade < 3) return void (file && this.addObstacle(o));
     this.lay(o);
     const rx = Math.cos(p.a), rz = Math.sin(p.a);
     const extent = reach(o, rx, rz) * HIT;
@@ -583,14 +600,86 @@ export class Course {
     const side = Math.sign(from - lanes[0].u) || 1;
     let u = from;
     // Each pass can only move outwards past another lane; overlapping lanes cannot trap it.
-    for (let pass = 0; pass < lanes.length; pass++) {
+    for (let pass = 0; pass < lanes.length && this.profile.grade >= 4; pass++) {
       for (const lane of lanes) {
         if (Math.abs(u - lane.u) < lane.half + extent) u = lane.u + side * (lane.half + extent);
       }
     }
+    // A slot between it and the bank that a boat could squeeze into looks like a way through from
+    // upstream, but the next row (still out of sight) can shut it. Close it: the rock against the bank.
+    const out = Math.sign(u) || 1;
+    const slot = p.width / 2 - Math.abs(u) - extent;
+    const shore = out * (p.width / 2 - extent * 0.5);
+    if (slot > 0.9 && slot < BANK_SLOT && !lanes.some((l) => Math.abs(shore - l.u) < l.half + extent)) u = shore;
     o.x += rx * (u - from);
     o.z += rz * (u - from);
-    this.addObstacle(o);
+    if (file) this.addObstacle(o);
+  }
+
+  /**
+   * Rocks in a row running out from a bank with no way through between them are a wall, like a
+   * fallen tree: no further out than is fair (see room). Past that, the innermost of them go.
+   * (`laid`: the row's rocks, m across.)
+   */
+  private bankWalls(laid: { o: Rock; m: number }[], p: Sample) {
+    const rx = Math.cos(p.a), rz = Math.sin(p.a);
+    const edge = p.width / 2 - 0.55; // (where the bank shoves you back)
+    const R = 0.36 + 0.1; // (the hull, and a little to spare)
+    for (const side of [-1, 1]) {
+      for (;;) {
+        // from the bank in, while each rock leaves the boat no way between it and the last
+        let inner = edge;
+        const wall: { o: Rock; m: number }[] = [];
+        for (const l of [...laid].sort((a, b) => (b.m - a.m) * side)) {
+          const ext = reach(l.o, rx, rz) * HIT + R;
+          if (side * l.m + ext < inner) break;
+          wall.push(l);
+          inner = Math.min(inner, side * l.m - ext);
+        }
+        if (!wall.length) break;
+        if (edge - inner <= this.room(p, side)) {
+          this.kept[side] = { s: p.s, off: edge - inner };
+          break;
+        }
+        laid.splice(laid.indexOf(wall[wall.length - 1]), 1);
+      }
+    }
+  }
+
+  /**
+   * How far out from bank `side` (m, from where the bank shoves a boat back) something at p can
+   * make a boat go to get round it, and still be fair to someone riding along that bank when it
+   * came into view: as far as a boat ferries between seeing it and reaching it, and further only
+   * where the last thing out from the same bank already sent them out past here (less what they
+   * could have drifted back since).
+   */
+  private room(p: Sample, side: number) {
+    // on the way in: the slowest water (the camera's least pulled back) and the fastest (the
+    // least time), and the widest it gets (the furthest out anyone along the bank can be)
+    let slow = Infinity;
+    let fast = 0;
+    let wide = 0;
+    for (let s = p.s - 30; s <= p.s; s += 2) {
+      const q = this.at(Math.max(0, s));
+      (slow = Math.min(slow, q.speed)), (fast = Math.max(fast, q.speed)), (wide = Math.max(wide, q.width));
+    }
+    const v = fast + 2.5; // (you'll be paddling too)
+    const lead = Math.max(0, sight(slow + 2.5) - REACT * v);
+    const last = this.kept[side];
+    const still = Math.max(0, last.off - (DODGE * Math.abs(p.s - lead - last.s)) / v);
+    return (DODGE * lead) / v + still - (wide - p.width) / 2;
+  }
+
+  /**
+   * Where the tip of a fallen tree out from bank `side` at p can go, wanting to reach `tip` (m
+   * across): only as far out as is fair (see room). So the first trees of a strainer don't reach
+   * in so far, and the ones after them, once you're weaving down the middle, reach as far as they like.
+   */
+  private reachOut(p: Sample, side: number, tip: number) {
+    const edge = p.width / 2 - 0.55; // (where the bank shoves you back)
+    const out = Math.min(edge - side * tip, this.room(p, side) - LOG_CLEAR);
+    this.kept[side] = { s: p.s, off: Math.max(0, out + LOG_CLEAR) };
+    return side * (edge - out);
   }
 
   /** Take one back out (the land's, when its stretch of river is dropped). */
@@ -973,7 +1062,7 @@ export class Course {
           rock(m, 0.5 + r() * 0.3, s, Math.floor(r() * 5));
         } else if (split.kind === 'isle' && r() < 0.08 * this.profile.snags && w > 5) {
           const base = across(outer + side * 1.2);
-          const tip = across(at(0.55));
+          const tip = across(this.reachOut(p, side, at(0.55)));
           this.addObstacle({ kind: 'log', x0: base.x, z0: base.z, x1: tip.x, z1: tip.z, r: 0.38, s, variant: Math.floor(r() * 2) });
         }
       }
@@ -1119,6 +1208,7 @@ export class Course {
       let left = false;
       let right = false;
       const row: { u: number; rad: number }[] = [];
+      const laid: { o: Rock; m: number }[] = [];
       for (let k = 0; k < inRow; k++) {
         let u = r() * 2 - 1;
         const rad = 0.55 + r() * (0.5 + p.rough * 0.5);
@@ -1127,18 +1217,24 @@ export class Course {
         if (Math.abs(u - gap) < clear) u = gap + Math.sign(u - gap || 1) * (clear + r() * 0.35);
         if (Math.abs(u) > 1.05) continue;
         if (alts.some((v) => Math.abs(u - v) < altHalf + (rad * 0.9) / half)) continue;
-        if (u < gap) left = true;
-        else right = true;
         const at = across(u);
-        this.passageRock({ kind: 'rock', x: at.x, z: at.z, r: rad, s: s + (r() - 0.5) * 2, variant: Math.floor(r() * 5) }, p,
-          [{ u: gap * half, half: gapHalf * half }, ...alts.map((u) => ({ u: u * half, half: altHalf * half }))]);
-        row.push({ u, rad });
+        const o: Rock = { kind: 'rock', x: at.x, z: at.z, r: rad, s: s + (r() - 0.5) * 2, variant: Math.floor(r() * 5) };
+        this.passageRock(o, p, [{ u: gap * half, half: gapHalf * half }, ...alts.map((u) => ({ u: u * half, half: altHalf * half }))], false);
+        laid.push({ o, m: (o.x - p.x) * rx + (o.z - p.z) * rz });
+      }
+      if (this.profile.grade >= 3) this.bankWalls(laid, p);
+      for (const { o, m } of laid) {
+        this.addObstacle(o);
+        row.push({ u: m / half, rad: o.r });
+        if (m / half < gap) left = true;
+        else right = true;
       }
       // past a big rock on the far side from the gap, if there's room for a boat there (up to the
       // bank or the next rock out), is another way round it: one you'd only find out was a dead
       // end once you'd picked it
+      // (and past a smaller one too, on the harder rivers, where that way runs down along the bank)
       for (const { u, rad } of row) {
-        if (rad < 1 || alts.length >= 2) continue;
+        if (alts.length >= 2) continue;
         const side = Math.sign(u - gap);
         const inner = u * half + side * (rad * 0.9 + 0.36);
         let outer = side * (half - 0.55);
@@ -1146,6 +1242,7 @@ export class Course {
           const edge = o.u * half - side * (o.rad * 0.9 + 0.36);
           if ((o.u - u) * side > 0 && (outer - edge) * side > 0) outer = edge;
         }
+        if (rad < 1 && (this.profile.grade < 3 || outer !== side * (half - 0.55))) continue;
         if ((outer - inner) * side < 0.3) continue;
         const v = (inner + outer) / 2 / half;
         if (Math.abs(v - gap) > gapHalf && !alts.some((a) => Math.abs(a - v) < altHalf * 2)) alts.push(v);
@@ -1167,8 +1264,8 @@ export class Course {
         const side = gap > 0 ? -1 : 1;
         const tipU = side < 0 ? Math.min(gap - gapHalf - 0.1, 0.1) : Math.max(gap + gapHalf + 0.1, -0.1);
         const base = across(side * 1.25);
-        const tip = across(tipU);
-        if (Math.hypot(tip.x - base.x, tip.z - base.z) < 1) continue;
+        if (Math.hypot(across(tipU).x - base.x, across(tipU).z - base.z) < 1) continue;
+        const tip = this.across(p)(this.reachOut(p, side, tipU * half));
         this.addObstacle({ kind: 'log', x0: base.x, z0: base.z, x1: tip.x, z1: tip.z, r: 0.38, s, variant: Math.floor(r() * 2) });
       }
 
@@ -1375,11 +1472,12 @@ export class Course {
     while (this.length < s0 + len + 20) this.grow();
     // nothing near a lip, and nothing past the end of the stretch
     const ok = (s: number) => s < stretch.end - 8 && !this.ledges.some((l) => s > l.s - 8 && s < l.s + 10);
-    const rock = (p: Sample, u: number, rad: number, post = false, edge?: { u: number; side: number }) => {
+    const rock = (p: Sample, u: number, rad: number, post = false, edge?: { u: number; side: number }, laid?: { o: Rock; m: number }[]) => {
       const at = this.across(p)(u);
       const o: Rock = { kind: 'rock', ...at, r: rad, s: p.s + (post ? 0 : (r() - 0.5) * 1.2), variant: Math.floor(r() * (post ? 3 : 5)), post };
-      if (edge) this.passageRock(o, p, [{ u: edge.u - edge.side, half: 1 }]);
-      else this.addObstacle(o);
+      if (!edge) return this.addObstacle(o);
+      this.passageRock(o, p, [{ u: edge.u - edge.side, half: 1 }], !laid);
+      laid?.push({ o, m: (o.x - p.x) * Math.cos(p.a) + (o.z - p.z) * Math.sin(p.a) });
     };
     // boulders from the edge of a gap (at u, the wall running `dir`-wards) to the bank, with a slot
     // between each that a boat can only slip through dead straight (and never be pinned across)
@@ -1387,12 +1485,16 @@ export class Course {
       const bank = p.width / 2 - 0.2;
       let rad = first;
       let u = edge + dir * rad * 0.9;
+      const laid: { o: Rock; m: number }[] = [];
       while (u * dir < bank + 0.5) {
-        rock(p, u, rad, false, { u: edge, side: dir });
+        rock(p, u, rad, false, { u: edge, side: dir }, laid);
         const next = 0.75 + r() * 0.3;
         u += dir * (rad * 0.9 + next * 0.9 + 1.0 + r() * 0.25);
         rad = next;
       }
+      // (a slot by the bank no one can get to in time is no way through: see bankWalls)
+      if (this.profile.grade >= 3) this.bankWalls(laid, p);
+      for (const { o } of laid) this.addObstacle(o);
     };
     const ball = (p: Sample, u: number) => this.file({ kind: 'ball', ...this.across(p)(u), s: p.s, taken: false } satisfies Pickup);
     let marks = 0;
@@ -1415,7 +1517,7 @@ export class Course {
           if (kind === 'slalom') wall(p, L + side * gh, side, 1.0 + r() * 0.3);
           else {
             const base = this.across(p)(side * (p.width / 2 + 1.2));
-            const tip = this.across(p)(L + side * (gh + 0.38));
+            const tip = this.across(p)(this.reachOut(p, side, L + side * (gh + 0.38)));
             this.addObstacle({ kind: 'log', x0: base.x, z0: base.z, x1: tip.x, z1: tip.z, r: 0.38, s: p.s, variant: Math.floor(r() * 2) });
           }
           if (i % 2 === 1 || kind === 'strainers') ball(p, L);

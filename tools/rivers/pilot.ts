@@ -81,6 +81,8 @@ export function autopilot(course: Course, kayak: Kayak, start: number, finish: n
   return {
     plan,
     pilot,
+    /** How far down the river (arc length) it can see just now. */
+    seen: () => end,
     intent(dt = DT): Intent {
       if (!camera) headless.update(course, kayak, dt);
       if (frame++ % S.every === 0) {

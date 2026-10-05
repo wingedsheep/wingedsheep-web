@@ -52,6 +52,8 @@ interface Incident {
   /** Something that went wrong (a knock, a capsize, a bad landing, getting stuck), and in which bit of the river. */
   trouble: boolean;
   bit?: number;
+  /** For a knock: how long (s) the spot it hit had been in view (on screen, to the planner) before it hit it. */
+  warning?: number;
 }
 
 /** A bit of the river, as it's made: a stretch of a kind, or one set piece in it. */
@@ -149,6 +151,8 @@ async function main() {
     bad += wrong.length;
     trouble(runs, river);
   }
+  // every run, every incident, for looking into (--json <file>)
+  if (args.json) (await import('node:fs')).writeFileSync(args.json, JSON.stringify(Object.fromEntries(all), null, 1));
   process.exit(bad ? 1 : 0);
 }
 
@@ -178,6 +182,9 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
     if (tell) console.log(`${inc.t.toFixed(1).padStart(6)} s ${inc.at.toFixed(0).padStart(5)} m  ${what}, in ${inc.where}`);
   };
   let washing = false; // in the washing machine right now
+  // how far down it could see, and from when: [time, arc length], each time that got further
+  const sight: [number, number][] = [[0, auto.seen()]];
+  const warned = (s: number) => run.time - (sight.find(([, e]) => e >= s)?.[0] ?? run.time);
   kayak.events = {
     hit: (strength, at) => {
       run.knocks++;
@@ -186,7 +193,9 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
       const what = course.near(kayak.s - 4, kayak.s + 4).filter((t) => 'kind' in t && (t.kind === 'rock' || t.kind === 'log'))
         .sort((a, b) => dist(a, at) - dist(b, at))[0] as Rock | Log | undefined;
       const detail = args.seed ? ` ${what?.kind ?? '?'}${what?.kind === 'rock' ? ` r ${what.r.toFixed(2)}${what.post ? ' post' : ''}` : ''} at u ${o.side.toFixed(1)}, s ${(o.sample.s - kayak.s).toFixed(1)} from the boat; the boat at u ${kayak.side.toFixed(1)}, line ${pilot.uAt(kayak.s).toFixed(1)}, bow ${angle(kayak.heading - kayak.here.a).toFixed(2)}` : '';
-      note(`knocked (${strength.toFixed(1)}, ${(kayak.side - pilot.uAt(kayak.s)).toFixed(1)} m off the line)${detail}`, true);
+      const warning = warned(o.sample.s);
+      note(`knocked (${strength.toFixed(1)}, ${(kayak.side - pilot.uAt(kayak.s)).toFixed(1)} m off the line, in view ${warning.toFixed(1)} s)${detail}`, true);
+      run.incidents[run.incidents.length - 1].warning = warning;
     },
     bump: (strength) => { if (strength > 0.6) run.bumps++; },
     capsize: () => {
@@ -216,6 +225,7 @@ function paddle(river: RiverDef, seed: number, tell: boolean): Run {
   const limit = river.length / 0.8; // (a crawl: well under a metre a second)
   while (run.time < limit) {
     const intent = auto.intent(DT);
+    if (auto.seen() > sight[sight.length - 1][1]) sight.push([run.time, auto.seen()]);
     kayak.update(DT, intent, course, true);
     run.time += DT;
     const off = kayak.side - pilot.uAt(kayak.s);
