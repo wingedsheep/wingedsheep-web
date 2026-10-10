@@ -186,10 +186,17 @@ export class UI {
     el.className = `toast toast-${kind}`;
     el.textContent = text;
     this.toasts.append(el);
-    // longer notes stay up long enough to read
+    // longer notes stay up long enough to read; a tap puts one away sooner
     const stay = duration ?? Math.max(kind === 'secret' ? 4200 : 3400, text.length * 55);
-    setTimeout(() => el.classList.add('out'), stay);
-    setTimeout(() => el.remove(), stay + 600);
+    const timer = setTimeout(() => this.putAway(el), stay);
+    el.addEventListener('click', () => (clearTimeout(timer), this.putAway(el)), { once: true });
+  }
+
+  /** A toast fades out and goes. */
+  private putAway(el: HTMLElement) {
+    if (el.classList.contains('out')) return;
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 600);
   }
 
   /** A toast with buttons. It waits a while for an answer, then quietly goes away. */
@@ -200,10 +207,7 @@ export class UI {
     p.textContent = text;
     const row = document.createElement('div');
     row.className = 'toast-choices';
-    const dismiss = () => {
-      el.classList.add('out');
-      setTimeout(() => el.remove(), 600);
-    };
+    const dismiss = () => this.putAway(el);
     for (const choice of choices) {
       const btn = document.createElement('button');
       btn.type = 'button';

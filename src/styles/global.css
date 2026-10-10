@@ -99,14 +99,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding: 8px 14px; background: var(--paper); color: var(--ink); font: 16px/1.35 var(--ui); text-align: center;
   clip-path: var(--notch); box-shadow: inset 0 -3px 0 var(--paper-edge);
   animation: toast-in 0.25s ease-out; transition: opacity 0.5s, transform 0.5s;
+  pointer-events: auto; cursor: pointer; /* a tap puts it away */
 }
 .toast-secret { background: var(--ink); color: var(--gold); box-shadow: inset 0 0 0 2px var(--gold); }
-.toast-ask { pointer-events: auto; }
+.toast-ask { cursor: default; }
 .toast-ask p { margin: 0 0 8px; }
 .toast-choices { display: flex; gap: 8px; justify-content: center; }
 .toast-choices button { padding: 4px 16px; border: 0; background: var(--paper-2); clip-path: var(--notch); }
 .toast-choices button:first-child, .toast-choices button:hover { background: var(--gold); }
-.toast.out { opacity: 0; transform: translateY(6px); }
+.toast.out { opacity: 0; transform: translateY(6px); pointer-events: none; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 /* the cookie question: a toast that waits for an answer, in the corner so it covers little */

@@ -15,7 +15,8 @@
  *
  * Like the Walkman you take the set with you, down in the corner (IslandShell.astro), and it plays
  * on while you walk about. The island's own music waits while it plays, and it stops for anything
- * else that starts.
+ * else that starts. It plays on in another tab or with the phone locked, too, with the song on
+ * the lock screen.
  */
 import records from '../data/radio.json';
 import dj from '../data/dj.json';
@@ -171,12 +172,24 @@ export class Radio {
   private lastNow = -Infinity;
   /** Whether he's off the air for the two minutes' silence (and the song's waiting). */
   private hushed = false;
+  /** Whether the song's paused on purpose (rather than by the player itself, as phones do in the background). */
+  private held = false;
 
   constructor(private ctx: IslandContext) {
     this.deck?.querySelector('[data-radio-off]')?.addEventListener('click', () => this.switchOff());
     this.deck?.querySelector<HTMLAnchorElement>('[data-radio-spotify]')?.setAttribute('href', PLAYLIST);
     level(this.deck?.querySelector('[data-radio-volume]'), ctx, 'radioVolume');
     window.addEventListener('message', (e) => this.heard(e));
+    // the frames stop while you're away: the signal holds steady till you're back, rather than
+    // staying faded wherever it was, and a song the phone paused on its own carries on
+    document.addEventListener('visibilitychange', () => {
+      if (!this.on) return;
+      this.fading.left = 0;
+      this.signal = this.ctx.sound.radioSignal = 1;
+      this.level();
+      this.carryOn();
+    });
+    this.lockScreen();
   }
 
   /** Tune in: the set comes up, and the station with it, Kees first. */
@@ -207,6 +220,34 @@ export class Radio {
     this.ctx.sound.radio = false;
     this.deck?.classList.remove('playing', 'talking');
     if (this.deck) this.deck.hidden = true;
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
+  }
+
+  /** Play and pause on the lock screen (and the keyboard's media keys) work the set. */
+  private lockScreen() {
+    if (!('mediaSession' in navigator)) return;
+    const session = navigator.mediaSession;
+    try {
+      session.setActionHandler('play', () => (this.on ? this.command('playVideo') : this.tuneIn()));
+      session.setActionHandler('pause', () => this.switchOff());
+      session.setActionHandler('stop', () => this.switchOff());
+    } catch { /* (an action this browser doesn't know) */ }
+  }
+
+  /** The song on the lock screen. */
+  private nowPlaying(song: Song) {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title,
+      artist: song.artist,
+      album: 'Radio Alles',
+      artwork: [{ src: `https://i.ytimg.com/vi/${song.video}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' }],
+    });
+  }
+
+  /** The player paused the song itself (a phone in the background does): play on. */
+  private carryOn() {
+    if (this.on && this.state === 2 && !this.held && !this.hushed && !this.changing) this.command('playVideo');
   }
 
   /**
@@ -481,6 +522,7 @@ export class Radio {
     this.duration = 0;
     const now = this.deck?.querySelector('[data-radio-now]');
     if (now) now.textContent = `${song.title} · ${song.artist}`;
+    this.nowPlaying(song);
     if (this.player) {
       this.level();
       this.command('loadVideoById', [song.video]);
@@ -553,6 +595,8 @@ export class Radio {
     if (typeof state !== 'number' || state === this.state) return;
     this.state = state;
     this.deck?.classList.toggle('playing', state === 1);
+    if ('mediaSession' in navigator && this.on) navigator.mediaSession.playbackState = 'playing'; // (between songs too: he's on)
+    if (state === 2) this.carryOn();
     // in it comes, once it's actually playing (under him, if he's talking)
     if (state === 1 && this.volume < 1 && !this.ending) void this.fadeTo(this.talking ? UNDER : 100, FADE.in);
     if (state === 0 && this.on) {
@@ -562,6 +606,8 @@ export class Radio {
   }
 
   private command(func: string, args: unknown[] = []) {
+    if (func === 'pauseVideo') this.held = true;
+    else if (func === 'playVideo' || func === 'loadVideoById') this.held = false;
     this.tell({ event: 'command', func, args });
   }
 
