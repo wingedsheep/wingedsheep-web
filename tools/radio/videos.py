@@ -4,10 +4,12 @@ The tracklist is an Exportify export of the Spotify playlist "alles" (tools/radi
 until there is one, seed.json (the first hundred, from Spotify's embed). For each song this
 searches YouTube once, prefers the artist's own audio upload (the "Artist - Topic" channels) at
 the right length over live versions, covers and lyric videos, and checks the video may be
-embedded. Answers are kept in videos.json, so a second run only looks up what's new; delete an
-entry to look it up again, or set it by hand to pin a video.
+embedded. Music videos are a last resort: they often come with an intro, a skit or a different
+edit. Answers are kept in videos.json, so a second run only looks up what's new; delete an
+entry to look it up again, or set it by hand (with "pinned": true) to keep a video.
 
     just radio            # look up what's missing, write src/data/radio.json
+    just radio --audio    # look again for the songs that ended up with a music video, or the wrong length
 """
 from __future__ import annotations
 
@@ -27,6 +29,11 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
       "Accept-Language": "en"}
 # what Spotify adds to a title that a video won't have
 NOISE = re.compile(r"\s+-\s+(\d{4} )?(Remaster(ed)?|Radio Version|Radio Edit|Single Version|Mono|Stereo|Digital Remaster|Remix(ed)?|Surround Sound|Live At|Remixed Live)\b.*$", re.I)
+# another version of the song than the one on the playlist (unless that's the one asked for)
+VERSIONS = re.compile(r"\b(demo|live|acoustic|unplugged|remix(es|ed)?|rework|session(s)?|bbc|jools|alternate|alternative version|"
+                      r"rehearsal|take \d|mix|edit|rough trade|anniversary|stay home|mariachi|instrumental|extended|sped|slowed|stripped|"
+                      r"rethink|unplucked|glastonbury|sbd|festival|concert|tour|behind the scenes|"
+                      r"(?<!album )(?<!original )(?<!single )(?<!studio )version)\b")
 WRONG = ("cover", "karaoke", "instrumental", "8d audio", "slowed", "reverb", "sped up", "nightcore", "reaction", "lesson", "tutorial")
 
 
@@ -113,14 +120,39 @@ def score(c: dict, t: dict) -> float:
         s += 1
     if t.get("ms"):
         off = abs(c["seconds"] - t["ms"] / 1000)
-        s += 2 if off < 6 else 1 if off < 20 else -2 if off > 60 else 0
+        s += 2 if off < 6 else 1 if off < 12 else -1 if off < 30 else -3
+    if "audio" in got.split():
+        s += 1
+    elif video(c):
+        s -= 2
     asked = t["title"].lower()
+    for m in VERSIONS.finditer(c["title"].lower()):
+        if m.group(0) not in asked:
+            s -= 4
+            break
+    if any(w in channel for w in ("acoustic", "cover", "karaoke", "lyrics")) and artist not in channel:
+        s -= 3  # (a channel of covers, or somebody's lyric videos)
     for w in WRONG:
         if w in c["title"].lower() and w not in asked:
             s -= 5
-    if "live" in got.split() and "live" not in asked:
-        s -= 2.5
     return s
+
+
+def video(c: dict) -> bool:
+    """Whether it's a music video (rather than the song as released)."""
+    return bool(re.search(r"\b(official (music )?video|music video|official hd video|video)\b", c["title"].lower())) and "audio" not in c["title"].lower()
+
+
+def suspect(c: dict, t: dict) -> bool:
+    """A match worth a second look: a music video, or the wrong length."""
+    return not c.get("pinned") and (video(c) or bool(t.get("ms")) and abs(c["seconds"] - t["ms"] / 1000) > 12)
+
+
+def official(c: dict, t: dict) -> bool:
+    """The song as released, from the artist: their Topic channel, or their own channel's audio upload (and not another version)."""
+    artist, channel = simple(t["artist"].split(",")[0]), simple(c["channel"])
+    other = any(m.group(0) not in t["title"].lower() for m in VERSIONS.finditer(c["title"].lower()))
+    return not other and (channel == f"{artist} topic" or (artist in channel and "audio" in simple(c["title"]).split()))
 
 
 def embeddable(video: str) -> bool:
@@ -133,7 +165,10 @@ def embeddable(video: str) -> bool:
 
 def find(t: dict) -> dict | None:
     query = f"{t['artist'].split(',')[0]} {clean(t['title'])}"
-    for c in sorted(search(query), key=lambda c: -score(c, t))[:4]:
+    found = search(query)
+    if not found or all(video(c) for c in found[:3]):
+        found += search(query + " audio")
+    for c in sorted(found, key=lambda c: -score(c, t))[:4]:
         if score(c, t) < 3:
             break
         if embeddable(c["video"]):
@@ -146,6 +181,22 @@ def main():
     cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
     songs = tracks()
     todo = [t for t in songs if t["id"] not in cache]
+    if "--audio" in sys.argv:
+        for t in songs:
+            old = cache.get(t["id"])
+            if not old or not suspect(old, t):
+                continue
+            try:
+                new = find(t)
+            except Exception as e:
+                print(f"  ! {t['artist']} - {t['title']}: {e}", file=sys.stderr)
+                continue
+            # only for the artist's own audio: anything else is likelier to be worse than the video
+            if new and new["video"] != old["video"] and official(new, t) and score(new, t) > score(old, t):
+                cache[t["id"]] = new
+                print(f"{t['artist']} - {clean(t['title'])}: {old['title']}  ->  {new['title']} ({new['channel']})")
+            time.sleep(1.2)
+        CACHE.write_text(json.dumps(cache, indent=1, ensure_ascii=False))
     for i, t in enumerate(todo):
         try:
             cache[t["id"]] = find(t)

@@ -53,9 +53,14 @@ const MEMORY = 'wingedsheep:radio';
 const NOW_GAP = 480;
 /** How likely he is to use a song's intro for the moment, when there's one that fits (and he hasn't just remarked on it). */
 const MOMENTARY = 0.35;
-/** The music's volume while he's talking over it, and how many seconds it takes to come back up. */
+/** The music's volume while he's talking over it. */
 const UNDER = 30;
-const SWELL = 2.5;
+/**
+ * How many seconds the fades take: a song coming in (from nothing, once it's actually playing),
+ * going down under him before he cuts in, coming back up after he's said his piece, a song's last
+ * seconds going out before the break, and the set switched off.
+ */
+const FADE = { in: 1.2, duck: 0.8, swell: 3, out: 4, off: 0.5 };
 /**
  * The signal: in calm weather it fades once every few minutes, shallow and brief; a storm makes
  * that several times as often, a little deeper and longer. It never goes all the way.
@@ -130,6 +135,10 @@ export class Radio {
   /** How well she's coming in (1 clear), the fade under way, the time to the next one, and what the player was last told. */
   private signal = 1;
   private fading = { left: 0, length: 1, depth: 0 };
+  /** The song's volume on its way somewhere (fadeTo), the song's length, and whether it's on its way out. */
+  private ramp?: { cancel(): void };
+  private duration = 0;
+  private ending = false;
   private calm = rand(FADES.every[0], FADES.every[1]);
   private told = -1;
   private clock = 0;
@@ -164,7 +173,11 @@ export class Radio {
     if (walkman) walkman.hidden = true;
     this.ctx.sound.stopAlbum();
     this.ctx.sound.stopRecord();
-    if (this.player) return this.command('playVideo');
+    if (this.player) {
+      this.volume = 0; // (and in it comes, once it's playing)
+      this.level();
+      return this.command('playVideo');
+    }
     // you've come in partway through his show: an ident over the first song, not an intro
     void this.next(true, this.pick(CHATTER.filter((c) => c.id.startsWith('ident'))));
   }
@@ -173,7 +186,7 @@ export class Radio {
   switchOff() {
     this.on = false;
     this.talking?.stop();
-    this.command('pauseVideo');
+    void this.fadeTo(0, FADE.off).then(() => this.on || this.command('pauseVideo'));
     this.ctx.sound.radio = false;
     this.deck?.classList.remove('playing', 'talking');
     if (this.deck) this.deck.hidden = true;
@@ -243,7 +256,7 @@ export class Radio {
   /** Tell the player the song's volume: where it's at (down under him, or swelling back), faded with the signal. */
   private level() {
     const v = Math.round(this.volume * this.signal * this.ctx.sound.radioVolume);
-    if (Math.abs(v - this.told) >= 2 || (v !== this.told && this.volume === 100)) {
+    if (v !== this.told && (Math.abs(v - this.told) >= 2 || v === 0 || this.volume === 100 || this.volume === UNDER)) {
       this.told = v;
       this.command('setVolume', [v]);
     }
@@ -256,6 +269,7 @@ export class Radio {
   private async next(first: boolean, opener?: Chat) {
     if (this.changing) return;
     this.changing = true;
+    this.ending = false;
     this.talking?.stop();
     if (!first) this.at = (this.at + 1) % SONGS.length;
     const song = SONGS[this.at];
@@ -277,11 +291,11 @@ export class Radio {
     if (chat) await this.speak(chat.file, chat.id);
     if (!this.on) return void (this.changing = false);
     const over = opener ?? (intro ? { id: song.id, file: intro } : undefined);
-    this.play(song, over ? UNDER : 100);
+    this.play(song);
     this.changing = false;
     if (over) {
       await this.speak(over.file, over.id);
-      this.swell();
+      if (this.state === 1) void this.fadeTo(100, FADE.swell); // (if it's still loading, it comes in at full)
     }
   }
 
@@ -376,11 +390,10 @@ export class Radio {
   /** Break in over the song (turned down under him) with a line, after `wait` ms, and let it carry on. */
   private async cutIn(line: Chat, wait: number) {
     await new Promise((r) => setTimeout(r, wait));
-    if (!this.on || this.talking || this.changing || this.state !== 1) return;
-    this.volume = UNDER;
-    this.level();
+    if (!this.on || this.talking || this.changing || this.ending || this.state !== 1) return;
+    await this.fadeTo(UNDER, FADE.duck);
     await this.speak(line.file, line.id);
-    this.swell();
+    void this.fadeTo(100, FADE.swell);
   }
 
   /** Whether it's that hour, weather, season, special day and point in his week on the island (whichever of them it asks). */
@@ -403,15 +416,19 @@ export class Radio {
     return choose[Math.floor(Math.random() * choose.length)];
   }
 
-  /** Put a song on: the player's made the first time, and after that it's only told what's next. */
-  private play(song: Song, volume: number) {
-    this.volume = volume;
+  /**
+   * Put a song on, silent at first: it fades in once it's actually playing (heard()). The player's
+   * made the first time, and after that it's only told what's next.
+   */
+  private play(song: Song) {
+    this.ramp?.cancel();
+    this.volume = 0;
     this.state = -1;
+    this.duration = 0;
     const now = this.deck?.querySelector('[data-radio-now]');
     if (now) now.textContent = `${song.title} · ${song.artist}`;
     if (this.player) {
-      this.told = Math.round(volume * this.signal * this.ctx.sound.radioVolume);
-      this.command('setVolume', [this.told]);
+      this.level();
       this.command('loadVideoById', [song.video]);
       return;
     }
@@ -423,26 +440,39 @@ export class Radio {
     player.tabIndex = -1;
     player.addEventListener('load', () => {
       this.tell({ event: 'listening' });
-      this.command('setVolume', [Math.round(this.volume * this.ctx.sound.radioVolume)]);
+      this.told = -1;
+      this.level();
     });
     this.deck?.querySelector('[data-radio-player]')?.replaceChildren(player);
     this.player = player;
   }
 
   /**
-   * The song comes back up once he's said his piece. On a timer rather than with the frames, which
-   * stop while you're in another tab (the song would stay down under nobody till you came back).
+   * Take the song's volume to `to` over so many seconds, eased at both ends; a new fade takes over
+   * from one under way. On a timer rather than with the frames, which stop while you're in another
+   * tab (the song would stay down under nobody till you came back). Resolves when it's there (or
+   * another fade took over).
    */
-  private swell() {
+  private fadeTo(to: number, seconds: number): Promise<void> {
+    this.ramp?.cancel();
     const from = this.volume;
     const start = performance.now();
-    const step = () => {
-      const k = Math.min(1, (performance.now() - start) / (SWELL * 1000));
-      this.volume = Math.round(from + (100 - from) * k);
-      this.level();
-      if (k < 1 && !this.talking) setTimeout(step, 50);
-    };
-    if (from < 100) step();
+    return new Promise((resolve) => {
+      let timer = 0;
+      const fade = { cancel: () => (clearTimeout(timer), resolve()) };
+      this.ramp = fade;
+      const step = () => {
+        const k = Math.min(1, (performance.now() - start) / (seconds * 1000));
+        this.volume = from + (to - from) * k * k * (3 - 2 * k);
+        this.level();
+        if (k < 1) timer = window.setTimeout(step, 40);
+        else {
+          if (this.ramp === fade) this.ramp = undefined;
+          resolve();
+        }
+      };
+      step();
+    });
   }
 
   /** What the player says: how it's getting on, and when a song's over (or won't play here). */
@@ -455,11 +485,22 @@ export class Radio {
       return;
     }
     if (msg.event === 'onError') return void this.next(false); // (taken down, or not allowed off YouTube)
-    const state = msg.event === 'onStateChange' ? msg.info
-      : msg.event === 'infoDelivery' ? (msg.info as { playerState?: number } | null)?.playerState : undefined;
+    const info = msg.event === 'infoDelivery' ? (msg.info as { playerState?: number; currentTime?: number; duration?: number } | null) : null;
+    if (typeof info?.duration === 'number') this.duration = info.duration;
+    // the last few seconds: the song goes out, and on to the break (a little early, like on the radio)
+    if (typeof info?.currentTime === 'number' && this.on && this.state === 1 && !this.ending && !this.changing && !this.talking && this.duration > 30) {
+      const left = this.duration - info.currentTime;
+      if (left > 0 && left < FADE.out) {
+        this.ending = true;
+        void this.fadeTo(0, left).then(() => this.ending && this.on && this.next(false));
+      }
+    }
+    const state = msg.event === 'onStateChange' ? msg.info : info?.playerState;
     if (typeof state !== 'number' || state === this.state) return;
     this.state = state;
     this.deck?.classList.toggle('playing', state === 1);
+    // in it comes, once it's actually playing (under him, if he's talking)
+    if (state === 1 && this.volume < 1 && !this.ending) void this.fadeTo(this.talking ? UNDER : 100, FADE.in);
     if (state === 0 && this.on) void this.next(false);
   }
 

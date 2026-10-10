@@ -94,8 +94,8 @@ sounds *names:
     @node "${TMPDIR:-/tmp}/sounds.mjs" {{names}}
 
 # Radio Alles: match the playlist (an Exportify CSV in tools/radio/) to YouTube videos
-radio:
-    python3 tools/radio/videos.py
+radio *args:
+    python3 tools/radio/videos.py {{args}}
 
 # record the Radio Alles DJ with ElevenLabs, as far as the credits go (--max N, --list)
 dj *args:
