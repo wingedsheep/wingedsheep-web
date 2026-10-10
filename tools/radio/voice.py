@@ -67,8 +67,9 @@ def name(kind: str, ident: str, text: str) -> str:
 def lines():
     """Every line to record, in the order to record them: (kind, ident, text, when). The chatter
     and his story first, then an intro for each song in the playlist's order (so a run of
-    recordings covers a stretch of it), then the songs' second intros, his takes on them, and
-    last their moment intros, which only play when the hour or the weather is right for them."""
+    recordings covers a stretch of it), then the songs' second intros, his takes on them, what he
+    says after some of them (afters-*.json), and last their moment intros, which only play when
+    the hour or the weather is right for them."""
     for f in sorted((HERE / "lines").glob("chatter*.json")):
         for c in json.loads(f.read_text()):
             yield "chat", c["id"], c["text"], c.get("when")
@@ -76,7 +77,7 @@ def lines():
     for c in json.loads(story.read_text()) if story.exists() else []:
         yield "story", c["id"], c["text"], None
     records = json.loads((ROOT / "src" / "data" / "radio.json").read_text())
-    for kind, pattern in (("intro", "intros-*.json"), ("take", "takes-*.json")):
+    for kind, pattern in (("intro", "intros-*.json"), ("take", "takes-*.json"), ("after", "afters-*.json")):
         texts = {}
         for f in sorted((HERE / "lines").glob(pattern)):
             texts.update(json.loads(f.read_text()))
@@ -145,7 +146,7 @@ def main(args: list[str]):
             done += 1
             print(f"[{done}] {f}  {text[:70]}")
     # the manifest: what's on tape. Old takes of edited lines are left for `git clean`.
-    chat, story, intros, moments = [], [], {}, []
+    chat, story, intros, afters, moments = [], [], {}, {}, []
     for kind, ident, text, when in lines():
         f = name(kind, ident, text)
         if not (OUT / f).exists():
@@ -156,9 +157,11 @@ def main(args: list[str]):
             story.append({"id": ident, "file": f})
         elif kind == "moment":
             moments.append({"track": ident, "file": f, "when": when})
+        elif kind == "after":
+            afters.setdefault(ident, []).append(f)
         else:
             intros.setdefault(ident, []).append(f)
-    MANIFEST.write_text(json.dumps({"chatter": chat, "story": story, "intros": intros, "moments": moments,
+    MANIFEST.write_text(json.dumps({"chatter": chat, "story": story, "intros": intros, "afters": afters, "moments": moments,
                                     "follows": following()}, indent=1) + "\n")
     print(f"On tape: {len(chat)} bits of chatter, {len(story)} instalments of his story, "
           f"{sum(len(v) for v in intros.values())} intros for {len(intros)} songs, {len(moments)} for the moment "

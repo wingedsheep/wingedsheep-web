@@ -92,11 +92,19 @@ const SONGS = records as Song[];
 const CHATTER = dj.chatter as Chat[];
 const TALE = dj.story as Chat[];
 const INTROS = dj.intros as { [track: string]: string[] };
+const AFTERS = ((dj as { afters?: unknown }).afters ?? {}) as { [track: string]: string[] };
 const MOMENTS = (dj as { moments?: Moment[] }).moments ?? [];
 /** Songs that follow on from the one before (the same artist again, or an intro that refers back): never jumped to. */
 const FOLLOWS = new Set((dj as { follows?: string[] }).follows ?? []);
 /** He plays a few songs in the playlist's order, then jumps somewhere else in it (where a song stands on its own). */
 const RUN = [3, 6];
+/**
+ * Between songs he sometimes says something about the one that's just finished: its own line if
+ * he's got one (lines/afters-*.json), more often than not, or now and then one that fits any song
+ * (`after-…`). When he jumps he sometimes says so (`link-…`). At most one remark or chat and one
+ * link a break, a breath apart (ms).
+ */
+const JOINS = { own: 0.55, any: 0.12, link: 0.45, breath: 450 };
 
 const songsBetween = ([a, b]: number[]) => a + Math.floor(Math.random() * (b - a + 1));
 
@@ -124,6 +132,9 @@ export class Radio {
   private played = new Set<number>();
   private at = this.elsewhere();
   private runLeft = songsBetween(RUN);
+  /** Whether the next song's a jump, and whether the last one played to the end (rather than not playing at all). */
+  private jumped = false;
+  private finished = false;
   /** YouTube's last word on the player: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering. */
   private state = -1;
   /** Kees, while he's talking. */
@@ -277,6 +288,7 @@ export class Radio {
     this.changing = true;
     this.ending = false;
     this.talking?.stop();
+    const last = SONGS[this.at];
     if (!first) this.at = this.after();
     this.played.add(this.at);
     const song = SONGS[this.at];
@@ -293,9 +305,14 @@ export class Radio {
     this.saved = undefined;
     // his story when it's due (unless something's just happened that he wants to talk about)
     const instalment = !first && !saved && --this.storyIn <= 0 ? this.nextInstalment() : undefined;
-    const chat = saved ?? instalment ?? (chatting ? this.chat(storm) : undefined);
+    const remark = !first && this.finished ? this.remark(last) : undefined;
+    const chat = saved ?? instalment ?? remark ?? (chatting ? this.chat(storm) : undefined);
+    const link = !first && this.jumped && Math.random() < JOINS.link ? this.pick(this.joins('link-')) : undefined;
+    this.finished = false;
     this.command('pauseVideo');
     if (chat) await this.speak(chat.file, chat.id);
+    if (chat && link) await new Promise((r) => setTimeout(r, JOINS.breath));
+    if (link) await this.speak(link.file, link.id);
     if (!this.on) return void (this.changing = false);
     const over = opener ?? (intro ? { id: song.id, file: intro } : undefined);
     this.play(song);
@@ -312,7 +329,8 @@ export class Radio {
    */
   private after() {
     const next = (this.at + 1) % SONGS.length;
-    if (--this.runLeft > 0 || FOLLOWS.has(SONGS[next].id)) return next;
+    this.jumped = !(--this.runLeft > 0 || FOLLOWS.has(SONGS[next].id));
+    if (!this.jumped) return next;
     this.runLeft = songsBetween(RUN);
     return this.elsewhere();
   }
@@ -391,9 +409,21 @@ export class Radio {
     return this.pick(this.talk('aboard'), 0.4); // (his week, when it's got a line for today, 40% of the time)
   }
 
+  /** Something about the song that's just finished, now and then: its own line, or one that fits any song. */
+  private remark(song: Song): Chat | undefined {
+    const own = AFTERS[song.id];
+    if (own?.length) return Math.random() < JOINS.own ? { id: `after-${song.id}`, file: own[Math.floor(Math.random() * own.length)] } : undefined;
+    return Math.random() < JOINS.any ? this.pick(this.joins('after-')) : undefined;
+  }
+
+  /** His lines for between two songs (after one, or before a jump). */
+  private joins(prefix: string): Chat[] {
+    return CHATTER.filter(({ id }) => id.startsWith(prefix));
+  }
+
   /** The chatter on a topic that's true right now (the storm cut-ins and the remarks on events aside: they have their moments). */
   private talk(topic: 'tale' | 'aboard' | 'now'): Chat[] {
-    return CHATTER.filter(({ id, when }) => !id.startsWith(CUT_IN.prefix) && !id.startsWith('event-')
+    return CHATTER.filter(({ id, when }) => !id.startsWith(CUT_IN.prefix) && !id.startsWith('event-') && !id.startsWith('after-') && !id.startsWith('link-')
       && (topic === 'tale' ? id.startsWith('tale-') : !id.startsWith('tale-') && aboutNow(when) === (topic === 'now'))
       && (!when || this.fits(when)));
   }
@@ -516,7 +546,7 @@ export class Radio {
       const left = this.duration - info.currentTime;
       if (left > 0 && left < FADE.out) {
         this.ending = true;
-        void this.fadeTo(0, left).then(() => this.ending && this.on && this.next(false));
+        void this.fadeTo(0, left).then(() => this.ending && this.on && ((this.finished = true), this.next(false)));
       }
     }
     const state = msg.event === 'onStateChange' ? msg.info : info?.playerState;
@@ -525,7 +555,10 @@ export class Radio {
     this.deck?.classList.toggle('playing', state === 1);
     // in it comes, once it's actually playing (under him, if he's talking)
     if (state === 1 && this.volume < 1 && !this.ending) void this.fadeTo(this.talking ? UNDER : 100, FADE.in);
-    if (state === 0 && this.on) void this.next(false);
+    if (state === 0 && this.on) {
+      this.finished = !this.changing;
+      void this.next(false);
+    }
   }
 
   private command(func: string, args: unknown[] = []) {

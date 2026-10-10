@@ -196,6 +196,12 @@ Made up, and all about him: never about real musicians.
 
 - `lines/intros-*.json`: `{ "<spotify track id>": "intro text" }`, one intro a song. More files
   may give the same song another intro (`lines/takes-*.json`, his personal takes); he picks one.
+- `lines/afters-*.json`: `{ "<spotify track id>": "text" }`, what he says right after some songs
+  have finished, about that song (never repeating its intro). The radio shuffles a little, so
+  these are the way to talk about the song before: personal, really about what was just played.
+- `lines/chatter-joins.json`: lines for between any two songs: `after-…` (about the song that's
+  just finished, without naming it, for songs with no afters line) and `link-…` (when he jumps
+  somewhere else in the playlist).
 - `lines/story.json`: a list of `{ "id": "story-01-...", "text": "..." }`, his story in order.
 - `lines/chatter-tales.json`: a list of `{ "id": "tale-...", "text": "..." }`, his anecdotes, any
   order, any time (no `when`).
