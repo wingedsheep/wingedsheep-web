@@ -1,7 +1,7 @@
 /**
  * Radio Alles, the pirate station on the boat far out west of the lighthouse (scene/sightings.ts). Tune
  * the lamp-room radio past the shipping forecast and it comes in: Vincent's playlist, "alles",
- * played in its own order from wherever the needle happens to land, with no skipping: it's an
+ * a few songs at a time in its own order, then off somewhere else in it, with no skipping: it's an
  * old radio, it just plays. The music comes from YouTube (src/data/radio.json, matched by
  * tools/radio/videos.py), through a player kept out of sight in the set. Between songs
  * Kees, the DJ, talks (src/data/dj.json, recorded by tools/radio/voice.py): he introduces the
@@ -93,6 +93,10 @@ const CHATTER = dj.chatter as Chat[];
 const TALE = dj.story as Chat[];
 const INTROS = dj.intros as { [track: string]: string[] };
 const MOMENTS = (dj as { moments?: Moment[] }).moments ?? [];
+/** Songs that follow on from the one before (the same artist again, or an intro that refers back): never jumped to. */
+const FOLLOWS = new Set((dj as { follows?: string[] }).follows ?? []);
+/** He plays a few songs in the playlist's order, then jumps somewhere else in it (where a song stands on its own). */
+const RUN = [3, 6];
 
 const songsBetween = ([a, b]: number[]) => a + Math.floor(Math.random() * (b - a + 1));
 
@@ -116,8 +120,10 @@ export class Radio {
   on = false;
   private deck = document.querySelector<HTMLElement>('[data-radio]');
   private player?: HTMLIFrameElement;
-  /** Where we are in the playlist. */
-  private at = Math.floor(Math.random() * SONGS.length);
+  /** The songs he's played since you tuned in, where we are, and songs to go in this run before he jumps. */
+  private played = new Set<number>();
+  private at = this.elsewhere();
+  private runLeft = songsBetween(RUN);
   /** YouTube's last word on the player: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering. */
   private state = -1;
   /** Kees, while he's talking. */
@@ -271,7 +277,8 @@ export class Radio {
     this.changing = true;
     this.ending = false;
     this.talking?.stop();
-    if (!first) this.at = (this.at + 1) % SONGS.length;
+    if (!first) this.at = this.after();
+    this.played.add(this.at);
     const song = SONGS[this.at];
     const storm = this.rough > 0.5;
     const now = first || !this.mayRemark(storm) ? [] : MOMENTS.filter((m) => m.track === song.id && this.fits(m.when));
@@ -297,6 +304,23 @@ export class Radio {
       await this.speak(over.file, over.id);
       if (this.state === 1) void this.fadeTo(100, FADE.swell); // (if it's still loading, it comes in at full)
     }
+  }
+
+  /**
+   * What comes next: the next song in the playlist, till the run's done and the next one stands on
+   * its own; then a jump to another song that does (one not played yet since you tuned in).
+   */
+  private after() {
+    const next = (this.at + 1) % SONGS.length;
+    if (--this.runLeft > 0 || FOLLOWS.has(SONGS[next].id)) return next;
+    this.runLeft = songsBetween(RUN);
+    return this.elsewhere();
+  }
+
+  /** Somewhere in the playlist that stands on its own, and that you haven't heard since tuning in. */
+  private elsewhere() {
+    const fresh = SONGS.map((_, i) => i).filter((i) => !FOLLOWS.has(SONGS[i].id) && !this.played.has(i));
+    return fresh.length ? fresh[Math.floor(Math.random() * fresh.length)] : Math.floor(Math.random() * SONGS.length);
   }
 
   /**

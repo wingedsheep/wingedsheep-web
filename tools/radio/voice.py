@@ -34,6 +34,10 @@ MODEL = "eleven_v4_turbo"  # natural and quick, at half the credits a character 
 SETTINGS = {"stability": 0.45, "similarity_boost": 0.8, "style": 0.3}
 RESERVE = 1500  # credits left alone for the island's other sounds
 LUFS = -16
+# an intro that leans on the song before it ("again", "three in a row", "more from…")
+FOLLOWING = re.compile(r"\b(again|back to back|back-to-back|twice|in a row|second one|another one from|more from|that last|"
+                       r"the last one|just played|before that|after that one|same band|same man|same again|follow(s|ing) (that|on)|"
+                       r"couldn't stop at one|third|fourth|fifth)\b", re.I)
 
 
 def key() -> str:
@@ -84,6 +88,22 @@ def lines():
         for m in json.loads(f.read_text()):
             if m["track"] in on_board:
                 yield "moment", m["track"], m["text"], m["when"]
+
+
+def following() -> list[str]:
+    """The songs that follow on from the one before in the playlist, so the radio doesn't jump to
+    them when it shuffles: the same artist again, or an intro that refers back."""
+    records = json.loads((ROOT / "src" / "data" / "radio.json").read_text())
+    texts: dict[str, list[str]] = {}
+    for f in sorted((HERE / "lines").glob("intros-*.json")) + sorted((HERE / "lines").glob("takes-*.json")):
+        for track, text in json.loads(f.read_text()).items():
+            texts.setdefault(track, []).append(text)
+    out = []
+    for before, r in zip(records[-1:] + records[:-1], records):
+        artists = lambda s: {a.strip() for a in s["artist"].split(",")}
+        if artists(before) & artists(r) or any(FOLLOWING.search(t) for t in texts.get(r["id"], [])):
+            out.append(r["id"])
+    return out
 
 
 def record(text: str, raw: Path, out: Path):
@@ -138,7 +158,8 @@ def main(args: list[str]):
             moments.append({"track": ident, "file": f, "when": when})
         else:
             intros.setdefault(ident, []).append(f)
-    MANIFEST.write_text(json.dumps({"chatter": chat, "story": story, "intros": intros, "moments": moments}, indent=1) + "\n")
+    MANIFEST.write_text(json.dumps({"chatter": chat, "story": story, "intros": intros, "moments": moments,
+                                    "follows": following()}, indent=1) + "\n")
     print(f"On tape: {len(chat)} bits of chatter, {len(story)} instalments of his story, "
           f"{sum(len(v) for v in intros.values())} intros for {len(intros)} songs, {len(moments)} for the moment "
           f"({MANIFEST.relative_to(ROOT)})")
