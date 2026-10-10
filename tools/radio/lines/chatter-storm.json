@@ -1,0 +1,162 @@
+[
+  {
+    "id": "storm-cutin-still-here",
+    "text": "[raising his voice] Still here. Opa's holding. Just. [then calmly] Back to the song.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-anyone",
+    "text": "[urgently] Hello? Is this thing still on? [exhales] Good. So am I. Carry on.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-opa-cough",
+    "text": "That was Opa coughing, not the record. [mutters] Come on, old man. [then calmly] There he goes.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-gerrit-refuses",
+    "text": "[shouting over the wind] Gerrit! In! [flatly] He's refused. He's on the aerial. Sorry about the static.",
+    "when": { "weather": ["storm", "windy"] }
+  },
+  {
+    "id": "storm-cutin-aerial-sway",
+    "text": "[raising his voice] The aerial's swaying about a metre each way. If I go, I'm coming back.",
+    "when": { "weather": ["storm", "windy"] }
+  },
+  {
+    "id": "storm-cutin-wave-bow",
+    "text": "[breathless] Big one over the bow there. Everything's wet that wasn't. The record's fine. Priorities.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-lightning-close",
+    "text": "[urgently] That one was close. Very close. [then calmly] Still on air. Let's not mention it again.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-chain",
+    "text": "Hear the chain? [quietly] That's her holding. Not complaining. Holding.",
+    "when": { "weather": ["storm", "windy"] }
+  },
+  {
+    "id": "storm-cutin-static-sorry",
+    "text": "[raising his voice] Sorry about the static. Nothing I can do about the sky. Song's still going.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-lost-you",
+    "text": "[shouting over the wind] Lost you for a bit there. Or you lost me. Either way, we're back.",
+    "when": { "weather": ["storm", "windy"] }
+  },
+  {
+    "id": "storm-cutin-mug",
+    "text": "[breathless] That was the mug. On the floor. [dryly] It's had a long career. Carry on.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-hold-tight",
+    "text": "[urgently] Hold on, she's leaning... [then calmly] And back. Good girl. Music.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-night-dark",
+    "text": "[raising his voice] Every light on the island just went out in that flash. Then came back. Like us.",
+    "when": { "weather": ["storm"], "time": ["night"] }
+  },
+  {
+    "id": "storm-cutin-opa-fed",
+    "text": "[breathless] Just topped up Opa in the rain. He's happy. I'm soaked. Fair trade.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-transmitter",
+    "text": "[mutters] Come on, come on... [then calmly] There. Transmitter wanted a slap. Sorry, as you were.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-cutin-still-afloat",
+    "text": "[raising his voice] Quick one: still afloat. That's the whole announcement.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-one-hand",
+    "text": "I'm doing this one-handed. The other hand's on the record player, the way you'd keep a hand on a dog that wants to run off. Between waves I let go and it stays put, and I think we've got an understanding. Then she rolls and we haven't. If the song stutters, that's not the band. That's me and the deck, disagreeing about where down is.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-gerrit-wheelhouse",
+    "text": "Gerrit's in the wheelhouse with me. He doesn't come in. Not ever. He's standing on the chart table with his feathers flat, looking at the door like it owes him money. [quietly] I haven't said anything. If I say anything he'll go back out on principle, and I'd rather he didn't. So we're both pretending he's not here. It's going very well.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-why-not-harbour",
+    "text": "People ask why I don't run for harbour when it blows like this. Well, a bottle once asked. Two reasons. A harbour means a harbourmaster, and a harbourmaster means paperwork, and paperwork means somebody asking whose transmitter that is. And out here she can swing on her chain and take it bow first, the way she's built to. [dryly] In a harbour she'd only have walls to argue with.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-lighthouse-beam",
+    "text": "Through the rain I can just make out the lighthouse, the beam coming round every few seconds, catching the water and letting it go. I count it, when it's like this. It's very good company. [warmly] Up there somebody's keeping it turning, and down here I'm keeping the records turning, and between us I'd say the island's covered.",
+    "when": { "weather": ["storm"], "time": ["evening", "night"] }
+  },
+  {
+    "id": "storm-ferry-not-running",
+    "text": "No ferry this hour. They've tied her up. Very sensible. The captain's a careful man... [deadpan] careful about a lot of things. So for once it's just me out here, and whatever's above us, and you. Stay where you are. Nobody's going anywhere today, and that's allowed.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-ferry-rolling",
+    "text": "The ferry's out in this. I can see her lights going up, and then going down a long way, and then up again. Somebody on that boat is reading the safety announcement right now, and for once every single passenger is listening. [quietly] Good luck to them. I mean it.",
+    "when": { "weather": ["storm", "windy"] }
+  },
+  {
+    "id": "storm-kettle-in-sink",
+    "text": "Kettle's in the sink, wedged with a tea towel. That's where it lives in weather. It boils in there too, if you're patient and don't mind tea that's been through something. [exhales] The mug stays in my hand. Learned that one the hard way.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-scared",
+    "text": "Am I scared? A bit. I'd be a fool not to be, out here in this. But being scared is just paying attention with your stomach. So I check the chain, I check Opa, I check the lines, and then I sit down and put a record on, because there's nothing else to check. [quietly] And because somebody might be listening.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-saved-song",
+    "text": "I've got a record I only play in storms. I won't say which. If I told you, you'd play it on a sunny afternoon, and then it'd just be a song. [fondly] It's for nights like this. You'll know it when you hear it. Or you won't, and that's fine too.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-stay-in",
+    "text": "Right. Public service announcement, which is a thing I don't do. [raising his voice] Stay in. Don't go and look at the waves. The waves will be there tomorrow, and they're less interesting than they look from a warm window. Put something on the stove, put me on the radio, and let it blow itself out.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-lashing-down",
+    "text": "Just been out lashing things down. The dinghy's tied twice. The tarp from the transmitter's tied three times, because the one time I didn't, it went to the island without me. [sighs] Hands like ice. Ears full of water. And the radio played the whole time without me. Nobody needed me at all. That's how you know it's built right.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-opa-at-night",
+    "text": "In the middle of a night like this, the one sound I listen for isn't the wind or the chain. It's Opa. That steady old cough down below. As long as he's going, the lights are on and you can hear me. [quietly] So we're both listening to him, you and I. Whether you know it or not.",
+    "when": { "weather": ["storm"], "time": ["night"] }
+  },
+  {
+    "id": "storm-gerrit-crate",
+    "text": "Gerrit's crate is tied to the wheelhouse roof with four lines and a bit of hope. He's in it. Head under his wing, pretending this is a perfectly ordinary day. I've offered him the inside twice. [dryly] He looked at me like I'd suggested he take up knitting. Gulls were doing storms long before boats were.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-lightning-count",
+    "text": "Lightning over the water, then you count. One, two, three... and there's the thunder. That's about a kilometre. When I was new out here, I'd count and hide behind the chart table. These days I count and then play something louder. [mutters] Still count, though.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-the-records-safe",
+    "text": "The records are in the crate, the crate's in the bunk, and the bunk's got a blanket over it. They're drier than I am. [dryly] Better looked after too. If the boat ever goes down, they'll find a soggy pirate and a crate of perfectly fine records, and they'll know where my priorities were.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "id": "storm-after-the-worst",
+    "text": "I think that was the worst of it. The gaps between gusts are getting longer, and the chain's gone from shouting to grumbling. [exhales] Opa never stopped. Gerrit's out on deck already, looking unimpressed, as if he'd arranged the whole thing. Give it an hour. Not yet, though. Stay in a bit longer.",
+    "when": { "weather": ["storm", "windy"] }
+  }
+]

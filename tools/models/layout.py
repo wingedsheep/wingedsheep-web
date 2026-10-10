@@ -41,7 +41,8 @@ PODCAST_WALK = [(3.0, -10.3), (8.0, -12.0), (12.5, -13.1), (17.2, -13.9)]
 BEIKE = (-12.5, -12.5)             # Beike's spot in the meadow; he fetches the ball around it
 PETTING = (-12.8, -11.9)           # kneeling in his meadow while he lies in front of them, facing the camera
 SIGNPOST = (-2.6, -15.5)
-BOULDER = (19, 6)
+BOULDER = (-12.5, 10.5)            # up on the north-west cliffs, among the pines: in plain view from the lighthouse telescope
+OLD_BOULDER = (19, 6)              # where it stood first, in the eastern woods: its clearing stays, so the trees stay put
 SETT = (28.6, -4.3)                # the badgers’ sett, where the eastern woods meet the beach
 SUMMIT = (5.0, 18.6)
 # The peak rises from the upper terrace: centre, radius, height of the top ledge

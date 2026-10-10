@@ -1,0 +1,136 @@
+[
+  {
+    "track": "5YQdurseoDYoJMbRMfa1MH",
+    "text": "Coming down on the deck like gravel out there. Manu Chao calls it paradise. Rainin In Paradize. From in here, dry, with coffee, he's not wrong.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "4UvSPIQQKjvHTcc4VfUx7d",
+    "text": "Rain drumming on the wheelhouse roof and Gerrit pressed against the glass, wanting in. Coldplay, Rainy Day. [to Gerrit] Fine. Mind the records.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers",
+        "drizzle"
+      ]
+    }
+  },
+  {
+    "track": "4UvSPIQQKjvHTcc4VfUx7d",
+    "text": "Not a cloud anywhere. Coldplay, Rainy Day, played on a clear one, just to keep the sky honest.",
+    "when": {
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "2Sc2fikZMUod9wXnwTTzFx",
+    "text": "Black sky, the wind howling in the rigging, the anchor chain grumbling. Creedence, Bad Moon Rising. [dryly] Thank you, John Fogerty. Very helpful.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "2Sc2fikZMUod9wXnwTTzFx",
+    "text": "Clear sky, stars all the way down to the water. Creedence Clearwater Revival, Bad Moon Rising. I've looked. No sign of trouble up there.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "3vMT0vgfMCysGw38B2nkOD",
+    "text": "Dark out here, except the lighthouse, sweeping past every few seconds. Creedence, Long As I Can See The Light. [quietly] I can. I'm fine.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear",
+        "partly",
+        "cloudy",
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "3u2s7Dppp5ID2MxKnqxFyh",
+    "text": "Sun off the water so bright I'd be steering by memory, if we weren't at anchor. Manfred Mann's Earth Band, Blinded by the Light.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "3kdMzXOcrDIdSWLdONHNK5",
+    "text": "Clear night, every star out over the boat. Foo Fighters, The Sky Is A Neighborhood. Gerrit's asleep in his crate. The rest of the neighbours are up.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "1Q3t9fWvHUXKsMmpD2XpUu",
+    "text": "My breath's fogging the wheelhouse glass and I'm wearing three jumpers. Cage The Elephant, Cold Cold Cold. Opa's the warmest thing aboard, and he knows it.",
+    "when": {
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "3Obu3jvFSfgLF3pSbi64Vj",
+    "text": "Cold evening, and the burner's on for warmth more than cooking. Franz Ferdinand, This Fire. Hands round the mug, everybody.",
+    "when": {
+      "season": [
+        "winter"
+      ],
+      "time": [
+        "evening",
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "6BnONjR7itGMEqwxKTIlRM",
+    "text": "The Zeemeeuw's rolling like a barrel and the anchor's holding. Just. Capital Cities, Safe And Sound. Say it with me.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1sZUfl4muDcuWux6KlwaR8",
+    "text": "Every window in the wheelhouse open, and the mug's gone warm all on its own. The All-American Rejects. Sweat.",
+    "when": {
+      "weather": [
+        "hot"
+      ]
+    }
+  }
+]

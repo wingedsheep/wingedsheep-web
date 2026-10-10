@@ -92,9 +92,15 @@ const places = [
   <nav class="hud" aria-label="Island controls">
     <button class="hud-btn" data-action="places" aria-label="Places"><PixelIcon name="map" /><span>Places</span></button>
     <button class="hud-btn" data-action="journal" aria-label="Journal"><PixelIcon name="book" /><span data-journal-count>0/{Object.keys(SECRETS).length}</span></button>
-    <button class="hud-btn" data-action="sound" aria-pressed="true" aria-label="Sound"><PixelIcon name="sound" /></button>
+    <button class="hud-btn" data-action="sound" aria-pressed="true" aria-expanded="false" aria-label="Sound"><PixelIcon name="sound" /></button>
     <a class="hud-btn hud-plain" href="/plain/">Just the facts</a>
   </nav>
+
+  <!-- under the sound button: the island's volume, and sound on or off (hud.ts) -->
+  <div class="volume-menu" data-volume-menu hidden role="group" aria-label="Sound">
+    <label class="volume">Island <input type="range" min="0" max="100" step="1" data-volume="island" /></label>
+    <button class="volume-toggle" data-sound-toggle>Sound off</button>
+  </div>
 
   <p class="hint">Drag to explore · scroll to zoom · Q/E to turn · click what looks interesting</p>
 
@@ -171,6 +177,10 @@ const places = [
       <button class="panel-close" data-close aria-label="Back to the island"><PixelIcon name="close" /></button>
     </header>
     <!-- a film on the telly: the player is laid over its screen while it plays (lighthouse.ts) -->
+    <!-- through the lamp room's telescope: the island itself, in a brass ring (lighthouse.ts) -->
+    <div class="spyglass" data-spyglass hidden>
+      <button class="hud-btn spyglass-off" data-spyglass-off>Step back</button>
+    </div>
     <div class="film" data-film hidden>
       <div class="film-screen" data-film-screen></div>
       <button class="hud-btn film-off" data-film-off>Turn the telly off</button>
@@ -504,6 +514,7 @@ const places = [
       <span class="walkman-reel"></span>
     </div>
     <p class="walkman-now"><span data-walkman-now aria-live="polite">A1 · Ghost in the Machine</span><span data-walkman-time>0:00</span></p>
+    <label class="volume">Volume <input type="range" min="0" max="100" step="1" data-walkman-volume /></label>
     <div class="walkman-keys" role="group" aria-label="The Walkman's keys">
       <button data-key="rew" aria-label="Rewind" title="Rewind">◀◀</button>
       <button data-key="play" aria-label="Play" title="Play" aria-pressed="false">▶</button>
@@ -511,6 +522,20 @@ const places = [
       <button data-key="ff" aria-label="Fast forward" title="Fast forward">▶▶</button>
       <button data-key="eject" aria-label="Put away the Walkman" title="Put away the Walkman">Put away</button>
     </div>
+  </div>
+
+  <!-- Radio Alles, from the boat out to the west: tuned in at the top of the lighthouse (radio.ts) -->
+  <div class="radio" data-radio hidden role="region" aria-label="Radio Alles">
+    <div class="radio-dial" aria-hidden="true">
+      <span>88</span><span>92</span><span>96</span><span>100</span><span>104</span><span>108</span>
+      <i class="radio-needle"></i>
+    </div>
+    <p class="radio-name"><span class="radio-lamp" aria-hidden="true"></span><strong>Radio Alles</strong> from the boat out west</p>
+    <p class="radio-now"><span data-radio-now aria-live="polite">Tuning in…</span><a data-radio-spotify target="_blank" rel="noopener">The playlist ↗</a></p>
+    <label class="volume">Volume <input type="range" min="0" max="100" step="1" data-radio-volume /></label>
+    <button class="radio-off" data-radio-off>Switch off</button>
+    <!-- the station's music comes from a YouTube player, kept out of sight: it's a radio -->
+    <div class="radio-player" data-radio-player aria-hidden="true"></div>
   </div>
 
   <div id="toasts" class="toasts" role="status"></div>

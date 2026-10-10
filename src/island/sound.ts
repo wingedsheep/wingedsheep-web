@@ -65,6 +65,31 @@ export interface Disc {
 }
 
 const AUDIO = '/audio/';
+/** The visitor's own levels, kept between visits: the island as a whole, the Walkman, the radio. */
+export type Level = 'volume' | 'walkmanVolume' | 'radioVolume';
+const LEVEL_KEYS: Record<Level, string> = { volume: 'wingedsheep:volume', walkmanVolume: 'wingedsheep:walkman-volume', radioVolume: 'wingedsheep:radio-volume' };
+function storedLevel(level: Level) {
+  try {
+    const v = Number(localStorage.getItem(LEVEL_KEYS[level]));
+    return localStorage.getItem(LEVEL_KEYS[level]) !== null && v >= 0 && v <= 1 ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+/** The DJ's voice driven into a tanh curve, like a small set turned up too far. */
+const DRIVEN = (() => {
+  const c = new Float32Array(1024);
+  for (let i = 0; i < c.length; i++) {
+    const x = (i / (c.length - 1)) * 2 - 1;
+    c[i] = Math.tanh(x * 3) / Math.tanh(3);
+  }
+  return c;
+})();
+/**
+ * How loud the DJ is, against the songs (YouTube plays them at their own level, which this can't
+ * touch): low, since his clips are levelled hot and the drive and the compressor add more.
+ */
+const DJ_LEVEL = 0.4;
 /** Short clips, decoded up front: one of each set plays, never the same one twice in a row. */
 const CLIPS = {
   baa: ['sheep-1', 'sheep-2', 'sheep-3'],
@@ -250,6 +275,23 @@ export class Sound {
   private hush?: GainNode;
   /** A film on the keeper's telly (lighthouse.ts): it has its own sound, so everything else steps back. */
   film = false;
+  /** Radio Alles playing on the set you carry (radio.ts): the island's own music waits, the rest goes soft. */
+  radio = false;
+  /** The DJ's voice, past the hush (so the island going soft for the radio leaves him be). */
+  private voiceBus?: GainNode;
+  /** The visitor's levels, 0..1: the island's (the menu under the sound button), and the Walkman's and the radio's own, each apart from it. */
+  volume = storedLevel('volume');
+  walkmanVolume = storedLevel('walkmanVolume');
+  radioVolume = storedLevel('radioVolume');
+  /** How well Radio Alles is coming in, 0..1 (radio.ts): it fades now and then, more in a storm. */
+  radioSignal = 1;
+  /** How rough the weather is for the radio, 0..1: the hiss and the crackle come up with it. */
+  radioRough = 0;
+  /** Lightning strikes so far (the radio crackles with each one). */
+  lightning = 0;
+  /** The set's own hiss, faint under the station, louder when the signal fades; and the DJ's level with it. */
+  private airwaves?: GainNode;
+  private djLevel?: GainNode;
   /** Upside down in the river: everything heard through the water, and your own pressure in your ears. */
   private dunk?: BiquadFilterNode;
   private deep?: GainNode;
@@ -364,13 +406,25 @@ export class Sound {
     if (on) this.start();
     this.onWaiting?.();
     if (!this.ctx || !this.master) return;
-    this.master.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.3);
+    this.master.gain.setTargetAtTime(on ? this.volume : 0, this.ctx.currentTime, 0.3);
     if (!on) {
       this.dropSong();
       this.stopPiano();
       this.stopRecord();
       this.stopAlbum();
     }
+  }
+
+  /** Turn one of the levels up or down (and remember it for next time). */
+  setLevel(level: Level, value: number) {
+    this[level] = Math.min(1, Math.max(0, value));
+    try {
+      localStorage.setItem(LEVEL_KEYS[level], String(this[level]));
+    } catch { /* Still works for this visit. */ }
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (level === 'volume' && this.enabled) this.master?.gain.setTargetAtTime(this.volume, t, 0.05);
+    if (level === 'walkmanVolume') this.albumBus?.gain.setTargetAtTime(this.walkmanVolume, t, 0.05);
   }
 
   /** Play a piano piece from the top (by default the one after the last). Call from a gesture. */
@@ -1055,13 +1109,13 @@ export class Sound {
   /**
    * The season's score (public/audio/sfx/*-tune.mp3, composed by tools/sounds/generate.ts): soft,
    * and low under everything, a minute or so's rest between plays. It steps aside for any other
-   * music (the guitar, the piano, the gramophone, the Walkman, the fair folk, the telly), and isn't
+   * music (the guitar, the piano, the gramophone, the Walkman, the fair folk, the telly, the radio), and isn't
    * heard on the river or up on the trail. Indoors it comes through the walls, a little duller.
    */
   private scoring(t: number) {
     const tune = this.tune;
     const other = this.playing || this.piano || (this.record && !this.record.stopping) || (this.lp && !this.lp.stopping)
-      || this.reel?.going || this.telly || this.film;
+      || this.reel?.going || this.telly || this.film || this.radio;
     const level = tune && this.enabled && !other && !this.atRiver && !this.diorama ? tune.level : 0;
     if (!this.score) {
       if (!tune || level <= 0.01) return;
@@ -1546,8 +1600,148 @@ export class Sound {
     lfo.stop(t + 3);
   }
 
+  /**
+   * The set itself while Radio Alles is on: a faint hiss and the odd crackle under the station,
+   * which comes up as the signal fades (and the DJ goes down with it).
+   */
+  private tuning(t: number) {
+    const ctx = this.ctx!;
+    if (!this.airwaves) {
+      if (!this.radio || !this.noise || !this.voiceBus) return;
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      src.loop = true;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 3000;
+      band.Q.value = 0.4;
+      this.airwaves = ctx.createGain();
+      this.airwaves.gain.value = 0;
+      src.connect(band).connect(this.airwaves).connect(this.voiceBus);
+      src.start();
+      this.djLevel = ctx.createGain();
+      this.djLevel.connect(this.voiceBus);
+    }
+    const fade = 1 - this.radioSignal;
+    const rough = this.radioRough;
+    const crackle = Math.random() < 0.02 + rough * 0.1 ? 0.03 + rough * 0.06 : 0;
+    this.airwaves.gain.setTargetAtTime(this.radio ? 0.016 + rough * 0.035 + crackle + fade * 0.22 : 0, t, 0.05);
+    this.djLevel!.gain.setTargetAtTime(0.4 + 0.6 * this.radioSignal, t, 0.05);
+  }
+
+  /**
+   * Kees, the Radio Alles DJ, saying one of his lines (public/audio/dj/), the way a pirate station
+   * comes in on a little set: the AM band only (nothing under 300 Hz or over 3.4 kHz, each edge
+   * cut twice over so it's steep), a honk in the middle, driven a little hard and squeezed flat
+   * by a compressor. DJ_LEVEL sets him against the songs, which come from YouTube at their own
+   * level and can't be filtered here. Resolves when he's done (or was cut off, or couldn't be
+   * heard at all).
+   */
+  say(file: string): { done: Promise<void>; stop(): void } {
+    this.start();
+    if (!this.ctx || !this.voiceBus) return { done: Promise.resolve(), stop() {} };
+    const ctx = this.ctx;
+    this.tuning(ctx.currentTime);
+    const band = (type: BiquadFilterType, frequency: number, gain = 0, Q = 0.7) => {
+      const f = ctx.createBiquadFilter();
+      Object.assign(f, { type });
+      f.frequency.value = frequency;
+      f.gain.value = gain;
+      f.Q.value = Q;
+      return f;
+    };
+    const chain: AudioNode[] = [
+      band('highpass', 300), band('highpass', 300),
+      band('lowpass', 3400), band('lowpass', 3400),
+      band('peaking', 1400, 5, 0.9), // the small speaker's honk
+    ];
+    const drive = ctx.createWaveShaper();
+    drive.curve = DRIVEN;
+    const squeeze = ctx.createDynamicsCompressor();
+    squeeze.threshold.value = -24;
+    squeeze.ratio.value = 6;
+    squeeze.attack.value = 0.005;
+    squeeze.release.value = 0.12;
+    chain.push(drive, squeeze);
+    chain.reduce((a, b) => a.connect(b));
+    chain[chain.length - 1].connect(this.djLevel ?? this.voiceBus);
+    const { el, gain } = this.stream(`dj/${file}`, false, chain[0]);
+    gain.gain.value = DJ_LEVEL;
+    let finish = () => {};
+    const done = new Promise<void>((resolve) => {
+      finish = () => {
+        finish = () => {};
+        el.pause();
+        el.src = '';
+        gain.disconnect();
+        for (const node of chain) node.disconnect();
+        resolve();
+      };
+    });
+    el.addEventListener('ended', () => finish(), { once: true });
+    el.addEventListener('error', () => finish(), { once: true });
+    el.play().catch(() => finish());
+    return { done, stop: () => finish() };
+  }
+
+  /** Lightning on the radio: a hard crack of static and a sizzle as it dies away. */
+  radioCrash(strength = 1) {
+    if (!this.enabled || !this.ctx || !this.noise || !this.voiceBus) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'highpass';
+    band.frequency.value = 900;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.5 * strength, t + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.12 * strength, t + 0.15);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+    src.connect(band).connect(env).connect(this.voiceBus);
+    src.start(t, Math.random());
+    src.stop(t + 1.5);
+  }
+
+  /** Turning a radio's dial: hiss through a narrow band that sweeps up, and a whistle sliding past a station. */
+  tuneStatic() {
+    if (!this.enabled || !this.ctx || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 1.6;
+    band.frequency.setValueAtTime(700, t);
+    band.frequency.exponentialRampToValueAtTime(3200, t + 0.7);
+    band.frequency.exponentialRampToValueAtTime(1400, t + 1.2);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.35, t + 0.05);
+    env.gain.setValueAtTime(0.35, t + 0.9);
+    env.gain.linearRampToValueAtTime(0, t + 1.3);
+    const whistle = ctx.createOscillator();
+    whistle.frequency.setValueAtTime(2400, t + 0.3);
+    whistle.frequency.exponentialRampToValueAtTime(300, t + 0.75);
+    const tone = ctx.createGain();
+    tone.gain.setValueAtTime(0, t);
+    tone.gain.linearRampToValueAtTime(0.04, t + 0.35);
+    tone.gain.linearRampToValueAtTime(0, t + 0.8);
+    src.connect(band).connect(env).connect(this.master!);
+    whistle.connect(tone).connect(this.master!);
+    src.start(t, Math.random());
+    whistle.start(t);
+    src.stop(t + 1.4);
+    whistle.stop(t + 1.4);
+  }
+
   /** A far-off rumble: deep noise swelling in and dying away, quieter the further the strike. */
   thunder(distance: number) {
+    this.lightning++;
     if (!this.enabled || !this.ctx || !this.noise) return;
     // a far strike arrives late, quieter, and with the crack gone out of it
     if (this.play('thunder', 1.25 - distance * 0.8, { air: 300 + (1 - distance) ** 2 * 9000, delay: distance * 1.5, rate: 0.95 - distance * 0.1 })) return;
@@ -1577,7 +1771,9 @@ export class Sound {
   update(campfireNearness: number, view: number, dt: number) {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
-    this.hush?.gain.setTargetAtTime((1 - this.silence) * (this.film ? 0.15 : 1), t, this.film ? 0.4 : 0.1);
+    this.hush?.gain.setTargetAtTime((1 - this.silence) * (this.film ? 0.15 : this.radio ? 0.6 : 1), t, this.film || this.radio ? 0.4 : 0.1);
+    this.voiceBus?.gain.setTargetAtTime(this.enabled ? (1 - this.silence) * this.radioVolume : 0, t, 0.1);
+    this.tuning(t);
     const near = this.indoors || this.atRiver || this.diorama ? 0 : Math.max(0, Math.min(1, campfireNearness));
     // indoors the sea and the wind come through the walls; up in a diorama the island's far below
     const walls = this.atRiver ? 0 : this.indoors ? 0.3 : this.diorama ? 0.3 : 1;
@@ -1654,7 +1850,7 @@ export class Sound {
     // the guitar only carries when you're zoomed right in on the fire; in the hut, it fills the room
     const close = Math.max(0, Math.min(1, (24 - view) / 10));
     const hut = this.room === 'hut' && this.hutGuitarist;
-    this.loudness = !this.asked ? 0 : hut ? 1 : this.guitarist ? near * close : 0;
+    this.loudness = !this.asked || this.radio ? 0 : hut ? 1 : this.guitarist ? near * close : 0;
     this.songOpen?.gain.setTargetAtTime(hut ? 0 : 1, t, 0.3);
     this.songHut?.gain.setTargetAtTime(hut ? 1 : 0, t, 0.3);
     if (this.loudness > 0.02 && !this.song) this.joinSong();
@@ -1730,6 +1926,8 @@ export class Sound {
     this.dunk.type = 'lowpass';
     this.dunk.frequency.value = 20000;
     this.master.connect(this.dunk).connect(this.hush).connect(safety).connect(ctx.destination);
+    this.voiceBus = ctx.createGain();
+    this.voiceBus.connect(safety);
 
     // two seconds of brown-ish noise, reused by the sea and the fire
     const len = ctx.sampleRate * 2;
@@ -2337,6 +2535,7 @@ export class Sound {
    */
   private buildAlbumChain(ctx: AudioContext) {
     this.albumBus = ctx.createGain();
+    this.albumBus.gain.value = this.walkmanVolume;
     const lows = ctx.createBiquadFilter();
     lows.type = 'highpass';
     lows.frequency.value = 35;
@@ -2344,7 +2543,9 @@ export class Sound {
     tape.type = 'highshelf';
     tape.frequency.value = 10000;
     tape.gain.value = -4;
-    this.albumBus.connect(lows).connect(tape).connect(this.master!);
+    // its own volume, so past the island's (master), but still under the hush: the two minutes'
+    // silence quiets it too
+    this.albumBus.connect(lows).connect(tape).connect(this.dunk!);
   }
 
   private buildPianoChain(ctx: AudioContext) {

@@ -1,6 +1,14 @@
 /** Buttons around the island (places, journal, sound), Q/E to turn, and small global delights. */
 import { bindSketchbook } from './sketchbook';
 import { type IslandContext, SECRETS } from './content';
+import type { Level } from './sound';
+
+/** A volume slider, wired to one of the sound's levels (the radio's, the Walkman's, the island's). */
+export function level(input: HTMLInputElement | null | undefined, ctx: IslandContext, which: Level) {
+  if (!input) return;
+  input.value = String(Math.round(ctx.sound[which] * 100));
+  input.addEventListener('input', () => ctx.sound.setLevel(which, Number(input.value) / 100));
+}
 
 const on = (sel: string, fn: (el: HTMLElement) => void) =>
   document.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
@@ -16,9 +24,34 @@ export function bindHud(ctx: IslandContext, turnable: () => boolean) {
   on('[data-action="journal"]', () => ctx.openPanel('journal'));
   on('[data-action="places"]', () => ctx.openPanel('places'));
 
-  on('[data-action="sound"]', (el) => {
+  // the sound button opens a little menu: the island's volume, and sound on or off
+  const menu = document.querySelector<HTMLElement>('[data-volume-menu]');
+  const button = document.querySelector<HTMLElement>('[data-action="sound"]');
+  const mute = menu?.querySelector<HTMLButtonElement>('[data-sound-toggle]');
+  const showMute = () => {
+    if (mute) mute.textContent = ctx.sound.enabled ? 'Sound off' : 'Sound on';
+    button?.setAttribute('aria-pressed', String(ctx.sound.enabled));
+  };
+  const open = (show: boolean) => {
+    if (!menu) return;
+    menu.hidden = !show;
+    button?.setAttribute('aria-expanded', String(show));
+    showMute();
+  };
+  level(menu?.querySelector('[data-volume="island"]'), ctx, 'volume');
+  button?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    open(!!menu?.hidden);
+  });
+  mute?.addEventListener('click', () => {
     ctx.sound.setEnabled(!ctx.sound.enabled);
-    el.setAttribute('aria-pressed', String(ctx.sound.enabled));
+    showMute();
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (menu && !menu.hidden && !(e.target as HTMLElement).closest('[data-volume-menu], [data-action="sound"]')) open(false);
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menu && !menu.hidden) open(false);
   });
   // sound's on but the browser holds it back until the first click or key: the button glows till then
   const waiting = () => {

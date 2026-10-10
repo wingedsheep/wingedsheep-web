@@ -1097,7 +1097,7 @@ EGGS = [
     (5.0, 18.5, 1.5, "summit"),    # tied to the summit flagpole, under the flag
     (28.1, -5.7, 1.6, None),       # at the mouth of the badgers' sett
     (-30.0, -5.3, 1.7, None),      # in the rocks at the lighthouse's foot
-    (18.3, 4.2, 1.7, None),        # at the foot of the bouldering rock
+    (-12.1, 12.4, 1.7, None),      # behind the bouldering rock
     (24.6, -1.6, 1.6, None),       # by the campfire, against a log
     (23.4, -11.4, 1.6, None),      # among the blossom tree's roots
     (-2.3, -15.7, 1.6, None),      # at the foot of the signpost

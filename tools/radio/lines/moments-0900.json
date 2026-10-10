@@ -1,0 +1,125 @@
+[
+  {
+    "track": "4lxGVzcUaSF5HW5jtWnShV",
+    "text": "Long Nights, Eddie Vedder, and it is one. Just me, the anchor light and a gull pretending to be asleep.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "11607FzqoipskTsXrwEHnJ",
+    "text": "Coffee on, Opa grumbling, the bay going pale. The Velvet Underground and Nico, Sunday Morning, whatever day it actually is.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "6mSkYcnyvntZVVb3uOVt9W",
+    "text": "Somewhere round the middle of the night on the Zeemeeuw. Red Hot Chili Peppers, Midnight. Gerrit's asleep in his crate, so we keep it down.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "47LTRf7rCzT9x2ft4nMDMw",
+    "text": "Snow on the wheelhouse roof, and Gerrit glaring at it from his crate. Dead and Company, Cold Rain and Snow, ten minutes live. For once a song title knows what it's talking about.",
+    "when": {
+      "weather": [
+        "snow",
+        "sleet"
+      ]
+    }
+  },
+  {
+    "track": "47LTRf7rCzT9x2ft4nMDMw",
+    "text": "Cold rain on the glass, no snow yet. Dead and Company, Cold Rain and Snow. Half the title's come true. I'll take it.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers"
+      ],
+      "season": [
+        "autumn",
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "5AJrhrwz4oSZX2PwwV4qrN",
+    "text": "Spring out here means the gulls get loud and Gerrit gets ideas. The Zombies, Time of the Season.",
+    "when": {
+      "season": [
+        "spring"
+      ]
+    }
+  },
+  {
+    "track": "1yZFWn5IOy4spqLgJmMLmU",
+    "text": "Not a cloud up there, only a vapour trail or two heading somewhere I'm not. Jack Johnson, Traffic in the Sky.",
+    "when": {
+      "weather": [
+        "clear"
+      ],
+      "time": [
+        "morning",
+        "day"
+      ]
+    }
+  },
+  {
+    "track": "0fO2kAEmk9yynS5f8gENzs",
+    "text": "The wind's throwing spray right over the bow, so here's the Manic Street Preachers with Ocean Spray. [dryly] Very method.",
+    "when": {
+      "weather": [
+        "windy",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1OxcIUqVmVYxT6427tbhDW",
+    "text": "In a wind like this, Gerrit doesn't fly away so much as get relocated. Lenny Kravitz, Fly Away.",
+    "when": {
+      "weather": [
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "74RKxVxJSh54RBZfX6y4GY",
+    "text": "Fog all round. Can't see the lighthouse, can't see the ferry. Only the Ocean, Jack Johnson, and not much of that either.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "5uvosCdMlFdTXhoazkTI5R",
+    "text": "Burner on, both hands round the mug, the wheelhouse windows steamed up from the inside. The Doors, Light My Fire, all seven minutes. It's that kind of winter.",
+    "when": {
+      "season": [
+        "winter"
+      ],
+      "time": [
+        "evening",
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "6SXy02aTZU3ysoGUixYCz0",
+    "text": "Opa's sulking, the aerial's rattling, and the repair can wait till this blows over. Stereophonics, Maybe Tomorrow.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  }
+]

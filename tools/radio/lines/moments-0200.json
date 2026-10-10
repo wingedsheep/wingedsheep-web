@@ -1,0 +1,147 @@
+[
+  {
+    "track": "57bgtoPSgt236HzfBOd8kj",
+    "text": "There's actual thunder rolling round out there, and I've got a steel mast and a gull sitting on top of it. AC/DC, Thunderstruck. [to Gerrit] Come down off the aerial. Please.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "11Ihfr6TDVkqYWwLCuGJat",
+    "text": "Everybody ashore is off for the evening. Me, I'm in the wheelhouse with the microphone, as ever. Chef'Special, My Night Off. [dryly] I'll take mine some other year.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "track": "5yM7n12a0w0ZIxgwoobENF",
+    "text": "Listen to that rain on the wheelhouse roof, then listen to Bonham's drums, and tell me which is heavier. Led Zeppelin, When the Levee Breaks. I've put a bucket under the leak by the chart table.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "3cHXgre36CNxQ1jkGaZeAq",
+    "text": "Showers coming and going over the bay, and light breaking through in between. Keep an eye over the island. The Rolling Stones, She's A Rainbow. [dryly] Gerrit's never once looked up for one.",
+    "when": {
+      "weather": [
+        "showers"
+      ],
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ]
+    }
+  },
+  {
+    "track": "5H6Jp0syB5yEPk7SWYdlmk",
+    "text": "The wind's got into the rigging and it's making a noise like an out-of-tune choir. Jimi Hendrix, The Wind Cries Mary. Much better at it than my rigging.",
+    "when": {
+      "weather": [
+        "windy",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1Pc3gTtQG4Cq1x81NcXtCN",
+    "text": "Blue sky, hot deck, and the tar between the planks going soft. Queens of the Stone Age, My God Is The Sun. Not a word of argument from Gerrit, who's flat out on his crate.",
+    "when": {
+      "weather": [
+        "clear",
+        "warm",
+        "hot"
+      ],
+      "time": [
+        "day"
+      ],
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "track": "3KS09EvUKTtPgTHbBBsLCw",
+    "text": "Clear sky, and I've been turning my chair all day to keep the sun on my face. Xavier Rudd, Follow the Sun. That's as far as a man at anchor can follow it.",
+    "when": {
+      "weather": [
+        "clear"
+      ],
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "track": "2LWr0TXOjIuv3B7zO4kHVD",
+    "text": "Not a cloud, and the light off the water is hard enough to make you squint in the wheelhouse. Eddie Vedder, Hard Sun. Fitting, for once.",
+    "when": {
+      "weather": [
+        "clear",
+        "hot"
+      ],
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "track": "4jJEQg6mr3fQsUCYTwhBEZ",
+    "text": "Proper sunshine out there. I've got my mug on the deck and my feet on the rail. Two Door Cinema Club. Sun.",
+    "when": {
+      "weather": [
+        "clear",
+        "warm",
+        "hot"
+      ],
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "track": "1RTVBt6wWtWs2qiRVnlzLM",
+    "text": "Sonnentanz means sun dance, and the sun is dancing on every wave between here and the beach. Klangkarussell. Six minutes. Take your shoes off.",
+    "when": {
+      "weather": [
+        "clear"
+      ],
+      "time": [
+        "day"
+      ],
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "track": "5vGEdM7LvbgMypJkILhQ4p",
+    "text": "Middle of summer, the deck's too hot to stand on barefoot, and Gerrit's panting with his beak open, which is how gulls complain. Florence + The Machine, Dog Days Are Over. Not yet they're not.",
+    "when": {
+      "season": [
+        "summer"
+      ],
+      "weather": [
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "55USWnZ2JKfhvAzer2bxET",
+    "text": "All day and now all of the night, still at the microphone. The Kinks knew the hours a pirate keeps. Lighthouse going round, Opa going steady. All Day And All Of The Night.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  }
+]

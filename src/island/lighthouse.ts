@@ -4,8 +4,9 @@
  * when you point at it. The stairs climb (through the same iris) to the lamp room at the top.
  */
 import * as THREE from 'three';
-import { type IslandContext, labelFor, lighthousePlaceFor } from './content';
+import { type IslandContext, labelFor, lighthousePlaceFor, placeFor } from './content';
 import type { RoomInput } from './scene/camera-rig';
+import type { Picker } from './scene/picking';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { LampRoom } from './scene/lamp-room';
 import { type Show, telly } from './scene/companion';
@@ -22,6 +23,16 @@ const NO_SHIFT = new THREE.Vector2();
 const FILM_ORIGIN = 'https://www.youtube-nocookie.com';
 const FILM = `${FILM_ORIGIN}/embed/nbV7pH5wCPI?autoplay=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&rel=0&playsinline=1&enablejsapi=1`;
 const FILM_ASPECT = 16 / 9;
+/**
+ * The telescope: the eye at the lamp, about ten metres up the tower, and how much of the world
+ * it takes in (metres top to bottom; the wheel zooms it). It looks at Radio Alles, a few metres
+ * up her mast, and the camera stands well back along that line, seeing from the lamp on (the
+ * tower itself is out of the picture while you look). Zoomed out, the bottom of the view keeps
+ * `floor` metres above the tower's foot where it passes the lamp, or it would look up through
+ * the rock.
+ */
+const EYE = 10.2;
+const SPY = { view: 13, min: 5, max: 34, aim: 3.2, back: 80, low: -0.6, high: 0.15, floor: 2 };
 const BANNER = {
   quarters: 'The keeper\'s quarters. The coffee\'s on and the console\'s plugged in.',
   lamp: 'The lamp room, at the top of the tower. Mind the lens.',
@@ -51,6 +62,13 @@ export class Lighthouse implements RoomInput {
   private screen?: NonNullable<QuartersRoom['tellyScreen']>;
   /** The film's player state, as YouTube last reported it (2 paused, 0 ended). */
   private playerState = -1;
+  /** Looking through the telescope: its brass ring (IslandShell.astro), and its view of the island. */
+  private spyglass = document.querySelector<HTMLElement>('[data-spyglass]');
+  /**
+   * `yaw` and `pitch` are where it's pointing (radians: round from +x, and up from level); it
+   * follows the boat until you take hold of it and swing it round yourself.
+   */
+  private spy?: { camera: THREE.OrthographicCamera; view: number; clock: number; yaw: number; pitch: number; follow: boolean };
 
   constructor(
     private ctx: IslandContext,
@@ -58,7 +76,21 @@ export class Lighthouse implements RoomInput {
     private pixels: PixelRenderer,
     private host: HTMLElement,
     private reducedMotion: boolean,
+    private island: THREE.Scene,
+    /** The island's own picker: through the telescope you can spot things out there. */
+    private outdoors: Picker,
   ) {
+    this.spyglass?.querySelector('[data-spyglass-off]')?.addEventListener('click', () => this.stepBack());
+    window.addEventListener('keydown', (e) => {
+      if (!this.spy) return;
+      const arrows: Record<string, [number, number]> = { ArrowLeft: [0.06, 0], ArrowRight: [-0.06, 0], ArrowUp: [0, 0.04], ArrowDown: [0, -0.04] };
+      if (e.key !== 'Escape' && !arrows[e.key]) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      if (e.key === 'Escape') return this.stepBack();
+      const [yaw, pitch] = arrows[e.key];
+      this.swing(yaw * (this.spy.view / SPY.view), pitch * (this.spy.view / SPY.view));
+    }, true);
     this.film?.querySelector('[data-film-off]')?.addEventListener('click', () => this.switchOff());
     this.film?.querySelector('[data-film-screen]')?.addEventListener('click', () => this.pause());
     // Escape turns the telly off first, and only then leaves; space pauses
@@ -133,6 +165,111 @@ export class Lighthouse implements RoomInput {
     this.ctx.sound.film = true;
     this.ctx.sound.stopAlbum(); // the Walkman pauses for the film
     this.ui.tooltip(null);
+  }
+
+  /** Eye to the telescope: the lamp room gives way to the island, out over the water. */
+  lookThrough() {
+    if (!this.inside || this.floor !== 'lamp' || !this.spyglass) return;
+    this.spy ??= { camera: new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 200), view: SPY.view, clock: 0, yaw: 0, pitch: 0, follow: true };
+    Object.assign(this.spy, { view: SPY.view, follow: true });
+    this.spyglass.hidden = false;
+    this.ui.tooltip(null);
+    this.host.querySelector('canvas')!.style.cursor = '';
+    this.resize();
+  }
+
+  /** And back from it, into the room. */
+  stepBack() {
+    if (!this.spy) return;
+    this.spy = undefined;
+    if (this.spyglass) this.spyglass.hidden = true;
+    this.outdoors.highlight(null);
+    this.ui.tooltip(null);
+    this.host.querySelector('canvas')!.style.cursor = '';
+  }
+
+  /** Swing the telescope round (drag, or the arrow keys): it lets go of the boat and stays where you put it. */
+  private swing(dYaw: number, dPitch: number) {
+    const spy = this.spy!;
+    spy.follow = false;
+    spy.yaw += dYaw;
+    spy.pitch = THREE.MathUtils.clamp(spy.pitch + dPitch, SPY.low, SPY.high);
+  }
+
+  /**
+   * Point the telescope: on her as she rides at anchor until you've swung it yourself, focused
+   * as far off as she is, with a little shake from the hand on it.
+   */
+  private aim() {
+    const spy = this.spy!;
+    const ship = this.ctx.life.sightings.radioShip;
+    const foot = this.ctx.island.positionOf('lighthouse');
+    if (!ship || !foot) return false;
+    const eye = foot.clone().add(new THREE.Vector3(0, EYE, 0));
+    const boat = ship.clone().add(new THREE.Vector3(0, SPY.aim, 0)).sub(eye);
+    const reach = boat.length();
+    if (spy.follow) {
+      spy.yaw = Math.atan2(-boat.z, boat.x);
+      spy.pitch = Math.asin(boat.y / reach);
+    }
+    const c = spy.clock;
+    const along = new THREE.Vector3(Math.cos(spy.pitch) * Math.cos(spy.yaw), Math.sin(spy.pitch), -Math.cos(spy.pitch) * Math.sin(spy.yaw));
+    const target = eye.clone().addScaledVector(along, reach)
+      .add(new THREE.Vector3(Math.sin(c * 1.3) * 0.06, Math.sin(c * 0.9) * 0.05, Math.cos(c * 1.1) * 0.06));
+    const cam = spy.camera;
+    cam.position.copy(target).addScaledVector(along, -SPY.back);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(target);
+    cam.near = SPY.back - reach + 0.5; // from the lamp on
+    // wide, it lifts so that the bottom edge clears the ground where it passes the lamp
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    const low = eye.y + Math.sin(spy.pitch) * 0.5 - (up.y * spy.view) / 2;
+    const floor = foot.y + SPY.floor;
+    if (low < floor) cam.position.addScaledVector(up, (floor - low) / up.y);
+    const aspect = this.host.clientWidth / Math.max(1, this.host.clientHeight);
+    Object.assign(cam, { top: spy.view / 2, bottom: -spy.view / 2, left: (-spy.view / 2) * aspect, right: (spy.view / 2) * aspect });
+    cam.updateProjectionMatrix();
+    return true;
+  }
+
+  /**
+   * Something out there, through the telescope: what it is, and whatever it does when you click
+   * it from close by (the places you'd walk into stay where they are). A click off the lens, on
+   * the brass and the dark round it, takes your eye away.
+   */
+  private spot(ndc: THREE.Vector2) {
+    if (!this.inLens(ndc)) return this.stepBack();
+    const hit = this.pickOut(ndc);
+    const place = hit ? placeFor(hit.id) : undefined;
+    if (!hit || !place?.activate) return;
+    this.ui.tooltip(null);
+    place.activate(this.ctx, hit.point);
+  }
+
+  /** The named thing out there under the pointer, if it's in the lens. */
+  private pickOut(ndc: THREE.Vector2) {
+    const camera = this.spy?.camera;
+    if (!camera || !this.inLens(ndc)) return null;
+    return this.withoutTower(() => this.outdoors.pick(ndc, camera));
+  }
+
+  /** Whether a point on the canvas is inside the brass ring (.spyglass in global.css: min(40vh, 40vw) round 50%, 52%). */
+  private inLens(ndc: THREE.Vector2) {
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
+    const r = 0.4 * Math.min(innerWidth, innerHeight);
+    return Math.hypot((ndc.x * w) / 2, ((ndc.y + 0.04) * h) / 2) < r;
+  }
+
+  /** The telescope looks out from inside the lantern: the tower's out of the way while it does. */
+  private withoutTower<T>(look: () => T): T {
+    const tower = this.ctx.island.get('lighthouse');
+    if (tower) tower.visible = false;
+    try {
+      return look();
+    } finally {
+      if (tower) tower.visible = true;
+    }
   }
 
   /** Off goes the telly (the player with it), and the view turns back to the room. */
@@ -223,7 +360,10 @@ export class Lighthouse implements RoomInput {
   /** Go in (or out). `instant` skips the iris closing, e.g. coming straight from another room. */
   enter(inside: boolean, instant = false) {
     if (inside) void this.load();
-    if (!inside) this.switchOff(true);
+    if (!inside) {
+      this.switchOff(true);
+      this.stepBack();
+    }
     if (inside && !this.inside) this.wantFloor = 'quarters'; // in through the front door, at the bottom
     this.want = inside;
     if (instant) this.fade = inside === this.inside ? 0 : 1;
@@ -238,6 +378,7 @@ export class Lighthouse implements RoomInput {
   /** Up (or down) the spiral stair: the iris closes on one floor and opens on the other. */
   climb(to: Floor) {
     this.switchOff(true);
+    this.stepBack();
     // if the floor won't load, the iris opens again on the one you're on
     void this.load(to).then((room) => {
       if (!room) this.wantFloor = this.floor;
@@ -257,16 +398,30 @@ export class Lighthouse implements RoomInput {
 
   // sat in front of the telly, the view stays put
   zoom(factor: number, ndc: THREE.Vector2) {
+    if (this.spy) return void (this.spy.view = THREE.MathUtils.clamp(this.spy.view * factor, SPY.min, SPY.max));
     if (!this.room?.view.seated) this.room?.view.zoomBy(factor, ndc);
   }
 
   pan(dxPx: number, dyPx: number) {
+    // through the telescope, a drag swings it round: as much as the view is wide, at the distance it's focused
+    if (this.spy) {
+      const turn = this.spy.view / Math.max(1, this.host.clientHeight) / 40;
+      return this.swing(dxPx * turn, dyPx * turn);
+    }
     if (!this.room?.view.seated) this.room?.view.pan(dxPx, dyPx);
   }
 
   hover(ndc: THREE.Vector2 | null, client: { x: number; y: number }) {
     const room = this.room;
     if (!room || !this.inside || this.climbing) return;
+    if (this.spy) {
+      const hit = ndc && this.pickOut(ndc);
+      const place = hit ? placeFor(hit.id) : undefined;
+      this.outdoors.highlight(place && hit ? (this.ctx.island.get(hit.id) ?? null) : null);
+      this.host.querySelector('canvas')!.style.cursor = place ? 'pointer' : '';
+      this.ui.tooltip(place ? labelFor(place, this.ctx) : null, client.x, client.y);
+      return;
+    }
     const hit = ndc && room.picker.pick(ndc);
     const place = hit ? lighthousePlaceFor(hit.id, this.floor) : undefined;
     const book = hit?.id.startsWith('read:') ? hit.id : null;
@@ -279,6 +434,7 @@ export class Lighthouse implements RoomInput {
   click(ndc: THREE.Vector2) {
     const room = this.room;
     if (!room || !this.inside || this.climbing) return;
+    if (this.spy) return this.spot(ndc);
     const hit = room.picker.pick(ndc);
     const place = hit ? lighthousePlaceFor(hit.id, this.floor) : undefined;
     if (!hit || !place) return;
@@ -304,14 +460,23 @@ export class Lighthouse implements RoomInput {
       this.fade = Math.max(0, this.fade - step);
     }
     this.pixels.uniforms.uFade.value = this.fade;
+    if (this.spy && !this.reducedMotion) this.spy.clock += dt;
     if (this.inside && this.room) {
       if (this.room.view.step(this.reducedMotion ? Infinity : dt) && telly.film) this.pinFilm(); // turning to face the telly
+      if (this.room instanceof LampRoom) this.room.onAir = this.ctx.radio.on;
       this.room.update(this.reducedMotion ? 0 : dt, night, this.ctx.weather.now);
     }
   }
 
   render() {
     const u = this.pixels.uniforms;
+    // through the telescope it's the island, in its own light and weather, ringed in the dark
+    if (this.spy && this.aim()) {
+      u.uVignette.value = 1;
+      const camera = this.spy.camera;
+      this.withoutTower(() => this.pixels.render(this.island, camera, NO_SHIFT));
+      return;
+    }
     u.uGrade.value.set(1.05, 1.03, 1.0); // indoors, whatever the weather is doing outside
     u.uTone.value = u.uVignette.value = 0; // the island's light stays outside
     u.uHeat.value = 0;

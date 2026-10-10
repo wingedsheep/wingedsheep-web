@@ -1,0 +1,62 @@
+[
+  {
+    "track": "7GuUxb5wmThI2YwksTG0OY",
+    "text": "Dark out, the deck lamp on, and the lighthouse doing its rounds. Caro Emerald, A Night Like This. [quietly] I'd ask Gerrit to dance, but he's asleep in his crate.",
+    "when": { "time": ["night"] }
+  },
+  {
+    "track": "3kXqUXnukwkpsxhW8emNC0",
+    "text": "The only city lights I get are the ferry's windows going past in the dark, and the beam from the point. Blanche, City Lights. They'll do.",
+    "when": { "time": ["night"] }
+  },
+  {
+    "track": "64IcdRqfcN5rwqSqJpQDDe",
+    "text": "First coffee's on the burner and the deck's still wet from the dew. Razorlight, In The Morning. [dryly] Gerrit's been up for hours. He wants you to know.",
+    "when": { "time": ["morning"] }
+  },
+  {
+    "track": "05KqIX6uLMfirw5KkjRNTO",
+    "text": "Clear sky, flat water, the first ferry already gone past. Not bad, as mornings go. Oasis, Morning Glory.",
+    "when": { "time": ["morning"], "weather": ["clear"] }
+  },
+  {
+    "track": "1W6Ey5cxf0eljSaZnNVO5c",
+    "text": "If you're only just out of your bunk, you're in good company. Harry Nilsson, Gotta Get Up. I did. Eventually.",
+    "when": { "time": ["morning"] }
+  },
+  {
+    "track": "4R7kumtHnf5SsKyPYrVO5r",
+    "text": "My own autumn sweater's the one with the hole in the elbow, and it's on. Yo La Tengo, Autumn Sweater. [warmly] Quiet one. Sit with it.",
+    "when": { "season": ["autumn"] }
+  },
+  {
+    "track": "1tNJrcVe6gwLEiZCtprs1u",
+    "text": "Dominic Fike, 3 Nights. Three nights is about how long I last before I start talking to the gull. Tonight's a talking one.",
+    "when": { "time": ["night"] }
+  },
+  {
+    "track": "3zBhihYUHBmGd2bcQIobrF",
+    "text": "Sun's going down behind the island, and I'm sitting on the stern with my feet over the side. Otis Redding, Dock of the Bay. No dock, but the tide's rolling away all right.",
+    "when": { "time": ["evening"], "weather": ["clear", "partly cloudy"], "season": ["spring", "summer"] }
+  },
+  {
+    "track": "6H3kDe7CGoWYBabAeVWGiD",
+    "text": "Storm's right on top of us and the Zeemeeuw is pulling at her chain like a dog on a lead. Gimme Shelter, the Rolling Stones. [to Gerrit] In you come. Yes, the wheelhouse. Just this once.",
+    "when": { "weather": ["storm"] }
+  },
+  {
+    "track": "1TfqLAPs4K3s2rJMoCokcS",
+    "text": "Late now, and if you're still up, so am I. Eurythmics, Sweet Dreams. Whoever you are.",
+    "when": { "time": ["night"] }
+  },
+  {
+    "track": "0iGckQFyv6svOfAbAY9aWJ",
+    "text": "Snow on the deck and the burner doing its best. Katy Perry, Hot N Cold. Mostly cold.",
+    "when": { "weather": ["snow"] }
+  },
+  {
+    "track": "1eq1wUnLVLg4pdEfx9kajC",
+    "text": "The wind's got the sea up and we're rolling properly out here. Adele, Rolling in the Deep. [dryly] Hold on to your mug.",
+    "when": { "weather": ["windy", "storm"] }
+  }
+]

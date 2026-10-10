@@ -36,6 +36,12 @@ export class Ambience {
   private nextMeteor = rand(8, 30);
   private meteor = -1; // seconds into the current one
   private aurora = 0;
+  /** Shooting stars so far this visit (the radio's DJ notices them). */
+  meteors = 0;
+  /** How bright the northern lights are, 0..1. */
+  get northernLights() {
+    return this.aurora;
+  }
   /** Whether tonight is an aurora night: rare, and only when it's cold. */
   private auroraNight: boolean;
   private sea: (x: number, y: number) => boolean;
@@ -205,6 +211,7 @@ export class Ambience {
       const a = rand(-0.6, 0.6) + (Math.random() < 0.5 ? 0 : Math.PI); // mostly sideways
       (u.uMeteor.value as THREE.Vector4).set(x, y, Math.cos(a), Math.sin(a) * 0.5);
       this.meteor = 0;
+      this.meteors++;
       return;
     }
   }

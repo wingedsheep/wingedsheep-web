@@ -1,0 +1,227 @@
+[
+  {
+    "id": "pirate-no-eyepatch",
+    "text": "No eyepatch, no parrot, no wooden leg. I've got a gull, which is worse. [to Gerrit] Gerrit, say hello to the listeners. [flatly] He won't."
+  },
+  {
+    "id": "rules-record-crate",
+    "text": "Station rule number four: no eating over the record crate. I made that rule. I break it most days. [mock-serious] I've given myself a warning."
+  },
+  {
+    "id": "gerrit-crate-oranges",
+    "text": "Gerrit's crate on the wheelhouse roof says oranges on the side. He's never had an orange. He's had everything else."
+  },
+  {
+    "id": "aboard-one-mug",
+    "text": "There's one mug on this boat. If you ever visit, you can have it. I'll drink from the pan."
+  },
+  {
+    "id": "opa-topped-up",
+    "text": "Just topped Opa up with diesel. He coughed his thanks. [under his breath] That's more than Gerrit does after a fish."
+  },
+  {
+    "id": "pirate-arr",
+    "text": "I promised myself I'd never say arr on this station. [sighs] Arr. There. It's out of my system. Next record."
+  },
+  {
+    "id": "inspectors-gone-quiet",
+    "text": "If Radio Alles ever goes quiet for a while, that's not a fault... That's visitors. Carry on as you were."
+  },
+  {
+    "id": "fishing-mackerel-cut",
+    "text": "Caught a mackerel off the stern. Gerrit took the head, the tail and most of the middle. I've got a story to show for it."
+  },
+  {
+    "id": "dinghy-no-name",
+    "text": "The dinghy hasn't got a name. Gerrit's got a name, Opa's got a name. The dinghy and I are still deciding."
+  },
+  {
+    "id": "washed-up-oar",
+    "text": "Washed up this week: a flip-flop, half an oar and a fishing float. The oar now holds up the aerial. [flatly] Don't ask about the flip-flop."
+  },
+  {
+    "id": "pirate-treasure",
+    "text": "People ask where I bury my treasure. I've got forty metres of chain and a crate of records. Bury either and I'm off air."
+  },
+  {
+    "id": "gerrit-left-early",
+    "text": "Gerrit left the aerial halfway through that one. He never says what he thinks of a record. He just goes."
+  },
+  {
+    "id": "pirate-no-plank",
+    "text": "Nobody walks the plank on Radio Alles. We haven't got a plank. We've got a chair, and you're welcome to it."
+  },
+  {
+    "id": "pirate-person-in-charge",
+    "text": "Pirate tip: if anyone comes alongside asking for the person in charge, point at the gull. It buys you a good ten minutes."
+  },
+  {
+    "id": "night-anchor-watch-short",
+    "text": "Anchor watch. Chain's holding, the lighthouse is where I left it, and Gerrit's asleep in his crate. All's well on the Zeemeeuw.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "fog-gerrit-static",
+    "text": "Fog so thick I can't see the top of the aerial. I know Gerrit's up there, though. You can hear him in the static.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "id": "inspectors-seagull-cassette",
+    "text": "The inspectors' boat came round the point earlier, so the transmitter went under the tarp and I played them my cassette of seagulls. Twenty minutes of gulls. Gerrit joined in, which I hadn't asked for, but it made it more convincing. They had a look through their binoculars and went home. [deadpan] Officially, we're a gull colony."
+  },
+  {
+    "id": "inspectors-cassette-wobble",
+    "text": "The seagull cassette is wearing thin. I've played it to the inspectors so often there's a wobble in it now, about ten minutes in. If they ever notice, I'll tell them the gulls are getting old. Gerrit is, in fairness."
+  },
+  {
+    "id": "barter-exchange-rate",
+    "text": "A fishing boat came alongside with a bag of mackerel, and I gave them a jar of coffee and a cassette of the show. That's the exchange rate out here. Fish for coffee, coffee for diesel, diesel for music. I haven't touched money in months."
+  },
+  {
+    "id": "dinghy-supply-list",
+    "text": "Supply run in the dinghy. Coffee, diesel for Opa, tins, batteries, and a record if the shop's got one I haven't heard. Gerrit stays aboard and minds the station. [dryly] By which I mean he sits on the aerial and nobody can hear a thing."
+  },
+  {
+    "id": "aboard-one-burner",
+    "text": "There's one burner in the galley, so everything on this boat happens in order. Coffee, then soup, then more coffee. You can't rush a single burner. I've tried. [sighs] It's why the soup's always cold by the time the coffee's done."
+  },
+  {
+    "id": "rules-no-adverts",
+    "text": "Station rule number one: no adverts. A man once offered me a crate of beer to say the name of his boatyard on air. I said no. I'm not saying it now either. [wistful] It would have been a very good crate."
+  },
+  {
+    "id": "bottle-handclaps",
+    "text": "A letter came in a bottle. Somebody on the island wants more songs with handclaps in them. I've written back, put it in the same bottle, and thrown it towards the beach. Postage is the tide. Delivery times vary."
+  },
+  {
+    "id": "bottle-thank-you",
+    "text": "Another bottle bumped against the hull. Inside, a note that just said: thank you for the company. No name. [warmly] Whoever you are, you're welcome. The company goes both ways."
+  },
+  {
+    "id": "fishing-crew-let-down",
+    "text": "Fishing off the stern, me with the line, Gerrit on the rail with an opinion. When I catch something, he takes his cut. When I don't, he looks at me as if I've let the crew down. I suppose I have."
+  },
+  {
+    "id": "washed-up-biscuit-tin",
+    "text": "The transmitter's been mended again, this time with a biscuit tin lid, some copper wire and a fork. If the sound's a bit tinny, that's the biscuit tin. If it's a bit pointy... that's the fork."
+  },
+  {
+    "id": "opa-diesel-cough",
+    "text": "Opa gets through a jerrycan of diesel every couple of days, and when he's running low he lets me know with a particular cough. I've learned to tell it from his other coughs. It's the one that sounds like a bill."
+  },
+  {
+    "id": "gerrit-not-a-pet",
+    "text": "People ask if Gerrit is my pet. He isn't. A pet gets fed and does as it's told. Gerrit gets fed and does what he likes. That makes him crew."
+  },
+  {
+    "id": "pirate-tea-towel-flag",
+    "text": "I did think about flying a skull and crossbones. Then I thought about how much the inspectors would enjoy that. So the flag on the Zeemeeuw is a tea towel. It's drying. It's always drying."
+  },
+  {
+    "id": "rules-solo-runs",
+    "text": "If a record's got a guitar solo, it runs to the end on this station. No talking over it, no fading it early. That's not a rule anyone gave me. It's one I'd keep if they did."
+  },
+  {
+    "id": "morning-fine-figurehead",
+    "text": "Fine morning. Flat water, the lighthouse sharp as a pin, and Gerrit already up on the bow like a figurehead with a grudge. Coffee for one, fish for one. The crew's provisioned.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "id": "inspectors-the-drill",
+    "text": "The inspectors come by every so often, and we've got a drill on board for it. The moment their boat rounds the point, the transmitter goes under the old green tarp, the record crate goes under the bunk, and the cassette goes in: forty minutes of seagulls, recorded off the stern. Gerrit's part of the drill. He sits on the tarp and looks like a gull that's never heard of radio. They come alongside, they look at the aerial, they look at Gerrit. Gerrit looks back. They leave. I've never once had to say a word. [amused] Some days I'm not sure who runs this station."
+  },
+  {
+    "id": "dinghy-the-long-row",
+    "text": "Supply run today. The dinghy's about the size of a bathtub and steers like one, so it's a long row with an empty jerrycan between my knees. Twenty minutes ashore, tops: diesel for Opa, coffee, tins, batteries, and a look through the box of records at the back of the shop, just in case. Then the long row back, a bit lower in the water. Gerrit sees me coming from a long way off and gets up on the aerial, so I'll think he's been keeping watch. He hasn't. [deadpan] He's been asleep in his crate. I can tell by the feathers."
+  },
+  {
+    "id": "barter-the-lobster",
+    "text": "Out here money's mostly a rumour. What works is the trade. The fishermen who come past know I've got coffee and they've got fish, and from there it's just a conversation across two rails. A bag of mackerel for a jar of coffee. A can of diesel for a cassette of the show, because their skipper likes the long records and won't admit it. Once I traded a spare fan belt for a lobster, and then didn't know what to do with a lobster. Gerrit did. [flatly] We don't talk about the lobster."
+  },
+  {
+    "id": "opa-the-real-job",
+    "text": "Keeping Opa fed is the real job. The records are the fun part, the talking's the easy part, but if Opa stops, the station stops, and so does the kettle, the lamp, and the little heater I'm not supposed to have. So every day I go down below with a jerrycan and a torch and pour, slowly, while he coughs. I check his oil like a nurse. [quietly] I listen to him the way you'd listen to an old dog breathing by the fire. [warmly] Then I come back up and play something, so he can hear what it's all for."
+  },
+  {
+    "id": "washed-up-the-sea-shop",
+    "text": "Everything on this boat that's been fixed was fixed with something the sea brought. The transmitter alone is held together with a hinge off a wreck, a coil of fishing line, a tent peg and the handle of somebody's umbrella. When something breaks, I don't go shopping. I go and stand at the stern and wait. The sea's a slow shop, but it's open all hours and the stock keeps changing. Last month it sent me a hubcap. I haven't got a car. I'm sure it's for something. It's hanging in the wheelhouse until it tells me what."
+  },
+  {
+    "id": "rules-of-radio-alles",
+    "text": "I say this station has one rule, and it does, the one I take seriously. But there are others. I made them up in the first week, and I'm the only one who has to keep them, which you'd think would make it easy. No adverts. No song straight back on, however much I want it. A guitar solo goes all the way through. No eating over the record crate. And the gull is not to be blamed on air. I break the crate rule most days. I break the gull rule every time Gerrit does anything at all."
+  },
+  {
+    "id": "bottle-the-post",
+    "text": "Letters come in bottles. It's the only post we get. The tide brings them round the point and they knock against the hull until I fish them out with the net. Some are requests, some are complaints, and one was a drawing of the boat with Gerrit about twice his real size, which he's seen and agrees with. I answer every one. Same bottle, a fresh note, and I throw it as far as I can towards the beach. Whether any of them arrive, I couldn't tell you. The sea's the postman. [fondly] He's slow, and he reads everything."
+  },
+  {
+    "id": "gerrit-shipmates",
+    "text": "People think Gerrit and I are friends. We're not. We're shipmates, which is different. A friend you choose. A shipmate you just find on board one day, sitting on your aerial, and after that it's a matter of getting along. He has the roof, I have the wheelhouse. He keeps watch, in the sense that he's up there. I keep him in fish, in the sense that he takes them. When I was laid up with a cold, he sat by the wheelhouse door all week. [quietly] If he's ever ill, I'll do the same. We've never discussed it. We never will."
+  },
+  {
+    "id": "fishing-the-tax",
+    "text": "Fishing off the stern is how I think. I drop a line, I don't catch much, and the not catching is the point. You stand there with the line round one finger and the boat moving under you, and slowly your head empties out. Then something tugs, and it's all business. Gerrit lands on the rail beside me the second the line goes tight. He never comes when it's quiet. He's got a nose for the moment. I land the fish, he looks at it, he looks at me, and we both know how this ends. It isn't a cut. [dryly] It's a tax."
+  },
+  {
+    "id": "pirate-joke-policy",
+    "text": "I have a policy on pirate jokes. A pirate station, a man on a boat, a gull where the parrot should be: it's all too easy, and I'm above it. So you'll hear no yo ho ho on Radio Alles. No pieces of eight, no landlubbers, no shivering of anybody's timbers. And I will never, EVER ask you what a pirate's favourite letter is, because you'd say arr, and I'd have to tell you it's the sea, and then we'd both have to live with that. [clears throat] There. Policy upheld... Mostly."
+  },
+  {
+    "id": "aboard-inventory",
+    "text": "Somebody asked what's on board, so here's the inventory. One chair. One burner. One mug, chipped. One bunk, short. One record player, screwed down. One crate of records that isn't mine. One generator called Opa, older than all of it. One transmitter, mostly found. One dinghy, leaky. One tarp, green, for visitors. One herring gull, not mine either, in a crate of his own. And one man, who sometimes looks at that list and thinks it's a bit short. Then he thinks, what would I add. [quietly] Nothing. That's how you know."
+  },
+  {
+    "id": "night-anchor-watch",
+    "text": "Anchor watch. Every couple of hours through the night I go out on deck with a torch and check that we're where we were. I line the lighthouse up with the post at the end of the pier, and if they still sit together, the anchor's holding. If they don't, I've got a long night ahead. Most nights they sit together like old friends. Gerrit's in his crate with his head under his wing. Opa's coughing quietly down below. And I stand out there a bit longer than I need to, because nobody else is up, and it's the best view I've got.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "storm-the-list",
+    "text": "When it blows like this, there's a list. Records off the shelf and into the crate, crate lashed to the chart table. Every hatch shut and dogged. The kettle in the sink, where it can't go anywhere. Gerrit's crate moved in under the overhang, with Gerrit in it, complaining. Then I go forward with the torch and look at the chain, and listen to it, because the chain tells you more than any forecast. And then I come back in and sit down and play you something, because that's the job. The station doesn't stop for weather. Only for Opa.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "id": "morning-fine-ended-up-here",
+    "text": "A fine morning, flat as a plate. I took my coffee out to the stern and just stood there. The lighthouse white as a tooth, the island waking up, Gerrit on the bow like he paid for the boat. Opa ticking over below. One mug, one chair, and one man who did a daft thing once and ended up exactly here. I'm not saying it was a plan. Nobody who knows me would say that. I'm saying that on a morning like this, it looks a lot like one.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "id": "fog-the-bell",
+    "text": "In fog like this the world goes very small. No island, no ferry, just the rail and the grey and the drip off the aerial. I ring the bell every few minutes, the way you're meant to at anchor, and every time I ring it, Gerrit answers from somewhere. I can't see him. He could be on the roof, he could be half a mile off. It doesn't matter. Somebody answers. You'd be surprised how much that counts for, out here in nothing. So I'll keep ringing, and keep talking, and you keep listening, and we'll all know where everybody is.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  }
+]

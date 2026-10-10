@@ -1,0 +1,126 @@
+[
+  {
+    "track": "2aibwv5hGXSgw7Yru8IYTO",
+    "text": "It's actually snowing on the deck. Red Hot Chili Peppers, Snow, the Hey Oh one. Gerrit's standing in it on one leg, looking betrayed.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  },
+  {
+    "track": "2gWRfR9ZCh5hbnHOiPYmqN",
+    "text": "Waves over the bow and the aerial whistling. The Kooks, Stormy Weather, and for once the title's doing the forecast.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "2gWRfR9ZCh5hbnHOiPYmqN",
+    "text": "Not a cloud anywhere, and here's Stormy Weather by The Kooks. Somebody has to keep the sea on its toes.",
+    "when": {
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "14XWXWv5FoCbFzLksawpEe",
+    "text": "A storm proper out there, the boat bucking on her chain. The Doors, Riders On The Storm. [quietly] I've tied the mug down.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "14XWXWv5FoCbFzLksawpEe",
+    "text": "Rain on the wheelhouse roof and nothing out there but the lighthouse going round. Riders On The Storm, The Doors. Seven minutes. Stay.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "4ZxiooI173oDDop1IicSOc",
+    "text": "Rain on the glass, so it might as well be Liverpool. Racoon, Liverpool Rain.",
+    "when": {
+      "weather": [
+        "drizzle",
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "1a2GeLs7aMPvwJOjcVK0Vl",
+    "text": "Showers coming through, with gaps in between. Acda en de Munnik, Het Regent Zonnestralen. Watch for the light in the gaps.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "5GimvEvdPBdV415Zma5ZWo",
+    "text": "Morning, and Opa's been coughing since first light. Django Django, First Light. [dryly] Fitting.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "3skn2lauGk7Dx6bVIt5DVj",
+    "text": "Clear night, more stars than I can name, and I can name three. Muse, Starlight.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "15rn9UNrC8bx2sTXCJQYc0",
+    "text": "The wind's got hold of the aerial, and Gerrit's given up sitting on it. Louise Attaque, J't'emmène au vent. Take me with it, why not.",
+    "when": {
+      "weather": [
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "6ZygaqgtPkiahkiYJhYWhn",
+    "text": "Warm out, the deck hot under bare feet. The Kooks, Seaside. Short as a dip off the stern, and just as good.",
+    "when": {
+      "season": [
+        "summer"
+      ],
+      "weather": [
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "4Zau4QvgyxWiWQ5KQrwL43",
+    "text": "Late on anchor watch, everything dark but the lighthouse. Golden Earring, Radar Love, a song for driving through the night. I'll drive the boat in circles round her chain.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  }
+]

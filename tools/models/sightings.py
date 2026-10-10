@@ -1,7 +1,8 @@
 """Rare sightings (src/island/scene/sightings.ts): a hot-air balloon on calm summer evenings, a
 seal hauled out on the beach, ships on the horizon (the ferry on its timetable, a container ship
 now and then, very rarely a tall ship), and a fisherman at the end of the pier on some early
-mornings. (The starlings are a few triangles each, built and drawn by the runtime.)
+mornings. Not rare at all: Radio Alles, the pirate station at anchor off the lighthouse point.
+(The starlings are a few triangles each, built and drawn by the runtime.)
 
 They're templates like the wildlife (fauna.py merges ALL into its own): parked out of sight
 under a root tagged `fauna=<name>`, facing +x, y to their left, z = 0 the ground (or the
@@ -245,6 +246,119 @@ def tallship(root):
     s.build(body)
 
 
+def radioship(root):
+    """Radio Alles: an old trawler at anchor well out to the west of the lighthouse point, done up
+    as a pirate radio station, the way the Dutch ones were (a ship, just outside the water anyone
+    could license). Built to be spotted from a long way off: a red hull with a white band, a big
+    yellow RADIO ALLES board on the studio roof (lit, like a shop sign), a three-legged lattice
+    aerial banded red and white, taller than she is long, and a string of bunting from the bow
+    over the masthead to the stern. The red lamp at the masthead (`radioship_lamp`) blinks
+    after dark; the anchor chain runs down from the bow."""
+    m = Model("radioship_body", seed=31)
+    plan = [(-2.9, -0.9), (1.9, -1.0), (3.2, 0.0), (1.9, 1.0), (-2.9, 0.9), (-3.1, 0.0)]
+    sheer = [(x * 1.03, y * 1.08) for x, y in plan]
+    m.slab(plan, -0.35, 0.1, P.INK)                                                      # below the waterline
+    m.slab(plan, 0.1, 0.62, HULL_RED, top=[(x * 1.015, y * 1.04) for x, y in plan])
+    m.slab([(x * 1.015, y * 1.04) for x, y in plan], 0.62, 0.92, "#f2ece2", top=sheer)   # a white band all round
+    m.slab([(x * 0.97, y * 0.93) for x, y in plan], 0.92, 0.96, P.WOOD_LIGHT)            # the deck
+    m.slab([(1.8, -0.92), (1.9, -1.0), (3.2, 0.0), (1.9, 1.0), (1.8, 0.92)], 0.92, 1.25, HULL_RED)  # the raised bow
+    # the studio amidships, cream, its portholes lit, and the station's board on its roof
+    m.box((1.7, 1.4, 0.7), (-0.2, 0, 1.31), "#efe6d0")
+    m.box((1.78, 1.48, 0.08), (-0.2, 0, 1.7), P.STONE_DARK)
+    for i in range(4):
+        for s_ in (1, -1):
+            m.cyl(0.09, 0.04, (-0.75 + i * 0.36, s_ * 0.71, 1.36), WINDOW, segs=6, rot=(math.pi / 2, 0, 0), glow=True)
+    # RADIO ALLES: a lit yellow sign box, so it shows whichever way she's swung, lettered in red
+    # down both long sides
+    m.box((2.4, 0.78, 0.62), (-0.2, 0, 2.12), "#f2c440", glow=True)
+    m.box((2.46, 0.84, 0.06), (-0.2, 0, 2.46), HULL_RED)
+    for s_ in (1, -1):
+        for i, w in enumerate((0.16, 0.16, 0.16, 0.06, 0.16, 0, 0.16, 0.06, 0.06, 0.16, 0.16)):
+            if w:
+                m.box((w, 0.04, 0.3), (-1.2 + i * 0.2, s_ * 0.4, 2.12), HULL_RED)
+    # the wheelhouse aft, white, windows all round, a red roof and a stubby funnel
+    m.box((1.0, 1.2, 0.95), (-2.15, 0, 1.43), FERRY_WHITE)
+    m.box((1.02, 1.22, 0.22), (-2.15, 0, 1.7), "#2a3a4a")
+    m.box((0.22, 1.23, 0.16), (-2.0, 0, 1.7), WINDOW, glow=True)                         # somebody's up
+    m.box((1.12, 1.32, 0.08), (-2.15, 0, 1.94), HULL_RED)
+    m.cyl(0.18, 0.5, (-2.45, 0, 1.98), P.INK, segs=6)
+    # the aerial: three legs, banded red and white, braced, narrowing to the top
+    base, top, bands = 1.74, 9.2, 9
+    feet = [(0.55, 0.0), (-0.35, 0.42), (-0.35, -0.42)]
+    def leg(k):
+        return [((fx * (1 - k) * 0.9 + 0.15), fy * (1 - k) * 0.9, base + (top - base) * k) for fx, fy in feet]
+    for i in range(bands):
+        a, b = leg(i / bands), leg((i + 1) / bands)
+        color = HULL_RED if i % 2 == 0 else "#f2ece2"
+        for p0, p1 in zip(a, b):
+            _limb(m, p0, p1, 0.05, 0.05, color, segs=4)
+        for p0, p1 in zip(b, b[1:] + b[:1]):                                              # a ring of braces
+            _limb(m, p0, p1, 0.025, 0.025, P.IRON, segs=3)
+    mast_top = (0.15, 0, top)
+    _limb(m, (-2.9, 0, 0.96), (-2.9, 0, 3.0), 0.03, 0.025, P.IRON, segs=4)              # the little mast aft
+    m.box((0.34, 0.02, 0.08), (-3.08, 0, 2.86), "#c8403a")                               # a flag on it
+    m.box((0.34, 0.022, 0.08), (-3.08, 0, 2.78), "#f2ece2")
+    m.box((0.34, 0.024, 0.08), (-3.08, 0, 2.7), "#2f6fb0")
+    # the aerial wires, and bunting along them: bow to masthead to the stern mast
+    flags = ["#c8403a", "#f2c440", "#2f6fb0", "#f2ece2", "#3d7a4a", "#e0823a"]
+    n = 0
+    for a, b in (((3.15, 0, 1.3), mast_top), (mast_top, (-2.9, 0, 3.0))):
+        _limb(m, a, b, 0.015, 0.015, P.INK, segs=3)
+        steps = 9
+        for k in range(1, steps):
+            t = k / steps
+            x, y, z = (a[i] + (b[i] - a[i]) * t for i in range(3))
+            m.prism([(-0.12, 0), (0.12, 0), (0, -0.28)], 0.02, (x, y, z - 0.02), flags[n % len(flags)])
+            n += 1
+    _limb(m, (3.0, 0, 1.0), (4.2, 0, -0.7), 0.04, 0.04, P.IRON, segs=4)                  # the anchor chain
+    m.box((0.12, 0.12, 0.12), (2.9, 0, 1.5), "#fff6d0", glow=True)                       # her riding light
+    m.box((0.36, 0.3, 0.18), (-2.25, 0.15, 2.07), P.WOOD_LIGHT)                         # Gerrit's crate, up on the wheelhouse roof
+    m.box((0.37, 0.31, 0.03), (-2.25, 0.15, 2.12), P.WOOD_DARK)
+    # the studio's back door, open and lit, for Kees to stand out against
+    m.box((0.04, 0.34, 0.56), (-1.06, -0.36, 1.26), WINDOW, glow=True)
+    m.box((0.05, 0.42, 0.05), (-1.06, -0.36, 1.56), P.STONE_DARK)
+    body = m.build(root)
+    # Kees, on deck between the studio and the wheelhouse, against the lit back door: boots,
+    # peacoat, a red wool cap, the headphones round his neck. One part, so the runtime can turn
+    # him about.
+    k = Model("radioship_kees", seed=33)
+    for s_ in (1, -1):
+        k.box((0.12, 0.09, 0.07), (0.02, s_ * 0.07, 0.035), P.INK)                       # boots
+        k.box((0.1, 0.09, 0.42), (0, s_ * 0.07, 0.28), "#3a3f4a")                         # legs
+    k.box((0.24, 0.32, 0.44), (0, 0, 0.7), "#23324f", taper=0.9)                          # the peacoat
+    k.box((0.25, 0.33, 0.04), (0, 0, 0.6), "#1b2438")                                     # its belt line
+    for s_ in (1, -1):
+        _limb(k, (0, s_ * 0.18, 0.88), (0.12, s_ * 0.2, 0.58), 0.05, 0.045, "#23324f", segs=5)  # arms
+        k.box((0.06, 0.06, 0.06), (0.13, s_ * 0.2, 0.55), "#e0b090")                      # hands
+    k.box((0.2, 0.2, 0.2), (0, 0, 1.03), "#e0b090")                                       # head
+    k.box((0.08, 0.2, 0.08), (0.08, 0, 0.96), "#a8a29a")                                  # grey stubble
+    k.box((0.22, 0.22, 0.1), (0, 0, 1.16), "#c8403a")                                     # the red wool cap
+    k.box((0.24, 0.24, 0.04), (0, 0, 1.12), "#a8392f")                                    # its turn-up
+    k.box((0.1, 0.3, 0.04), (0.02, 0, 0.9), P.INK)                                        # headphones, round his neck
+    kees = k.build(body, loc=(-1.36, -0.46, 0.96))
+    kees.scale = (1.3, 1.3, 1.3)                                                          # big enough to make out from the lighthouse
+    # Gerrit, a herring gull, on his crate: white, grey wings, a yellow beak with its red spot.
+    # The head is its own part, so he can look about.
+    g = Model("radioship_gerrit", seed=34)
+    for s_ in (1, -1):
+        g.box((0.015, 0.015, 0.07), (0, s_ * 0.03, 0.035), "#e08a8a")                     # legs
+    g.ball(0.07, (0, 0, 0.13), "#f4f4f0", scale=(1.6, 1.0, 1.0))                          # body
+    for s_ in (1, -1):
+        g.box((0.2, 0.03, 0.07), (-0.03, s_ * 0.065, 0.15), "#a8b0b8")                    # folded wings
+    g.box((0.08, 0.06, 0.03), (-0.14, 0, 0.15), P.INK)                                    # black wingtips
+    gerrit = g.build(body, loc=(-2.25, 0.15, 2.135))
+    gerrit.scale = (1.4, 1.4, 1.4)                                                        # a big gull, and he knows it
+    h = Model("radioship_gerrit_head")                                                    # pivots at the neck
+    h.ball(0.045, (0.02, 0, 0.03), "#f4f4f0")
+    h.box((0.07, 0.022, 0.022), (0.08, 0, 0.025), "#f2c440")                              # the beak…
+    h.box((0.014, 0.024, 0.014), (0.1, 0, 0.016), "#c8403a")                              # …and its red spot
+    h.box((0.01, 0.06, 0.01), (0.04, 0, 0.045), P.INK)                                    # eyes
+    h.build(gerrit, loc=(0.09, 0, 0.19))
+    lamp = Model("radioship_lamp")
+    lamp.box((0.24, 0.24, 0.24), (0, 0, 0), "#ff4a3a", glow=True)
+    lamp.build(body, loc=(mast_top[0], 0, top + 0.1))
+
+
 # --- on the pier --------------------------------------------------------------------------
 
 def fisherman(root):
@@ -299,5 +413,6 @@ ALL = {
     "balloon": (balloon, 1.0),
     "seal": (seal, 1.3),
     "ferry": (ferry, 1.0), "container": (container, 1.0), "tallship": (tallship, 1.0),
+    "radioship": (radioship, 1.0),
     "fisherman": (fisherman, 1.15),
 }

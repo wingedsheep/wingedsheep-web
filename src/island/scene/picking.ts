@@ -19,8 +19,9 @@ export class Picker {
     this.targets.push(...objects);
   }
 
-  pick(ndc: THREE.Vector2): { id: string; point: THREE.Vector3 } | null {
-    this.ray.setFromCamera(ndc, this.camera);
+  /** `camera` looks with another eye than the island's own (e.g. the lighthouse telescope). */
+  pick(ndc: THREE.Vector2, camera = this.camera): { id: string; point: THREE.Vector3 } | null {
+    this.ray.setFromCamera(ndc, camera);
     for (const hit of this.ray.intersectObjects(this.targets, true)) {
       if (!shown(hit.object)) continue; // e.g. the cats in the lighthouse, when it's dry and they're out
       const id = idOf(hit.object);

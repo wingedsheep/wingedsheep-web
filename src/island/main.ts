@@ -37,6 +37,7 @@ import { createWater } from './scene/water';
 import { Weather } from './scene/weather';
 import { wardrobe } from './scene/wardrobe';
 import { Sound } from './sound';
+import { Radio } from './radio';
 import { River } from './river';
 import { Trail } from './trail';
 import { UI } from './ui';
@@ -103,7 +104,10 @@ export async function bootIsland(host: HTMLElement) {
   // animals nearer the middle of the view sound louder, and off to the side they're heard from
   // that side; the ones calling out unasked only carry from somewhere near what's on screen
   const right = new THREE.Vector3();
+  // some of what's heard on the island, Kees hears too, out on Radio Alles (radio.ts)
+  const NEWS: Partial<Record<Call, string>> = { horn: 'ferry', typhon: 'container', blow: 'whale', dolphin: 'dolphins', ufo: 'ufo', firework: 'fireworks' };
   const heard = (call: Call, at: THREE.Vector3, ambient = false, loud = 1) => {
+    if (NEWS[call]) ctx.radio.notice(NEWS[call]);
     const off = at.distanceTo(rig.target) / rig.view;
     const volume = ambient ? THREE.MathUtils.clamp(1.1 - off * 1.4, 0, 0.8) : THREE.MathUtils.clamp(1.2 - off, 0.15, 1);
     if (ambient && (volume < 0.05 || !sound.outdoors)) return;
@@ -250,6 +254,7 @@ export async function bootIsland(host: HTMLElement) {
     weather,
     life,
     sound,
+    radio: undefined as unknown as Radio, // (just below: it needs the rest of ctx)
     journal,
     openPanel: (name) => ui.openPanel(name),
     openArticle: (slug) => void ui.openArticle(slug),
@@ -263,6 +268,7 @@ export async function bootIsland(host: HTMLElement) {
     showDrawing: (src, alt) => ui.showDrawing(src, alt),
     ask: (text, choices) => ui.ask(text, choices),
     watch: () => lighthouse.watch(),
+    spy: () => lighthouse.lookThrough(),
     discover(id) {
       if (!journal.discover(id)) return;
       track('discover', { secret: id, found: journal.count });
@@ -271,9 +277,10 @@ export async function bootIsland(host: HTMLElement) {
       renderJournal(ctx);
     },
   };
+  ctx.radio = new Radio(ctx);
   const library = new Library(ctx, ui, pixels, host, reducedMotion);
   const workshop = new Workshop(ctx, ui, pixels, host, reducedMotion);
-  const lighthouse = new Lighthouse(ctx, ui, pixels, host, reducedMotion);
+  const lighthouse = new Lighthouse(ctx, ui, pixels, host, reducedMotion, scene, picker);
   const hut = new Hut(ctx, ui, pixels, host, reducedMotion);
   const trail = new Trail(ctx, ui, pixels, host, reducedMotion);
   const river = new River(ctx, ui, pixels, host, reducedMotion, scene);
@@ -417,6 +424,7 @@ export async function bootIsland(host: HTMLElement) {
   let hushed = false; // said so, at the start of the fourth of May's silence
   await pixels.warm(scene, rig.camera); // so the first frame doesn't hold up the page
   let frame = 0;
+  let lastSeen: { dusk: boolean; snow: boolean; siren: boolean; guitar: boolean; aurora: boolean; shootingstar: number; tallship: number } | null = null;
   renderer.setAnimationLoop(() => {
     // behind an open book, dimmed, a third of the frames will do: the page scrolls smoother for it
     if (ui.reading && frame++ % 3) return;
@@ -470,7 +478,20 @@ export async function bootIsland(host: HTMLElement) {
       if (near > 0.1 && sky.lamps > 0.3) sound.haunt(Math.random() < 0.6 ? 'groan' : 'moan', near * 0.7);
     }
     sound.night = sky.lamps;
+    // what else Kees would see from the wheelhouse: the lamp lit or put out, snow starting, the
+    // siren test, the keeper's fire, a shooting star, the aurora, a tall ship
+    const seen = {
+      dusk: sky.lamps > 0.5, snow: weather.now.snow > 0.3, siren: life.week.siren > 0, guitar: life.vincent.atTheFire,
+      aurora: ambience.northernLights > 0.3, shootingstar: ambience.meteors, tallship: life.sightings.tallshipsSeen,
+    };
+    if (lastSeen) {
+      if (seen.dusk !== lastSeen.dusk) ctx.radio.notice(seen.dusk ? 'dusk' : 'dawn');
+      for (const k of ['snow', 'siren', 'guitar', 'aurora'] as const) if (seen[k] && !lastSeen[k]) ctx.radio.notice(k);
+      for (const k of ['shootingstar', 'tallship'] as const) if (seen[k] > lastSeen[k]) ctx.radio.notice(k);
+    }
+    lastSeen = seen;
     sound.telly = lighthouse.programme;
+    ctx.radio.update(dt);
     sound.diorama = trail.showingId;
     sound.room = hut.inside ? 'hut' : workshop.inside ? 'workshop' : library.inside ? 'library' : lighthouse.inside ? lighthouse.storey : null;
     sound.typing = lighthouse.typing;

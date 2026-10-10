@@ -34,6 +34,7 @@ import type { Fae } from './scene/revel';
 import type { Sky } from './scene/sky';
 import type { WorkshopRoom } from './scene/workshop-room';
 import type { Weather } from './scene/weather';
+import type { Radio } from './radio';
 import type { Sound } from './sound';
 
 export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'hut' | 'campfire' | 'trail' | 'river' | 'places' | 'journal';
@@ -65,6 +66,10 @@ export interface IslandContext {
   showDrawing(src: string, alt: string): void;
   /** Put the film on the telly in the keeper's quarters. */
   watch(): void;
+  /** Put your eye to the telescope in the lamp room: the island, out of the window. */
+  spy(): void;
+  /** The set that picks up Radio Alles, once you've tuned it in at the top of the lighthouse. */
+  radio: Radio;
   /** A toast with buttons; picking one dismisses it. */
   ask(text: string, choices: { label: string; pick?(): void }[]): void;
   /** Mark a secret as found (toasts the first time). */
@@ -85,7 +90,7 @@ export const SECRETS = {
   guitar: { title: 'A song by the fire', hint: 'Follow the sound of strings.' },
   well: { title: 'The well', hint: 'Some wells go deeper than others.' },
   bench: { title: 'A place to rest', hint: 'Every good journey has benches.' },
-  boulder: { title: 'First ascent', hint: 'There are holds on one of the rocks.' },
+  boulder: { title: 'First ascent', hint: 'There are holds on one of the rocks. The top of the lighthouse has a good view of it.' },
   summit: { title: 'The summit', hint: 'The trail keeps going up.' },
   magic: { title: 'An unfinished game', hint: 'Someone left in the middle of their turn.' },
   kayak: { title: 'Wet paddles', hint: 'Check the water by the dock.' },
@@ -132,6 +137,7 @@ export const SECRETS = {
   ferry: { title: 'Right on time', hint: 'Out on the hour, back on the half hour. Keep an eye on the sea to the south.' },
   tallship: { title: 'Under full sail', hint: 'Very rarely, something from another century passes on the horizon.' },
   fisherman: { title: 'Early bird', hint: 'On some early mornings, someone has the end of the pier to himself.' },
+  radio: { title: 'God is in the radio', hint: 'Far out past the lighthouse, a boat that isn’t fishing. Somewhere on the island, a set can pick her up.' },
   madeup: { title: 'Off the page', hint: 'Some animals were only ever written down. Now and then, in the right weather, one wanders out.' },
 } as const;
 
@@ -572,6 +578,13 @@ const WILDLIFE: Record<string, Place> = {
   tallship: sighting('tallship', 'A tall ship!', [
     'A tall ship under full sail, on her way to Sail Amsterdam or on her way back. Every sail is set, and she’s in no hurry to be anywhere.',
   ], 'tallship'),
+  radioship: sighting('radioship', 'Radio Alles', (ctx) => {
+    const w = ctx.weather;
+    if (ctx.radio.on) return 'That’s her you’re listening to. Somebody aboard is already choosing the next one.';
+    if (w.kind === 'storm' || w.wind > 14) return 'Radio Alles rides it out at anchor, her mast swinging across the clouds. Still on air. The set at the top of the lighthouse can pick her up.';
+    if (ctx.sky.lamps > 0.5) return 'Radio Alles, at anchor far out to the west. Her mast light blinks red over the water, and somebody aboard is still up, choosing songs. The set at the top of the lighthouse can pick her up.';
+    return ALLES[alles++ % ALLES.length];
+  }),
   fisherman: sighting('fisherman', 'A fisherman', (ctx) => {
     const n = ctx.life.sightings.catches;
     if (!n) return 'He nods at you and doesn’t say a word. Nothing yet. It isn’t really about the fish.';
@@ -1790,6 +1803,29 @@ function shippingForecast(ctx: IslandContext) {
   return `It murmurs the shipping forecast: “${said.replace(/(^|[.:] )([a-z])/g, (_, a, b) => a + b.toUpperCase())}” ${verdict}`;
 }
 
+/** Radio Alles, the pirate station on the boat out to the west (scene/sightings.ts, radio.ts). */
+const ALLES = [
+  'Radio Alles: a pirate station on an old trawler, anchored just outside the island’s waters, the way the Dutch ones used to be. The set at the top of the lighthouse can pick her up.',
+  'Her aerial is taller than she is long, and she hasn’t caught a fish in years. Try the radio at the top of the lighthouse.',
+];
+let alles = 0;
+
+/**
+ * The lamp-room radio: one click and it's tuned in to Radio Alles, and the set comes with you
+ * (radio.ts); click it again and the dial goes back down to the shipping forecast.
+ */
+function lampRadio(ctx: IslandContext) {
+  if (ctx.radio.on) {
+    ctx.radio.switchOff();
+    return ctx.toast(`You turn the dial back down. ${shippingForecast(ctx)}`);
+  }
+  soundOn(ctx);
+  ctx.sound.tuneStatic();
+  ctx.toast('You turn the dial past the shipping forecast: static, a phone-in about bicycles, more static, and then guitars, loud and clear. Radio Alles, from the boat out to the west.');
+  ctx.radio.tuneIn();
+  ctx.discover('radio');
+}
+
 /** Things in the mountain hut. */
 const waiting = inTurn([
   'The timer says twenty minutes. She checks the oven anyway, every two.',
@@ -1980,11 +2016,18 @@ export const LAMP_PLACES: Record<string, Place> = {
   },
   telescope: {
     label: 'A telescope',
-    activate: (ctx) => ctx.toast(ctx.sky.lamps > 0.6
-      ? 'Nothing out there but the dark and, far off, another light answering this one.'
-      : 'Trained on the horizon. A sail, a gull, and a long way off, the next island.'),
+    activate(ctx) {
+      ctx.spy();
+      const w = ctx.weather;
+      const set = ctx.radio.on ? '' : ' The set by the window might pick her up.';
+      ctx.toast(ctx.radio.on ? 'There she is: the boat you’re listening to, riding at anchor far out to the west.'
+        : w.kind === 'fog' || w.now.fog > 0.5 ? 'Fog. For a moment there’s a very tall mast in it, and then there isn’t.'
+        : ctx.sky.lamps > 0.6 ? `Out on the dark water, a boat at anchor: lit portholes, and a red lamp blinking at the top of a very tall mast.${set}`
+        : w.kind === 'storm' ? `A boat at anchor, rolling hard, her mast swinging across the clouds. Still there.${set}`
+        : `You swing it round off the horizon. A boat at anchor far out to the west, with an aerial taller than she is long: Radio Alles.${set}`);
+    },
   },
-  radio: { label: 'The radio', activate: (ctx) => ctx.toast(shippingForecast(ctx)) },
+  radio: { label: (ctx) => (ctx.radio.on ? 'The radio · Radio Alles' : 'An old valve radio, warmed up'), activate: lampRadio },
   clock: {
     label: 'The clock',
     activate: (ctx) => ctx.toast(`It says ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. Later than it feels. It always is.`),

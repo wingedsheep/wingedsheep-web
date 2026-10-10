@@ -9,6 +9,7 @@ import type { RoomInput } from './scene/camera-rig';
 import { HutRoom } from './scene/hut-room';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { indoors } from './scene/shelter';
+import { level } from './hud';
 import { tapeSide } from './sound';
 import type { UI } from './ui';
 
@@ -46,6 +47,7 @@ export class Hut implements RoomInput {
     this.deck?.querySelectorAll<HTMLButtonElement>('[data-key]').forEach((key) => {
       key.addEventListener('click', () => this.press(key.dataset.key!));
     });
+    level(this.deck?.querySelector('[data-walkman-volume]'), ctx, 'walkmanVolume');
     ctx.sound.onAlbum = () => this.showTape();
     ctx.sound.onTurn = () => this.turnTape();
   }
@@ -73,6 +75,7 @@ export class Hut implements RoomInput {
   /** Pick up the Walkman: its keys come up. */
   private pickUp() {
     if (!this.deck) return;
+    this.ctx.radio.switchOff(); // (one set in your hands at a time)
     this.deck.hidden = false;
     this.showTape();
     this.deck.querySelector<HTMLElement>('[data-key="play"]')?.focus({ preventScroll: true });

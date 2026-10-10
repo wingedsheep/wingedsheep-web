@@ -56,6 +56,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hud-btn:hover { background: #fff6e2; }
 .hud-btn:active { transform: translateY(1px); box-shadow: inset 0 -1px 0 var(--paper-edge); }
 .hud-btn[aria-pressed='true'] { background: var(--gold); }
+/* the sound button's menu: the island's volume, and on or off */
+.volume-menu {
+  position: absolute; z-index: 22; top: 58px; right: 16px; width: 220px; padding: 10px 12px 12px;
+  color: var(--ink); background: var(--paper); clip-path: var(--notch); box-shadow: inset 0 -3px 0 var(--paper-edge);
+}
+.volume-menu[hidden] { display: none; }
+.volume-toggle {
+  display: block; width: 100%; height: 32px; margin-top: 8px; border: 0; font: 15px var(--ui); color: var(--ink);
+  background: #e8dcc0; clip-path: var(--notch); box-shadow: inset 0 -3px 0 var(--paper-edge); cursor: pointer;
+}
+.volume-toggle:hover, .volume-toggle:focus-visible { background: #fff6e2; }
+/* a volume slider, pixel style: a flat track and a square knob (the menu, the radio, the Walkman) */
+.volume { display: flex; align-items: center; gap: 10px; margin: 6px 2px 8px; font: 14px/1.2 var(--ui); }
+.volume input { flex: 1; min-width: 0; height: 20px; margin: 0; background: none; cursor: pointer; appearance: none; -webkit-appearance: none; accent-color: currentColor; }
+.volume input::-webkit-slider-runnable-track { height: 6px; background: currentColor; opacity: 0.85; }
+.volume input::-moz-range-track { height: 6px; background: currentColor; opacity: 0.85; }
+.volume input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 18px; margin-top: -6px; border: 0; background: #1d1a24; box-shadow: inset 0 -3px 0 #4a4452; }
+.volume input::-moz-range-thumb { width: 14px; height: 18px; border: 0; border-radius: 0; background: #1d1a24; box-shadow: inset 0 -3px 0 #4a4452; }
+.volume input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 /* sound's on, but waiting for the first click before the browser lets it play */
 .hud-btn[data-waiting] { animation: waiting 1.6s ease-in-out infinite; }
 @keyframes waiting { 50% { background: #fff6e2; } }
@@ -609,6 +628,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .exhibit-now { margin: 6px 0 0 !important; font: italic 14px/1.35 var(--serif); color: var(--paper-2); }
 /* the carried Walkman: its keys, while you've got it in your hands */
 /* the keeper's telly showing a film: the player sits on its screen, wherever that is on the canvas */
+.spyglass {
+  --r: min(40vh, 40vw); position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 52%, transparent 0 var(--r), #6b4a22 var(--r) calc(var(--r) + 4px),
+    #c9963f calc(var(--r) + 4px) calc(var(--r) + 14px), #6b4a22 calc(var(--r) + 14px) calc(var(--r) + 18px), #0d0b12 calc(var(--r) + 18px));
+}
+.spyglass[hidden] { display: none; }
+.spyglass-off { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); pointer-events: auto; }
 .film { position: absolute; inset: 0; pointer-events: none; }
 .film[hidden] { display: none; }
 .film-screen { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; pointer-events: auto; cursor: pointer; background: #000; }
@@ -658,6 +684,41 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .walkman-keys button:hover, .walkman-keys button:focus-visible { background: #e8e4dc; }
 .walkman-keys button:active, .walkman-keys button[aria-pressed='true'] { box-shadow: inset 0 2px 0 #8f8b84; translate: 0 2px; }
+/* Radio Alles: a little transistor set, red bakelite and a lit dial, carried like the Walkman */
+.radio {
+  position: absolute; z-index: 21; left: 16px; bottom: 16px; width: min(340px, calc(100vw - 32px));
+  padding: 12px 12px 10px; pointer-events: auto; color: #f4ead3; background: #b8433a; clip-path: var(--notch);
+  box-shadow: inset 0 -4px 0 #7f2a24, inset 0 4px 0 #d8665a;
+  animation: toast-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.radio[hidden] { display: none; }
+.radio-dial {
+  position: relative; display: flex; justify-content: space-between; padding: 6px 10px 12px;
+  font: 11px/1 var(--ui); font-variant-numeric: tabular-nums; color: #3a2a1a; background: #f2d98a; clip-path: var(--notch);
+  background-image: repeating-linear-gradient(90deg, #3a2a1a 0 1px, transparent 1px 8px);
+  background-size: 100% 5px; background-position: 0 100%; background-repeat: no-repeat;
+}
+.radio-needle { position: absolute; top: 2px; bottom: 2px; left: 71%; width: 2px; background: #c8403a; transition: left 0.6s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.radio:not(.playing) .radio-needle { animation: radio-seek 1.3s ease-in-out infinite alternate; }
+@keyframes radio-seek { from { left: 12%; } to { left: 80%; } }
+@media (prefers-reduced-motion: reduce) { .radio:not(.playing) .radio-needle { animation: none; } }
+.radio-name { display: flex; align-items: center; gap: 8px; margin: 8px 2px; font: italic 13px/1.2 var(--serif); }
+.radio-name strong { font: 700 14px/1.2 var(--ui); font-style: normal; letter-spacing: 0.04em; }
+.radio-lamp { flex: none; width: 8px; height: 8px; background: #5a2420; box-shadow: 0 0 0 2px #7f2a24; }
+.radio.playing .radio-lamp { background: #ffd36a; box-shadow: 0 0 0 2px #7f2a24, 0 0 8px #ffd36a; }
+/* the music's player: there, and playing, but not to be seen (it's a radio) */
+.radio-player { position: absolute; left: 0; bottom: 0; width: 200px; height: 200px; opacity: 0; pointer-events: none; clip-path: inset(50%); }
+.radio-player iframe { display: block; width: 100%; height: 100%; border: 0; }
+.radio.talking .radio-lamp { background: #f06a8a; box-shadow: 0 0 0 2px #7f2a24, 0 0 8px #f06a8a; }
+.radio-now { display: flex; justify-content: space-between; gap: 8px; margin: 8px 2px; font: 14px/1.2 var(--ui); }
+.radio-now span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radio-now a { flex: none; color: #f2d98a; }
+.radio-off {
+  display: block; width: 100%; height: 34px; border: 0; font: 15px var(--ui); color: #1d1a24;
+  background: #c9c6c0; clip-path: var(--notch); box-shadow: inset 0 -4px 0 #8f8b84; cursor: pointer;
+}
+.radio-off:hover, .radio-off:focus-visible { background: #e8e4dc; }
+.radio-off:active { box-shadow: inset 0 2px 0 #8f8b84; translate: 0 2px; }
 .walkman-keys [data-key='play'][aria-pressed='true'] { background: #f07a1a; }
 .walkman-keys [data-key='eject'] { padding: 0 8px; background: var(--paper); color: var(--ink); box-shadow: inset 0 -3px 0 var(--paper-edge); }
 .walkman-keys [data-key='eject']:hover, .walkman-keys [data-key='eject']:focus-visible { background: #fff6e2; }

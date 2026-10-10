@@ -1,0 +1,128 @@
+[
+  {
+    "track": "4qNdNbZ2qSAQhlSYJVYu6b",
+    "text": "Wind's howling through the rigging and Gerrit has given up on the aerial. Greta Van Fleet, The Cold Wind. Right on cue.",
+    "when": {
+      "weather": [
+        "windy",
+        "storm"
+      ],
+      "season": [
+        "autumn",
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "0qjfjKFoP7LaqLI2KI9M1Q",
+    "text": "First coffee in the mug, Opa coughing into life. Fleetwood Mac, Monday Morning. On a boat, every morning is a bit of a Monday.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "6FRwDxXsvSasw0y2eDArsz",
+    "text": "Bright out there, the water's throwing it back into the wheelhouse. Cream, Sunshine Of Your Love. I didn't plan it. I'll take the credit.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "652hWPdOUIkKv3a4HJDzBv",
+    "text": "The Opposites, Slapeloze Nachten. Sleepless nights. It's dark, the lighthouse is going round, and I'm awake. So are you. Here's to us.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "2m9L38IcOCraTHrtz58pr9",
+    "text": "The light's back on the water and the first warm days are coming. Moke, Here Comes the Summer. Gerrit's already looking at the deck for somewhere to lie.",
+    "when": {
+      "season": [
+        "spring"
+      ]
+    }
+  },
+  {
+    "track": "2m9L38IcOCraTHrtz58pr9",
+    "text": "Here Comes the Summer, sing Moke. It's already here, mate. Deck's warm enough to fry a fish on, and Gerrit's checking.",
+    "when": {
+      "season": [
+        "summer"
+      ],
+      "weather": [
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "41Az1BCotlAUt7Ud8k6H2Y",
+    "text": "Sun going down behind the lighthouse, sky going orange. Jack Johnson, Sunsets For Somebody Else. Not this one. This one's mine.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "6wVWJl64yoTzU27EI8ep20",
+    "text": "Real lightning out there, so I've unplugged everything I can and kept the one thing I can't. Arctic Monkeys, Crying Lightning. If we go quiet, you know why.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1OZSVl0JJ1MBzibpuhmmXb",
+    "text": "Throw those curtains wide, Elbow say, and for once the day deserves it. Clear sky, flat sea. One Day Like This.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "6YXPye0mFJBNov8pmihMAP",
+    "text": "Late now. Opa's ticking over, the lighthouse sweeping round. Jack Johnson, Sleep Through The Static. Go on. I'll keep watch.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "1YwNlWLf8auhazSQUDQLFU",
+    "text": "Fog so thick I can't see the bow, and the whole world's gone quiet out there. Depeche Mode, Enjoy the Silence. Easy enough, in this.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "3Xls4cNOwy01dtrNXb1inG",
+    "text": "Snow on the deck, snow on the wheelhouse roof, snow on Gerrit. Cream, White Room. He is not amused.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  }
+]

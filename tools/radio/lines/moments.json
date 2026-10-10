@@ -1,0 +1,1225 @@
+[
+  {
+    "track": "1sFx6zGOMmrDcRgGPAgW4n",
+    "text": "It's actually raining, so for once I get to play this and look clever. The Cult, Rain. [dryly] Gerrit's gone into his crate. Some seabird.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1sFx6zGOMmrDcRgGPAgW4n",
+    "text": "Hardly rain at all out there, more a damp rumour on the glass. The Cult would want more than this. Rain, while we wait for the real thing.",
+    "when": {
+      "weather": [
+        "drizzle"
+      ]
+    }
+  },
+  {
+    "track": "1sFx6zGOMmrDcRgGPAgW4n",
+    "text": "Not a drop. Clear sky, dry deck, and I'm playing Rain by The Cult anyway, in case anyone up there takes requests.",
+    "when": {
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "1sBfyE1iF7RP3LTc0zUTdp",
+    "text": "Dark everywhere except the lighthouse, going round and round. Soundgarden, Black Hole Sun. [quietly] Some songs belong to this hour.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "1sBfyE1iF7RP3LTc0zUTdp",
+    "text": "Middle of the afternoon and the sky's gone the colour of a bruise. Black Hole Sun, Soundgarden. They knew.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1sBfyE1iF7RP3LTc0zUTdp",
+    "text": "The sun's so bright off the water I've got my sunglasses on in the wheelhouse. Soundgarden, Black Hole Sun, to take the edge off.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "hot",
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "0RQX7oy3kfgbc36GKcQT0u",
+    "text": "The sun's been in and out of the clouds all afternoon, like it can't make up its mind. Red Hot Chili Peppers, Behind The Sun.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "partly"
+      ]
+    }
+  },
+  {
+    "track": "0RQX7oy3kfgbc36GKcQT0u",
+    "text": "No sun anywhere, just fog, thick as wool round the wheelhouse. Somewhere above it, it's shining. Behind The Sun, by the Red Hot Chili Peppers.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ],
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "0RQX7oy3kfgbc36GKcQT0u",
+    "text": "The sun's getting low behind the island and the lighthouse is warming up to take over. Red Hot Chili Peppers. Behind The Sun.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "clear"
+      ],
+      "season": [
+        "spring",
+        "summer"
+      ]
+    }
+  },
+  {
+    "track": "1Dhi8OBMSyukjUQ93uBfNz",
+    "text": "Flat water, clear sky, the Zeemeeuw barely moving on her chain. For once the title tells the truth. Queens of the Stone Age, Smooth Sailing.",
+    "when": {
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "1Dhi8OBMSyukjUQ93uBfNz",
+    "text": "[deadpan] The deck's at an angle, the kettle's in the sink for its own safety, and the next song is Smooth Sailing. Queens of the Stone Age. Call it hope.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1Dhi8OBMSyukjUQ93uBfNz",
+    "text": "Gusts coming round the point hard enough that Gerrit just flew past the window backwards. This one's for him. Smooth Sailing, Queens of the Stone Age.",
+    "when": {
+      "weather": [
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "2bcC9Xyi40wnI7Od5uch31",
+    "text": "Paolo Nutini, Iron Sky. Look out of any window and you'll see why: low, grey, and leaning on the sea. Opa's coughing. [quietly] Hold on, old man.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "2bcC9Xyi40wnI7Od5uch31",
+    "text": "A lid on the whole sea all evening, grey on grey, the lamp on early. If there's a song for an evening like this, it's Iron Sky. Paolo Nutini.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "cloudy",
+        "rain",
+        "drizzle"
+      ]
+    }
+  },
+  {
+    "track": "2bcC9Xyi40wnI7Od5uch31",
+    "text": "Not one gap in the clouds since breakfast. An iron sky, all afternoon long, and Paolo Nutini gave it a song.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "cloudy"
+      ]
+    }
+  },
+  {
+    "track": "02WOvc9zV7ycxLJVFZ72HJ",
+    "text": "Clear night. From the deck you can see every star there is, with the lighthouse beam sweeping underneath. Elton John, Rocket Man. [wistful] The second loneliest job going.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "02WOvc9zV7ycxLJVFZ72HJ",
+    "text": "Early. The coffee hasn't done a thing yet, and I think it's going to be a long, long time before it does. Rocket Man, Elton John.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "6CGXTNx0MsvLGAxU7gSHRe",
+    "text": "Sterrenstof means stardust, and there's a whole sky of the real thing over the boat tonight. De Jeugd Van Tegenwoordig.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "6CGXTNx0MsvLGAxU7gSHRe",
+    "text": "First stars coming out over the lighthouse, and I haven't even had supper. De Jeugd Van Tegenwoordig, with Sterrenstof. [fondly] Stardust, for the cold months.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "clear"
+      ],
+      "season": [
+        "autumn",
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "3OYPskZPKnOcHZ9fUDwmCK",
+    "text": "Out here at this hour there are two lights I trust: the lighthouse, going round, and the lamp on my mast, staying put. The Black Keys, Everlasting Light.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "3OYPskZPKnOcHZ9fUDwmCK",
+    "text": "The fog's so thick the lighthouse is just a smudge going round. Everlasting Light, The Black Keys, for the keeper up there doing the actual work.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "1INksmStBpxdNlBzwGUvsg",
+    "text": "Pitch dark past the bow, and nothing out there but a wave now and then catching the beam. Royal Blood, Out of the Black. Loud, to keep the dark honest.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "6pvWan5WFd6pyXTn4cJjeo",
+    "text": "Sea, sky, island... all one colour at this hour. The Rolling Stones got there first. Paint It Black.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "6pvWan5WFd6pyXTn4cJjeo",
+    "text": "Dark by supper this time of year, and the lamp goes on before the kettle does. Paint It Black, The Rolling Stones.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "season": [
+        "autumn",
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "7kzKAuUzOITUauHAhoMoxA",
+    "text": "Morning. Last night was the usual: one gull, one generator, one DJ, and nobody dancing. The Strokes. Last Nite.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "2EqlS6tkEnglzr7tkKAAYD",
+    "text": "First coffee, the burner hissing, Gerrit blinking at me from his crate. It takes us both a while to come together. The Beatles.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "0ij65mOHTwSkUGQvew3RHQ",
+    "text": "Coffee's not working yet. [mutters] Maybe this will. Oasis, Supersonic.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "6FBpIPlWYCQyXiJsmIDTOV",
+    "text": "Some might say it'll clear up by lunch. [dryly] Gerrit says it won't, and he's been out in it. Oasis, Some Might Say, while we find out.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "showers",
+        "partly"
+      ]
+    }
+  },
+  {
+    "track": "7yq4Qj7cqayVTp3FF9CWbm",
+    "text": "Warm enough for swimmers off the island's beach. Mind the current round the point, it's stronger than it looks. Vance Joy, Riptide.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "1TbT66Q7xinBmflin3MabA",
+    "text": "Hot enough to fry an egg on the wheelhouse roof. Gerrit tried it with a fish. [deadpan] He ate it anyway. Django Django, Life's a Beach.",
+    "when": {
+      "weather": [
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "1TbT66Q7xinBmflin3MabA",
+    "text": "Snow on the island's beach. I didn't know that was allowed. Django Django, Life's a Beach, said with a straight face.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  },
+  {
+    "track": "3ZZq9396zv8pcn5GYVhxUi",
+    "text": "Snow on the deck, and I'm playing a song from the other side of the world, where somebody's probably in shorts. Men At Work, Down Under. [sighs] Good for them.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  },
+  {
+    "track": "3ZZq9396zv8pcn5GYVhxUi",
+    "text": "Morning here, which means on the other side of the world they're putting the kettle on for supper. Men At Work, Down Under.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "3XxBSvDZKH5YvZZjTpn6eR",
+    "text": "Rain on the roof, one lamp on, and the slowest blues in the box. Red House, Jimi Hendrix.",
+    "when": {
+      "time": [
+        "evening",
+        "night"
+      ],
+      "weather": [
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "4VQu1ooCteGDynSZYUgvT4",
+    "text": "A soft grey drizzle, nothing in a hurry, not even the clouds. Jack Johnson's Breakdown is about the right speed for it.",
+    "when": {
+      "weather": [
+        "drizzle"
+      ]
+    }
+  },
+  {
+    "track": "6xzzm22bl8aHP3cdPPLIrO",
+    "text": "Warm afternoon, hatch open, feet up on the console. Jack Johnson, They Do, They Don't. [warmly] Lovely.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "warm"
+      ]
+    }
+  },
+  {
+    "track": "5xLfQuX5YAfog2JgPz0dpA",
+    "text": "Fog. The ferry's horn somewhere off to the left, Opa to the right, and me in the middle. The Cars, Moving in Stereo.",
+    "when": {
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ],
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "4pjJh6hHzhY5KspUEZVCwU",
+    "text": "Evening, fish in the pan, and the first song with brass in it. Coleen. The Heavy and the Dap-Kings Horns.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "track": "2pTLOHpd2FpgLmAf2hirOM",
+    "text": "Sleet. Not rain, not snow, just the sky being rude. Beatsteaks, then, short and loud. Cheap Comments.",
+    "when": {
+      "weather": [
+        "sleet"
+      ]
+    }
+  },
+  {
+    "track": "0wmaGiDKtKaRf7G8nBfNsQ",
+    "text": "The wind's pushing Gerrit round the sky like a paper bag. [deadpan] He has a tail and still can't steer. Queens of the Stone Age, If I Had A Tail.",
+    "when": {
+      "weather": [
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "6GyDY0yE47rfk8pcuKhioh",
+    "text": "A warm evening, every hatch open, the island's lights coming on one by one. Make It Wit Chu, Queens of the Stone Age.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "7K4WbXLUhmJFi6PK3A7vLE",
+    "text": "Snow on the wheelhouse glass and my toes gave up an hour ago. Jon Fratelli, Santo Domingo. A man can dream.",
+    "when": {
+      "weather": [
+        "snow",
+        "sleet"
+      ]
+    }
+  },
+  {
+    "track": "5B1rKd3tBqOkGlezjTkSvo",
+    "text": "Raining, and Gerrit's folded himself into his crate like a dog in a bag. The Fratellis. Doginabag.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "2CNYns4imTBYe52m98xXqM",
+    "text": "Still here. Most DJs roll over and go to bed about now. [dryly] Most DJs have a bed that doesn't move. Jet, Rollover D.J.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "25bQlUokjsyZ91GvXtLrUb",
+    "text": "Sun on the water, first coffee, and Opa running like a dream. I'll praise all three. Fatboy Slim, Praise You.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "096rnp428bZTuaiKcl7bHM",
+    "text": "The ferry went past in this fog a minute ago. Heard her horn, never saw her. The Black Keys, She's Long Gone.",
+    "when": {
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ],
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "3dOAXUx7I1qnzWzxdnsyB8",
+    "text": "Just me and the anchor light at this hour. Gerrit's asleep with his head under his wing. Lonely Boy, The Black Keys, and I'm not complaining.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "0Gf4EJLIY5qNBWvhhiRVjc",
+    "text": "In fog like this you can hear the buoy bells all the way from the harbour mouth. A Bell Will Ring. Oasis.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "2D2k3oCAJapU6Nss8AvKbi",
+    "text": "Hail on the roof like somebody emptying a bag of marbles. Franz Ferdinand. Bullet. [flatly] Appropriate.",
+    "when": {
+      "weather": [
+        "hail"
+      ]
+    }
+  },
+  {
+    "track": "6hI8yn7LUvjxiG3LTAxGoK",
+    "text": "Middle of the afternoon and the wheelhouse is dark as a cinema, the clouds are that low. Franz Ferdinand, The Dark Of The Matinée.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "cloudy",
+        "rain",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "0ancVQ9wEcHVd0RrGICTE4",
+    "text": "Lovely evening. If anyone wants to take me out, I'm the trawler with the gull on the aerial. Franz Ferdinand, Take Me Out. Nobody's offered yet.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "clear",
+        "warm"
+      ]
+    }
+  },
+  {
+    "track": "4jmwrforqDiwPyUkbegXHZ",
+    "text": "Autumn, and the trees on the island are dropping everything they've got. A few leaves even made it out to the deck. The Fallen, by Franz Ferdinand.",
+    "when": {
+      "season": [
+        "autumn"
+      ]
+    }
+  },
+  {
+    "track": "5ePZXVL5lzMAAQ8AVdIFx4",
+    "text": "The badger's out on the island about now, I'd bet, doing his rounds while everyone sleeps. Franz Ferdinand, Treason! Animals.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "3gBJSpdYAam0wp5BuNX8ld",
+    "text": "Cold morning, gloves on at the desk. I can still feel my fingers, which is good news. Franz Ferdinand, Can't Stop Feeling.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "6gVtsx3F2xkfOAZDIM7rkt",
+    "text": "Every window open and not one breath of air coming through any of them. Black Pistol Fire. Suffocation Blues. [sighs] Weather report, basically.",
+    "when": {
+      "weather": [
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "4u2KDCwcj8WGcFXDhy1aKL",
+    "text": "The light's gone orange and red over the island, the sea's copying it. Charles Bradley, with the Menahan Street Band. The World Is Going Up In Flames.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "46iI0binWzpkEJgIWTYUBR",
+    "text": "Sun bouncing off the water and onto the wheelhouse ceiling in little gold ripples. The Black Keys took the words out of my mouth. Gold on the Ceiling.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "5vefQfYc9Oxn8VHfgUCi1q",
+    "text": "In fog like this I could tell you we're anchored off San Francisco and you couldn't prove otherwise. Arctic Monkeys, Fake Tales Of San Francisco. [amused] Close enough.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "3aVI3saUDDHJH6bpHlQEHK",
+    "text": "Grey sky, flat sea, not warm, not cold, nothing happening. Kaiser Chiefs, Everything Is Average Nowadays. [flatly] The forecast, set to music.",
+    "when": {
+      "weather": [
+        "cloudy"
+      ]
+    }
+  },
+  {
+    "track": "3gYr4NDoTEOUsHzxfttYPK",
+    "text": "Up at all hours, pale, not keen on daylight. Gerrit has his suspicions about me. Arctic Monkeys, Perhaps Vampires Is A Bit Strong But.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "0S7zL7ae0KpOSPKeFQpHo8",
+    "text": "Evening. On the mainland, people are getting ready to go out dancing. [mock-serious] I've put on the clean jumper. Arctic Monkeys, I Bet You Look Good On The Dancefloor.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "track": "5BncQXZqKNmcoy6TRN0IYi",
+    "text": "With the deck moving like this, I'm dancing whether I like it or not. Might as well have a song. Mando Diao, Dance With Somebody.",
+    "when": {
+      "weather": [
+        "storm",
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "0eL1EhzXtvvDK7ARWGewcz",
+    "text": "Grey drizzle, the lighthouse gone blurry... [quietly] nothing wrong, exactly. Mando Diao, Maybe Just Sad.",
+    "when": {
+      "weather": [
+        "drizzle"
+      ]
+    }
+  },
+  {
+    "track": "3IvDaYoQU38NpkwJcq5UrO",
+    "text": "Lightning over the mainland, and every flash I check the aerial. Gerrit's off it, for once. [to Gerrit] Wise bird. The Strokes, Electricityscape.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "0Nk7bSn0MItonkR0GNs3mj",
+    "text": "Spring, and the path round the island's busy with walkers again. I watch them through the binoculars, [wistful] all of them in better shoes than me. The Walker, Fitz and The Tantrums.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "season": [
+        "spring"
+      ]
+    }
+  },
+  {
+    "track": "0Nk7bSn0MItonkR0GNs3mj",
+    "text": "Lovely day for a walk, I'm told, by people who can walk further than nine steps in a straight line. Fitz and The Tantrums. The Walker.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear",
+        "partly",
+        "warm"
+      ]
+    }
+  },
+  {
+    "track": "2pZR4kB79znIpq1q0SqwLU",
+    "text": "Somewhere it's warm. [flatly] Not here. Slash and Myles Kennedy, Back from Cali, for anyone else with two jumpers on.",
+    "when": {
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "0XyojWImsCdiJdtBMV7LZW",
+    "text": "A clear morning out here feels like a promise somebody actually kept. Slash, with Chris Cornell. Promise.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "7kF1iPJTj3VFJX9XokQ80F",
+    "text": "Rain running down the wheelhouse windows in little rivers, every one taking its own way down. Velvet Revolver, Slither.",
+    "when": {
+      "weather": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "track": "2amzrvbxYiq8AxGntIiw5V",
+    "text": "Quiet night. The swell comes in, breaks on the island's rocks, and falls to pieces. [quietly] Over and over. Velvet Revolver, Fall to Pieces.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "5iQm5GzKMIEZoF77KjMgoX",
+    "text": "Morning medication: coffee, black, from the one mug. Queens of the Stone Age, Medication, and a second cup after.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "6y20BV5L33R8YXM0YuI38N",
+    "text": "Where the ferry is right now, no one knows. [under his breath] Not even her captain, in fog like this. Queens of the Stone Age. No One Knows.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "3zIrLEU2Q7UuKJb4hODlFD",
+    "text": "Everyone asleep, the island dark, and the only voice on the water is this one. God Is In The Radio, Queens of the Stone Age. [dryly] I'm only the bloke who fixes it.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "6UvZ1XimCap0SJyErd8zmW",
+    "text": "Snow coming down on the sea without a sound, the whole bay gone quiet as a church. Hozier, Take Me To Church.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  },
+  {
+    "track": "1e7e2xXFZexK6HnD0Vg4mF",
+    "text": "Summer. There are raspberries on the island, I'm told, along the path behind the lighthouse. I get the song instead. The Birds of Satan, Raspberries.",
+    "when": {
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "track": "0LiSSTgysOjNcmpSUImimS",
+    "text": "Sleet coming sideways at the wheelhouse door. You Can Be So Cruel, Royal Blood. [mutters] I'm talking to the sky.",
+    "when": {
+      "weather": [
+        "sleet",
+        "hail"
+      ]
+    }
+  },
+  {
+    "track": "5fpEDGQX0Ah3utGnFYulQZ",
+    "text": "Dark when I get up this time of year, and dark when the coffee's done. Ben Howard, Keep Your Head Up.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "6B9RoF4fP4w9iD7zbHxv08",
+    "text": "Grey sky pressing down on everything all day. Don't let it get you down. Nor the man. Fatboy Slim.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "cloudy"
+      ]
+    }
+  },
+  {
+    "track": "7rNzap95cCcOafjFtofpBk",
+    "text": "The sun's just breaking through, one long stripe across the water to the island. The Doors, Break On Through.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ],
+      "weather": [
+        "partly"
+      ]
+    }
+  },
+  {
+    "track": "5NIyDZfdnMGRXnwbX2kwA4",
+    "text": "A sky full of stars, and Gerrit asleep under every one of them. Just Jack, Starz In Their Eyes.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "2O2ii9OPZYh1NBXo9FtE0Y",
+    "text": "Too hot to think in this wheelhouse. Alice In Chains, Check My Brain. [exhales] I'd check mine, but it's melted.",
+    "when": {
+      "weather": [
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "2lmQ1OrJaohLnfQy2Rp3rf",
+    "text": "Flat calm, and the lighthouse beam keeps catching something out on the water. A seal, I'd say. [amused] Probably. The Black Hollies, Eyes Of Mermaide.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "3vI5AzbPh1HFDdGs1dDQeR",
+    "text": "The Zeemeeuw won't sit still on her chain in this wind. Alle Farben and Graham Candy have a song about it. She Moves.",
+    "when": {
+      "weather": [
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "0dt2bECwIUEzWppQLeUqG6",
+    "text": "This late, the island's all vampires and wolves. [clears throat] Well. One badger and an owl. The Wombats, Tokyo.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "1qkzRGsiP90ZMjz8Bs97eg",
+    "text": "The swell's up, my coffee's on the floor, [sighs] and the chart table's made a run for it. We Were Promised Jetpacks, Peaks and Troughs.",
+    "when": {
+      "weather": [
+        "storm",
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "3wf3jWAQHsnPNfUtNSQvkz",
+    "text": "No shade on a trawler. None. The Black Keys, Gotta Get Away, and I'm going nowhere but the shady side of the wheelhouse.",
+    "when": {
+      "weather": [
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "1O8d2pWtBclzuY3FctBPVa",
+    "text": "The fog's crept closer all evening, and now it's sitting on the bow. Kings of Leon, Closer.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "3iKmdCDZK4XmqxIA9fVVGs",
+    "text": "Waves against the hull, wind against the wheelhouse, [dryly] Opa against both. Kings of Leon, Beautiful War.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "2yVBCbmPbgnvuJrVm5owdJ",
+    "text": "Story time, for anyone still awake. The Fratellis, A Heady Tale. Gerrit's gone to sleep already. [dryly] He's heard it.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "69h2mpzNUmdEg5egeNa1ki",
+    "text": "Fish in the pan, Gerrit at the window looking innocent, and Henrietta on the turntable. The Fratellis.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "track": "2ixsaeFioXJmMgkkbd4uj1",
+    "text": "A cold evening, the stove ticking, both hands round the mug. George Ezra, Budapest.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "7v9Ne4758aGFfFc5avh89h",
+    "text": "Evening, lamp on, and the sea calm enough to dance on. [amused] For a change. The Wombats, Let's Dance to Joy Division.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "clear",
+        "partly"
+      ]
+    }
+  },
+  {
+    "track": "5BJSZocnCeSNeYMj3iVqM7",
+    "text": "The daylight ran out hours ago. [deadpan] The coffee hasn't. OneRepublic, Love Runs Out.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "45u89A07YEku6NRlwyvkLJ",
+    "text": "Grey again. Out here that's the factory setting. Django Django, Default.",
+    "when": {
+      "weather": [
+        "cloudy"
+      ]
+    }
+  },
+  {
+    "track": "636fUWy0FBEJYZuxXzl7XB",
+    "text": "Morning, Gerrit. [sighs] Yes, yes, a fish, I know. Sam Means has a song for you. Yeah Yeah.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "0M5xRyxGpFFDfzN2x0wdpH",
+    "text": "Something loud for the late watch, to keep Opa company. Foo Fighters, Hey, Johnny Park!",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "2f4XPjWfe6J4bEArfhWcLf",
+    "text": "Late, and dark, and the right hour for it. The Rolling Stones, remixed by The Neptunes. Sympathy For The Devil.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "4juq76lIar8YWOLpYMXUAG",
+    "text": "Thunder rolling round the bay, and Wolfmother trying to out-shout it. Joker And The Thief.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "0NWPxcsf5vdjdiFUI8NgkP",
+    "text": "Rain on the wheelhouse roof, the lamp swinging a little, and Jimi Hendrix. Hey Joe.",
+    "when": {
+      "time": [
+        "evening",
+        "night"
+      ],
+      "weather": [
+        "rain",
+        "drizzle"
+      ]
+    }
+  },
+  {
+    "track": "1vxw6aYJls2oq3gW0DujAo",
+    "text": "Sunshine, then hail, then sunshine again, all inside ten minutes. Crazy, Gnarls Barkley. I'd say it's the weather.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ],
+      "weather": [
+        "showers",
+        "hail"
+      ]
+    }
+  },
+  {
+    "track": "0Ko737UNjXO17LK4Urdlwo",
+    "text": "Calm, clear, warm, Opa purring. On a day like this I'm a fortunate son. [dryly] Creedence Clearwater Revival would put it differently.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear",
+        "warm"
+      ]
+    }
+  },
+  {
+    "track": "1zZvPumuScWPZKZOCC6yq0",
+    "text": "Wind strong enough to knock a man down on the foredeck, so I'm staying in. Red Hot Chili Peppers, Knock Me Down.",
+    "when": {
+      "weather": [
+        "windy",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "54ix2V2omFv9UUiMks7Fhf",
+    "text": "Opa doesn't like starting in the cold. I sing him Wolfmother to warm him up. Woman. [mutters] He's still deciding.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "4B4pYgE7T33g2XV1ggSfe9",
+    "text": "Rainy evening, the kind for sorting things out. The Birds of Satan, Pieces of the Puzzle.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "1LggghHQU8QOOC2AQ4WbWO",
+    "text": "Bright morning, and Opa's running, so everything's around the bend in a good way. The Asteroids Galaxy Tour, Around The Bend.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "clear",
+        "partly"
+      ]
+    }
+  },
+  {
+    "track": "14UCEsT0Ix675k74nVkTjP",
+    "text": "Long winter dark, and every window on the island lit. This one's for whoever's on their own tonight. [warmly] Not alone, then. The Fratellis, My Friend John.",
+    "when": {
+      "time": [
+        "evening",
+        "night"
+      ],
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "track": "0ER50Pk7HdWCvY77BRLMXD",
+    "text": "Fog thick enough to lean on, and the lighthouse beam playing tricks in it: there, gone, there. Fatboy Slim, The Joker.",
+    "when": {
+      "time": [
+        "evening",
+        "night"
+      ],
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "215eJ9RXX3GcmYtRO3gvFB",
+    "text": "Summer evening, still light, and somewhere on the island a party's starting. Franz Ferdinand, No You Girls.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "track": "5wHNRDvNDTvAvNUllq5v7R",
+    "text": "Showers coming and going all morning, one after the other like little sisters. Queens of the Stone Age, Little Sister.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "6bcNrwVlOFGoVX4WxXNYaa",
+    "text": "Hail. The sky's in an argument and it's winning. Fiction Plane, Soldier Machismo.",
+    "when": {
+      "weather": [
+        "hail"
+      ]
+    }
+  },
+  {
+    "track": "2KKuntKwWf023Vn18pgKKi",
+    "text": "Rain drumming on the roof in perfect time, and I still can't dance. Jon Fratelli has a song about that. Rhythm Doesn't Make You A Dancer.",
+    "when": {
+      "weather": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "track": "0kNeR7Qftb3etBYQW7xtWu",
+    "text": "Mackerel running in the warm water, a bucket of them on deck, and Gerrit's already helped himself. I Got Mine, The Black Keys.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "track": "7w87IxuO7BDcJ3YUqCyMTT",
+    "text": "Spring, the days getting longer, and Opa sounding like he's been drinking coffee too. Foster The People, Pumped Up Kicks.",
+    "when": {
+      "season": [
+        "spring"
+      ]
+    }
+  },
+  {
+    "track": "0UEMTz9APWfoJHdlXDeIzm",
+    "text": "Autumn gives with one hand, all that colour on the island, and takes with the other, the light. Queens of the Stone Age, First It Giveth.",
+    "when": {
+      "season": [
+        "autumn"
+      ]
+    }
+  },
+  {
+    "track": "5xoUgPXbMNUmoHU0Enwtwq",
+    "text": "Snow coming down, every flake taking its own way to the water. The Kooks, She Moves In Her Own Way.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  }
+]

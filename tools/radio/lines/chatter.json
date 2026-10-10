@@ -1,0 +1,629 @@
+[
+  {
+    "id": "ident-radio-alles",
+    "text": "You're listening to Radio Alles. Everything, all of it, from a rusty trawler just outside the island's waters. I'm Kees, and I'm not going anywhere. [dryly] The anchor saw to that."
+  },
+  {
+    "id": "ident-wherever-you-found-it",
+    "text": "Radio Alles, on whatever frequency you found us. I couldn't tell you which one. The dial on this set fell off years ago, and I've grown to like not knowing."
+  },
+  {
+    "id": "ident-just-outside",
+    "text": "This is Radio Alles, broadcasting from just outside the island's waters. Legally speaking, I'm nowhere at all. [deadpan] It's very relaxing."
+  },
+  {
+    "id": "ident-one-man-station",
+    "text": "Radio Alles. One boat, one microphone, one DJ, and one box of records from the lighthouse. Everything else is extra."
+  },
+  {
+    "id": "ident-kees-here",
+    "text": "Kees here, on Radio Alles. If you've just tuned in, welcome aboard. Mind the step, and don't touch the red switch."
+  },
+  {
+    "id": "ident-pirate-honest",
+    "text": "You're on Radio Alles, the island's only pirate station. Also its only station. We win every listener poll by default."
+  },
+  {
+    "id": "ident-still-here",
+    "text": "Still Radio Alles, still at anchor, still Kees. [warmly] Thanks for staying with me."
+  },
+  {
+    "id": "ident-alles-means",
+    "text": "Radio Alles. Alles is Dutch for everything, and that's the plan: a bit of everything, played from the wheelhouse of an old boat that's seen a bit of everything too."
+  },
+  {
+    "id": "ident-off-the-point",
+    "text": "Radio Alles, coming to you from off the lighthouse point. If you can hear me, you're close enough. If you can see me, wave."
+  },
+  {
+    "id": "ident-no-adverts",
+    "text": "This is Radio Alles. No adverts, no news, no traffic... Just records and a man in a wheelhouse who talks a bit between them."
+  },
+  {
+    "id": "ident-gezellig",
+    "text": "You're tuned to Radio Alles. We do one thing here, and that's gezellig. There's no English word for it. Pour yourself something and you'll get the idea."
+  },
+  {
+    "id": "ident-signal",
+    "text": "Radio Alles, from just beyond the island's waters. The signal comes and goes a little. So do I... [quietly] but I always come back."
+  },
+  {
+    "id": "boat-generator",
+    "text": "The generator's humming along nicely down below. He's older than me and louder than me, and as long as he keeps going, so does the music. I talk to him sometimes. [deadpan] He doesn't answer, which is fair."
+  },
+  {
+    "id": "boat-anchor-chain",
+    "text": "People ask how I stay in one place. Forty metres of anchor chain and a lot of patience. The chain does most of the work, if I'm honest."
+  },
+  {
+    "id": "boat-tea-or-coffee",
+    "text": "There's a kettle on board and a coffee pot, and every so often I have to choose. I've been going back and forth for years. Today... coffee. Ask me again in an hour."
+  },
+  {
+    "id": "boat-one-chair",
+    "text": "There's exactly one chair on this boat. If you ever come aboard, you're welcome to it. I'll sit on the record box. [mutters] I do anyway, half the time."
+  },
+  {
+    "id": "boat-record-box",
+    "text": "The records came over from the lighthouse in a rowing boat, one big wooden box of them. The keeper rowed, I held the box. Neither of us breathed until it was on deck."
+  },
+  {
+    "id": "boat-record-box-order",
+    "text": "I've tried to put the keeper's records in some sort of order. Alphabetical lasted a day. Now they're sorted by whatever I played last, [dryly] which is a system of a kind."
+  },
+  {
+    "id": "boat-name",
+    "text": "The name on her bow is Zeemeeuw. It means seagull. I didn't choose it, and then Gerrit moved in... [sighs] so I can only assume the universe has a sense of humour. She doesn't seem to mind."
+  },
+  {
+    "id": "boat-wheelhouse-view",
+    "text": "The wheelhouse looks out on the lighthouse, the pier, and a good stretch of the island. It's the best office I've ever had, and the only one with gulls."
+  },
+  {
+    "id": "boat-ferry-wave",
+    "text": "The ferry passes on the hour and the half hour, and I wave at it every time. Nobody's ever waved back. [deadpan] I've decided they're shy."
+  },
+  {
+    "id": "boat-ferry-captain",
+    "text": "I like to think the ferry captain listens. He's never said so. [wistful] But once... just once, I'm sure he gave the horn a little toot at the end of a good song."
+  },
+  {
+    "id": "island-keeper-guitar",
+    "text": "The keeper up at the lighthouse plays guitar at the campfire now and then. I can't hear it from here, but I like knowing it's happening. Every island needs one person with a guitar."
+  },
+  {
+    "id": "island-keeper-records",
+    "text": "These records are all from the keeper's box. Garage rock, blues, Britpop, a few things I'd never have picked. That's the good part, really. You hear what someone else loves."
+  },
+  {
+    "id": "island-beike-ball",
+    "text": "Beike, the dog on the island, has exactly one hobby, and that's the ball. Throw it once and you've made a friend for life. [dryly] Throw it twice and you've got a job."
+  },
+  {
+    "id": "island-beike-dedication",
+    "text": "A dedication now, for Beike. He can't work a radio, but if he could, he'd request something with a good long run in it. And then he'd bring you the ball."
+  },
+  {
+    "id": "island-cats",
+    "text": "The keeper's got two cats, Charlie and George. Charlie comes to see what you're doing, George decides whether it's worth it. Between them, they run the place."
+  },
+  {
+    "id": "island-cats-dedication",
+    "text": "This next bit goes out to Charlie and George, the lighthouse cats. They won't listen. [sighs] Cats never do. But it's nice to be included."
+  },
+  {
+    "id": "island-badger",
+    "text": "There's a badger with a sett in the eastern woods. The keeper says it's his favourite animal on the whole island. Shy, stubborn, keeps to itself. I understand the appeal."
+  },
+  {
+    "id": "island-badger-dedication",
+    "text": "If the badger in the eastern woods ever listens in, this is for you. You keep your own hours, and nobody tells you what to do. [mock-serious] Respect."
+  },
+  {
+    "id": "island-gull-wrap",
+    "text": "A herring gull once stole the keeper's wrap, right out of his hand. He still talks about it. [deadpan] The gull, as far as I know, has never brought it up."
+  },
+  {
+    "id": "island-gulls-on-the-rail",
+    "text": "The gulls have worked out that I've got biscuits on board. [mock-serious] We've come to an arrangement. They don't land on the antenna, and I don't ask questions."
+  },
+  {
+    "id": "island-kayak",
+    "text": "Somebody on the island has a kayak, and every so often it goes past, paddling hard. I always want to call out encouragement. Hard to do without a megaphone and a lot of nerve."
+  },
+  {
+    "id": "island-pier",
+    "text": "The pier's right across the water from me. Good pier, solid. If you ever want to know whether something's well built, ask the sea. The sea will tell you."
+  },
+  {
+    "id": "island-from-a-distance",
+    "text": "I don't set foot on the island much. I like it from out here. You see the whole thing at once, the lighthouse, the woods, the pier. Up close, you'd miss the shape of it."
+  },
+  {
+    "id": "request-anonymous",
+    "text": "A request came in, written on a paper bag and floated out in a bottle. It just said: more of the loud ones. [dryly] I can do that."
+  },
+  {
+    "id": "request-whistle",
+    "text": "Somebody stood on the end of the pier and whistled at the boat for a good minute. I'm taking that as a request. I'm not sure for what. I'll play something and we'll see."
+  },
+  {
+    "id": "dedication-whoever-listening",
+    "text": "A dedication, for whoever's listening on the island right now, doing whatever it is you're doing. Keep at it. I've got the music covered."
+  },
+  {
+    "id": "dedication-lighthouse",
+    "text": "This one's going out to the lighthouse. To the keeper, to Charlie and George, [fondly] and to Beike, who'd honestly rather have a ball than a song."
+  },
+  {
+    "id": "music-records-sound",
+    "text": "I like records because you can hear the room they were made in. A bit of hiss, a bit of air. On a boat that creaks, it fits right in."
+  },
+  {
+    "id": "music-guitars",
+    "text": "Most of what's in this box is guitar music. Somebody somewhere plugs in, turns up, and plays something that ends up on a boat off an island years later. I think about that a lot."
+  },
+  {
+    "id": "music-no-skip",
+    "text": "There's no skip button on Radio Alles. If a song comes on you don't like, give it a minute. That's how I found half the things I love."
+  },
+  {
+    "id": "music-dancing-in-wheelhouse",
+    "text": "[clears throat] I'll admit something. When nobody's looking — which is always — I dance a bit in the wheelhouse. Not well. [flatly] The boat dances better."
+  },
+  {
+    "id": "morning-coffee",
+    "text": "Goedemorgen, good morning. The coffee's on, the kettle's been on, and I'm awake enough to find the records... [under his breath] Mostly.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "morning-first-ferry",
+    "text": "The first ferry goes at seven every morning, and I've stopped needing an alarm. I hear the engine, I put the coffee on. Good system.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "morning-island-waking",
+    "text": "It's morning on the island. The keeper's probably still asleep up there, the cats are definitely awake, and Beike is already looking for his ball.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "morning-gentle",
+    "text": "Easy does it this morning. No rush on Radio Alles. Have your breakfast, find your socks, and I'll keep the music going while you do.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "morning-hagelslag",
+    "text": "Breakfast on board is bread, and coffee strong enough to stand a spoon in. Gerrit has fish... [dryly] which I pay for. Good morning to you, wherever you're having yours.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "day-afternoon-lull",
+    "text": "The middle of the day out here is a quiet one. Ferry comes, ferry goes, the gulls have a lie-down. Good time for a long record.",
+    "when": {
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "day-working",
+    "text": "If you're working this afternoon, I salute you. I'm also working... technically. It's just that my work is sitting in a wheelhouse playing records.",
+    "when": {
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "day-lunch",
+    "text": "Lunch on the boat today was a cheese sandwich. Bread, cheese, and absolutely nothing else. Gerrit watched every bite. He's had his lunch. [sighs] He just prefers mine.",
+    "when": {
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "day-ferry-busy",
+    "text": "The ferry's busy this time of day, back and forth on the hour and the half hour. People going places. Me, I'm staying right here.",
+    "when": {
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "day-keeper-at-work",
+    "text": "The keeper's at his desk up in the lighthouse round about now, I expect, building something on a computer. A man needs a lighthouse to think in.",
+    "when": {
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "evening-campfire",
+    "text": "Evening on the island. If the keeper's got the campfire going and the guitar out, you've got better music than mine. Otherwise, stay right here.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "evening-dinner",
+    "text": "Dinner time on the boat. Tonight it's soup from a tin, warmed on the little stove. Not fancy. Very good. Smakelijk eten, wherever you are.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "evening-winding-down",
+    "text": "The day's winding down. The gulls are getting quieter, the ferry's still going, and the records are getting a little slower. That's not an accident.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "evening-beike-tired",
+    "text": "This time of the evening, Beike's usually had about a hundred balls thrown and is finally ready to lie down. Finally. [amused] Ask the keeper's arm.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "evening-company",
+    "text": "If you're on your own this evening, you're not really. There's a man on a boat out here, keeping you company. [warmly] That's what I'm for.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "night-beam",
+    "text": "Every few seconds the lighthouse beam sweeps across my porthole, round and round. I've been out here so long I count songs by it.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "night-keeper-coding",
+    "text": "There's still a light on in the lighthouse, and I don't mean the big one. The keeper's up coding again. He loses track of time. Somebody should tell him. [under his breath] Not me, though.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "night-ferry-stopped",
+    "text": "The ferry's done for the night, so there's nothing out here but me, the water, and the lighthouse going round. Quietest part of the day... My favourite.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "night-still-up",
+    "text": "Still up? Me too. Night is the best time for radio. Fewer people, more listening. Pull the blanket up and let's keep each other company.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "night-gulls-asleep",
+    "text": "Even the gulls are asleep now. Just the creak of the chain and the beam going round. [wistful] This is the part of the night I'd keep, if I could keep one.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "rain-on-the-roof",
+    "text": "Hear that? That's rain on the wheelhouse roof. Best percussion section on the boat. I keep trying to get it to play in time.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "id": "rain-indoors",
+    "text": "Proper rain out there, the kind that MEANS it. My advice: stay in, put the kettle on, and leave the rest to me. Nobody ever regretted a rainy day with records.",
+    "when": {
+      "weather": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "id": "drizzle-dutch",
+    "text": "Just a bit of motregen out there, drizzle. [deadpan] Out here that counts as nice weather. I've seen fishermen eat their lunch on deck in worse.",
+    "when": {
+      "weather": [
+        "drizzle"
+      ]
+    }
+  },
+  {
+    "id": "showers-come-and-go",
+    "text": "Showers coming through, one after another. Wet, then not, then wet again. If you're out walking, hang about under a tree. It'll pass.",
+    "when": {
+      "weather": [
+        "showers"
+      ]
+    }
+  },
+  {
+    "id": "rain-gulls-sulking",
+    "text": "The gulls hate this rain. They're all lined up on the pier with their shoulders up, looking furious. [amused] I'd play them something cheerful if I thought it'd help.",
+    "when": {
+      "weather": [
+        "rain",
+        "drizzle"
+      ],
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "storm-rolling",
+    "text": "The boat's rolling on her chain a fair bit, so if a record jumps, that's the storm, not me. Hold on to your tea. I'm holding on to mine.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "id": "storm-chain",
+    "text": "Big wind out there. The anchor chain's groaning like it wants a word with me. [warmly] Don't worry. She's held through worse than this, and so have I.",
+    "when": {
+      "weather": [
+        "storm",
+        "windy"
+      ]
+    }
+  },
+  {
+    "id": "windy-antenna",
+    "text": "The wind's having a go at the antenna, so if I fade out for a second, I haven't gone anywhere... Just leaning.",
+    "when": {
+      "weather": [
+        "windy",
+        "storm"
+      ]
+    }
+  },
+  {
+    "id": "windy-ferry",
+    "text": "Choppy out there. I watched the ferry go past and the passengers didn't look happy. Hang on to your hats, and your lunch.",
+    "when": {
+      "weather": [
+        "windy"
+      ],
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "fog-foghorn",
+    "text": "Fog's in. I can't see the lighthouse at all, but I can hear the foghorn every so often, so I know it's still there. [dryly] Very reassuring.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "id": "fog-nowhere",
+    "text": "Thick fog all round the boat. No island, no pier, no mainland. Just grey, and the music. If you're out in it, take it slow.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "id": "fog-only-voice",
+    "text": "[quietly] In fog like this, I like to think this voice is the only thing out on the water you can find. Follow it if you like. Mind the anchor chain.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "id": "snow-on-deck",
+    "text": "There's snow settling on the deck. The boat's gone all white and quiet, like a cake. [flatly] I'm not going out there. I'm staying by the stove with the records.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  },
+  {
+    "id": "snow-on-the-water",
+    "text": "Snow falling on the sea is a strange thing to watch. It just disappears. Every single flake... gone. I find it very calming, which might say something about me.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  },
+  {
+    "id": "sleet-hail",
+    "text": "Sleet or hail, something's hitting the windows sideways. Whatever it is, it's not nice. Stay in, stay warm, stay tuned.",
+    "when": {
+      "weather": [
+        "sleet",
+        "hail"
+      ]
+    }
+  },
+  {
+    "id": "hail-on-roof",
+    "text": "That rattling? Hail on the wheelhouse roof. Sounds like somebody's throwing gravel at me. [amused] I'll take it as a request for something louder.",
+    "when": {
+      "weather": [
+        "hail"
+      ]
+    }
+  },
+  {
+    "id": "clear-mainland",
+    "text": "It's so clear out there I can see all the way to the mainland. Every once in a while the world gives you a view. Have a look.",
+    "when": {
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "id": "clear-everything-sharp",
+    "text": "Clear as anything out there. The lighthouse, the pier, the trees in the eastern woods. Everything sharp around the edges. Good day for looking.",
+    "when": {
+      "weather": [
+        "clear"
+      ],
+      "time": [
+        "morning",
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "warm-hatch-open",
+    "text": "Warm enough that I've got every hatch on the boat open. The records sound different with the sea air coming in. Better, I think.",
+    "when": {
+      "weather": [
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "id": "hot-cool-drink",
+    "text": "[exhales] It's properly hot. The deck's too hot to stand on barefoot — I tested that so you don't have to. Drink some water, find some shade.",
+    "when": {
+      "weather": [
+        "hot"
+      ],
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "spring-badger-cubs",
+    "text": "Spring is when the badger cubs start poking their noses out of the sett in the eastern woods. If you see one, keep still and keep quiet. And tell the keeper.",
+    "when": {
+      "season": [
+        "spring"
+      ]
+    }
+  },
+  {
+    "id": "spring-everything-starts",
+    "text": "Spring on the island. Everything's starting again, the birds are busy, the woods are getting green. Even the generator sounds a bit more cheerful.",
+    "when": {
+      "season": [
+        "spring"
+      ]
+    }
+  },
+  {
+    "id": "summer-swimmers",
+    "text": "Summer's when the island fills up. Swimmers off the beach, a full ferry, everybody a bit more relaxed. I'd swim out to say hello, [mock-serious] but someone has to mind the records.",
+    "when": {
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "id": "summer-long-evenings",
+    "text": "Summer's the season of long evenings and late campfires. If you can hear a guitar on the island, you're in the right place. If not, you've got me.",
+    "when": {
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "id": "autumn-geese",
+    "text": "Autumn is when the geese come over the boat in long lines, heading south and honking like they're arguing about directions. I wish them well. I'm staying.",
+    "when": {
+      "season": [
+        "autumn"
+      ]
+    }
+  },
+  {
+    "id": "autumn-woods",
+    "text": "The woods on the island are turning brown and gold. Lovely from out here. Good season for long walks and long songs.",
+    "when": {
+      "season": [
+        "autumn"
+      ]
+    }
+  },
+  {
+    "id": "winter-stove",
+    "text": "Winter on the boat means the little stove on all day and a blanket over the knees. The records keep me going. [fondly] So does the soup.",
+    "when": {
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "id": "winter-quiet",
+    "text": "The island's quiet in winter. Fewer people on the ferry, fewer boats, more time for records. Pull up a chair... [dryly] If you can find the one.",
+    "when": {
+      "season": [
+        "winter"
+      ]
+    }
+  }
+]

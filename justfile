@@ -93,6 +93,14 @@ sounds *names:
     @npx esbuild tools/sounds/generate.ts --bundle --platform=node --format=esm --log-level=warning --outfile="${TMPDIR:-/tmp}/sounds.mjs"
     @node "${TMPDIR:-/tmp}/sounds.mjs" {{names}}
 
+# Radio Alles: match the playlist (an Exportify CSV in tools/radio/) to YouTube videos
+radio:
+    python3 tools/radio/videos.py
+
+# record the Radio Alles DJ with ElevenLabs, as far as the credits go (--max N, --list)
+dj *args:
+    python3 tools/radio/voice.py {{args}}
+
 # make the rooms' doors (and the workshop's bell) from scratch, no creaks
 door-sounds:
     python3 tools/sounds/doors.py

@@ -1,0 +1,512 @@
+[
+  {
+    "id": "music-long-solo",
+    "text": "A guitar solo should go on long enough that you forget where the song was heading, and then bring you back. Any shorter and [dryly] it's just a guitarist clearing his throat."
+  },
+  {
+    "id": "music-under-three",
+    "text": "Under three minutes is the perfect length for a song on a boat. In, out, and nobody gets seasick. Anything longer had better have a solo in it."
+  },
+  {
+    "id": "music-sand-in-sleeve",
+    "text": "Some of the keeper's records still have sand in the sleeves, from the beach where the rowing boat came in. I don't shake it out. [fondly] It's part of the pressing now."
+  },
+  {
+    "id": "music-side-b",
+    "text": "I've a soft spot for side B. Side A is where a band puts what they're sure of... [warmly] Side B is where they put what they love."
+  },
+  {
+    "id": "music-singing-badly",
+    "text": "I sing along in the wheelhouse when the microphone's off. Badly, and with feeling. [deadpan] Gerrit leaves the aerial every time, so it has its uses."
+  },
+  {
+    "id": "music-only-at-sea",
+    "text": "There are songs I only like at sea. On land they're nothing special. Out here, with the boat swaying under them, they finally make sense."
+  },
+  {
+    "id": "music-alles-name",
+    "text": "The keeper called this playlist alles. Everything. I thought it was a boast at first. [warmly] Now I think it's a promise, and so far he's kept it."
+  },
+  {
+    "id": "music-drum-fills",
+    "text": "More drum fills, that's my position. A drummer who holds back is saving it for nobody. Hit the toms. We'll all still be here."
+  },
+  {
+    "id": "music-first-listen",
+    "text": "There's a moment the first time you hear a song, before you know whether you like it. I try to stay in that moment as long as I can."
+  },
+  {
+    "id": "music-before-it-comes-back",
+    "text": "My favourite bit of a lot of songs is just before everything comes back in. The band's gone quiet... you know what's coming, and so do they."
+  },
+  {
+    "id": "music-fade-out",
+    "text": "I don't trust a fade-out. [dryly] It's a band that couldn't decide how to end, walking off slowly and hoping you won't notice."
+  },
+  {
+    "id": "music-count-in",
+    "text": "A song that starts with somebody counting in, one, two, three, four. I love that. You can hear people in a room deciding to begin."
+  },
+  {
+    "id": "music-wrong-note",
+    "text": "Every so often a record has a wrong note left in it. Somebody heard it and kept it anyway. Those are the records I trust."
+  },
+  {
+    "id": "music-air-guitar",
+    "text": "Air guitar in a wheelhouse is a careful business. One big windmill and you've knocked the boat off course. [deadpan] Luckily... we're anchored."
+  },
+  {
+    "id": "music-wrong-words",
+    "text": "I've been singing the words to some of these songs wrong for years. I've decided my versions are also correct. [mock-serious] Both can be true."
+  },
+  {
+    "id": "music-loud-quiet-loud",
+    "text": "Loud, then quiet, then loud again. Half the guitar music in the keeper's box works like that, and it still gets me every single time."
+  },
+  {
+    "id": "music-needle-drop",
+    "text": "That little crackle when the needle goes down is my favourite sound in the world. [quietly] Second favourite, maybe... The anchor holding is hard to beat."
+  },
+  {
+    "id": "music-bass-player",
+    "text": "Spare a thought for the bass player. Nobody ever hums the bass line, and yet take it away and the whole song falls over."
+  },
+  {
+    "id": "music-worn-grooves",
+    "text": "You can tell which records the keeper loved by how worn they are. [fondly] Some of these have been played nearly smooth. Those go on more often, not less."
+  },
+  {
+    "id": "music-play-it-again",
+    "text": "Sometimes a song ends and I want to put it straight back on. I don't. I've got one rule on this station... and that's the one."
+  },
+  {
+    "id": "music-cover-versions",
+    "text": "A good cover version is a letter back to the band. Here's what your song did to me. I always wonder whether they wrote back."
+  },
+  {
+    "id": "music-no-order",
+    "text": "Alles plays in no order at all. The keeper didn't sort it, and I won't. Two songs that should never meet, meeting. That's the fun of it."
+  },
+  {
+    "id": "music-no-headphones",
+    "text": "I've never once listened to this box on headphones. A record should get out into a room, or a wheelhouse, and bump into things."
+  },
+  {
+    "id": "music-dry-land",
+    "text": "Every band in this box got to stand on dry land to play. I'm not jealous. [sighs] I'm a bit jealous. The floor in here moves."
+  },
+  {
+    "id": "music-instrumental",
+    "text": "An instrumental is a little holiday for me, I'll be honest. Nobody's telling me anything for a few minutes, and I don't have to tell you anything either."
+  },
+  {
+    "id": "music-cabbage-fat",
+    "text": "Getting the tempo right is the whole job. If a song drags, all the pretty guitar on top of it doesn't make the cabbage fat."
+  },
+  {
+    "id": "music-peeled-egg",
+    "text": "People think three chords is easy. [dryly] Then they pick up a guitar. Three chords, played like you mean them, is about the hardest thing in music."
+  },
+  {
+    "id": "boat-gerrit-static",
+    "text": "If I went to static there for a moment, that was probably Gerrit, landing on the aerial. A herring gull. [dryly] He knows exactly what he's doing."
+  },
+  {
+    "id": "boat-gerrit-arrangement",
+    "text": "The gulls and I have an arrangement: they stay off the aerial. Gerrit never signed it. He lands where he likes, and we don't discuss it."
+  },
+  {
+    "id": "boat-opa-cough",
+    "text": "Opa just coughed down below. Opa is the generator. If Opa stops, the station stops, so I've asked him nicely to keep going for one more record."
+  },
+  {
+    "id": "boat-opa-listener",
+    "text": "I talk to Opa more than I talk to most people. He's a good listener. [fondly] He coughs in all the right places."
+  },
+  {
+    "id": "boat-mother-not-too-loud",
+    "text": "That last one was for Gerrit. He'd want something nice, and not too loud. [sighs] I managed one of the two, and he's left."
+  },
+  {
+    "id": "boat-chair-wobble",
+    "text": "The one chair on this boat has a wobble in one leg. I've had it so long the wobble's part of how I sit. I'd fall off a straight chair."
+  },
+  {
+    "id": "boat-both-pots",
+    "text": "Kettle or coffee pot. I stood between them for a full minute just now. In the end I made both, which settles nothing, but I've got two drinks."
+  },
+  {
+    "id": "boat-hagelslag-report",
+    "text": "[clears throat] Larder report. Three tins of soup, one of peaches, half a bag of coffee, and a fish that Gerrit thinks is his. The rest of the boat may be held together with rope, but the larder is in order."
+  },
+  {
+    "id": "boat-hagelslag-in-the-box",
+    "text": "There's a gull feather in the record box. I don't know how. Every so often one slides out of a sleeve, and I put it back. [under his breath] Gerrit says nothing."
+  },
+  {
+    "id": "boat-red-switch",
+    "text": "Somebody asked what the red switch does. I've never pressed it. Nobody has. It's the only thing on board that's never been tested, and I'd like to keep it that way."
+  },
+  {
+    "id": "boat-life-jackets",
+    "text": "Old ferry habit: every so often I want to tell you where the life jackets are. Under the seat. [deadpan] There's one seat."
+  },
+  {
+    "id": "boat-chain-creak",
+    "text": "Under every record there's the chain creaking a little. A few of you have asked if it's on the recording. It isn't. That part's live."
+  },
+  {
+    "id": "phone-in-no-line",
+    "text": "We've got a caller on the line. [flatly] We haven't got a line. But if we had, I like to think it'd be you, asking for something with a long solo."
+  },
+  {
+    "id": "phone-in-ferry-captain",
+    "text": "A message from the ferry captain. Or there would be... if he'd sent one. I'm taking the silence as a request to keep going."
+  },
+  {
+    "id": "dedication-secret",
+    "text": "A dedication now, from someone on the island to someone else on the island. They didn't say who. Very romantic. [dryly] Very confusing for me."
+  },
+  {
+    "id": "dedication-lost-sock",
+    "text": "This one goes out to whoever lost a sock on the pier. It's still there. Nobody's taken it. [warmly] That's the kind of island this is."
+  },
+  {
+    "id": "phone-in-cat-wise",
+    "text": "A fisherman told me I'm wasting my life on a boat. Make that the cat wise, I said. [deadpan] He was on a boat at the time."
+  },
+  {
+    "id": "phone-in-nose-butter",
+    "text": "A note came in: Kees, why did you play the same song twice last week? I had a plank in front of my head that day. It happens. Welcome aboard, whoever you are."
+  },
+  {
+    "id": "dedication-everyone-ashore",
+    "text": "A dedication for everyone ashore who's ever thought, I could live on a boat. You could. [amused] Bring your own chair."
+  },
+  {
+    "id": "island-wave-lighthouse",
+    "text": "I wave at the lighthouse a few times a day. It doesn't wave back, being a lighthouse. The keeper sometimes does, which is better."
+  },
+  {
+    "id": "island-keeper-credit",
+    "text": "Every record you hear on this station came out of the keeper's box. I just put the needle down. Credit where it's due."
+  },
+  {
+    "id": "island-beike-pier",
+    "text": "Sometimes Beike sits at the end of the pier with his ball, staring out at the boat. I think he's working out whether he could swim it over. [warmly] Please don't, Beike."
+  },
+  {
+    "id": "island-beike-ball-sea",
+    "text": "I once watched Beike drop his ball off the end of the pier and look at the sea as if it owed him money. The sea gave it back, eventually."
+  },
+  {
+    "id": "island-cats-window",
+    "text": "Charlie and George sit in the lighthouse window sometimes, side by side, facing the boat. I like to think they're listening. [amused] They're probably watching Gerrit."
+  },
+  {
+    "id": "island-badger-path",
+    "text": "The keeper says the badger in the eastern woods takes the same path every time. Same path, no fuss, no detours. I respect a creature with a routine."
+  },
+  {
+    "id": "island-ferry-clock",
+    "text": "The ferry goes by on the hour and the half hour, so I've never needed a clock. If you want the time on Radio Alles, look for the ferry."
+  },
+  {
+    "id": "island-ferry-volume",
+    "text": "Every time the ferry passes, I turn the volume up a notch, in case the captain's got his window open. [wistful] A man can hope."
+  },
+  {
+    "id": "island-wrap-suspect",
+    "text": "The keeper still talks about the herring gull that stole his wrap. I have my suspicions about which one. I've said nothing... Gerrit's said nothing either."
+  },
+  {
+    "id": "island-kayak-pier",
+    "text": "The kayak's pulled up by the pier again. Whoever paddles it is either having a rest or swam home. I'm guessing the rest."
+  },
+  {
+    "id": "island-kayak-scrape",
+    "text": "The kayak's back by the pier with a fresh scrape down one side. Somebody's been somewhere interesting. Nobody told me, but the kayak's telling."
+  },
+  {
+    "id": "island-campfire-songs",
+    "text": "I reckon the keeper's campfire guitar has about three songs in it, and he plays them with great conviction. [deadpan] That's three more than I play."
+  },
+  {
+    "id": "island-keeper-trust",
+    "text": "This next stretch is for the keeper, who trusted a man on a boat with his whole record box. I've dropped nothing yet. [mutters] Not in the sea, anyway."
+  },
+  {
+    "id": "island-monkey-sleeve",
+    "text": "For weeks I wondered who kept leaving crusts on the end of the pier. Mystery solved. It's the keeper. He's been feeding Gerrit. [mock-serious] I feel quite betrayed."
+  },
+  {
+    "id": "island-whole-shape",
+    "text": "From the wheelhouse I've got the lighthouse, the pier, the eastern woods and the path between them. Somebody's always on one of them. I like keeping count."
+  },
+  {
+    "id": "morning-gerrit-breakfast",
+    "text": "Gerrit was on the aerial before I'd had my coffee this morning. He watched me eat my breakfast. I didn't share. He didn't ask. Very civil.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "morning-first-record",
+    "text": "The first record of the morning sets the tone for the day, so I take my time choosing. Today I closed my eyes and reached into the box. Same thing, really.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "morning-ferry-hand",
+    "text": "The ferry just went by and I'm nearly sure the captain lifted a hand. Could have been a yawn. It's early. I'm counting it.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "id": "day-chair-in-doorway",
+    "text": "Bright out on deck today. I've dragged the one chair to the wheelhouse door, so I'm half in the sun and half on the air. Best of both.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear",
+        "partly cloudy",
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "id": "day-ferry-full",
+    "text": "The ferry's full to the rails today. Hats, bags, a dog or two. Summer people. I wave at all of them, and today two of them waved back.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "season": [
+        "summer"
+      ]
+    }
+  },
+  {
+    "id": "day-gerrit-staring",
+    "text": "Gerrit's on the rail, looking at me through the window. I'm looking back. Neither of us is going to blink first, and this record's nearly over.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "evening-sky-lighthouse",
+    "text": "Clear evening. The sky over the lighthouse is doing something lovely, so [quietly] I'm going to stop talking for a moment and let you look.",
+    "when": {
+      "time": [
+        "evening"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "id": "evening-mother-dinner",
+    "text": "Gerrit came down off his crate to see what I'm having for dinner. Bread. He looked at it, looked at me, and went back up. [sighs] I've been reviewed.",
+    "when": {
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "night-opa-company",
+    "text": "At this hour it's just me and Opa, the generator, keeping each other awake. He coughs, I put a record on. It's a conversation, of sorts.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "night-late-snack",
+    "text": "Late-night snack on board: peanut butter, straight from the jar, with a spoon. I'm a grown man, it's late, and only Gerrit can see me. He won't tell.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "id": "rain-pipe-stems",
+    "text": "It's raining pipe stems out there. The deck's a river, the gulls have given up, and I've moved the record box away from the leak in the corner. [sighs] Again.",
+    "when": {
+      "weather": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "id": "rain-gerrit-away",
+    "text": "No Gerrit on the aerial in this rain, so the signal's clean for once. That's the only thing I hold against dry weather. He comes back.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "id": "drizzle-not-sugar",
+    "text": "I went out on deck in this just to check the anchor. I'm not made of sugar. Wet, though. [exhales] Very wet. Back to the records.",
+    "when": {
+      "weather": [
+        "drizzle",
+        "showers",
+        "sleet"
+      ]
+    }
+  },
+  {
+    "id": "storm-bear-loose",
+    "text": "Now the bear is loose. The boat's going up and down like a lift, the chain's shouting, and Opa is coughing for both of us. Stay in, stay put.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "id": "storm-hands-on-deck",
+    "text": "If you hear the needle skip, that's me holding the record player with both hands. It's wild out there. The anchor's done this before. [quietly] So have I.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "id": "fog-ferry-feeling",
+    "text": "Fog all round. I can't see the ferry, but I can hear its horn as it feels its way across. Good man, that captain. Take it slow.",
+    "when": {
+      "weather": [
+        "fog"
+      ],
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "fog-gerrit-lost",
+    "text": "Gerrit's out in the fog somewhere. I can hear him complaining, but I can't see him. Honestly... it's the ideal arrangement.",
+    "when": {
+      "weather": [
+        "fog"
+      ],
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "snow-deck-breakfast",
+    "text": "Snow on the deck, snow on Gerrit's crate, and snow on Gerrit, who refuses to come in. I've offered him the wheelhouse. Pride's a funny thing.",
+    "when": {
+      "weather": [
+        "snow"
+      ]
+    }
+  },
+  {
+    "id": "clear-night-stars",
+    "text": "Clear night, and more stars over the island than I could ever count. Between them and the lighthouse going round, I hardly need a lamp in here.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "id": "hot-records-warp",
+    "text": "Hot enough that I've moved the record box out of the sun. Records warp in the heat. I'd warp too, but nobody's listening to me spin.",
+    "when": {
+      "weather": [
+        "hot"
+      ],
+      "time": [
+        "morning",
+        "day"
+      ]
+    }
+  },
+  {
+    "id": "windy-gerrit-slides",
+    "text": "Too windy for Gerrit. He tried the aerial, slid along it, and left with what dignity he had. I didn't laugh. [chuckles] Not on air.",
+    "when": {
+      "weather": [
+        "windy"
+      ],
+      "time": [
+        "morning",
+        "day",
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "autumn-soup-lighthouse",
+    "text": "Autumn evenings come in quick. The lighthouse is on before I've finished my soup, and the island turns to shapes. Good season for the radio.",
+    "when": {
+      "season": [
+        "autumn"
+      ],
+      "time": [
+        "evening"
+      ]
+    }
+  },
+  {
+    "id": "winter-opa-slow",
+    "text": "In winter Opa takes a while to get going. A few coughs, a long think, then off he goes. I'm much the same, to be fair.",
+    "when": {
+      "season": [
+        "winter"
+      ]
+    }
+  },
+  {
+    "id": "spring-gerrit-nest",
+    "text": "Spring, and Gerrit's acting even more important than usual. I think there's a nest somewhere. I'm being nice to him... Briefly.",
+    "when": {
+      "season": [
+        "spring"
+      ]
+    }
+  },
+  {
+    "id": "summer-hatch-gulls",
+    "text": "Summer means every hatch open, and every gull on the island coming to look in. I've closed one. It hasn't helped.",
+    "when": {
+      "season": [
+        "summer"
+      ]
+    }
+  }
+]

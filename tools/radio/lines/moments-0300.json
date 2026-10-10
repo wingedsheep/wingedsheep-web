@@ -1,0 +1,125 @@
+[
+  {
+    "track": "6txWz9UapYHVxEd7dDIHXT",
+    "text": "Rain on the wheelhouse roof and Gerrit tucked in his crate, so this one's a bit cheeky. Blind Melon, No Rain. [dryly] Somebody tell the sky.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "6txWz9UapYHVxEd7dDIHXT",
+    "text": "Not a cloud over the lighthouse, and the deck's dry for once. Blind Melon, No Rain. Exactly as advertised.",
+    "when": {
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "2Zbnh37ISbOOaTu4If4lhu",
+    "text": "It's coming down properly now, and the gutter on the wheelhouse can't keep up. The White Stripes, Three Hundred M.P.H. Torrential Outpour Blues. [mutters] Not three hundred. Feels like it.",
+    "when": {
+      "weather": [
+        "rain",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "35aNHKBZWXXbL9KQK7O5Nk",
+    "text": "Anchor chain groaning, Opa coughing, the whole boat leaning on her rope. MS MR, Hurricane. [quietly] Not quite one. Close enough for me.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "6APJjwrtVrFllc5wFD9Tg6",
+    "text": "The wind's up and the aerial's singing along. Noir Désir, Le Vent Nous Portera. The wind will carry us. [dryly] Let's hope the anchor disagrees.",
+    "when": {
+      "weather": [
+        "windy",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "6kK2YbF8boQl32Lqkai3Ca",
+    "text": "The lighthouse is sweeping the water and I've got nowhere to be. Parov Stelar, All Night. That's the plan, anyway.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "4YaWRqpUuzAgT2mxu1NHzW",
+    "text": "Broad Daylight, Gabriel Rios, and look at it out there: blue sky, the lighthouse white as a sheet. I can see the badger's path from here.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "3URXJIPS1jhD60KAPiqn6Z",
+    "text": "The tar on the deck's gone soft and Gerrit's panting with his beak open, which is not a good look. Noel Gallagher's High Flying Birds, In The Heat Of The Moment.",
+    "when": {
+      "weather": [
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "7vOByeImVF8xhyQcwWbeTl",
+    "text": "Spinvis, Ik Wil Alleen Maar Zwemmen. I want only to swim. On a day this warm, off the stern, with Gerrit keeping watch on my fish. Tempting.",
+    "when": {
+      "season": [
+        "summer"
+      ],
+      "weather": [
+        "hot",
+        "warm"
+      ],
+      "time": [
+        "day"
+      ]
+    }
+  },
+  {
+    "track": "3qUs2fkpr0ag1yyQC3dxRY",
+    "text": "Washing's pegged to the aerial wire and flapping like mad. Cold War Kids, Hang Me Up To Dry. Gerrit's furious; that's his perch.",
+    "when": {
+      "weather": [
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "3qUs2fkpr0ag1yyQC3dxRY",
+    "text": "Nothing's dried on this boat in a week. Cold War Kids, Hang Me Up To Dry. [sighs] Wishful thinking.",
+    "when": {
+      "weather": [
+        "drizzle",
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "76WDHcpK3OIWwvzghr2ywS",
+    "text": "Cold enough out here that I've got the burner going just to hold my hands over it. Django Django, Firewater. I'll take the water. The fire's busy.",
+    "when": {
+      "season": [
+        "winter"
+      ]
+    }
+  }
+]

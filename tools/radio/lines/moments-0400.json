@@ -1,0 +1,141 @@
+[
+  {
+    "track": "7MtxmIF99cVlZxqZ76Ts7C",
+    "text": "Not a cloud between here and the lighthouse, and the deck's warm under my feet. Parov Stelar, with Graham Candy. The Sun. [dryly] For once, a song that's telling the truth.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear",
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "7MtxmIF99cVlZxqZ76Ts7C",
+    "text": "Grey and dripping out there. Parov Stelar and Graham Candy, The Sun, played purely as a request to whoever's in charge upstairs.",
+    "when": {
+      "weather": [
+        "drizzle",
+        "rain",
+        "showers"
+      ]
+    }
+  },
+  {
+    "track": "2MLHyLy5z5l5YRp7momlgw",
+    "text": "Look over at the island right now, all lit up, the lighthouse white as a sugar cube. Weezer, Island in the Sun. I'd go ashore, but then who'd play it.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ],
+      "weather": [
+        "clear",
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "7JNQFXEwsdp7y3jFxfO6TR",
+    "text": "[quietly] Nobody awake but me, the lighthouse and maybe you. Oasis, Champagne Supernova. Seven and a half minutes, and the dark out there is big enough to hold all of it.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "0d2ayipbNKWEWyIbeNIOIx",
+    "text": "Light's coming up over the water and Opa's had his first coffee, which is to say diesel. Dub Pistols, with Ashley Slater. Back to Daylight. Welcome back.",
+    "when": {
+      "time": [
+        "morning"
+      ],
+      "weather": [
+        "clear",
+        "partly"
+      ]
+    }
+  },
+  {
+    "track": "2LkaNhCrNVmcYgXJeLVmsw",
+    "text": "Fog all round. I can hear the ferry and not see it, and the lighthouse is just a glow. Simon and Garfunkel, The Sound of Silence. It's never been more accurate.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "0pQskrTITgmCMyr85tb9qq",
+    "text": "Step out on deck for this one if you can. Clear sky, every star switched on. David Bowie, Starman. If one of them's waiting up there, he's got a good view of the Zeemeeuw.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "3ZE3wv8V3w2T2f7nOCjV0N",
+    "text": "There's Mars, I think, over the lighthouse. Or a very determined plane. Bowie, Life on Mars?. Either way, I'm asking the same question.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "0wz1LjDb9ZNEYwOmDJ3Q4b",
+    "text": "There's a proper swell running, and somewhere a surfer is very happy and I'm holding my mug with both hands. The Beach Boys, Surfin' U.S.A.",
+    "when": {
+      "weather": [
+        "windy",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "0sEm1ld0V8YTCPcjPVfIsc",
+    "text": "The water's catching the light and throwing it straight into the wheelhouse. The Cat Empire, Brighter Than Gold. That's about right.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "2X6E7N962eqIt9xZwmwH2w",
+    "text": "Shapes in the fog. A buoy, a fishing boat, or nothing. Skip the Use, Ghost. Gerrit's gone very quiet in his crate.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "6lWuJS86p0q5JAKekgETcN",
+    "text": "Hot enough on deck that the tar's gone soft. Paul Kalkbrenner, Sky and Sand. The sky's doing its part. Sand you'll have to imagine.",
+    "when": {
+      "weather": [
+        "hot"
+      ],
+      "season": [
+        "summer"
+      ]
+    }
+  }
+]

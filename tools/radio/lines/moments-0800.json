@@ -1,0 +1,113 @@
+[
+  {
+    "track": "0DQqzCHlPyKQXfF8uL01SI",
+    "text": "Lazing in a sunny afternoon, says Ray Davies, and for once the wheelhouse agrees. The Kinks, Sunny Afternoon. Gerrit's flat out on the roof.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "7s4qhv3Txiv4oFWUccJsci",
+    "text": "Rain running down the wheelhouse windows. Jack Johnson, Monsoon. [dryly] I've put a pan under the leak and called it percussion.",
+    "when": {
+      "weather": [
+        "rain",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "1LDcCLaRwuZRlCE46FGm5R",
+    "text": "A proper storm out there, and Django Django have a song for it. Storm. If the record skips, it's the boat, not the band.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "0DHz6kgiD8Fw26jdHNNYKo",
+    "text": "Morning, coffee on, the lighthouse ticking over on the point. Elbow, New York Morning. It's a long way from here to New York, but the coffee's the same.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "3fXj9X3BxYm0yrJfq1Z90W",
+    "text": "There's sunshine on the deck and Gerrit's pretending he isn't enjoying it. Matt Costa, Sunshine. Two and a half minutes, and then we'll both go back to sulking.",
+    "when": {
+      "time": [
+        "morning",
+        "day"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  },
+  {
+    "track": "0qksx8mV28lztYIZ1om8ml",
+    "text": "Snow on the wheelhouse roof and I'm wearing every jumper I own. Coldplay. Shiver. [deadpan] The title's a description.",
+    "when": {
+      "weather": [
+        "snow",
+        "sleet"
+      ]
+    }
+  },
+  {
+    "track": "79DO6dBi8936P6EShLB209",
+    "text": "Thunder somewhere past the lighthouse. Jake Bugg, Lightning Bolt. I've taken the aerial off the roof, so this may sound a bit thin.",
+    "when": {
+      "weather": [
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "0VjIjW4GlUZAMYd2vXMi3b",
+    "text": "Dark all round the boat, just the lighthouse sweeping past the window. The Weeknd, Blinding Lights. Every time the beam comes round, I blink.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "6MN6yRVriszuyAVlyF8ndB",
+    "text": "First mug of the day, and I've already let it go cold. Galt MacDermot, Coffee Cold. A man should be able to drink his coffee warm. Not on this boat, apparently.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "5MxNLUsfh7uzROypsoO5qe",
+    "text": "Late, and the whole island's asleep except the lighthouse and me. Aerosmith, Dream On. Go on then.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "4TOMI010Sd4ZAX4aZ5TS85",
+    "text": "Clear skies, flat water, a fish for Gerrit. Lou Reed, Perfect Day. Don't tell him I said so.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  }
+]

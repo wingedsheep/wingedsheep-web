@@ -1,0 +1,139 @@
+[
+  {
+    "track": "6CDzDgIUqeDY5g8ujExx2f",
+    "text": "The deck's too hot to stand on barefoot and the tar in the seams has gone soft. Glass Animals, Heat Waves. For once the title's just telling the truth.",
+    "when": {
+      "weather": [
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "0s8VQD7I3bgDhzY6S9aaCY",
+    "text": "Summer out here means the hatch open, the tins warm and Gerrit asleep on the roof. Seasick Steve, Summertime Boy. [dryly] I'm the summertime boy. He's the summertime gull.",
+    "when": {
+      "season": [
+        "summer"
+      ],
+      "weather": [
+        "clear",
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "2a1iMaoWQ5MnvLFBDv4qkf",
+    "text": "Rain on the wheelhouse roof, the bucket under the leak doing its job. Radiohead, High and Dry. [dryly] One of those two words I can promise. The other one, not today.",
+    "when": {
+      "weather": [
+        "rain",
+        "showers",
+        "storm"
+      ]
+    }
+  },
+  {
+    "track": "4bHsxqR3GMrXTxEPLuK5ue",
+    "text": "Just a small-town girl, a midnight train, and a man in a wheelhouse who should be asleep. Journey, Don't Stop Believin'. The lighthouse is still going round, so I'm still going too.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "1H0K1GVwLteCZrPquy7qkM",
+    "text": "First mug of the day, Opa coughing himself awake, and here's the helicopter. Oasis, Morning Glory. [mutters] Gerrit's already had his fish and his opinions.",
+    "when": {
+      "time": [
+        "morning"
+      ]
+    }
+  },
+  {
+    "track": "0Rqwa6i410IwhTiugt6vXi",
+    "text": "Fog all round, and the island's gone. I know it's there, I can hear the bell. The xx, Islands. [quietly] Sometimes they disappear for a while. They come back.",
+    "when": {
+      "weather": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "track": "4xlEKYv7HmC8zXoJIbpZKM",
+    "text": "The mug's sliding across the desk and the anchor chain's complaining. The Raconteurs, Steady, As She Goes. [to Gerrit] That's an order, not a description.",
+    "when": {
+      "weather": [
+        "storm",
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "365TSrFPqM66giaxJuafR3",
+    "text": "Dark out, and the only light for miles is the one on the point, sweeping over us every few seconds. Shine A Little Light, The Black Keys. Thank you, keeper.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear",
+        "partly",
+        "cloudy",
+        "windy"
+      ]
+    }
+  },
+  {
+    "track": "6tCLQ3LO1V9l6qdrrwdV6q",
+    "text": "Clouds all over the place, and one of them's got that bright edge where the light's getting round it. First Aid Kit, My Silver Lining. Right on time.",
+    "when": {
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "partly",
+        "cloudy"
+      ]
+    }
+  },
+  {
+    "track": "0VVGfIeLdYOu7QQqekDBZT",
+    "text": "Late. The ferry's tied up, the lighthouse is doing its rounds, and this is as close to a club as Radio Alles gets. Balthazar, Nightclub. Dress code: jumper.",
+    "when": {
+      "time": [
+        "night"
+      ]
+    }
+  },
+  {
+    "track": "3udtdUUDUFXIxjasrblplu",
+    "text": "I can see people on the island's beach from here, little dots with towels. Django Django, Life's a Beach. I'll stay on the boat, thanks. The water's coming to me.",
+    "when": {
+      "season": [
+        "summer"
+      ],
+      "time": [
+        "day"
+      ],
+      "weather": [
+        "clear",
+        "warm",
+        "hot"
+      ]
+    }
+  },
+  {
+    "track": "1A8SxnqRK3qabmuN2qxIpa",
+    "text": "Clear sky, every star out, and not a single cloud between me and whatever's up there. The Killers, Spaceman. If they're coming, tonight's the night to land.",
+    "when": {
+      "time": [
+        "night"
+      ],
+      "weather": [
+        "clear"
+      ]
+    }
+  }
+]

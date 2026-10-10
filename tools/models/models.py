@@ -192,7 +192,7 @@ def scatter(t: Terrain, seed=11):
     taken: list[tuple[float, float, float]] = []    # plants: each keeps its own spacing
     kept: list[tuple[float, float, float]] = []     # clearances around landmarks: nothing grows inside
     for (x, y), r in [(L.LIBRARY, 8.5), (L.WORKSHOP, 7.5), (L.LIGHTHOUSE, 5), (L.CAMPFIRE, 5.5), (L.WELL, 3),
-                      (L.BENCH, 2), (L.BEIKE, 3.5), (L.BOULDER, 3), (L.SETT, 2.2), (L.SIGNPOST, 1.5), (L.PLAZA, 6.5), (L.SUMMIT, 2)]:
+                      (L.BENCH, 2), (L.BEIKE, 3.5), (L.OLD_BOULDER, 3), (L.SETT, 2.2), (L.SIGNPOST, 1.5), (L.PLAZA, 6.5), (L.SUMMIT, 2)]:
         kept.append((x, y, r))
     for x, y in L.CAIRNS:                   # nothing in front of the cairns, so they're easy to spot
         kept.append((x, y, 4.0))
@@ -220,6 +220,13 @@ def scatter(t: Terrain, seed=11):
     def in_sightline(x, y):                # the camera looks north: keep the card table's south side open
         tx, ty = L.CARD_TABLE
         return math.hypot(x - tx, y - (ty - 2.8)) < 3.2
+
+    def hides_boulder(x, y):              # the boulder, and the telescope's view onto it from the lighthouse
+        bx, by = L.BOULDER
+        lx, ly = L.LIGHTHOUSE
+        dx, dy = bx - lx, by - ly
+        k = max(0.0, min(1.0, ((x - lx) * dx + (y - ly) * dy) / (dx * dx + dy * dy)))
+        return math.hypot(x - bx, y - by) < 3.0 or math.hypot(x - (lx + k * dx), y - (ly + k * dy)) < 2.5
 
     def blocks_bench(x, y):                # keep the view onto Charlie and George open
         bx, by = L.BENCH
@@ -249,7 +256,7 @@ def scatter(t: Terrain, seed=11):
             if free(x, y, r, levels):
                 taken.append((x, y, r))
                 root = place(t, "tree", x, y, lambda root: make(root, rng.randrange(1_000_000)), rot_z=rng.uniform(0, math.tau))
-                if in_sightline(x, y):     # grown and cut again, so the seeded scatter doesn't reshuffle
+                if in_sightline(x, y) or hides_boulder(x, y):     # grown and cut again, so the seeded scatter doesn't reshuffle
                     for obj in [root, *root.children_recursive]:
                         bpy.data.objects.remove(obj)
                 count += 1

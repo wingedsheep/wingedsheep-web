@@ -249,6 +249,71 @@ def curtains(root):
     m.build(root)
 
 
+RADIO_RED = "#82241f"
+RADIO_DARK = "#3e1512"
+RADIO_CREAM = "#f2e8cf"
+
+
+def radio_set(g):
+    """The lamp room's radio: a valve set in red bakelite, its top domed like a loaf, on a dark
+    plinth. Few, bold parts, so it still reads as a radio from across the room: on the left the
+    speaker, a cream cloth in a dark surround split by two bars; on the right the lit amber dial
+    with its marks and a red needle, and under it two cream knobs either side of a green magic
+    eye. A row of cream piano-key presets along the foot, and a dark telescopic aerial."""
+    W, D = 0.8, 0.36
+    front = -D / 2
+    top = 0.44
+    m = Model("radio_set", seed=5)
+    m.box((W + 0.06, D + 0.04, 0.05), (0, 0, 0.055), P.WOOD_DARK)                       # the plinth…
+    for fx in (-1, 1):
+        for fy in (-1, 1):
+            m.cyl(0.025, 0.03, (fx * (W / 2 - 0.04), fy * (D / 2 - 0.04), 0), P.INK, segs=6)  # …on its feet
+    m.box((W, D, top - 0.08), (0, 0, (top + 0.08) / 2), RADIO_RED)                       # the cabinet
+    m.ball(1.0, (0, 0, top), RADIO_RED, subdiv=2, scale=(W / 2, D / 2, 0.13))            # its domed top
+    m.box((W + 0.012, D + 0.012, 0.02), (0, 0, top - 0.01), RADIO_DARK)                  # a seam where the dome sits
+    # the speaker, on the left: a cream cloth in a dark surround, split by two bars
+    sx, sz = -0.185, 0.29
+    m.box((0.36, 0.014, 0.26), (sx, front - 0.004, sz), RADIO_DARK)
+    m.box((0.31, 0.02, 0.21), (sx, front - 0.008, sz), RADIO_CREAM)
+    for bx in (-0.052, 0.052):
+        m.box((0.035, 0.026, 0.21), (sx + bx, front - 0.011, sz), RADIO_DARK)
+    m.box((0.09, 0.02, 0.03), (0, front - 0.01, top + 0.06), P.GOLD)                     # a brass badge on the dome
+    # the dial, on the right: lit amber in a dark frame, its marks along the top
+    m.box((0.35, 0.014, 0.17), (0.19, front - 0.004, 0.35), RADIO_DARK)
+    m.box((0.3, 0.02, 0.12), (0.19, front - 0.008, 0.35), "#ffcf6a", glow=True)
+    for t in range(9):
+        tall = 0.035 if t % 2 == 0 else 0.02
+        m.box((0.008, 0.024, tall), (0.06 + t * 0.032, front - 0.01, 0.41 - tall / 2), RADIO_DARK)
+    for t, c in ((1, "#2f6fb0"), (7, "#c8403a")):                                        # two stations marked: the forecast, and Alles
+        m.box((0.022, 0.024, 0.022), (0.06 + t * 0.032, front - 0.01, 0.31), c)
+    # under it: the knobs, tuning and volume, either side of the magic eye
+    for kx in (0.08, 0.3):
+        m.cyl(0.05, 0.04, (kx, front, 0.18), RADIO_CREAM, segs=10, rot=(math.pi / 2, 0, 0))
+        m.box((0.012, 0.012, 0.05), (kx, front - 0.045, 0.19), RADIO_DARK)              # its pointer
+    m.cyl(0.035, 0.02, (0.19, front - 0.004, 0.19), RADIO_DARK, segs=8, rot=(math.pi / 2, 0, 0))
+    m.cyl(0.024, 0.012, (0.19, front - 0.018, 0.19), "#7fe08a", segs=8, rot=(math.pi / 2, 0, 0), glow=True)  # the magic eye
+    # the presets: a row of cream piano keys under the speaker (one has its own part, below)
+    for k in range(5):
+        if k != 3:
+            m.box((0.06, 0.05, 0.045), (-0.33 + k * 0.073, front - 0.02, 0.115), RADIO_CREAM)
+    # the aerial, telescopic, up from the back corner and leaning out a little, a red tip on it
+    lean = 0.22
+    d = (math.sin(lean), 0, math.cos(lean))
+    x, y, z = 0.3, D / 2 - 0.06, top
+    for r, h in ((0.02, 0.26), (0.015, 0.24), (0.011, 0.22)):
+        m.cyl(r, h, (x, y, z), P.IRON, segs=5, rot=(0, lean, 0))
+        x, z = x + d[0] * h, z + d[2] * h
+    m.ball(0.026, (x, y, z + 0.01), "#c8403a")
+    body = m.build(g)
+    key = Model("radio_key")                                                             # the preset for Radio Alles
+    key.box((0.06, 0.05, 0.045), (0, 0, 0), RADIO_CREAM)
+    key.box((0.03, 0.052, 0.008), (0, 0, 0.026), "#c8403a")                              # a dab of red on it
+    key.build(body, loc=(-0.33 + 3 * 0.073, front - 0.02, 0.115))
+    needle = Model("radio_needle")                                                       # slides across the dial
+    needle.box((0.014, 0.026, 0.12), (0, 0, 0), "#c8403a")
+    needle.build(body, loc=(0.06 + 1 * 0.032, front - 0.014, 0.35))
+
+
 def desk(root):
     """The keeper's desk against the north wall: the log, a mug, a radio and a pressure lamp."""
     a = math.pi * 0.52
@@ -287,29 +352,26 @@ def desk(root):
     b.plank_line((px, py, top + 0.05), (px + 0.1, py + 0.18, top + 0.05), 0.015, 0.015, P.INK)  # pen
     b.build(g)
 
-    g = group("radio", parent=root, id="radio")
-    r = Model("radio_set")
-    x, y = pos(0.55, 0.05)
-    r.box((0.46, 0.3, 0.3), (x, y, top + 0.3 + 0.15), "#3a4a3f", rot=(0, 0, rot))
-    fx, fy = pos(0.55, -0.11)
-    r.box((0.3, 0.02, 0.12), (fx, fy, top + 0.5), P.WARM_LIGHT, rot=(0, 0, rot), glow=True)  # its lit dial
-    for d in (-0.1, 0.1):
-        kx, ky = pos(0.55 + d, -0.12)
-        r.cyl(0.035, 0.03, (kx, ky, top + 0.38), P.TUNER, segs=6, rot=(math.pi / 2, 0, rot))
-    ax, ay = pos(0.72, 0.1)
-    r.plank_line((ax, ay, top + 0.6), (ax + 0.05, ay + 0.02, top + 1.2), 0.015, 0.015, P.TUNER)
-    r.build(g)
+    # the radio, on the drawers: an old valve set in red bakelite, warmed up. It picks up the
+    # shipping forecast, and Radio Alles from the boat out west (src/island/radio.ts). Built in
+    # its own frame, facing -y, its feet at z = 0. The needle (`radio_needle`) slides across
+    # the dial and one preset key (`radio_key`) goes down when it's tuned in (scene/lamp-room.ts).
+    x, y = pos(0.55, 0.0)
+    g = group("radio", loc=(x, y, 0.99), rot_z=rot + math.pi, parent=root, id="radio")  # facing into the room
+    radio_set(g)
+    lx, ly = pos(0.4, 0.5)
+    light(root, (lx, ly, 1.15), "#ffcf6a", 0.6, 0.15, day=True, halo=False)            # a little glow off the dial
 
     c = Model("desk_things")
     x, y = pos(-0.72, 0.2)
     c.cyl(0.07, 0.13, (x, y, top), P.WHITE, segs=8)                                    # coffee, of course
     c.cyl(0.058, 0.01, (x, y, top + 0.12), P.COFFEE, segs=8)
-    x, y = pos(0.1, 0.25)
-    c.cyl(0.1, 0.05, (x, y, top), P.GOLD, segs=8)                                      # pressure lamp
+    x, y = pos(-0.78, -0.2)
+    c.cyl(0.1, 0.05, (x, y, top), P.GOLD, segs=8)                                      # pressure lamp, over the log
     c.cyl(0.07, 0.2, (x, y, top + 0.05), P.WARM_LIGHT, segs=8, glow=True)
     c.cyl(0.09, 0.06, (x, y, top + 0.25), P.GOLD, segs=8, r_top=0.03)
     c.build(root)
-    lx, ly = pos(0.1, 0.1)
+    lx, ly = pos(-0.7, -0.1)
     light(root, (lx, ly, 1.5), P.WARM_LIGHT, 3, 0.6, flicker=0.15)
 
 

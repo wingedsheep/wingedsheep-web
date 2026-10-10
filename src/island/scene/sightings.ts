@@ -7,6 +7,7 @@ import type { Island } from './island';
 import type { Particles } from './particles';
 import { Imaginary } from './imaginary';
 import { Monsters } from './monsters';
+import { weekOf } from '../kees';
 import { GRADIENT } from './toon';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -557,6 +558,64 @@ class Ship {
 const FERRY = { z: 40, first: 7, last: 22.5, crossing: 300, reach: 110 };
 const hhmm = (h: number) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${Math.round((h % 1) * 60) === 30 ? '30' : '00'}`;
 
+/**
+ * Radio Alles, the pirate station: an old trawler riding at anchor off the lighthouse point, there
+ * on every visit. Like any boat on a chain she swings round to lie bow into the wind, rolls with
+ * the swell, and after dark (or in fog) the lamp on her aerial mast blinks red. Kees is on deck,
+ * shifting his weight and turning about; Gerrit sits on his crate on the wheelhouse roof and looks
+ * around, except on his days off (kees.ts), when the crate's empty.
+ */
+class RadioShip {
+  readonly body: Body;
+  private heading = headingOf(1, 0.4);
+  private lamp?: THREE.Object3D;
+  private kees?: THREE.Object3D;
+  private gerrit?: THREE.Object3D;
+  private gerritHead?: THREE.Object3D;
+  /** Where Gerrit's looking, and where he'll look next (and when). */
+  private look = { now: 0, goal: 0, next: 0 };
+  /** Whether it's one of Gerrit's days off (looked up every half a minute, not every frame). */
+  private away = { is: false, next: 0 };
+
+  constructor(template: THREE.Object3D, scene: THREE.Scene, private at: THREE.Vector3) {
+    this.body = new Body('radioship', template, scene);
+    this.body.root.scale.setScalar(RADIO_SHIP.size);
+    this.body.show(at);
+    this.lamp = this.body.part('lamp');
+    this.kees = this.body.part('kees');
+    this.gerrit = this.body.part('gerrit');
+    this.gerritHead = this.body.part('gerrit_head');
+  }
+
+  update(dt: number, o: Outlook, clock: number, swell: number) {
+    const b = this.body;
+    b.relax();
+    // bow into the wind, slowly, and never quite still about it
+    if (o.drift.lengthSq() > 1e-4) {
+      const want = headingOf(-o.drift.x, -o.drift.y) + Math.sin(clock * 0.05) * 0.25;
+      const d = Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading));
+      this.heading += d * (1 - Math.exp(-0.08 * dt));
+    }
+    b.root.position.set(this.at.x, Math.sin(clock * 0.7) * 0.06 * (1 + swell), this.at.z);
+    orient(b.root, this.heading, Math.sin(clock * 0.5) * 0.02 * (1 + swell * 2), Math.sin(clock * 0.9 + 1) * 0.04 * (1 + swell * 2.5));
+    if (this.lamp) this.lamp.visible = (o.night > 0.35 || o.fog > 0.4) && clock % 2 < 0.9;
+    // Kees, shifting about on deck; Gerrit, glancing this way and that (or off for the day)
+    if (this.kees) this.kees.rotation.y += Math.sin(clock * 0.21) * 0.9 + Math.sin(clock * 0.07) * 0.4;
+    if (clock > this.away.next) this.away = { is: weekOf(o.time).has('gerrit-away'), next: clock + 30 };
+    if (this.gerrit) this.gerrit.visible = !this.away.is;
+    const look = this.look;
+    if (clock > look.next) {
+      look.goal = rand(-1.3, 1.3);
+      look.next = clock + rand(0.6, 3.5);
+    }
+    look.now += (look.goal - look.now) * Math.min(1, dt * 10);
+    if (this.gerritHead) this.gerritHead.rotation.y += look.now;
+  }
+}
+
+/** Where Radio Alles lies (well out to the west of the lighthouse point, off the edge of the usual view: the telescope finds her), and how much bigger than built. */
+const RADIO_SHIP = { x: -68, z: 4, size: 1.5 };
+
 // --- on the pier --------------------------------------------------------------------------
 
 /**
@@ -677,6 +736,7 @@ export class Sightings {
   private ferry?: Ship;
   private container?: Ship;
   private tallship?: Ship;
+  private radioship?: RadioShip;
   private fisherman?: Fisherman;
   /** The made-up ones, from the blog: see imaginary.ts. */
   readonly imaginary: Imaginary;
@@ -721,6 +781,8 @@ export class Sightings {
     // and the container ship the same way, bigger again: twice the ferry's length and more
     this.container = ship('container', 15, 3.4);
     this.tallship = ship('tallship', 8);
+    const radio = T('radioship');
+    if (radio) this.radioship = new RadioShip(radio, scene, V(RADIO_SHIP.x, 0, RADIO_SHIP.z));
     const fisherman = T('fisherman');
     const dock = island.positionOf('dock');
     if (fisherman && dock) {
@@ -732,8 +794,16 @@ export class Sightings {
 
   /** All of them, for the Picker. */
   get pickables() {
-    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.fisherman?.body, ...this.imaginary.bodies, ...this.monsters.bodies]
+    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.radioship?.body, this.fisherman?.body, ...this.imaginary.bodies, ...this.monsters.bodies]
       .filter((b): b is Body => !!b).map((b) => b.root).concat(this.murmuration.hit);
+  }
+
+  /** Tall ships that have set out across the horizon this visit (the radio's DJ notices them). */
+  tallshipsSeen = 0;
+
+  /** Where Radio Alles is riding (for the telescope at the top of the lighthouse). */
+  get radioShip(): THREE.Vector3 | null {
+    return this.radioship?.body.root.position ?? null;
   }
 
   /** Someone clicked one of them. */
@@ -773,6 +843,7 @@ export class Sightings {
     this.imaginary.update(dt, o, t);
     this.monsters.update(dt, o, t);
     const swell = clamp(o.wind / 15, 0, 1);
+    this.radioship?.update(dt, o, t, swell);
 
     // the ferry, where the timetable says it is (?animal=ferry: one leaving now)
     if (this.ferry) {
@@ -819,6 +890,7 @@ export class Sightings {
     if (this.tallship && LUCK.tallship && !this.tallshipDone) {
       if (!this.tallship.sailing && (this.tallshipWait -= dt) <= 0 && (LUCK.tallshipSoon || (o.night < 0.4 && o.storm < 0.2 && o.wind < 14))) {
         this.tallship.sail(pick([44, -48]), chance(0.5) ? 1 : -1, 0.9, 110);
+        this.tallshipsSeen++;
       }
       this.tallship.update(dt, t, swell);
       if (this.tallship.sailing && Math.abs(this.tallship.along) > 111) {

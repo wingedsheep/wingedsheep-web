@@ -41,6 +41,11 @@ export class LampRoom {
   private hemi = new THREE.HemisphereLight('#d6d0e6', '#3a3246', 1.25);
   private key = new THREE.DirectionalLight('#ffe9cc', 1);
   private turn?: THREE.Object3D;
+  /** Whether the radio's tuned in to Radio Alles: its needle slides across, and its preset goes down. */
+  onAir = false;
+  private tuned = 0;
+  private needle?: { o: THREE.Object3D; x: number };
+  private preset?: { o: THREE.Object3D; z: number };
   private core?: THREE.MeshToonMaterial;
   private beams: THREE.MeshBasicMaterial;
   private beamGroup = new THREE.Group();
@@ -64,6 +69,8 @@ export class LampRoom {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
       if (o.name === 'lens_turn') this.turn = o;
+      if (o.name === 'radio_needle') this.needle = { o, x: o.position.x };
+      if (o.name === 'radio_key') this.preset = { o, z: o.position.z };
       if (x.light) {
         const at = o.getWorldPosition(V());
         this.addLamp(at, x, halo, !!beam && at.distanceTo(beam) < 0.01);
@@ -147,6 +154,10 @@ export class LampRoom {
   setHot(_id: string | null) {}
 
   update(dt: number, night: number) {
+    // the radio: from the forecast's mark along to Alles's (six marks on), the key in (back is -z here)
+    this.tuned = dt ? this.tuned + ((this.onAir ? 1 : 0) - this.tuned) * (1 - Math.exp(-dt * 3)) : this.onAir ? 1 : 0;
+    if (this.needle) this.needle.o.position.x = this.needle.x + this.tuned * 6 * 0.032;
+    if (this.preset) this.preset.o.position.z = this.preset.z - this.tuned * 0.025;
     this.clock += dt;
     const t = this.clock;
     const day = 1 - night;
