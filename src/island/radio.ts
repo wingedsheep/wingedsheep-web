@@ -15,8 +15,9 @@
  *
  * Like the Walkman you take the set with you, down in the corner (IslandShell.astro), and it plays
  * on while you walk about. The island's own music waits while it plays, and it stops for anything
- * else that starts. It plays on in another tab or with the phone locked, too, with the song on
- * the lock screen.
+ * else that starts. It plays on in another tab, with the song on the lock screen and media keys. A
+ * phone pauses YouTube when it's locked (background play is YouTube Premium's, and not ours to get
+ * round), so then it waits, and carries on when you're back.
  */
 import records from '../data/radio.json';
 import dj from '../data/dj.json';
@@ -181,7 +182,7 @@ export class Radio {
     level(this.deck?.querySelector('[data-radio-volume]'), ctx, 'radioVolume');
     window.addEventListener('message', (e) => this.heard(e));
     // the frames stop while you're away: the signal holds steady till you're back, rather than
-    // staying faded wherever it was, and a song the phone paused on its own carries on
+    // staying faded wherever it was, and a song the phone paused while it was locked carries on
     document.addEventListener('visibilitychange', () => {
       if (!this.on) return;
       this.fading.left = 0;
@@ -245,9 +246,9 @@ export class Radio {
     });
   }
 
-  /** The player paused the song itself (a phone in the background does): play on. */
+  /** You're back, and the player paused the song itself while you were away (a locked phone does): play on. */
   private carryOn() {
-    if (this.on && this.state === 2 && !this.held && !this.hushed && !this.changing) this.command('playVideo');
+    if (!document.hidden && this.on && this.state === 2 && !this.held && !this.hushed && !this.changing) this.command('playVideo');
   }
 
   /**
@@ -595,8 +596,8 @@ export class Radio {
     if (typeof state !== 'number' || state === this.state) return;
     this.state = state;
     this.deck?.classList.toggle('playing', state === 1);
-    if ('mediaSession' in navigator && this.on) navigator.mediaSession.playbackState = 'playing'; // (between songs too: he's on)
-    if (state === 2) this.carryOn();
+    // playing, between songs too (he's on), unless the player paused itself: then the lock screen offers play
+    if ('mediaSession' in navigator && this.on) navigator.mediaSession.playbackState = state === 2 && !this.held && !this.changing ? 'paused' : 'playing';
     // in it comes, once it's actually playing (under him, if he's talking)
     if (state === 1 && this.volume < 1 && !this.ending) void this.fadeTo(this.talking ? UNDER : 100, FADE.in);
     if (state === 0 && this.on) {
