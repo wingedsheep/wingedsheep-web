@@ -199,6 +199,11 @@ Made up, and all about him: never about real musicians.
 - `lines/afters-*.json`: `{ "<spotify track id>": "text" }`, what he says right after some songs
   have finished, about that song (never repeating its intro). The radio shuffles a little, so
   these are the way to talk about the song before: personal, really about what was just played.
+- `lines/abouts-*.json`: `{ "<spotify track id>": "text" }`, a longer introduction (70 to 120
+  words) for some songs, told in the break before the song with no music under him: the song's
+  background (looked up, and only what's well documented), what the lyrics are getting at
+  (paraphrased, never more than a few words quoted), his take on it, and something from his own
+  life. It ends leading into the song, title and artist named in the second half.
 - `lines/chatter-joins.json`: lines for between any two songs: `after-…` (about the song that's
   just finished, without naming it, for songs with no afters line) and `link-…` (when he jumps
   somewhere else in the playlist).

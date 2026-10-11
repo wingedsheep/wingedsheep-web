@@ -5,8 +5,9 @@
  * old radio, it just plays. The music comes from YouTube (src/data/radio.json, matched by
  * tools/radio/videos.py), through a player kept out of sight in the set. Between songs
  * Kees, the DJ, talks (src/data/dj.json, recorded by tools/radio/voice.py): he introduces the
- * next song over its first bars, with the music down, when he has an intro for it on tape, and
- * now and then just chats: about his past, about life aboard, or about what's going on around
+ * next song over its first bars, with the music down, when he has an intro for it on tape;
+ * some songs he tells you about first, where they came from and what he makes of them; and
+ * now and then he just chats: about his past, about life aboard, or about what's going on around
  * the island (the hour, the weather, the season), though not too often about that. Some songs
  * have intros for a moment, too (the rain one when it's raining). Listen long enough and he tells
  * his story, an instalment at a time, carrying on where he left off with you last time, with
@@ -97,6 +98,7 @@ const CHATTER = dj.chatter as Chat[];
 const TALE = dj.story as Chat[];
 const INTROS = dj.intros as { [track: string]: string[] };
 const AFTERS = ((dj as { afters?: unknown }).afters ?? {}) as { [track: string]: string[] };
+const ABOUTS = ((dj as { abouts?: unknown }).abouts ?? {}) as { [track: string]: string[] };
 const MOMENTS = (dj as { moments?: Moment[] }).moments ?? [];
 /** Songs that follow on from the one before (the same artist again, or an intro that refers back): never jumped to. */
 const FOLLOWS = new Set((dj as { follows?: string[] }).follows ?? []);
@@ -109,6 +111,14 @@ const RUN = [3, 6];
  * link a break, a breath apart (ms).
  */
 const JOINS = { own: 0.55, any: 0.12, link: 0.45, breath: 450 };
+
+/**
+ * Some songs have a longer introduction (lines/abouts-*.json): where the song came from, what it's
+ * about, and what he makes of it. He tells it in the break, with no music under him, and then the
+ * song starts. He tells it more often than not, unless he's in the middle of something else (his
+ * story, something he's saving, a song's intro for the moment), and not twice in a while.
+ */
+const ABOUT = 0.6;
 
 const songsBetween = ([a, b]: number[]) => a + Math.floor(Math.random() * (b - a + 1));
 
@@ -354,21 +364,32 @@ export class Radio {
     // his story when it's due (unless something's just happened that he wants to talk about)
     const instalment = !first && !saved && --this.storyIn <= 0 ? this.nextInstalment() : undefined;
     const remark = !first && this.finished ? this.remark(last) : undefined;
-    const chat = (intro ? opener : undefined) ?? saved ?? instalment ?? remark ?? (chatting ? this.chat(storm) : undefined);
+    const about = saved || instalment || momentary ? undefined : this.about(song);
+    const chat = (intro || about ? opener : undefined) ?? saved ?? instalment ?? (about ? undefined : remark ?? (chatting ? this.chat(storm) : undefined));
     const link = !first && this.jumped && Math.random() < JOINS.link ? this.pick(this.joins('link-')) : undefined;
     this.finished = false;
     this.command('pauseVideo');
     if (chat) await this.speak(chat.file, chat.id);
     if (chat && link) await new Promise((r) => setTimeout(r, JOINS.breath));
     if (link) await this.speak(link.file, link.id);
+    if (about && (chat || link)) await new Promise((r) => setTimeout(r, JOINS.breath));
+    if (about) await this.speak(about.file, about.id);
     if (!this.on) return void (this.changing = false);
-    const over = intro ? { id: song.id, file: intro } : opener;
+    const over = about ? undefined : intro ? { id: song.id, file: intro } : opener;
     this.play(song);
     this.changing = false;
     if (over) {
       await this.speak(over.file, over.id);
       if (this.state === 1) void this.fadeTo(100, FADE.swell); // (if it's still loading, it comes in at full)
     }
+  }
+
+  /** The song's longer introduction, if it has one and he's in the mood (and hasn't told it lately). */
+  private about(song: Song): Chat | undefined {
+    const takes = ABOUTS[song.id];
+    const id = `about-${song.id}`;
+    if (!takes?.length || this.said.includes(id) || Math.random() >= ABOUT) return undefined;
+    return { id, file: takes[Math.floor(Math.random() * takes.length)] };
   }
 
   /**
