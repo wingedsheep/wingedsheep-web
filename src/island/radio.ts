@@ -209,7 +209,7 @@ export class Radio {
       this.level();
       return this.command('playVideo');
     }
-    // you've come in partway through his show: an ident over the first song, not an intro
+    // you've come in partway through his show: an ident first, then the song as he'd introduce any
     void this.next(true, this.pick(CHATTER.filter((c) => c.id.startsWith('ident'))));
   }
 
@@ -323,7 +323,8 @@ export class Radio {
 
   /**
    * On to the next song (or the first): a break, if he's got something to say, then the song,
-   * turned down under him while he introduces it.
+   * turned down under him while he introduces it. The opener (his ident, when you tune in) comes
+   * in the break, or over the song if he's no intro for it.
    */
   private async next(first: boolean, opener?: Chat) {
     if (this.changing) return;
@@ -338,7 +339,7 @@ export class Radio {
     const now = first || !this.mayRemark(storm) ? [] : MOMENTS.filter((m) => m.track === song.id && this.fits(m.when));
     const momentary = now.length > 0 && Math.random() < MOMENTARY;
     if (momentary) this.lastNow = this.clock;
-    const takes = first ? undefined : momentary ? now.map((m) => m.file) : INTROS[song.id];
+    const takes = momentary ? now.map((m) => m.file) : INTROS[song.id];
     const intro = takes?.[Math.floor(Math.random() * takes.length)];
     // a bit of chat first, now and then (more often when there's no intro on tape, and a little
     // more in a storm, when he's glad of the company)
@@ -348,7 +349,7 @@ export class Radio {
     // his story when it's due (unless something's just happened that he wants to talk about)
     const instalment = !first && !saved && --this.storyIn <= 0 ? this.nextInstalment() : undefined;
     const remark = !first && this.finished ? this.remark(last) : undefined;
-    const chat = saved ?? instalment ?? remark ?? (chatting ? this.chat(storm) : undefined);
+    const chat = (intro ? opener : undefined) ?? saved ?? instalment ?? remark ?? (chatting ? this.chat(storm) : undefined);
     const link = !first && this.jumped && Math.random() < JOINS.link ? this.pick(this.joins('link-')) : undefined;
     this.finished = false;
     this.command('pauseVideo');
@@ -356,7 +357,7 @@ export class Radio {
     if (chat && link) await new Promise((r) => setTimeout(r, JOINS.breath));
     if (link) await this.speak(link.file, link.id);
     if (!this.on) return void (this.changing = false);
-    const over = opener ?? (intro ? { id: song.id, file: intro } : undefined);
+    const over = intro ? { id: song.id, file: intro } : opener;
     this.play(song);
     this.changing = false;
     if (over) {
