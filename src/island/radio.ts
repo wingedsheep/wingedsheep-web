@@ -75,13 +75,15 @@ const FADES = { every: [150, 330], calm: { depth: 0.25, length: 0.5 }, storm: { 
 const CUT_IN = { gap: 240, chance: 0.4, prefix: 'storm-cutin-' };
 /**
  * Things on the island he reacts to (lines `event-<what>-…`, tools/radio/lines/chatter-events.json):
- * at most once in so many seconds each (the ferry's every half hour; a shooting star every
- * minute on a clear night), and never two within a minute.
+ * only now and then. Each is up for a remark at most once in so many seconds (the ferry's every
+ * half hour; a whale blows again and again, a shooting star every minute on a clear night), and
+ * then he lets most of them go by; and never two within ten minutes.
  */
 const EVENTS: Record<string, number> = {
-  ferry: 1800, container: 900, tallship: 600, whale: 300, dolphins: 600, ufo: 300, fireworks: 600,
-  shootingstar: 900, aurora: 3600, dusk: 3600, dawn: 3600, snow: 3600, siren: 3600, guitar: 1800,
+  ferry: 1800, container: 1800, tallship: 1800, whale: 2400, dolphins: 2400, ufo: 3600, fireworks: 1200,
+  shootingstar: 1800, aurora: 3600, dusk: 3600, dawn: 3600, snow: 3600, siren: 3600, guitar: 1800,
 };
+const REMARK = { chance: 0.35, gap: 600 };
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -258,10 +260,13 @@ export class Radio {
    */
   notice(what: string) {
     if (!this.on || !(what in EVENTS)) return;
-    if (this.clock - (this.remarked[what] ?? -Infinity) < EVENTS[what] || this.clock - this.lastRemark < 60) return;
+    if (this.clock - (this.remarked[what] ?? -Infinity) < EVENTS[what] || this.clock - this.lastRemark < REMARK.gap) return;
+    // (one he lets go by counts too, or the next blow of the same whale would get its chance)
+    this.remarked[what] = this.clock;
+    if (Math.random() >= REMARK.chance) return;
     const line = this.pick(CHATTER.filter((c) => c.id.startsWith(`event-${what}-`) && (!c.when || this.fits(c.when))), 0);
     if (!line) return;
-    this.remarked[what] = this.lastRemark = this.clock;
+    this.lastRemark = this.clock;
     if (this.talking || this.changing || this.state !== 1) this.saved = { line, until: this.clock + 90 };
     else void this.cutIn(line, 400);
   }
