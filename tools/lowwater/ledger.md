@@ -4,10 +4,24 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **The baak** ("a question beacon"): a tall beacon of tarred timber on a high bank of its own
+  out west by the deep water (`BAAK` in world.ts; `baak` in tools/models/lowwater.py): four legs
+  leaning in to a mast, braced twice, a black ball on top that still has a little warm light on it
+  up there, and a pale board on the near side. The tallest thing out here, and the only one that
+  comes up over the horizon as you walk out, top first, as things do at sea (`BAAK_RISE`; from the
+  route it stands against the warm band as a landmark). Clicking it (an invisible hit shape round
+  the whole lattice) walks you up to its board. The card: in Dutch, whoever everyone brings their
+  questions to is a vraagbaak, which is more or less my job, so this one carries the questions
+  nobody can answer yet; the second line is today's (`OPEN` in lowwater.ts, by the visit's date,
+  so `?date=` shows another): Goldbach, Collatz, twin primes, odd perfect numbers, π's digits,
+  sleep, the first word, where eels spawn, matter over antimatter, dark matter, why anything's
+  funny. Each with what's known, so it's a question and not a riddle. No sound (a still timber
+  thing). Its reflection hazed no further than the banks, so in a fog it isn't a white ghost.
+  Shots in loop-runs/lowwater-logs/shots/2026-10-17-baak/ (fog/ too); added to the walk script.
 - **The seal** ("what it's like from in there"): a harbour seal hauled out on a bank of its own
   out east by the deep water (`SEAL`, `SEAL_BANK` in src/island/lowwater/seal.ts), side-on to the
   way you come, head to the west, pale and mottled as they are once dry (`seal` in
@@ -109,6 +123,10 @@ Additions since the last polish pass: 2 (a polish pass is due when this reaches 
 - **Seasons and moments**: frost crust and ice floes (kruiend ijs) in winter, a heat shimmer in high
   summer, the long light around midsummer, one candle on the table on the island's special days that
   fit (never birthdays past the day).
+- ~~**A message in a bottle** with an open question~~: the island already has messages in
+  bottles (scene/bottle.ts), so the questions went on the baak instead.
+- **The baak's other days**: in a gale it could creak; a bird (a cormorant drying its wings) on
+  the ball now and then. Only if it stays quiet.
 - **Distant birds**: oystercatchers' piping and curlews, far off, never seen (sound only).
 - **The walk out at night**: when the island is in deep night, the flat's blue hour gets darker and the
   noctiluca brightens along the waterline wherever you step.
@@ -118,6 +136,8 @@ Additions since the last polish pass: 2 (a polish pass is due when this reaches 
 - The shells' bank is deeper (along the way out) than the others, so from the table its far half
   sits one haze step paler, with a straight line across it; in fog that line is strong.
 
+- In a fog the baak goes to a pale outline as it comes up over the horizon (as everything far
+  does in fog); its ball's reflection shows as a lone pale dot under its bank.
 - On a phone the whole southern sky is shrunk to fit, so the Cross is tiny there, and usually
   half under a bank.
 - From near the end of the route, a far bank can sit right on the horizon as a dark sliver: it's a

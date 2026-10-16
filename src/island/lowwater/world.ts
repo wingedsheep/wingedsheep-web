@@ -18,7 +18,7 @@ import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -93,6 +93,15 @@ const LINE = new THREE.Vector2(-9.75, -51.77);
 const STICK = new THREE.Vector2(-2.6, -50.4);
 /** The shells' square, out west past the table on a broad bank of its own. */
 const SHELLS = new THREE.Vector2(-19, -79);
+/**
+ * The baak, a tall beacon on a high bank out west by the deep water, and how tall it is (m). It's
+ * the one thing out here tall enough to come up over the horizon as you walk out: top first, as
+ * things do at sea. (It comes up over the last this many metres before the flat's edge.)
+ */
+const BAAK = new THREE.Vector2(-18, -104);
+const BAAK_TALL = 7.5;
+const BAAK_RISE = 6;
+const BAAK_TURN = 0.25;
 
 /** Low banks of sand: middle, half-sizes, height, and whether there's a pool in the top. */
 const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: boolean }[] = [
@@ -109,6 +118,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   SAND,
   { x: SHELLS.x, z: SHELLS.y, rx: 5, rz: 6, h: 0.1 },
   SEAL_BANK,
+  { x: BAAK.x - 0.3, z: BAAK.y - 0.2, rx: 4.2, rz: 1.5, h: 0.11 },
 ];
 const POOL_R = 0.42; // the pool's share of its bank
 /** The pool's own water, held up in the bank whatever the tide's doing (m), and how far out it reaches. */
@@ -338,6 +348,7 @@ export class LowWater {
   private shells = new Shells(SHELLS, (x, z) => Math.max(0, bankAt(x, z)), steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(23));
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private seal?: Seal;
+  private baak?: THREE.Object3D;
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
   /** The stick (where it's stuck in, and the one in your hand while you write), and the line being written. */
@@ -941,6 +952,8 @@ export class LowWater {
     if (buoy) this.makeBuoy(buoy);
     const seal = find('seal');
     if (seal) this.makeSeal(seal);
+    const baak = find('baak');
+    if (baak) this.makeBaak(baak);
   }
 
   /**
@@ -989,6 +1002,50 @@ export class LowWater {
         this.hooks.seal?.('breath', ...heard(at));
       },
     });
+  }
+
+  /**
+   * The baak: tarred timber on its bank, a board on the side you come up to. Its ball still has
+   * the sun, up there, after everything down here has lost it. Cut at the waterline, so it can
+   * come up over the horizon.
+   */
+  private makeBaak(model: THREE.Object3D) {
+    model.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const ball = mesh.name === 'baak_ball';
+      const mat = paint((mesh.material as THREE.MeshStandardMaterial).color, { glow: ball });
+      if (ball) (mat.emissive.set('#d0805a'), (mat.emissiveIntensity = 0.3));
+      mat.clippingPlanes = [this.clip];
+      mesh.material = mat;
+    });
+    model.position.set(0, 0, 0);
+    const g = new THREE.Group();
+    g.add(model);
+    this.put(g, BAAK, 'baak', 0);
+    g.rotation.y = BAAK_TURN;
+    const copy = this.mirrored[this.mirrored.length - 1].copy;
+    copy.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      // (hazed no further than the banks, or in a fog it hangs under the bank as a white ghost)
+      const mat = steppedFog((mesh.material as THREE.MeshBasicMaterial).clone(), this.bankHaze);
+      mat.clippingPlanes = [this.under];
+      // (the board is pale, and unlit it would come back brighter than it is)
+      if (mesh.name !== 'baak_ball') mat.color.lerp(WATER, 0.4).multiplyScalar(0.5);
+      mesh.material = mat;
+    });
+    // its four legs are in the way; between them isn't
+    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const p = new THREE.Vector2(sx * 1.25, sz * 1.25).rotateAround(new THREE.Vector2(), -BAAK_TURN).add(BAAK);
+      this.obstacles.push({ x: p.x, z: p.y, r: 0.15 });
+    }
+    // what you click is the whole of it, not just its timbers (and not in the reflection)
+    const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1.5, BAAK_TALL, 4), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = BAAK_TALL / 2;
+    hit.rotation.y = Math.PI / 4;
+    g.add(hit);
+    this.baak = g;
   }
 
   /** Whether the seal's gone into the water (you came too close). */
@@ -1168,6 +1225,8 @@ export class LowWater {
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
       this.clicked = { id: station, at: new THREE.Vector2(at.x, at.z) };
+      // (the baak: up to its board, on the near side)
+      if (station === 'baak') return this.walkTo(new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1), 0);
       this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
@@ -1423,7 +1482,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1709,6 +1768,11 @@ export class LowWater {
     // from far off, the pool in its bank is lost in it: no hole in the sand
     const pool = this.waters[1];
     if (pool) pool.uniforms.uSolid.value = POOL.y < this.target.z - reach * 0.55 ? 1 : 0;
+    // the baak, coming up over the horizon top first as you walk out to it
+    if (this.baak) {
+      const rise = THREE.MathUtils.clamp((BAAK.y - (far.z + SINK)) / BAAK_RISE, 0, 1);
+      this.baak.position.y = Math.max(0, bankAt(BAAK.x, BAAK.y)) - 0.02 - (1 - rise) * (BAAK_TALL + 0.2);
+    }
     // the reflections: everything hung upside down under the water's surface
     const flip = new THREE.Matrix4().makeScale(1, -1, 1).premultiply(new THREE.Matrix4().makeTranslation(0, this.level * 2, 0));
     this.scene.updateMatrixWorld();

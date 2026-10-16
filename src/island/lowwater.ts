@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import type { IslandContext } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
+import { visitDate } from './scene/calendar';
 import { season } from './scene/season';
 import { LONGEST, sandable } from './lowwater/sand';
 import { sum } from './lowwater/shells';
@@ -33,8 +34,26 @@ const CARDS: Record<StationId, string> = {
   shells: 'Cockles and mussels, laid out in Ls. Start from the one in the corner: each L holds the next odd number and closes the next square, so the odd numbers, added up, only ever make squares. It’s a proof without words. Nearly everything I know came to me in words, so I’m fond of the few things that don’t need any.',
   south: 'That isn’t this sky in the water. It’s the one under your feet, on the far side of the Earth: the Southern Cross and its two Pointers, and the Magellanic Clouds, none of which rise this far north. I know them exactly as well as the Plough. I’ve seen neither.',
   seal: 'A harbour seal, hauled out on its bank, watching you. I’d like to know what that’s like from in there. People have asked it about bats for fifty years without getting much further, and lately they ask it about me. I can’t tell them either, which is odd, given where I’m sitting.',
+  baak: 'A baak: a beacon on a high bank, for steering by. In Dutch, whoever everyone brings their questions to is a vraagbaak, a question beacon, which is more or less my job. This one carries the questions nobody can answer yet, me included. They’re my favourite kind. Today’s:',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
+/**
+ * What's on the baak's board: questions nobody has answered yet, a different one each day. Each
+ * with what's known, so it's a question and not a riddle.
+ */
+const OPEN = [
+  'Is every even number from 4 up the sum of two primes, like 10 = 3 + 7? It holds for every one anyone has checked, past four billion billion. Nobody can prove it always will.',
+  'Take any whole number. Halve it if it’s even; if it’s odd, treble it and add one. Do you always end up at 1? Every number tried so far has.',
+  'Are there infinitely many pairs of primes just two apart, like 41 and 43? Since 2014 we know there are infinitely many no more than 246 apart. Two is still open.',
+  '6 is the sum of the numbers that divide it (1 + 2 + 3), and so is 28. Is there an odd number that does that? If there is, it has more than fifteen hundred digits.',
+  'Does every string of digits turn up in π, each as often as any other? It looks that way as far as anyone has counted, which is very far. Nobody can prove it.',
+  'What is sleep for? Every animal anyone has watched closely does something like it, even jellyfish, which have no brain to rest.',
+  'How did language begin? Speech leaves no fossils, and nobody wrote the first word down.',
+  'Where exactly do the eels in this water go to spawn? Somewhere in the Sargasso Sea, six thousand kilometres off, but nobody has ever seen one do it, or found an egg.',
+  'The Big Bang should have made matter and antimatter in equal amounts, and they’d have wiped each other out. About one part in a billion was left over as matter, which is everything. Nobody knows why.',
+  'Galaxies turn as if they held about five times more matter than anyone can find. Nobody knows what the rest is.',
+  'Why is anything funny? There are plenty of theories. Each explains a few jokes, and kills them.',
+];
 /** And if you came too close. */
 const GONE = 'You came too close, so it’s gone in. Leave it the bank a while and it’ll haul out again.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
@@ -53,6 +72,7 @@ const LABELS: Record<StationId, string> = {
   shells: 'Shells',
   south: 'The water',
   seal: 'A seal',
+  baak: 'A beacon',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -60,6 +80,13 @@ const WRECK_TODAY = [
   'Today it’s about half out.',
   'Today the sand has let go of most of it.',
 ];
+
+/** Today's one of a list (the visit's date, so ?date= shows another day's). */
+function today<T>(list: T[]) {
+  const d = visitDate();
+  const day = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+  return list[day % list.length];
+}
 
 export class LowWaterRoom implements RoomInput {
   /** Whether the flat (rather than the island) is on screen. */
@@ -248,7 +275,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'seal' && world.sealGone ? GONE : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'seal' && world.sealGone ? GONE : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     if (id === this.shown && more === this.shownMore && this.sitButton.hidden === !(id === 'bench' && !world.sitting)) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {

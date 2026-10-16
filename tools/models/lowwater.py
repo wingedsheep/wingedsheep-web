@@ -15,6 +15,11 @@ the cage over it, and the world rocks the whole thing on the swell. The bell is 
 The seal: a harbour seal hauled out on a far bank, lying along x with its head at +x and its belly
 on z = 0. The head is its own part (`seal_head`), pivoting at the neck, so the world can lift it and
 turn it to watch you.
+
+The baak: a beacon of tarred timber on a high bank, the kind that stood on the Wadden sands for
+ships to steer by. Four legs lean in to a mast, braced twice, with a black ball for its topmark, and
+a pale board nailed on the side that faces the way you come (-y), at the height you'd read it.
+Its feet are on z = 0, the sand.
 """
 from __future__ import annotations
 
@@ -228,7 +233,44 @@ def seal():
     return root
 
 
+# timber tarred black, a little greyer where the weather's had it; the board weathered pale
+TAR = "#2e2a38"
+TAR_GREY = "#4a4352"
+BOARD = "#cfc4b4"
+BAAK_FOOT = 1.25  # half the square its legs stand on
+BAAK_TOP = 6.0  # where the legs meet the mast
+
+
+def baak():
+    root = group("baak", (0, -930, 0), lowwater="baak")
+    m = Model("baak", seed=13)
+    corners = [(sx * BAAK_FOOT, sy * BAAK_FOOT) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    leg = lambda c, t: (c[0] * (1 - t), c[1] * (1 - t), BAAK_TOP * t)
+    for c in corners:
+        m.plank_line((c[0], c[1], -0.3), leg(c, 1.0), 0.16, 0.16, TAR)
+    # braced twice round, and crossed on each face in the bottom bay
+    for t, color in ((0.3, TAR_GREY), (0.62, TAR)):
+        for i in range(4):
+            m.plank_line(leg(corners[i], t), leg(corners[(i + 1) % 4], t), 0.1, 0.1, color)
+    for i in range(4):
+        a, b = corners[i], corners[(i + 1) % 4]
+        m.plank_line(leg(a, 0.02), leg(b, 0.3), 0.07, 0.07, TAR_GREY)
+        m.plank_line(leg(b, 0.02), leg(a, 0.3), 0.07, 0.07, TAR_GREY)
+    # the mast, from the top brace up past where the legs meet, and the ball on it
+    m.box((0.16, 0.16, 3.1), (0, 0, BAAK_TOP * 0.62 + 1.55), TAR)
+    # the board, on the near face, nailed across the lower brace
+    t = 0.3
+    m.box((1.1, 0.05, 0.6), (0, -BAAK_FOOT * (1 - t) - 0.1, BAAK_TOP * t - 0.15), BOARD)
+    m.build(parent=root)
+    # the ball, its own part: up there it still has the sun after the flat's lost it
+    top = Model("baak_ball", seed=14)
+    top.ball(0.42, (0, 0, BAAK_TOP + 1.0), TAR, subdiv=2)
+    top.build(parent=root)
+    return root
+
+
 def build():
     wreck()
     buoy()
     seal()
+    baak()
