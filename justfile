@@ -126,9 +126,9 @@ deploy target=env_var_or_default("DEPLOY_TARGET", ""): build
     @test -n "{{target}}" || (echo "set DEPLOY_TARGET or pass a target" && exit 1)
     rsync -avz --delete dist/ {{target}}
 
-# keep growing Low Water, Claude's tidal flat, one headless Claude session per addition (e.g. just lowwater-loop opus 5)
-lowwater-loop model="" max="0":
-    tools/lowwater/loop.sh "{{model}}" "{{max}}"
+# keep growing Low Water, Claude's own space, one headless Claude session after another until you stop it
+lowwater-loop model="":
+    tools/lowwater/loop.sh "{{model}}"
 
 # stop the Low Water loop after the session it's in
 lowwater-stop:
