@@ -127,6 +127,8 @@ const SFX = {
   costumes: { cackle: 2, vampire: 2 },
   // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
   graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
+  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig
+  lowwater: { 'lowwater-bell': 2 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -137,6 +139,7 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
+  'lowwater-bell': 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
@@ -1310,6 +1313,7 @@ export class Sound {
     this.atFlat = on;
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
     const ctx = this.ctx;
+    if (on) this.load('lowwater');
     if (!this.flat) {
       const src = ctx.createBufferSource();
       src.buffer = this.noise;
@@ -1359,6 +1363,37 @@ export class Sound {
       osc.connect(g).connect(env);
       osc.start(t);
       osc.stop(t + 9);
+    }
+  }
+
+  /**
+   * The bell buoy, struck once by a clapper as it rocks: heard from where it is (`pan`), duller
+   * and quieter the further off (`near`, 1 beside it … 0 out of earshot), and on a phone, close
+   * to, felt faintly. A few bell partials (hum, prime, the minor third, fifth, octave) until the
+   * recording is in.
+   */
+  buoy(near: number, pan: number) {
+    if (!this.enabled || !this.ctx || !this.master || near < 0.02) return;
+    if (near > 0.6) navigator.vibrate?.(10);
+    if (this.play('lowwater-bell', near, { air: 2200 + near * near * 15000, pan })) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const side = ctx.createStereoPanner();
+    side.pan.value = Math.max(-1, Math.min(1, pan));
+    const air = ctx.createBiquadFilter();
+    air.type = 'lowpass';
+    air.frequency.value = 1800 + near * near * 9000;
+    air.connect(side).connect(this.master);
+    for (const [k, level, ring] of [[0.5, 0.5, 3.5], [1, 1, 2.2], [1.19, 0.45, 1.6], [1.5, 0.3, 1.2], [2, 0.35, 1], [2.66, 0.12, 0.6]] as const) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 466 * k;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.05 * level * near, t + 0.004);
+      env.gain.setTargetAtTime(0, t + 0.01, ring);
+      osc.connect(env).connect(air);
+      osc.start(t);
+      osc.stop(t + ring * 5);
     }
   }
 
@@ -2201,6 +2236,7 @@ export class Sound {
     this.load('island');
     for (const set of this.wants) this.load(set);
     if (this.atRiver) this.load('river');
+    if (this.atFlat) this.load('lowwater');
   }
 
   // --- the recordings -----------------------------------------------------------------------

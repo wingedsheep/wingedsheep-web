@@ -15,7 +15,7 @@ import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -32,6 +32,8 @@ export interface Hooks {
   /** A stone in the ring, sounded (its frequency, Hz). */
   note?(freq: number): void;
   step?(wet: boolean): void;
+  /** The bell buoy, tolling: how near it is (1 beside it … 0 out of earshot) and which side (-1 … 1). */
+  toll?(near: number, pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -67,6 +69,12 @@ const WRECK = new THREE.Vector2(13, -76);
 const WRECK_TURN = 0.6;
 const WRECK_LENGTH = 10;
 const WRECK_BEAM = 3.2;
+/** The bell buoy, out in the deep water past the last twig, and where its bell and its light hang (tools/models/lowwater.py). */
+const BUOY = new THREE.Vector2(7, -126);
+const BUOY_LAMP = 2.48;
+/** Its light: a long flash, two seconds in every ten (a safe-water mark's). */
+const FLASH = 10;
+const FLASH_ON = 2;
 
 /** Low banks of sand: middle, half-sizes, height, and whether there's a pool in the top. */
 const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: boolean }[] = [
@@ -238,8 +246,9 @@ export class LowWater {
   private rings: Ring[] = [];
   private rainFor = 0;
   private clip = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  /** (and the other way, for the wreck's reflection) */
-  private under?: THREE.Plane;
+  /** (and the other way, for the reflections of the wreck and the buoy) */
+  private under = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+  private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private ice: THREE.MeshToonMaterial[] = [];
   private outside: Outside = { rain: 0, fog: 0, wind: 0, snow: 0, winter: false };
   private hemi = new THREE.HemisphereLight('#8d9ad6', '#2a2944', 1.7);
@@ -268,7 +277,7 @@ export class LowWater {
     this.speckHome = (this.specks.geometry.attributes.position.array as Float32Array).slice();
     this.makePrints();
     this.makeRings();
-    void this.makeWreck();
+    void this.makeModels();
     this.resize(innerWidth, innerHeight);
     this.frame(0);
   }
@@ -745,18 +754,27 @@ export class LowWater {
     }
   }
 
-  /**
-   * The wreck, loaded once you're out here. The sand over it moves from day to day (not with the
-   * tide: that's too small out here to cover it), so it sits deeper on some days than on others,
-   * and what's under the waterline is cut away, reflection and all.
-   */
-  private async makeWreck() {
+  /** What's modelled in Blender (tools/models/lowwater.py), loaded once you're out here. */
+  private async makeModels() {
     const gltf = await new GLTFLoader().loadAsync(`/models/lowwater.glb?v=${__MODELS__}`);
-    const wreck = gltf.scene.children.find((o) => o.userData.lowwater === 'wreck');
-    if (!wreck) return;
-    wreck.removeFromParent();
-    const under = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
-    this.under = under;
+    const find = (kind: string) => {
+      const o = gltf.scene.children.find((c) => c.userData.lowwater === kind);
+      o?.removeFromParent();
+      return o;
+    };
+    const wreck = find('wreck');
+    if (wreck) this.makeWreck(wreck);
+    const buoy = find('buoy');
+    if (buoy) this.makeBuoy(buoy);
+  }
+
+  /**
+   * The wreck. The sand over it moves from day to day (not with the tide: that's too small out
+   * here to cover it), so it sits deeper on some days than on others, and what's under the
+   * waterline is cut away, reflection and all.
+   */
+  private makeWreck(wreck: THREE.Object3D) {
+    const under = this.under;
     wreck.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
@@ -792,6 +810,51 @@ export class LowWater {
     }
     const stem = WRECK.clone().addScaledVector(along, WRECK_LENGTH / 2 + 0.2);
     this.obstacles.push({ x: stem.x, z: stem.y, r: 0.3 });
+  }
+
+  /**
+   * The bell buoy, out where it's too deep to walk. It rocks on the swell, more in a wind, and
+   * when it leans far enough a clapper swings into the bell; at the top of its cage, a long white
+   * flash every ten seconds. Only what's above the water shows, and in the water.
+   */
+  private makeBuoy(model: THREE.Object3D) {
+    model.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mat = paint((mesh.material as THREE.MeshStandardMaterial).color);
+      mat.clippingPlanes = [this.clip];
+      mesh.material = mat;
+    });
+    model.position.set(0, 0, 0);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.15, 0.13), paint(new THREE.Color('#f4f1e6'), { glow: true }));
+    (lamp.material as THREE.MeshToonMaterial).emissiveIntensity = 1.3;
+    lamp.name = 'lamp';
+    lamp.position.y = BUOY_LAMP;
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(), color: '#e8ecff', blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
+    halo.scale.setScalar(1.4);
+    halo.position.y = BUOY_LAMP;
+    halo.renderOrder = 6;
+    const g = new THREE.Group();
+    g.add(model, lamp, halo);
+    this.put(g, BUOY, 'buoy', 0);
+    const copy = this.mirrored[this.mirrored.length - 1].copy;
+    copy.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mat = (mesh.material as THREE.MeshBasicMaterial).clone();
+      mat.clippingPlanes = [this.under];
+      // (its paint is pale, and unlit it would come back brighter than it is)
+      if (mesh.name !== 'lamp') mat.color.lerp(WATER, 0.4).multiplyScalar(0.5);
+      mesh.material = mat;
+    });
+    // the reflection follows the bell's swing, and flashes with the light
+    const a: THREE.Object3D[] = [];
+    const b: THREE.Object3D[] = [];
+    g.traverse((o) => a.push(o));
+    copy.traverse((o) => b.push(o));
+    this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
+    const lamps = [lamp, halo, b[a.indexOf(lamp)], b[a.indexOf(halo)]];
+    this.buoy = { root: g, bell: model.getObjectByName('buoy_bell'), lamps, lean: 0, rising: false, quiet: 0 };
   }
 
   private makeRings() {
@@ -882,6 +945,12 @@ export class LowWater {
   }
 
   private walkTo(p: THREE.Vector3, stop: number) {
+    // (only as far as the edge of the deep water: anything past it, you look at from there)
+    if (p.z < DEEP + 0.6) {
+      const k = (DEEP + 0.6 - this.pos.z) / (p.z - this.pos.z);
+      p = new THREE.Vector3(this.pos.x + (p.x - this.pos.x) * k, 0, DEEP + 0.6);
+      stop = 0;
+    }
     this.goal = new THREE.Vector3(p.x, 0, p.z);
     this.goalStop = stop;
   }
@@ -936,11 +1005,12 @@ export class LowWater {
     // the tide, breathing in and out over six minutes
     this.level = Math.sin((this.time / TIDE_PERIOD) * Math.PI * 2) * TIDE;
     this.clip.constant = -this.level;
-    if (this.under) this.under.constant = this.level;
+    this.under.constant = this.level;
     this.walk(dt);
     this.animateWalker(still);
     this.near();
     this.ring(dt);
+    this.rock(dt);
     this.glow(dt);
     this.footprints(dt);
     this.rain(dt, still);
@@ -1031,7 +1101,7 @@ export class LowWater {
   private near() {
     const at = new THREE.Vector2(this.pos.x, this.pos.z);
     if (this.clicked) {
-      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : 4.5) || this.goal) {
+      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : 4.5) || this.goal) {
         this.card = this.clicked.id;
         return;
       }
@@ -1045,7 +1115,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1068,6 +1138,39 @@ export class LowWater {
       const step = s.lit > 0.55 ? 0.55 : s.lit > 0.15 ? 0.25 : 0;
       s.mat.emissive.setRGB(step * 0.8, step * 0.85, step);
     });
+  }
+
+  /**
+   * The buoy on the swell: two slow rolls that drift in and out of step, so it leans furthest
+   * only now and then on a still evening, and over and over in a wind. When it swings back from
+   * a lean far enough over, a clapper carries on into the bell, heard from wherever you are.
+   */
+  private rock(dt: number) {
+    const b = this.buoy;
+    if (!b) return;
+    const t = this.time;
+    const sway = 0.045 + this.outside.wind * 0.17;
+    const surge = 0.8 + 0.2 * Math.sin((t / 41) * Math.PI * 2);
+    const roll = sway * surge * (Math.sin((t / 4.7) * Math.PI * 2) + 0.6 * Math.sin((t / 3.1) * Math.PI * 2 + 1.3));
+    const pitch = sway * surge * 0.7 * Math.sin((t / 5.9) * Math.PI * 2 + 0.4);
+    b.root.rotation.set(pitch, 0, roll);
+    b.root.position.y = this.level - 0.02 + Math.sin((t / 4.7) * Math.PI * 2 + 1.2) * (0.03 + this.outside.wind * 0.06);
+    // the bell hangs a moment behind the cage
+    if (b.bell) b.bell.rotation.set(-pitch * 0.5, 0, -roll * 0.5);
+    const lean = Math.hypot(roll, pitch);
+    b.quiet += dt;
+    if (lean < b.lean && b.rising && b.lean > 0.065 && b.quiet > 0.9) {
+      b.quiet = 0;
+      const dx = BUOY.x - this.pos.x;
+      const d = Math.hypot(dx, BUOY.y - this.pos.z);
+      const near = 1 / (1 + (Math.max(0, d - 8) / 20) ** 2);
+      this.hooks.toll?.(near, (dx / Math.max(d, 1)) * 0.9);
+      if (b.root.visible) this.ripple(BUOY.x, BUOY.y, 2.4, 2.6);
+    }
+    b.rising = lean > b.lean;
+    b.lean = lean;
+    const on = t % FLASH < FLASH_ON;
+    for (const l of b.lamps) if (l) l.visible = on;
   }
 
   private sound(i: number) {

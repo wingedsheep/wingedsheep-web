@@ -245,6 +245,8 @@ export const SOUNDS: Sfx[] = [
 
   // Sinterklaas: his steamboat at the dock, sounding its whistle
   { name: 'steam-whistle', seconds: 3, prompt: 'An old steamboat sounding its steam whistle twice at a harbour, a warm hooting toot toot, with a hiss of steam after, no voices, no music' },
+  // Low Water (src/island/lowwater/): the bell buoy out where the deep water starts
+  ...[1, 2].map((i) => ({ name: `lowwater-bell-${i}`, seconds: 4, prompt: 'One single toll of a bronze bell on a bell buoy far out at sea, struck once by a loose clapper as the buoy rocks on a slow swell, heard from across wide calm water, a clear ring with a long slow fade, no waves, no wind, no music' })),
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root

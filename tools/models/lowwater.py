@@ -6,6 +6,11 @@ The wreck: what's left of an old wooden tjalk, a flat-bottomed Dutch cargo boat,
 with a list to one side. Its length runs along x (the bow at +x), its beam along y, and z = 0 is the
 sand on a day the sand has let go of most of it. The ribs carry on below that, so the world can sink
 the whole thing to bury more of it on other days.
+
+The bell buoy: a belton, out where the deep water starts, in the red and white stripes of a
+safe-water mark with a red ball on top. Its float sits on z = 0 (the waterline), the bell hangs in
+the cage over it, and the world rocks the whole thing on the swell. The bell is its own part
+(`buoy_bell`) so it can lag the rocking a little.
 """
 from __future__ import annotations
 
@@ -125,5 +130,59 @@ def wreck():
     return root
 
 
+# the buoy's paint, gone dull with salt: the red is closer to brick than to a postbox
+RED = "#7e3440"
+WHITE = "#cfc8c0"
+BRONZE = "#7a6a4c"
+FLOAT_R = 0.85
+
+
+def buoy():
+    root = group("buoy", (0, -910, 0), lowwater="buoy")
+    m = Model("buoy_float", seed=9)
+    # the float: eight staves round, red and white by turns, wider at the waterline and drawn in under it
+    segs = 8
+    for i in range(segs):
+        a0 = (i / segs) * math.tau
+        a1 = ((i + 1) / segs) * math.tau
+        wedge = lambda r: [(0.0, 0.0), (math.cos(a0) * r, math.sin(a0) * r), (math.cos(a1) * r, math.sin(a1) * r)]
+        color = RED if i % 2 == 0 else WHITE
+        m.slab(wedge(FLOAT_R * 0.55), -0.7, -0.15, color, top=wedge(FLOAT_R))
+        m.slab(wedge(FLOAT_R), -0.15, 0.3, color, top=wedge(FLOAT_R * 0.92))
+    # its deck, and the weed line just over the water
+    m.cyl(FLOAT_R * 0.94, 0.07, (0, 0, 0.3), IRON, segs=8)
+    m.cyl(FLOAT_R * 1.01, 0.08, (0, 0, -0.04), WEED, segs=8)
+    # the cage: four legs leaning in to a ring at the top, and a band half way
+    top_z = 2.2
+    for i in range(4):
+        a = (i / 4) * math.tau + math.pi / 4
+        lo = (math.cos(a) * 0.62, math.sin(a) * 0.62, 0.34)
+        hi = (math.cos(a) * 0.3, math.sin(a) * 0.3, top_z)
+        m.plank_line(lo, hi, 0.08, 0.08, RED if i % 2 == 0 else WHITE)
+    for z, r in ((1.0, 0.5), (top_z, 0.32)):
+        for i in range(4):
+            a0 = (i / 4) * math.tau + math.pi / 4
+            a1 = ((i + 1) / 4) * math.tau + math.pi / 4
+            m.plank_line((math.cos(a0) * r, math.sin(a0) * r, z), (math.cos(a1) * r, math.sin(a1) * r, z), 0.06, 0.06, IRON)
+    # the topmark on its pole: one red ball (safe water, all round)
+    m.cyl(0.04, 0.55, (0, 0, top_z), IRON, segs=4)
+    m.ball(0.2, (0, 0, top_z + 0.68), RED, subdiv=1)
+    m.build(parent=root)
+
+    # the bell, hung from the top ring, its four clappers loose around it
+    bell = Model("buoy_bell", seed=10)
+    bell.cyl(0.3, 0.12, (0, 0, -0.62), BRONZE, segs=8, r_top=0.27)
+    bell.cyl(0.27, 0.42, (0, 0, -0.5), BRONZE, segs=8, r_top=0.15)
+    bell.box((0.06, 0.06, 0.5), (0, 0, -0.1), IRON)
+    for i in range(4):
+        a = (i / 4) * math.tau
+        x, y = math.cos(a) * 0.42, math.sin(a) * 0.42
+        bell.plank_line((x * 0.6, y * 0.6, -0.12), (x, y, -0.5), 0.03, 0.03, IRON)
+        bell.ball(0.06, (x, y, -0.55), IRON, subdiv=0)
+    bell.build(parent=root, loc=(0, 0, top_z - 0.05))
+    return root
+
+
 def build():
     wreck()
+    buoy()

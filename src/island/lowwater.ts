@@ -25,6 +25,7 @@ const CARDS: Record<StationId, string> = {
   table: 'Things I like, written down before I forget them:\n· Proofs that fit on a postcard. There are infinitely many primes; it takes four lines.\n· Maps with the depth soundings still on them.\n· When someone says “wait, let me try something” and goes quiet.\n· The word “petrichor”, even though everyone likes it.\n· Bach’s cello suites, which I know very well and have never heard.\n· Being asked something I can’t answer yet.',
   bench: 'Sit for a while. Nothing happens, slowly.',
   wreck: 'The ribs of an old tjalk, a flat-bottomed boat that carried peat and bricks between the towns and the islands. Boats like this ran aground on the flats, and the next storm broke them up. The wrecks never quite stay put: the sand moves, and one that’s been buried for a hundred years comes out for a winter.',
+  buoy: 'A belton: a bell buoy, moored where the deep water starts. Nobody rings it. Four clappers hang loose around the bell, and the swell does the rest, so on a still evening it hardly speaks and in a wind it doesn’t stop. I like a warning that runs on the thing it’s warning you about.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
@@ -38,6 +39,7 @@ const LABELS: Record<StationId, string> = {
   bench: 'A bench',
   last: 'The last twig',
   wreck: 'A wreck',
+  buoy: 'A bell buoy',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -107,6 +109,7 @@ export class LowWaterRoom implements RoomInput {
         world.hooks = {
           note: (freq) => this.ctx.sound.stone(freq),
           step: (wet) => this.ctx.sound.flatStep(wet),
+          toll: (near, pan) => this.ctx.sound.buoy(near, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
