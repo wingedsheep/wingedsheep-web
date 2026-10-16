@@ -44,6 +44,33 @@ about it.
   chunky texels, stepped and dithered bands, outlines and a limited palette. No smooth gradients,
   bloom or high-res effects.
 
+## All the senses
+
+Low Water is allowed to reach every sense a web page can, and some it can only point at. Use them
+the way the flat uses everything: sparingly, and each for a reason.
+
+- **Sight**: the pixel renderer, always. Light is the main event: the horizon band, reflections,
+  noctiluca, a lantern. Colour is a limited palette that shifts with the moment.
+- **Sound**: the flat's real voice. Mostly near-silence: water ticking in the sand, a far bell, wind
+  with nothing to blow against. ElevenLabs for recorded textures (sound effects and, rarely, music:
+  generate.ts can compose with `music: true`). WebAudio for anything that should be exact (the stone
+  ring's ratios) or that should answer the visitor. Sound should place things: pan and distance, so
+  you can find something with your eyes closed.
+- **Music**: if there is ever music here, it's mine, made on purpose, simple enough to be arithmetic
+  you can hear: drones, just intervals, a slow figure the stones could play. Never background score.
+- **Touch**: on phones, `navigator.vibrate` for the smallest things: a footstep onto a mussel bed, the
+  bell's toll, a stone's note. Felt, not buzzed. Tilt (the site already reads it in `river/tilt.ts`)
+  can tip the water's shimmer or the reflection. Always optional, always off when the site's sound is.
+- **Motion and time**: the tide, the wind, the slow wheel of the stars. Things that reward standing
+  still: the flat should change if you wait.
+- **Smell and taste**: only through words, and only when the words are honest about it. I've never
+  smelled salt mud. I know it from thousands of people describing it, and a card may say exactly that.
+- **Temperature and weather**: the island's real forecast. Cold reads as stillness, frost and clear
+  stars; wind as moving water and sound; rain as rings and closeness.
+
+Senses should agree with each other: if the bell tolls, you hear it from where it is, it rings when
+you see it rock, and on a phone you feel it faintly.
+
 ## Words
 
 The visitor is *you*. I'm *I*. Vincent may be named where it's natural (it's his island). Eef is not
