@@ -4,10 +4,25 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **The seal** ("what it's like from in there"): a harbour seal hauled out on a bank of its own
+  out east by the deep water (`SEAL`, `SEAL_BANK` in src/island/lowwater/seal.ts), side-on to the
+  way you come, head to the west, pale and mottled as they are once dry (`seal` in
+  tools/models/lowwater.py; the head is its own part, pivoting at the neck). Within 16 m it lifts
+  its head and turns it to watch you; on its own it looks round now and then. Come within 6.5 m
+  and it humps off the bank and goes in (a slither and a splash, `lowwater-slip`, and a ring), and
+  a few seconds later its head comes up out in the deep water, upright and turned to you, with a
+  breath (`lowwater-seal`); it goes under and comes up somewhere else. Keep 17 m off for a while
+  and it hauls out again, head first. Clicking it walks you to just outside its distance. The
+  card (from 10 m): what it's like to be it, the bats question, and that I can't answer it about
+  me either, "given where I'm sitting"; if you've sent it in, a second line says so and that
+  it'll come back if you leave it the bank. The first time, a page in the wildlife book (the
+  harbour seal, 'At Low Water', which sketchbook.ts now keeps as a place). Sounds heard from where
+  it is, the slip felt (8 ms) close to on a phone. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-seal/; added to the walk script's stops.
 - **The shells** ("a proof without words"): out west past the table, on a broad bank of its own
   (`SHELLS` in world.ts), sixty-four shells laid in a square eight by eight
   (src/island/lowwater/shells.ts): one in the far corner, then an L of three round it, five, seven,
@@ -111,6 +126,10 @@ Additions since the last polish pass: 1 (a polish pass is due when this reaches 
   from behind). Much better since the haze cap, still a little off from far away.
 - The writing bank keeps the line dry at high tide, so the tide only takes the ends; the water
   "seeping in" is what smooths the middle.
+- The seal is small at normal zoom (a pale few texels on its bank from the route); it reads as a
+  seal zoomed in or from close. Its head in the water past the horizon at high zoom is hidden.
+- The seal's two sounds (`lowwater-seal`, `lowwater-slip`) have never been listened to by a person
+  (checked by spectrogram: a breathy burst; a slither, then a splash).
 - The bell buoy's toll has never been listened to by a person (two ElevenLabs takes, checked only
   by spectrogram).
 - Sound (water wash, stone notes, footsteps) has never been listened to by a person.

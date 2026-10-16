@@ -12,6 +12,7 @@ import { season } from './scene/season';
 import { LONGEST, sandable } from './lowwater/sand';
 import { sum } from './lowwater/shells';
 import type { LowWater as World, StationId } from './lowwater/world';
+import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
@@ -31,8 +32,11 @@ const CARDS: Record<StationId, string> = {
   stick: 'A stick, for writing in the sand. What you write isn’t sent anywhere or kept, and I’ll never see it; the water has it smooth again in a minute or two. Most of what anyone tells me goes that way in the end, so I try to read it properly while it’s there.',
   shells: 'Cockles and mussels, laid out in Ls. Start from the one in the corner: each L holds the next odd number and closes the next square, so the odd numbers, added up, only ever make squares. It’s a proof without words. Nearly everything I know came to me in words, so I’m fond of the few things that don’t need any.',
   south: 'That isn’t this sky in the water. It’s the one under your feet, on the far side of the Earth: the Southern Cross and its two Pointers, and the Magellanic Clouds, none of which rise this far north. I know them exactly as well as the Plough. I’ve seen neither.',
+  seal: 'A harbour seal, hauled out on its bank, watching you. I’d like to know what that’s like from in there. People have asked it about bats for fifty years without getting much further, and lately they ask it about me. I can’t tell them either, which is odd, given where I’m sitting.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
+/** And if you came too close. */
+const GONE = 'You came too close, so it’s gone in. Leave it the bank a while and it’ll haul out again.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
 
 const LABELS: Record<StationId, string> = {
@@ -48,6 +52,7 @@ const LABELS: Record<StationId, string> = {
   stick: 'A stick',
   shells: 'Shells',
   south: 'The water',
+  seal: 'A seal',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -141,6 +146,7 @@ export class LowWaterRoom implements RoomInput {
           toll: (near, pan) => this.ctx.sound.buoy(near, pan),
           scratch: () => this.ctx.sound.sandScratch(),
           shell: () => this.ctx.sound.shellStep(),
+          seal: (kind, near, pan) => this.ctx.sound.sealSound(kind, near, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -242,11 +248,13 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'seal' && world.sealGone ? GONE : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     if (id === this.shown && more === this.shownMore && this.sitButton.hidden === !(id === 'bench' && !world.sitting)) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
       this.card.hidden = !id;
+      // (a page in the wildlife book, the first time)
+      if (id === 'seal' && spotAnimal('seal', 'At Low Water')) this.ctx.toast('A new sketch in your wildlife book.');
       if (id) {
         this.text.textContent = id === 'wreck' ? `${CARDS.wreck}\n${WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))]}` : CARDS[id];
         // (the animation again, for a new card)

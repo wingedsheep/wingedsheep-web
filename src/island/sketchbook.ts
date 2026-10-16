@@ -69,7 +69,7 @@ function pages(): Entry[] {
   for (const value of saved(KEY)) {
     if (!value || typeof value !== 'object') continue;
     const e = value as Entry;
-    if (valid(e.id) && !entries.some((p) => p.id === e.id)) entries.push({ id: e.id, where: e.where === 'Along the river' ? e.where : 'On the island', date: typeof e.date === 'string' && Number.isFinite(Date.parse(e.date)) ? e.date : undefined });
+    if (valid(e.id) && !entries.some((p) => p.id === e.id)) entries.push({ id: e.id, where: e.where === 'Along the river' || e.where === 'At Low Water' ? e.where : 'On the island', date: typeof e.date === 'string' && Number.isFinite(Date.parse(e.date)) ? e.date : undefined });
   }
   const add = (id: unknown, where: string) => {
     if (valid(id) && !entries!.some((p) => p.id === id)) entries!.push({ id, where });

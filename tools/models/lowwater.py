@@ -11,6 +11,10 @@ The bell buoy: a belton, out where the deep water starts, in the red and white s
 safe-water mark with a red ball on top. Its float sits on z = 0 (the waterline), the bell hangs in
 the cage over it, and the world rocks the whole thing on the swell. The bell is its own part
 (`buoy_bell`) so it can lag the rocking a little.
+
+The seal: a harbour seal hauled out on a far bank, lying along x with its head at +x and its belly
+on z = 0. The head is its own part (`seal_head`), pivoting at the neck, so the world can lift it and
+turn it to watch you.
 """
 from __future__ import annotations
 
@@ -183,6 +187,48 @@ def buoy():
     return root
 
 
+# a harbour seal at blue hour, dried off on the sand: pale grey going buff, mottled darker
+SEAL = "#a39a9c"
+SEAL_DARK = "#5e5662"
+SEAL_PALE = "#bdb2ac"
+SEAL_EYE = "#1c1a22"
+
+
+def seal():
+    root = group("seal", (0, -920, 0), lowwater="seal")
+    m = Model("seal_body", seed=11)
+    # the body: a run of flattened balls along the spine, thickest behind the shoulders, the hind
+    # end tapering and tipped up a little off the sand (as they lie, like a banana)
+    spine = [(-0.66, 0.11, 0.1), (-0.5, 0.15, 0.13), (-0.3, 0.21, 0.19), (-0.08, 0.25, 0.22), (0.14, 0.24, 0.21), (0.32, 0.2, 0.2), (0.46, 0.15, 0.22)]
+    for x, r, z in spine:
+        m.ball(r, (x, 0, z), SEAL, subdiv=1, scale=(1.35, 1.0, 0.82))
+    # the belly, paler, just showing along the sand
+    for x in (-0.3, -0.05, 0.2):
+        m.ball(0.2, (x, 0, 0.1), SEAL_PALE, subdiv=1, scale=(1.4, 1.08, 0.5))
+    # a few darker spots on the back
+    for x, y in ((-0.38, 0.06), (-0.12, -0.08), (0.08, 0.1), (0.26, -0.05), (-0.22, 0.14)):
+        m.ball(0.05, (x, y, 0.38 - abs(x) * 0.18), SEAL_DARK, subdiv=0, scale=(1.3, 1, 0.5))
+    # the hind flippers, held together and tipped up
+    for side in (-1, 1):
+        m.ball(0.09, (-0.86, side * 0.06, 0.2), SEAL_DARK, subdiv=1, scale=(1.9, 0.75, 0.35), rot=(0, math.radians(-25), side * 0.25))
+    # the fore flippers, flat to the sand by the chest
+    for side in (-1, 1):
+        m.ball(0.07, (0.26, side * 0.24, 0.05), SEAL_DARK, subdiv=0, scale=(1.8, 0.8, 0.4), rot=(0, 0, side * -0.4))
+    m.build(parent=root)
+
+    # the head on its neck, pivoting where the neck meets the shoulders
+    h = Model("seal_head", seed=12)
+    h.ball(0.15, (0.04, 0, 0.0), SEAL, subdiv=1, scale=(1.3, 1, 0.95))
+    h.ball(0.135, (0.2, 0, 0.06), SEAL, subdiv=1, scale=(1.15, 1, 0.92))
+    h.ball(0.08, (0.34, 0, 0.03), SEAL_PALE, subdiv=1, scale=(1.1, 1, 0.8))
+    h.ball(0.03, (0.41, 0, 0.05), SEAL_EYE, subdiv=0)
+    for side in (-1, 1):
+        h.ball(0.035, (0.27, side * 0.08, 0.12), SEAL_EYE, subdiv=0)
+    h.build(parent=root, loc=(0.52, 0, 0.24))
+    return root
+
+
 def build():
     wreck()
     buoy()
+    seal()

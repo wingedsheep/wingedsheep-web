@@ -15,9 +15,10 @@ import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { Sand } from './sand';
+import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -40,6 +41,8 @@ export interface Hooks {
   scratch?(): void;
   /** A footstep onto the shells. */
   shell?(): void;
+  /** The seal going into the water, or breathing as its head comes up: how near (1 … 0) and which side. */
+  seal?(kind: 'slip' | 'breath', near: number, pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -105,6 +108,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   { x: -18, z: -62, rx: 5, rz: 1.3, h: 0.06 },
   SAND,
   { x: SHELLS.x, z: SHELLS.y, rx: 5, rz: 6, h: 0.1 },
+  SEAL_BANK,
 ];
 const POOL_R = 0.42; // the pool's share of its bank
 /** The pool's own water, held up in the bank whatever the tide's doing (m), and how far out it reaches. */
@@ -333,6 +337,7 @@ export class LowWater {
   // (hazed as their bank is, so they never go paler than the sand they're on)
   private shells = new Shells(SHELLS, (x, z) => Math.max(0, bankAt(x, z)), steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(23));
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
+  private seal?: Seal;
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
   /** The stick (where it's stuck in, and the one in your hand while you write), and the line being written. */
@@ -934,6 +939,61 @@ export class LowWater {
     if (wreck) this.makeWreck(wreck);
     const buoy = find('buoy');
     if (buoy) this.makeBuoy(buoy);
+    const seal = find('seal');
+    if (seal) this.makeSeal(seal);
+  }
+
+  /**
+   * The seal (seal.ts), on its bank out east by the deep water. Clipped at the waterline, so in
+   * the water only its head shows, and its reflection the same.
+   */
+  private makeSeal(model: THREE.Object3D) {
+    model.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mat = paint((mesh.material as THREE.MeshStandardMaterial).color);
+      mat.clippingPlanes = [this.clip, this.farEdge];
+      mesh.material = mat;
+    });
+    model.position.set(0, 0, 0);
+    // (a big one, so it reads from along the route)
+    model.scale.setScalar(1.15);
+    const g = new THREE.Group();
+    g.add(model);
+    this.put(g, SEAL, 'seal', 0);
+    const copy = this.mirrored[this.mirrored.length - 1].copy;
+    copy.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mat = (mesh.material as THREE.MeshBasicMaterial).clone();
+      mat.clippingPlanes = [this.under];
+      mesh.material = mat;
+    });
+    const a: THREE.Object3D[] = [];
+    const b: THREE.Object3D[] = [];
+    g.traverse((o) => a.push(o));
+    copy.traverse((o) => b.push(o));
+    this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
+    const heard = (at: THREE.Vector2) => {
+      const dx = at.x - this.pos.x;
+      const d = Math.hypot(dx, at.y - this.pos.z);
+      return [1 / (1 + (Math.max(0, d - 5) / 16) ** 2), (dx / Math.max(d, 1)) * 0.9] as const;
+    };
+    this.seal = new Seal(g, model, Math.random, {
+      slip: (at) => {
+        this.ripple(at.x, at.y, 1.4, 2.8);
+        this.hooks.seal?.('slip', ...heard(at));
+      },
+      breath: (at) => {
+        this.ripple(at.x, at.y, 0.6, 2.2);
+        this.hooks.seal?.('breath', ...heard(at));
+      },
+    });
+  }
+
+  /** Whether the seal's gone into the water (you came too close). */
+  get sealGone() {
+    return !!this.seal?.gone;
   }
 
   /**
@@ -1108,7 +1168,7 @@ export class LowWater {
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
       this.clicked = { id: station, at: new THREE.Vector2(at.x, at.z) };
-      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' ? 0 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
+      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
     if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.level), p)) this.walkTo(p, 0);
@@ -1242,6 +1302,7 @@ export class LowWater {
     this.clip.constant = -this.level;
     this.under.constant = this.level;
     this.walk(dt);
+    this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.settle(dt);
     this.near();
@@ -1348,7 +1409,7 @@ export class LowWater {
       return;
     }
     if (this.clicked) {
-      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : 4.5) || this.goal) {
+      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : this.clicked.id === 'seal' ? 11 : 4.5) || this.goal) {
         this.card = this.clicked.id;
         return;
       }
@@ -1362,7 +1423,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1657,7 +1718,7 @@ export class LowWater {
       const near = m.src.position.z > far.z + SINK;
       m.src.visible = near;
       m.copy.visible = near;
-      if (m.parts) for (const [a, b] of m.parts) if (a !== m.src) (b.position.copy(a.position), b.quaternion.copy(a.quaternion), b.scale.copy(a.scale));
+      if (m.parts) for (const [a, b] of m.parts) if (a !== m.src) (b.position.copy(a.position), b.quaternion.copy(a.quaternion), b.scale.copy(a.scale), (b.visible = a.visible));
       m.copy.matrix.multiplyMatrices(flip, m.src.matrixWorld);
       m.copy.updateMatrixWorld(true);
     }
