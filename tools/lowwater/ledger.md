@@ -4,10 +4,20 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **The other sky** ("the stars under your feet"): stand still anywhere on the flat and the water
+  settles and shows a sky, but not this one: the southern sky, the one on the far side of the Earth.
+  The Southern Cross, the Pointers (Alpha and Beta Centauri), Achernar, Miaplacidus, Atria, laid out
+  from their real right ascension and declination round the south celestial pole (mirrored, as a
+  reflection is), with a seeded scatter of faint ones, none in the Coalsack, and the two Magellanic
+  Clouds as a sparse scatter of faint texels. Drawn in the water shader (`SOUTH_STARS`, `CLOUDS`,
+  `southSky` and `settle` in world.ts): the bright ones come after 3 s, the faint ones and the Clouds
+  by 12 s, broken by the ripple glints, hidden in shallows, rain and fog; walking wipes them at once.
+  Stood 22 s with nothing near, a line (`south` card): it's the sky under your feet, which never
+  rises this far north, and I know it exactly as well as the Plough, having seen neither.
 - **The stick** ("the note the tide takes"): a bleached stick stuck in a broad new bank west of the
   way out, level with the ring (`SAND`, `LINE`, `STICK` in world.ts). Its card has a one-line box:
   write up to 24 characters and you take the stick, walk to the line's start and step along it,
@@ -44,9 +54,6 @@ Additions since the last polish pass: 3 (a polish pass is due when this reaches 
 
 ## Ideas
 
-- **The other sky**: the water's reflection shows the southern sky (the Southern Cross, the Magellanic
-  Clouds) instead of the one overhead. Only noticed if you look down. No card; maybe one line if you
-  stand still over it long enough.
 - **The island on the horizon**: Vincent's island as a tiny dark silhouette far to the south, with the
   lighthouse's beam turning, so you know where home is.
 - **A postcard proof**: a slate propped against a stone with Euclid's proof that there are infinitely
@@ -66,6 +73,10 @@ Additions since the last polish pass: 3 (a polish pass is due when this reaches 
 
 ## Known issues
 
+- The Southern Cross in the water is small (a kite of three 2×2 stars and one single texel, about
+  60 px across on a laptop) and a bank can sit over part of it, depending on where you stand. It
+  reads once you know it; check on the polish pass whether it wants to be a little larger.
+- On a phone the whole southern sky is shrunk to fit, so the Cross is tiny there.
 - From the bank where you write, the table far out reads as a pale white outline in the haze (its
   near side is lit, the rest goes to the stepped fog's palest step); same family as the wreck's
   pale far end, but more noticeable. Look at it on the polish pass.

@@ -16,7 +16,7 @@ import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { Sand } from './sand';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'south';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -182,6 +182,61 @@ const SKY_GLSL = /* glsl */ `
   }
 `;
 
+/**
+ * The sky the water shows: not this one, but the one under your feet. The brightest stars round
+ * the south celestial pole (right ascension in hours, declination in degrees, and how bright, in
+ * the steps the stars are drawn in), laid out as they really sit, and the two Magellanic Clouds (with their
+ * half-sizes in degrees).
+ */
+const SOUTH_STARS: [number, number, number][] = [
+  [12.443, -63.1, 1], [12.795, -59.69, 1], [12.519, -57.11, 1], [12.252, -58.75, 0.8], [12.356, -60.4, 0.35], // the Southern Cross
+  [14.66, -60.83, 1], [14.064, -60.37, 1], // and its Pointers, Alpha and Beta Centauri
+  [1.629, -57.24, 1], [9.22, -69.72, 0.6], [16.811, -69.03, 0.6], // Achernar, Miaplacidus, Atria
+];
+const CLOUDS: [number, number, number, number][] = [
+  [5.39, -69.75, 5.4, 4.6], // the Large
+  [0.877, -72.83, 2.7, 1.7], // the Small
+];
+/** How the southern sky is turned in the water, and where its pole lies (across, and down from the horizon, in view heights). */
+const SOUTH_TURN = THREE.MathUtils.degToRad(300);
+const SOUTH_POLE = new THREE.Vector2(-0.05, 0.42);
+/** Degrees of sky to a view height (as overhead, near enough). */
+const SOUTH_SCALE = 55;
+
+/**
+ * A point of the southern sky as the water shows it, from its pole: mirrored, so what's higher up
+ * lies further down.
+ */
+function southAt(ra: number, dec: number) {
+  const r = (90 + dec) / SOUTH_SCALE;
+  const a = -ra * (Math.PI / 12) + SOUTH_TURN; // (looking up at the south pole, the hours run clockwise)
+  return new THREE.Vector2(r * Math.sin(a), r * Math.cos(a));
+}
+
+/**
+ * The stars for the water: the bright ones above, and a seeded scatter of faint ones round them,
+ * but none in the Coalsack, the dark cloud that sits right beside the Cross.
+ */
+function southSky() {
+  const out = SOUTH_STARS.map(([ra, dec, b]) => {
+    const p = southAt(ra, dec);
+    return new THREE.Vector3(p.x, p.y, b);
+  });
+  const sack = southAt(12.85, -62.5);
+  const cross = southAt(12.5, -60.1);
+  const rand = mulberry(11);
+  while (out.length < 56) {
+    const p = new THREE.Vector2((rand() - 0.5) * 2.2, 0.06 + rand() * 0.74).sub(SOUTH_POLE);
+    const b = rand() < 0.3 ? 0.6 : 0.35;
+    if (p.distanceTo(sack) > 0.07 && p.distanceTo(cross) > 0.08) out.push(new THREE.Vector3(p.x, p.y, b));
+  }
+  return out;
+}
+const SOUTH = southSky();
+/** Stood still this long (s), the water settles enough to show the bright ones; and this long, to say what they are. */
+const SETTLE = 3;
+const SOUTH_LINE = 22;
+
 interface Mirrored {
   src: THREE.Object3D;
   copy: THREE.Object3D;
@@ -254,6 +309,9 @@ export class LowWater {
   private specks: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>;
   private speckHome: Float32Array;
   private stir = 0;
+  /** How long you've stood still (s), and how much of the other sky the water's showing. */
+  private stillFor = 0;
+  private southShow = 0;
   private prints: Print[] = [];
   private rings: Ring[] = [];
   private rainFor = 0;
@@ -339,6 +397,15 @@ export class LowWater {
         uAhead: { value: new THREE.Vector2() },
         uBanks: { value: BANKS.map((b) => new THREE.Vector4(b.x, b.z, b.rx, b.rz)) },
         uBankH: { value: BANKS.map((b) => new THREE.Vector2(b.h, b.pool ? 1 : 0)) },
+        uSouth: { value: SOUTH },
+        uClouds: {
+          value: CLOUDS.map(([ra, dec, rx, ry]) => {
+            const p = southAt(ra, dec);
+            return new THREE.Vector4(p.x, p.y, rx / SOUTH_SCALE, ry / SOUTH_SCALE);
+          }),
+        },
+        uSouthPole: { value: SOUTH_POLE },
+        uSouthShow: { value: 0 },
       },
       vertexShader: /* glsl */ `
         varying vec3 vWorld;
@@ -365,6 +432,10 @@ export class LowWater {
         uniform vec2 uAhead; // where the camera's looking from (z), and how far ahead the mist starts
         uniform vec4 uBanks[${BANKS.length}];
         uniform vec2 uBankH[${BANKS.length}];
+        uniform vec3 uSouth[${SOUTH.length}];
+        uniform vec4 uClouds[${CLOUDS.length}];
+        uniform vec2 uSouthPole;
+        uniform float uSouthShow; // (0 walking … 1 stood still a while: the bright ones first)
         varying vec3 vWorld;
         varying vec2 vView;
         float bank(vec2 p) {
@@ -379,6 +450,28 @@ export class LowWater {
             h = max(h, y);
           }
           return h;
+        }
+        // the southern sky in the water, one texel a star (two by two the brightest), and the
+        // Clouds as a dither of faint texels
+        float south(vec2 s, float d) {
+          float lit = 0.0;
+          for (int i = 0; i < ${SOUTH.length}; i++) {
+            vec3 st = uSouth[i];
+            if (uSouthShow < 1.15 - st.z * 0.9) continue;
+            vec2 q = abs(s - st.xy) / uTexel;
+            float half_ = st.z > 0.9 ? 1.0 : 0.5;
+            if (q.x < half_ && q.y < half_) lit = max(lit, st.z);
+          }
+          if (uSouthShow > 0.75) {
+            for (int i = 0; i < ${CLOUDS.length}; i++) {
+              vec2 q = (s - uClouds[i].xy) / uClouds[i].zw;
+              float e = 1.0 - dot(q, q);
+              // (a scatter, not the dither's grid: a hash of the texel)
+              float h = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+              if (e > 0.0 && h < e * e * 0.55) lit = max(lit, 0.2);
+            }
+          }
+          return lit;
         }
         void main() {
           vec2 p = vWorld.xz;
@@ -399,6 +492,13 @@ export class LowWater {
           // past the last twig the bottom drops away: dark, cold water
           float deep = step(p.y, uDeep + sin(p.x * 0.7) * 0.6 + (d - 0.5) * 0.5);
           col = mix(col, col * vec3(0.48, 0.52, 0.66), deep);
+          if (uSouthShow > 0.0) {
+            // (narrow screens get the whole of it smaller, so the Cross still fits)
+            vec2 s = (vec2(vView.x / uView, a) - uSouthPole) / min(1.0, uAspect / 1.35);
+            float star = south(s, d) * step(0.03, over);
+            vec3 tint = star > 0.7 ? vec3(0.78, 0.8, 0.92) : star > 0.5 ? vec3(0.5, 0.54, 0.78) : star > 0.3 ? vec3(0.34, 0.38, 0.64) : vec3(0.2, 0.23, 0.42);
+            col = star > 0.0 ? max(col, tint) : col;
+          }
           // fog: the far water goes to mist, in dithered steps
           float ahead = uAhead.x - p.y;
           float f = clamp((ahead - uAhead.y) / 10.0, 0.0, 1.0) * uFog;
@@ -1118,6 +1218,7 @@ export class LowWater {
     this.under.constant = this.level;
     this.walk(dt);
     this.animateWalker(still);
+    this.settle(dt);
     this.near();
     this.ring(dt);
     this.rock(dt);
@@ -1246,7 +1347,27 @@ export class LowWater {
       const d = at.distanceTo(p);
       if (d < r && d < bestD) (best = id), (bestD = d);
     }
-    this.card = this.sitting ? 'bench' : best;
+    // nothing to be at, stood a long while, the sky clear: a line about the stars in the water
+    const south = !best && !this.sitting && this.stillFor > SOUTH_LINE && this.clear() > 0.6;
+    this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : null));
+  }
+
+  /** How clear the sky is: 1 a clear evening … 0 behind rain or fog. */
+  private clear() {
+    const o = this.outside;
+    return (1 - Math.min(1, o.rain * 1.5 + o.snow)) * (1 - o.fog * 0.85);
+  }
+
+  /**
+   * The other sky: stand still and the water settles, and shows the stars under your feet,
+   * the bright ones first, then the faint ones, then the Clouds. Walk on and it's gone at once.
+   */
+  private settle(dt: number) {
+    const still = this.speed < 0.05 && !this.goal && !this.writing && !this.sitting && !this.keys.size;
+    this.stillFor = still ? this.stillFor + dt : 0;
+    const want = THREE.MathUtils.clamp((this.stillFor - SETTLE) / 9, 0, 1);
+    this.southShow = want > this.southShow ? want : Math.max(want, this.southShow - dt / 0.6);
+    for (const mat of this.waters) mat.uniforms.uSouthShow.value = this.southShow * this.clear();
   }
 
   /** The stones: step up beside one and it sounds; it'll sound again once you've stepped away. */
@@ -1419,7 +1540,7 @@ export class LowWater {
     this.hemi.intensity = 1.7 * (1 - gloom * 0.25);
     this.sun.intensity = 1.25 * (1 - gloom * 0.6) * (1 - fog * 0.5);
     // stars: a few at first, more as you look up, gone behind rain or fog
-    const clear = (1 - Math.min(1, o.rain * 1.5 + o.snow)) * (1 - fog * 0.85);
+    const clear = this.clear();
     this.starMat.uniforms.uShow.value = (0.45 + this.lean * 0.55) * clear;
     this.starMat.uniforms.uTime.value = this.time;
     // the shapes drawn in, faintly, once you've been looking a while

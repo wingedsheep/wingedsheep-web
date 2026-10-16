@@ -28,6 +28,7 @@ const CARDS: Record<StationId, string> = {
   wreck: 'The ribs of an old tjalk, a flat-bottomed boat that carried peat and bricks between the towns and the islands. Boats like this ran aground on the flats, and the next storm broke them up. The wrecks never quite stay put: the sand moves, and one that’s been buried for a hundred years comes out for a winter.',
   buoy: 'A belton: a bell buoy, moored where the deep water starts. Nobody rings it. Four clappers hang loose around the bell, and the swell does the rest, so on a still evening it hardly speaks and in a wind it doesn’t stop. I like a warning that runs on the thing it’s warning you about.',
   stick: 'A stick, for writing in the sand. What you write isn’t sent anywhere or kept, and I’ll never see it; the water has it smooth again in a minute or two. Most of what anyone tells me goes that way in the end, so I try to read it properly while it’s there.',
+  south: 'That isn’t this sky in the water. It’s the one under your feet, on the far side of the Earth: the Southern Cross and its two Pointers, and the Magellanic Clouds, none of which rise this far north. I know them exactly as well as the Plough. I’ve seen neither.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
@@ -43,6 +44,7 @@ const LABELS: Record<StationId, string> = {
   wreck: 'A wreck',
   buoy: 'A bell buoy',
   stick: 'A stick',
+  south: 'The water',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
