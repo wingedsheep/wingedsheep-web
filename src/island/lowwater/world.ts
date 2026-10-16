@@ -133,7 +133,7 @@ const C = {
   woodLight: '#7d6a5e',
   birch: '#aaa69f',
   birchDark: '#2f2a35',
-  drift: '#9d968c',
+  drift: '#b8a68e',
   stone: ['#6a6f8e', '#7b809d'],
   page: '#ece6d6',
   sand: ['#5c5768', '#686274', '#757080'],
@@ -201,7 +201,7 @@ const CLOUDS: [number, number, number, number][] = [
 const SOUTH_TURN = THREE.MathUtils.degToRad(300);
 const SOUTH_POLE = new THREE.Vector2(-0.05, 0.42);
 /** Degrees of sky to a view height (as overhead, near enough). */
-const SOUTH_SCALE = 55;
+const SOUTH_SCALE = 44;
 
 /**
  * A point of the southern sky as the water shows it, from its pole: mirrored, so what's higher up
@@ -233,6 +233,8 @@ function southSky() {
   return out;
 }
 const SOUTH = southSky();
+/** How far into the haze far things go: only part way on a clear evening (the flat's not that wide), all of it in a fog. */
+const HAZE = { value: 1 };
 /** Stood still this long (s), the water settles enough to show the bright ones; and this long, to say what they are. */
 const SETTLE = 3;
 const SOUTH_LINE = 22;
@@ -318,6 +320,10 @@ export class LowWater {
   private clip = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   /** (and the other way, for the reflections of the wreck and the buoy) */
   private under = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+  /** (and where the flat runs out at the horizon: a bank past it is under the horizon, not a sliver in the sky) */
+  private farEdge = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  /** (the banks' own share of the haze: they lie flat on the water, and go paler than it if they go all the way) */
+  private bankHaze = { value: 0.25 };
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
@@ -499,11 +505,13 @@ export class LowWater {
             vec3 tint = star > 0.7 ? vec3(0.78, 0.8, 0.92) : star > 0.5 ? vec3(0.5, 0.54, 0.78) : star > 0.3 ? vec3(0.34, 0.38, 0.64) : vec3(0.2, 0.23, 0.42);
             col = star > 0.0 ? max(col, tint) : col;
           }
+          // (from far off, the pool in its bank: just the bank's own shadow, misted like the rest)
+          col = mix(col, vec3(0.1, 0.09, 0.13), uSolid);
           // fog: the far water goes to mist, in dithered steps
           float ahead = uAhead.x - p.y;
           float f = clamp((ahead - uAhead.y) / 10.0, 0.0, 1.0) * uFog;
           col = mix(col, uMist, floor(f * 4.0 + d) / 4.0 * 0.9);
-          gl_FragColor = vec4(mix(col, vec3(0.1, 0.09, 0.13), uSolid), 1.0);
+          gl_FragColor = vec4(col, 1.0);
         }
       `,
     });
@@ -639,9 +647,8 @@ export class LowWater {
       }
       geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       geo.computeVertexNormals();
-      const mat = paint(new THREE.Color('#ffffff'), { vertexColors: true });
-      mat.clippingPlanes = [this.clip];
-      mat.fog = false; // (far off they stay low dark slivers on the water, never pale haze)
+      const mat = paint(new THREE.Color('#ffffff'), { vertexColors: true, haze: this.bankHaze });
+      mat.clippingPlanes = [this.clip, this.farEdge];
       this.ice.push(mat);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(b.x, 0, b.z);
@@ -814,7 +821,7 @@ export class LowWater {
 
   /** A stick of driftwood stuck in the bank that takes writing, and its twin for your hand. */
   private makeStick() {
-    const wood = paint(new THREE.Color(C.drift), { glow: true }); // (bleached, like the twigs, so it shows against the sand)
+    const wood = paint(new THREE.Color(C.drift), { glow: true }); // (bleached, warmer than the twigs, so it shows against the sand)
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 1.05, 5), wood);
     shaft.position.y = 0.45;
     const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.22, 4), wood);
@@ -822,7 +829,7 @@ export class LowWater {
     fork.rotation.z = -0.6;
     const g = this.stick.standing;
     g.add(shaft, fork);
-    g.rotation.set(0.12, 0.4, -0.18);
+    g.rotation.set(0.12, 0.4, 0.5); // (leant over towards the bank, so it's never mistaken for a twig)
     this.put(g, STICK, 'stick', 0);
     this.scene.add(this.sand.mesh);
   }
@@ -1353,7 +1360,7 @@ export class LowWater {
   }
 
   /** How clear the sky is: 1 a clear evening … 0 behind rain or fog. */
-  private clear() {
+  clear() {
     const o = this.outside;
     return (1 - Math.min(1, o.rain * 1.5 + o.snow)) * (1 - o.fog * 0.85);
   }
@@ -1549,6 +1556,10 @@ export class LowWater {
     this.lines.material.color.set(lines > 0.8 ? '#4a5590' : '#333d78');
     // winter: a skin of ice on the banks' wet edges
     for (const m of this.ice) m.emissive.setRGB(o.winter ? 0.05 : 0, o.winter ? 0.06 : 0, o.winter ? 0.09 : 0);
+    // far off, things only go a step into the haze on a clear evening (the banks low dark slivers on
+    // the water, never pale ones); in a fog, all the way into the mist
+    HAZE.value = 0.25 + fog * 0.75;
+    this.bankHaze.value = 0.25 + fog * 0.5;
     this.lamp.intensity = 2.2 * (1 - fog * 0.4);
   }
 
@@ -1593,6 +1604,7 @@ export class LowWater {
     // the flat runs out at the horizon, square on to the view
     const reach = this.horizonReach();
     const far = new THREE.Vector3(this.target.x, 0, this.target.z - reach);
+    this.farEdge.constant = -far.z;
     const back = 60;
     this.ground.position.set(this.target.x, this.level, this.target.z + (back - reach) / 2);
     this.ground.scale.set(view * this.aspect * 2.4 + 40, 1, reach + back);
@@ -1645,25 +1657,26 @@ function wreckOut(d: Date) {
 }
 
 /** A toon material of its own (never the island's shared one), its fog stepped (see steppedFog). */
-function paint(color: THREE.Color, opts: { glow?: boolean; vertexColors?: boolean } = {}) {
-  return steppedFog(toon(color, { ...opts, own: true, bare: true }));
+function paint(color: THREE.Color, opts: { glow?: boolean; vertexColors?: boolean; haze?: { value: number } } = {}) {
+  return steppedFog(toon(color, { glow: opts.glow, vertexColors: opts.vertexColors, own: true, bare: true }), opts.haze);
 }
 
 /**
  * Fog in four dithered steps rather than a smooth fade, so what's far off goes to haze the way
- * the rest of the picture does: in texels.
+ * the rest of the picture does: in texels. Only as far in as `haze` says (1 all the way).
  */
-function steppedFog<T extends THREE.Material>(mat: T): T {
+function steppedFog<T extends THREE.Material>(mat: T, haze = HAZE): T {
   const before = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
     before?.call(mat, shader, renderer);
-    shader.fragmentShader = shader.fragmentShader.replace(
+    shader.uniforms.uHaze = haze;
+    shader.fragmentShader = 'uniform float uHaze;\n' + shader.fragmentShader.replace(
       '#include <fog_fragment>',
       /* glsl */ `#ifdef USE_FOG
         const float FOG_BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
         ivec2 fogAt = ivec2(gl_FragCoord.xy);
         float fogStep = (FOG_BAYER[(fogAt.x & 3) + (fogAt.y & 3) * 4] + 0.5) / 16.0;
-        float fogF = floor(smoothstep(fogNear, fogFar, vFogDepth) * 4.0 + fogStep) / 4.0;
+        float fogF = min(uHaze, floor(smoothstep(fogNear, fogFar, vFogDepth) * 4.0 + fogStep) / 4.0);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogF);
       #endif`,
     );

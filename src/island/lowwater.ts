@@ -236,7 +236,8 @@ export class LowWaterRoom implements RoomInput {
 
   private showCard(world: World) {
     const id = world.card;
-    const more = world.sitting && world.satFor > SECOND_LINE;
+    // (the line about the W only when there's a W to see)
+    const more = world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6;
     if (id === this.shown && more === this.shownMore && this.sitButton.hidden === !(id === 'bench' && !world.sitting)) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {

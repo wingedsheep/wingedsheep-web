@@ -4,10 +4,24 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **Polish pass 1** (walked the whole flat clear, in fog, in rain and on a phone; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-polish-1/, and the walk itself is a reusable script,
+  loop-runs/walk-lowwater.mjs: `node walk-lowwater.mjs <outdir> "?weather=fog" 1280x800 fog`). Fixed:
+  banks past the flat's far edge drew as thin dark slivers floating in the sky (now clipped at the
+  horizon, `farEdge`); on a clear evening far things went ghost-pale in the stepped haze (the buoy a
+  white outline, the bench and table hollow pale boxes); now the haze only goes one step in on a
+  clear evening and all the way in a fog (`HAZE`), so distance reads as distance, not as ghosts; in
+  fog, far banks now go into the mist too (they stayed solid dark), but only half way (`bankHaze`),
+  so they never go whiter than the water; the far pool's dark hollow is misted with its bank; the
+  stick leans over and is warmer than the birch, so it's never taken for a twig; the southern sky
+  is a little larger (SOUTH_SCALE 55 → 44: the Cross is now a kite about 110 px across on a
+  laptop, at the right, with the Pointers below it); sitting on the bench in rain or fog, the line
+  about Cassiopeia no longer comes when there are no stars to see. Read every card against
+  VISION.md; they hold, nothing cut.
 - **The other sky** ("the stars under your feet"): stand still anywhere on the flat and the water
   settles and shows a sky, but not this one: the southern sky, the one on the far side of the Earth.
   The Southern Cross, the Pointers (Alpha and Beta Centauri), Achernar, Miaplacidus, Atria, laid out
@@ -73,25 +87,16 @@ Additions since the last polish pass: 4 (a polish pass is due when this reaches 
 
 ## Known issues
 
-- The Southern Cross in the water is small (a kite of three 2×2 stars and one single texel, about
-  60 px across on a laptop) and a bank can sit over part of it, depending on where you stand. It
-  reads once you know it; check on the polish pass whether it wants to be a little larger.
-- On a phone the whole southern sky is shrunk to fit, so the Cross is tiny there.
-- From the bank where you write, the table far out reads as a pale white outline in the haze (its
-  near side is lit, the rest goes to the stepped fog's palest step); same family as the wreck's
-  pale far end, but more noticeable. Look at it on the polish pass.
-- The stick is a thin pale tick from the route; it's found by walking or hovering, which is meant,
-  but check it doesn't read as just another twig.
+- On a phone the whole southern sky is shrunk to fit, so the Cross is tiny there, and usually
+  half under a bank.
+- From near the end of the route, a far bank can sit right on the horizon as a dark sliver: it's a
+  real bank just inside the flat's edge, and reads as one, but it's the darkest thing out there.
+- The buoy's reflection is paler than the buoy (the reflection is unlit, the buoy toon-shaded dark
+  from behind). Much better since the haze cap, still a little off from far away.
 - The writing bank keeps the line dry at high tide, so the tide only takes the ends; the water
   "seeping in" is what smooths the middle.
-- The buoy's reflection goes pale in the stepped haze (it sits near the horizon), so it reads a
-  little lighter than the buoy itself; same cause as the wreck's pale far end.
 - The bell buoy's toll has never been listened to by a person (two ElevenLabs takes, checked only
   by spectrogram).
-- In fog, a sandbank right at the horizon on the left stays dark against the mist (seen from near the
-  wreck); it should go to haze like everything else that far out.
-- Far ends of the wreck go pale in the stepped haze while the near end is black; it reads as distance,
-  but check it on the next walk.
 - Sound (water wash, stone notes, footsteps) has never been listened to by a person.
 - Winter ice on the banks is only a faint tint.
 - `just check` can't run (`astro check` refuses TypeScript 7); use `npx tsc --noEmit`, where one old
