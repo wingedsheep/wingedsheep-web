@@ -1416,6 +1416,29 @@ export class Sound {
     src.start(t, Math.random() * 1.5, 0.3);
   }
 
+  /** A footstep onto laid shells: a few small dry clicks as they shift against each other (and, close up on a phone, felt). */
+  shellStep() {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    navigator.vibrate?.(6);
+    const ctx = this.ctx;
+    const clicks = 2 + Math.floor(Math.random() * 2);
+    for (let k = 0; k < clicks; k++) {
+      const t = ctx.currentTime + k * (0.018 + Math.random() * 0.03);
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 3200 + Math.random() * 2200;
+      band.Q.value = 3;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.05, t + 0.002);
+      env.gain.setTargetAtTime(0, t + 0.004, 0.012);
+      src.connect(band).connect(env).connect(this.master);
+      src.start(t, Math.random() * 1.5, 0.08);
+    }
+  }
+
   /** A stick drawn through damp sand: a short dry scrape, two strokes to a letter. */
   sandScratch() {
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;

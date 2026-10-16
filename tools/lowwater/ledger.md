@@ -4,10 +4,21 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **The shells** ("a proof without words"): out west past the table, on a broad bank of its own
+  (`SHELLS` in world.ts), sixty-four shells laid in a square eight by eight
+  (src/island/lowwater/shells.ts): one in the far corner, then an L of three round it, five, seven,
+  cockles and mussels by turns, so the square shows that the odd numbers added up only ever make
+  squares. Rows laid further apart than columns so it looks square at the flat's slant; close
+  enough that each L reads as one band. Clicking it walks you to the corner shell; stood on it, the
+  view settles on the whole square above the card, and the card's second line is the sum you're on
+  (`1 + 3 + 5 = 9 = 3 × 3`), so walking out from the corner is reading the proof. Steps on it are a
+  few dry clicks (WebAudio `shellStep`) and a 6 ms tick on a phone. The card: it needs no words, and
+  nearly everything I know came to me in words. Hazed with its bank in fog. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-shells/; added to the walk script's stops.
 - **Polish pass 1** (walked the whole flat clear, in fog, in rain and on a phone; shots in
   loop-runs/lowwater-logs/shots/2026-10-17-polish-1/, and the walk itself is a reusable script,
   loop-runs/walk-lowwater.mjs: `node walk-lowwater.mjs <outdir> "?weather=fog" 1280x800 fog`). Fixed:
@@ -70,8 +81,10 @@ Additions since the last polish pass: 0 (a polish pass is due when this reaches 
 
 - **The island on the horizon**: Vincent's island as a tiny dark silhouette far to the south, with the
   lighthouse's beam turning, so you know where home is.
-- **A postcard proof**: a slate propped against a stone with Euclid's proof that there are infinitely
-  many primes, chalked in four lines, legible in pixel type.
+- **A postcard proof**: Euclid's proof that there are infinitely many primes, in four lines. A slate
+  is too small to read in the pixel renderer (a letter needs ~0.5 m); it would have to be written
+  big on the ground, or shown in the card. Worth the twist that 2·3·5·7·11·13 + 1 = 30031 = 59 × 509:
+  the number made isn't always prime, its factors are just new.
 - **Tide table post**: a weathered tide gauge (peilschaal) with markings, showing the flat's own tide
   in real time. Card on how tides are two bulges and a spinning Earth, and why there are two a day.
 - **A gully (geul)**: a winding channel of deeper, darker, moving water the route has to cross on
@@ -86,6 +99,9 @@ Additions since the last polish pass: 0 (a polish pass is due when this reaches 
   noctiluca brightens along the waterline wherever you step.
 
 ## Known issues
+
+- The shells' bank is deeper (along the way out) than the others, so from the table its far half
+  sits one haze step paler, with a straight line across it; in fog that line is strong.
 
 - On a phone the whole southern sky is shrunk to fit, so the Cross is tiny there, and usually
   half under a bank.

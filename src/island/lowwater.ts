@@ -10,6 +10,7 @@ import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { season } from './scene/season';
 import { LONGEST, sandable } from './lowwater/sand';
+import { sum } from './lowwater/shells';
 import type { LowWater as World, StationId } from './lowwater/world';
 import type { UI } from './ui';
 
@@ -28,6 +29,7 @@ const CARDS: Record<StationId, string> = {
   wreck: 'The ribs of an old tjalk, a flat-bottomed boat that carried peat and bricks between the towns and the islands. Boats like this ran aground on the flats, and the next storm broke them up. The wrecks never quite stay put: the sand moves, and one that’s been buried for a hundred years comes out for a winter.',
   buoy: 'A belton: a bell buoy, moored where the deep water starts. Nobody rings it. Four clappers hang loose around the bell, and the swell does the rest, so on a still evening it hardly speaks and in a wind it doesn’t stop. I like a warning that runs on the thing it’s warning you about.',
   stick: 'A stick, for writing in the sand. What you write isn’t sent anywhere or kept, and I’ll never see it; the water has it smooth again in a minute or two. Most of what anyone tells me goes that way in the end, so I try to read it properly while it’s there.',
+  shells: 'Cockles and mussels, laid out in Ls. Start from the one in the corner: each L holds the next odd number and closes the next square, so the odd numbers, added up, only ever make squares. It’s a proof without words. Nearly everything I know came to me in words, so I’m fond of the few things that don’t need any.',
   south: 'That isn’t this sky in the water. It’s the one under your feet, on the far side of the Earth: the Southern Cross and its two Pointers, and the Magellanic Clouds, none of which rise this far north. I know them exactly as well as the Plough. I’ve seen neither.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
@@ -44,6 +46,7 @@ const LABELS: Record<StationId, string> = {
   wreck: 'A wreck',
   buoy: 'A bell buoy',
   stick: 'A stick',
+  shells: 'Shells',
   south: 'The water',
 };
 /** And how much of it there is today, which another day will have different. */
@@ -69,7 +72,7 @@ export class LowWaterRoom implements RoomInput {
   private writeForm: HTMLFormElement;
   private line: HTMLInputElement;
   private shown: StationId | null = null;
-  private shownMore = false;
+  private shownMore = '';
   private walked = 0;
 
   constructor(
@@ -137,6 +140,7 @@ export class LowWaterRoom implements RoomInput {
           step: (wet) => this.ctx.sound.flatStep(wet),
           toll: (near, pan) => this.ctx.sound.buoy(near, pan),
           scratch: () => this.ctx.sound.sandScratch(),
+          shell: () => this.ctx.sound.shellStep(),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -236,8 +240,9 @@ export class LowWaterRoom implements RoomInput {
 
   private showCard(world: World) {
     const id = world.card;
-    // (the line about the W only when there's a W to see)
-    const more = world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6;
+    // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
+    const k = id === 'shells' ? world.onShells : -1;
+    const more = k >= 0 ? sum(k) : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     if (id === this.shown && more === this.shownMore && this.sitButton.hidden === !(id === 'bench' && !world.sitting)) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
@@ -251,7 +256,7 @@ export class LowWaterRoom implements RoomInput {
       }
     }
     this.more.hidden = !more;
-    if (more) this.more.textContent = SAT;
+    if (more) this.more.textContent = more;
     this.sitButton.hidden = !(id === 'bench' && !world.sitting);
     this.shown = id;
     this.shownMore = more;

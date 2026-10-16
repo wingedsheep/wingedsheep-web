@@ -15,8 +15,9 @@ import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { Sand } from './sand';
+import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'south';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -37,6 +38,8 @@ export interface Hooks {
   toll?(near: number, pan: number): void;
   /** The stick, scratching a letter into the sand. */
   scratch?(): void;
+  /** A footstep onto the shells. */
+  shell?(): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -85,6 +88,8 @@ const FLASH_ON = 2;
 const SAND = { x: -9.5, z: -51, rx: 11, rz: 2.6, h: 0.13 };
 const LINE = new THREE.Vector2(-9.75, -51.77);
 const STICK = new THREE.Vector2(-2.6, -50.4);
+/** The shells' square, out west past the table on a broad bank of its own. */
+const SHELLS = new THREE.Vector2(-19, -79);
 
 /** Low banks of sand: middle, half-sizes, height, and whether there's a pool in the top. */
 const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: boolean }[] = [
@@ -99,6 +104,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   { x: -16, z: -12, rx: 6, rz: 1.56, h: 0.065 },
   { x: -18, z: -62, rx: 5, rz: 1.3, h: 0.06 },
   SAND,
+  { x: SHELLS.x, z: SHELLS.y, rx: 5, rz: 6, h: 0.1 },
 ];
 const POOL_R = 0.42; // the pool's share of its bank
 /** The pool's own water, held up in the bank whatever the tide's doing (m), and how far out it reaches. */
@@ -324,6 +330,8 @@ export class LowWater {
   private farEdge = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
   /** (the banks' own share of the haze: they lie flat on the water, and go paler than it if they go all the way) */
   private bankHaze = { value: 0.25 };
+  // (hazed as their bank is, so they never go paler than the sand they're on)
+  private shells = new Shells(SHELLS, (x, z) => Math.max(0, bankAt(x, z)), steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(23));
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
@@ -357,6 +365,10 @@ export class LowWater {
     this.makeWalker();
     this.makeStations();
     this.makeStick();
+    (this.shells.mesh.material as THREE.Material).clippingPlanes = [this.farEdge];
+    this.shells.mesh.userData.id = 'shells';
+    this.scene.add(this.shells.mesh);
+    this.pickables.push(this.shells.mesh);
     this.specks = this.makePool();
     this.speckHome = (this.specks.geometry.attributes.position.array as Float32Array).slice();
     this.makePrints();
@@ -1090,12 +1102,13 @@ export class LowWater {
     const p = new THREE.Vector3();
     if (id) {
       const obj = this.pickables.find((o) => o.userData.id === id)!;
-      const at = obj.getWorldPosition(new THREE.Vector3());
+      // (the shells: to the one in the corner, where the proof starts)
+      const at = id === 'shells' ? new THREE.Vector3(this.shells.corner.x, 0, this.shells.corner.y) : obj.getWorldPosition(new THREE.Vector3());
       const station = (id.startsWith('stone:') ? 'ring' : id) as StationId;
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
       this.clicked = { id: station, at: new THREE.Vector2(at.x, at.z) };
-      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
+      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' ? 0 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
     if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.level), p)) this.walkTo(p, 0);
@@ -1110,6 +1123,11 @@ export class LowWater {
     }
     this.goal = new THREE.Vector3(p.x, 0, p.z);
     this.goalStop = stop;
+  }
+
+  /** Which of the shells' Ls you're stood in, or -1. */
+  get onShells() {
+    return this.shells.which(this.pos.x, this.pos.z);
   }
 
   /** Whether you're off writing in the sand. */
@@ -1344,7 +1362,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1471,7 +1489,8 @@ export class LowWater {
     p.mesh.rotation.y = this.heading;
     p.mesh.visible = true;
     p.age = 0;
-    this.hooks.step?.(bankAt(x, z) < this.level);
+    if (this.shells.which(x, z) >= 0) this.hooks.shell?.();
+    else this.hooks.step?.(bankAt(x, z) < this.level);
   }
 
   /** Each print fills with water and fades: dark, then the water's blue, then gone. */
@@ -1579,6 +1598,8 @@ export class LowWater {
     // you in the lower part of the picture, more of the flat ahead
     const lead = (view * 0.16) / Math.sin(ELEVATION);
     const want = new THREE.Vector3(this.pos.x + this.pan.x, 0, this.pos.z - lead + this.pan.y);
+    // stood on the shells, the view settles on the whole square, above the card
+    if (this.onShells >= 0 && !this.sitting) want.set(SHELLS.x, 0, SHELLS.y + 2.5);
     if (dt) this.target.lerp(want, 1 - Math.exp(-dt * 2.2));
     else this.target.copy(want);
     // looking up: an ease from the flat into the sky
