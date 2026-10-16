@@ -48,7 +48,11 @@ SUMMIT = (5.0, 18.6)
 # The peak rises from the upper terrace: centre, radius, height of the top ledge
 PEAK = ((5.0, 18.6), 6.0, 13.5)
 KAYAK = (2.6, -24)
-KAYAK_LOOP = ((9.0, -27.0), 6.0, 3.5)  # where Vincent paddles about: the middle, and the radii east-west and north-south
+KAYAK_LOOP = ((9.0, -27.0), 6.0, 3.5)
+# A line of birch twigs on the strip of beach under the north cliffs, out of sight behind them
+# from the default camera, leading off into the sea (to Low Water: src/island/lowwater.ts); only
+# the lantern on the last one might show over the island's back, at night
+PRICKEN = [(-4.7, 20.5), (-4.5, 21.4), (-4.2, 22.3), (-3.8, 23.2), (-3.3, 24.1), (-2.7, 25.0), (-2.1, 25.9)]  # where Vincent paddles about: the middle, and the radii east-west and north-south
 MEDITATE = (-27.6, -6.6)           # his cushion on the grass below the lighthouse rock, looking out to sea
 YOGA = (9.0, -14.2)                # his yoga mat on the grass above the beach east of the pier; hers is just east of it
 # Up the mountain: from the foot of the trail at the plaza, up the stairs and the switchbacks to

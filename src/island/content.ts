@@ -37,7 +37,7 @@ import type { Weather } from './scene/weather';
 import type { Radio } from './radio';
 import type { Sound } from './sound';
 
-export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'hut' | 'campfire' | 'trail' | 'river' | 'places' | 'journal';
+export type PanelName = 'library' | 'workshop' | 'lighthouse' | 'hut' | 'campfire' | 'trail' | 'river' | 'lowwater' | 'places' | 'journal';
 
 export interface IslandContext {
   island: Island;
@@ -95,6 +95,7 @@ export const SECRETS = {
   magic: { title: 'An unfinished game', hint: 'Someone left in the middle of their turn.' },
   kayak: { title: 'Wet paddles', hint: 'Check the water by the dock.' },
   river: { title: 'Wild water', hint: 'The kayak goes further than round the pier.' },
+  pricken: { title: 'Low Water', hint: 'Some nights there’s a light far out on the water that isn’t a boat.' },
   ufo: { title: 'Unidentified', hint: 'Only at night. Only for a moment.' },
   moons: { title: 'Two moons', hint: 'Count the moons in the sea at night.' },
   piano: { title: 'Two originals', hint: 'Not all the music on the island is played outdoors.' },
@@ -1278,6 +1279,18 @@ export const PLACES: Record<string, Place> = {
         ? 'Masking tape inside the cockpit, a list in marker, most of it peeled away. Only the top line is left: “start gentle.” Take it downriver?'
         : 'The seat is still wet. There’s a river on the other side of the hill. Take the kayak down it?';
       ctx.ask(note, [{ label: 'Paddle', pick: () => ctx.openPanel('river') }, { label: 'Later' }]);
+    },
+  },
+  // on the beach under the north cliffs, out of the way: a way out across the shallows to
+  // somewhere that isn't Vincent's (src/island/lowwater.ts)
+  pricken: {
+    label: 'Birch twigs',
+    activate(ctx) {
+      ctx.discover('pricken');
+      ctx.ask('A line of birch twigs runs out into the shallows, further than the tide should allow. Someone marked a way across.', [
+        { label: 'Follow them', pick: () => ctx.openPanel('lowwater') },
+        { label: 'Later' },
+      ]);
     },
   },
   vincent_kayak: {

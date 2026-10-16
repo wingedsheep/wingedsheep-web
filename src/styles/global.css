@@ -774,6 +774,42 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .exhibit-card, .exhibit-card.beside, .exhibit-card.beside.to-left { position: fixed; left: 8px; right: 8px; top: auto; bottom: 64px; width: auto; max-height: 62vh; overflow-y: auto; transform: none; animation-name: sheet-in; }
 }
 
+/* --- Low Water: out on the flat (src/island/lowwater.ts) ------------------------------------ */
+.lowwater { position: absolute; inset: 0; z-index: 5; pointer-events: none; font-family: var(--ui); }
+.island-page:has(.lowwater:not([hidden])) :is(.brand, .hud, .hint) { display: none; }
+.lowwater .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.lowwater-back {
+  position: absolute; top: 12px; left: 12px; padding: 5px 12px 7px; border: 0; pointer-events: auto; cursor: pointer;
+  font: 15px var(--ui); color: #dfe3f4; background: rgba(20, 24, 54, 0.62); clip-path: var(--notch);
+}
+.lowwater-back:hover, .lowwater-back:focus-visible { color: #fff; background: rgba(20, 24, 54, 0.85); outline: none; }
+.lowwater-card {
+  position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); width: min(460px, calc(100vw - 32px));
+  padding: 14px 20px 14px; background: rgba(18, 21, 48, 0.82); color: #e9e6f2; clip-path: var(--notch);
+  box-shadow: inset 0 0 0 2px rgba(150, 160, 210, 0.35); pointer-events: auto; animation: lowwater-in 0.6s ease-out;
+}
+@keyframes lowwater-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+.lowwater-card p { margin: 0; font: 17px/1.5 var(--serif); white-space: pre-line; }
+.lowwater-card .lowwater-more { margin-top: 10px; color: #c4c9e6; font-style: italic; animation: lowwater-in 1.2s ease-out; }
+.lowwater-sit {
+  margin-top: 10px; padding: 4px 16px 6px; border: 0; cursor: pointer; font: 700 15px var(--ui); clip-path: var(--notch);
+  background: #f0b088; color: var(--ink); box-shadow: inset 0 -3px 0 #c07e5e;
+}
+.lowwater-sit:hover { background: #f6c3a2; }
+.lowwater-hint {
+  position: absolute; bottom: 10px; right: 14px; margin: 0; font: 13px var(--ui); color: rgba(220, 225, 245, 0.55);
+  transition: opacity 1.5s;
+}
+.lowwater-hint.gone { opacity: 0; }
+@media (max-width: 700px) {
+  .lowwater-card { bottom: 16px; padding: 12px 16px; }
+  .lowwater-card p { font-size: 16px; }
+  .lowwater-hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lowwater-card, .lowwater-card .lowwater-more { animation: none; }
+}
+
 /* --- wild water: the river's HUD and cards (src/island/river.ts) ---------------------------- */
 .river { position: absolute; inset: 0; z-index: 5; pointer-events: none; font-family: var(--ui); }
 .island-page:has(.river:not([hidden])) :is(.brand, .hud, .hint) { display: none; }

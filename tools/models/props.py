@@ -63,6 +63,28 @@ def kayak(root):
     m.build(root)
 
 
+def pricken(root, twigs):
+    """Birch twigs stuck in the sand and the shallows, marking a way across: (x, y, z) of each
+    one's foot from the first's, and how tall it stands. Thin as driftwood; the last one out has
+    a small lantern on it, lit only after dark."""
+    m = Model("pricken", seed=23)
+    for i, (x, y, z, h) in enumerate(twigs):
+        m.cyl(0.035, h, (x, y, z), BIRCH if i % 2 else BIRCH_DARK, segs=4, r_top=0.022,
+              rot=(m.rng.uniform(-0.08, 0.08), m.rng.uniform(-0.08, 0.08), 0))
+        # a couple of twiglets left on at the top, splayed
+        for _ in range(2):
+            a = m.rng.uniform(0, math.tau)
+            top = z + h
+            m.plank_line((x, y, top - 0.1), (x + math.cos(a) * 0.14, y + math.sin(a) * 0.14, top + 0.05), 0.02, 0.02, BARK_TIP)
+    x, y, z, h = twigs[-1]
+    m.box((0.07, 0.07, 0.09), (x, y, z + h + 0.04), P.IRON)
+    m.build(root)
+    light(root, (x, y, z + h + 0.1), P.WARM_LIGHT, 1.6, intensity=0.35)
+
+
+BIRCH, BIRCH_DARK, BARK_TIP = "#e6e0d2", "#c9c2b2", "#5c4a3e"
+
+
 def signpost(root):
     m = Model("signpost")
     m.cyl(0.1, 2.6, (0, 0, 0), P.WOOD_DARK, segs=6)

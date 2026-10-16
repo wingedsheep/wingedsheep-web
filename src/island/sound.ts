@@ -209,6 +209,10 @@ export class Sound {
   private rush?: { gain: GainNode; filter: BiquadFilterNode };
   private falls?: { roar: GainNode; air: BiquadFilterNode; deep: GainNode; throb: OscillatorNode; depth: GainNode; synth: GainNode; recorded: boolean };
   private atRiver = false;
+  /** Out on Low Water (src/island/lowwater/): as far from the island's sounds as the river is. */
+  private atFlat = false;
+  /** Shallow water and air out on the flat. */
+  private flat?: { gain: GainNode; filter: BiquadFilterNode };
   /** How rough the river is where you are: birdsong along the banks drowns in the rapids. */
   private riverRough = 0;
   /** Set every frame by the weather, 0..1 each. */
@@ -370,9 +374,14 @@ export class Sound {
     gestures.forEach((type) => window.addEventListener(type, unlock, true));
   }
 
+  /** Away from the island altogether: down the river, or out on the flat. */
+  private get away() {
+    return this.atRiver || this.atFlat;
+  }
+
   /** Out on the island, where its animals can be heard (not indoors, not away on the river). */
   get outdoors() {
-    return !this.indoors && !this.atRiver && !this.diorama;
+    return !this.indoors && !this.away && !this.diorama;
   }
 
   /** The song you can currently hear, if you're close enough to hear one. */
@@ -982,7 +991,7 @@ export class Sound {
 
   /** The siren, each frame: open it up, follow `siren` up and down, and let it go when it's done. */
   private sounding(t: number, walls: number) {
-    const k = this.enabled && !this.atRiver ? this.siren : 0;
+    const k = this.enabled && !this.away ? this.siren : 0;
     if (k > 0 && !this.wail) this.wail = this.buildSiren();
     const w = this.wail;
     if (!w) return;
@@ -1030,7 +1039,7 @@ export class Sound {
    * after. `delay` is how long its sound takes to get here; `volume` falls off with distance.
    */
   firework(kind: 'launch' | 'burst' | 'crackle', volume: number, pan = 0, delay = 0) {
-    if (!this.enabled || this.atRiver) return;
+    if (!this.enabled || this.away) return;
     const walls = this.indoors || this.diorama ? 0.35 : 1;
     this.play(`fw-${kind}`, volume * walls, { air: this.indoors ? 1500 : 3000 + volume * 15000, pan, delay });
   }
@@ -1116,7 +1125,7 @@ export class Sound {
     const tune = this.tune;
     const other = this.playing || this.piano || (this.record && !this.record.stopping) || (this.lp && !this.lp.stopping)
       || this.reel?.going || this.telly || this.film || this.radio;
-    const level = tune && this.enabled && !other && !this.atRiver && !this.diorama ? tune.level : 0;
+    const level = tune && this.enabled && !other && !this.away && !this.diorama ? tune.level : 0;
     if (!this.score) {
       if (!tune || level <= 0.01) return;
       const air = this.ctx!.createBiquadFilter();
@@ -1288,6 +1297,88 @@ export class Sound {
       w.tone.frequency.setTargetAtTime(3000 + rough * 15000, t, 0.8);
     }
     this.fallsAhead(on ? roar : 0, near);
+  }
+
+  // --- Low Water ------------------------------------------------------------------------
+
+  /**
+   * Out on the flat (src/island/lowwater/): the island's sea and fire fall away, and all that's
+   * left is a hush of air over very shallow water, a little brighter and louder in a wind. The
+   * weather still comes along.
+   */
+  lowWater(on: boolean, wind = 0) {
+    this.atFlat = on;
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    if (!this.flat) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      src.loop = true;
+      const low = ctx.createBiquadFilter();
+      low.type = 'highpass';
+      low.frequency.value = 140;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 600;
+      filter.Q.value = 0.3;
+      // breathing in and out, very slowly
+      const swell = ctx.createGain();
+      swell.gain.value = 0.75;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 0.06;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.25;
+      lfo.connect(depth).connect(swell.gain);
+      lfo.start();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      src.connect(low).connect(filter).connect(swell).connect(gain).connect(this.master);
+      src.start();
+      this.flat = { gain, filter };
+    }
+    const t = ctx.currentTime;
+    this.flat.gain.gain.setTargetAtTime(on ? 0.09 + wind * 0.1 : 0, t, on ? 1.5 : 0.3);
+    this.flat.filter.frequency.setTargetAtTime(480 + wind * 900, t, 1);
+  }
+
+  /** One of the stones in the ring out on the flat: a sine and a soft overtone, ringing on a long while. */
+  stone(freq: number, volume = 1) {
+    if (!this.enabled || !this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.11 * volume, t + 0.03);
+    env.gain.setTargetAtTime(0, t + 0.08, 1.6);
+    env.connect(this.master);
+    for (const [k, level] of [[1, 1], [2, 0.16], [3, 0.04]] as const) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = freq * k;
+      const g = ctx.createGain();
+      g.gain.value = level;
+      osc.connect(g).connect(env);
+      osc.start(t);
+      osc.stop(t + 9);
+    }
+  }
+
+  /** A footstep on wet sand, or in a few centimetres of water. */
+  flatStep(wet: boolean) {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = (wet ? 1500 : 700) * (0.85 + Math.random() * 0.3);
+    band.Q.value = 0.9;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(wet ? 0.05 : 0.03, t + 0.012);
+    env.gain.setTargetAtTime(0, t + 0.03, wet ? 0.05 : 0.03);
+    src.connect(band).connect(env).connect(this.master);
+    src.start(t, Math.random() * 1.5, 0.3);
   }
 
   /**
@@ -1774,20 +1865,21 @@ export class Sound {
     this.hush?.gain.setTargetAtTime((1 - this.silence) * (this.film ? 0.15 : this.radio ? 0.6 : 1), t, this.film || this.radio ? 0.4 : 0.1);
     this.voiceBus?.gain.setTargetAtTime(this.enabled ? (1 - this.silence) * this.radioVolume : 0, t, 0.1);
     this.tuning(t);
-    const near = this.indoors || this.atRiver || this.diorama ? 0 : Math.max(0, Math.min(1, campfireNearness));
+    const near = this.indoors || this.away || this.diorama ? 0 : Math.max(0, Math.min(1, campfireNearness));
     // indoors the sea and the wind come through the walls; up in a diorama the island's far below
-    const walls = this.atRiver ? 0 : this.indoors ? 0.3 : this.diorama ? 0.3 : 1;
+    const walls = this.away ? 0 : this.indoors ? 0.3 : this.diorama ? 0.3 : 1;
     this.fireGain?.gain.setTargetAtTime(near * 0.5, t, 0.2);
     this.seaGain?.gain.setTargetAtTime((0.28 + this.sea * 0.3 - near * 0.12) * walls * (1 - this.snow * 0.3), t, 0.5);
     this.seaLfo?.frequency.setTargetAtTime(0.11 + this.sea * 0.12, t, 2);
     this.rainGain?.gain.setTargetAtTime(this.rain * 0.22 * (this.indoors ? 0.25 : 1), t, 1);
     this.roofGain?.gain.setTargetAtTime(this.indoors ? this.rain * 0.5 : 0, t, 0.6); // indoors, it drums on the roof
     // squared, so a breeze on a fair day is a whisper and only real wind howls
-    const up = this.atRiver ? 0 : this.summit * 0.4; // always a wind at the top
-    this.windGain?.gain.setTargetAtTime(Math.min(1, this.wind * this.wind + up) * 0.35 * (this.atRiver ? 1 : walls), t, 1);
+    const up = this.away ? 0 : this.summit * 0.4; // always a wind at the top
+    this.windGain?.gain.setTargetAtTime(Math.min(1, this.wind * this.wind + up) * 0.35 * (this.away ? 1 : walls), t, 1);
     this.cicadaGain?.gain.setTargetAtTime(this.cicadas * 0.05 * walls, t, 1.5);
     // on the river, the banks sing as loud as the water lets them; snow hushes it all a little
     const hush = 1 - this.snow * 0.4;
+    // (and out on the flat there's nothing to sing at all)
     const banks = (this.atRiver ? (1 - this.riverRough) ** 2 : walls) * hush;
     this.cricketGain?.gain.setTargetAtTime(this.crickets * 0.18 * banks, t, 2);
     this.birdGain?.gain.setTargetAtTime(this.birdsong * 0.16 * banks, t, 2);
@@ -1797,13 +1889,13 @@ export class Sound {
     this.leafGain?.gain.setTargetAtTime(Math.min(1, this.wind * 1.5) * this.leaves * 0.14 * (this.atRiver ? 1 : walls), t, 1);
     // after the rain, the trees and the eaves drip for a while (and so do the icicles as they thaw)
     this.soaked = Math.max(this.rain, this.soaked - dt / 80);
-    this.glade(t, this.indoors || this.atRiver || this.diorama ? 0 : this.mosslits);
+    this.glade(t, this.indoors || this.away || this.diorama ? 0 : this.mosslits);
     this.dance(t);
     this.scoring(t);
     const drip = Math.min(1, Math.max(0, this.soaked - this.rain * 2) + this.thaw * 0.6);
-    this.dripGain?.gain.setTargetAtTime(drip * 0.22 * (this.atRiver ? 0 : walls), t, 1.5);
-    this.flagGain?.gain.setTargetAtTime(this.summit * (0.35 + this.wind) * 0.2 * (this.atRiver ? 0 : walls), t, 1);
-    this.fireworksGain?.gain.setTargetAtTime(this.fireworks * 0.3 * (this.atRiver ? 0 : walls), t, 2);
+    this.dripGain?.gain.setTargetAtTime(drip * 0.22 * (this.away ? 0 : walls), t, 1.5);
+    this.flagGain?.gain.setTargetAtTime(this.summit * (0.35 + this.wind) * 0.2 * (this.away ? 0 : walls), t, 1);
+    this.fireworksGain?.gain.setTargetAtTime(this.fireworks * 0.3 * (this.away ? 0 : walls), t, 2);
     this.sounding(t, walls);
     // the rooms: the stove and the soup in the hut, the clockwork up in the lamp room, the
     // workshop's machines, and the keyboard when Vincent's at his desk
@@ -1829,7 +1921,7 @@ export class Sound {
     if (this.telly) this.load('telly');
     for (const [show, g] of this.shows) g.gain.setTargetAtTime(this.telly === show ? 1 : 0, t, 0.25);
     // the foghorn: one long blast a minute or so, while the fog lasts, muffled through the walls
-    if (this.fog > 0.5 && !this.atRiver && t > this.nextHorn) {
+    if (this.fog > 0.5 && !this.away && t > this.nextHorn) {
       if (this.nextHorn && this.play('foghorn', 0.5 + this.fog * 0.5, { air: this.indoors ? 700 : 16000 })) this.nextHorn = t + 45 + Math.random() * 30;
       else this.nextHorn = t + 4 + Math.random() * 10; // the first a little after the fog comes in
     }

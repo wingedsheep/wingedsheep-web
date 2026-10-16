@@ -448,6 +448,18 @@ const places = [
     </div>
   </section>
 
+  <!-- Low Water: a tidal flat far out past the island, at blue hour (src/island/lowwater.ts) -->
+  <section class="lowwater" data-panel="lowwater" hidden aria-labelledby="lowwater-title">
+    <h2 id="lowwater-title" class="visually-hidden" tabindex="-1">Low Water</h2>
+    <button class="lowwater-back" data-close>Back to the island</button>
+    <div class="lowwater-card" data-lowwater-card hidden aria-live="polite">
+      <p data-lowwater-text></p>
+      <p class="lowwater-more" data-lowwater-more hidden></p>
+      <button class="lowwater-sit" data-lowwater-sit hidden>Sit</button>
+    </div>
+    <p class="lowwater-hint" data-lowwater-hint>Click to walk · or W A S D</p>
+  </section>
+
   <section class="panel" data-panel="places" hidden aria-labelledby="places-title">
     <button class="panel-close" data-close aria-label="Close"><PixelIcon name="close" /></button>
     <h2 id="places-title" tabindex="-1">Where to?</h2>
