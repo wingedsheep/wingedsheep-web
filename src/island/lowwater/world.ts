@@ -10,10 +10,12 @@
  * front: the reflections.
  */
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -60,6 +62,11 @@ const ROUTE = [
   [0.4, -79], [1.6, -88], [0.2, -100], [-1.0, -111],
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
 const LAST = new THREE.Vector2(-1.0, -111);
+/** The wreck, off to the east of the way out, its bow swung round to the north-east (tools/models/lowwater.py). */
+const WRECK = new THREE.Vector2(13, -76);
+const WRECK_TURN = 0.6;
+const WRECK_LENGTH = 10;
+const WRECK_BEAM = 3.2;
 
 /** Low banks of sand: middle, half-sizes, height, and whether there's a pool in the top. */
 const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: boolean }[] = [
@@ -186,6 +193,8 @@ export class LowWater {
   sitting = false;
   lean = 0;
   satFor = 0;
+  /** How much of the wreck the sand has given back today (0 nearly none … 1 most of it). */
+  readonly wreckOut = wreckOut(visitDate());
 
   private view = 30;
   private zoomed = 1;
@@ -229,6 +238,8 @@ export class LowWater {
   private rings: Ring[] = [];
   private rainFor = 0;
   private clip = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  /** (and the other way, for the wreck's reflection) */
+  private under?: THREE.Plane;
   private ice: THREE.MeshToonMaterial[] = [];
   private outside: Outside = { rain: 0, fog: 0, wind: 0, snow: 0, winter: false };
   private hemi = new THREE.HemisphereLight('#8d9ad6', '#2a2944', 1.7);
@@ -257,6 +268,7 @@ export class LowWater {
     this.speckHome = (this.specks.geometry.attributes.position.array as Float32Array).slice();
     this.makePrints();
     this.makeRings();
+    void this.makeWreck();
     this.resize(innerWidth, innerHeight);
     this.frame(0);
   }
@@ -733,6 +745,55 @@ export class LowWater {
     }
   }
 
+  /**
+   * The wreck, loaded once you're out here. The sand over it moves from day to day (not with the
+   * tide: that's too small out here to cover it), so it sits deeper on some days than on others,
+   * and what's under the waterline is cut away, reflection and all.
+   */
+  private async makeWreck() {
+    const gltf = await new GLTFLoader().loadAsync(`/models/lowwater.glb?v=${__MODELS__}`);
+    const wreck = gltf.scene.children.find((o) => o.userData.lowwater === 'wreck');
+    if (!wreck) return;
+    wreck.removeFromParent();
+    const under = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+    this.under = under;
+    wreck.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mat = paint((mesh.material as THREE.MeshStandardMaterial).color);
+      mat.clippingPlanes = [this.clip];
+      mesh.material = mat;
+    });
+    const g = new THREE.Group();
+    wreck.position.set(0, 0, 0);
+    g.add(wreck);
+    this.put(g, WRECK, 'wreck', 0);
+    g.rotation.y = WRECK_TURN;
+    g.position.y -= 0.05 + (1 - this.wreckOut) * 0.7;
+    // its reflection, cut the other way: only what's above the water shows in it
+    const copy = this.mirrored[this.mirrored.length - 1].copy;
+    copy.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mat = (mesh.material as THREE.MeshBasicMaterial).clone();
+      mat.clippingPlanes = [under];
+      mesh.material = mat;
+    });
+    // its sides are in the way; the stern's broken open, so you can walk in along the keel
+    const along = new THREE.Vector2(Math.cos(WRECK_TURN), -Math.sin(WRECK_TURN));
+    const across = new THREE.Vector2(-along.y, along.x);
+    for (let i = 0; i <= 14; i++) {
+      const t = -0.9 + (1.8 * i) / 14;
+      const half = wreckHalfBeam(t);
+      for (const side of [-1, 1]) {
+        const p = WRECK.clone().addScaledVector(along, (t * WRECK_LENGTH) / 2).addScaledVector(across, half * side);
+        this.obstacles.push({ x: p.x, z: p.y, r: 0.2 });
+      }
+    }
+    const stem = WRECK.clone().addScaledVector(along, WRECK_LENGTH / 2 + 0.2);
+    this.obstacles.push({ x: stem.x, z: stem.y, r: 0.3 });
+  }
+
   private makeRings() {
     for (let i = 0; i < 40; i++) {
       const mesh = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#9aa6d4', depthWrite: false, transparent: true, fog: false }));
@@ -814,7 +875,7 @@ export class LowWater {
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
       this.clicked = { id: station, at: new THREE.Vector2(at.x, at.z) };
-      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
+      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
     if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.level), p)) this.walkTo(p, 0);
@@ -875,6 +936,7 @@ export class LowWater {
     // the tide, breathing in and out over six minutes
     this.level = Math.sin((this.time / TIDE_PERIOD) * Math.PI * 2) * TIDE;
     this.clip.constant = -this.level;
+    if (this.under) this.under.constant = this.level;
     this.walk(dt);
     this.animateWalker(still);
     this.near();
@@ -969,7 +1031,7 @@ export class LowWater {
   private near() {
     const at = new THREE.Vector2(this.pos.x, this.pos.z);
     if (this.clicked) {
-      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : 4.5) || this.goal) {
+      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : 4.5) || this.goal) {
         this.card = this.clicked.id;
         return;
       }
@@ -983,7 +1045,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1220,6 +1282,19 @@ export class LowWater {
       m.copy.updateMatrixWorld(true);
     }
   }
+}
+
+/** The wreck's half-width at t (-1 stern … 1 bow), as tools/models/lowwater.py shapes it. */
+function wreckHalfBeam(t: number) {
+  const end = t > 0 ? 0.55 : 0.7;
+  const k = Math.max(0, Math.abs(t) - (1 - end)) / end;
+  return (WRECK_BEAM / 2) * Math.sqrt(Math.max(0, 1 - k * k * (t > 0 ? 0.92 : 0.75)));
+}
+
+/** How much of the wreck is out of the sand on a day: two slow swells of sand, a month and a bit and ten days. */
+function wreckOut(d: Date) {
+  const day = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+  return 0.5 + 0.34 * Math.sin((day / 37) * Math.PI * 2) + 0.16 * Math.sin((day / 11) * Math.PI * 2 + 1);
 }
 
 /** A toon material of its own (never the island's shared one), its fog stepped (see steppedFog). */

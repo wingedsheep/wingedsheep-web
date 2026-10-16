@@ -1,0 +1,129 @@
+"""Low Water (src/island/lowwater/): the models the flat loads when you walk out. Most of the flat
+is made in code (its sticks and stones are a few boxes each); what's here is what deserves more
+shape than that. Each template's root carries `lowwater=<kind>`, and the world puts it where it goes.
+
+The wreck: what's left of an old wooden tjalk, a flat-bottomed Dutch cargo boat, lying on the flat
+with a list to one side. Its length runs along x (the bow at +x), its beam along y, and z = 0 is the
+sand on a day the sand has let go of most of it. The ribs carry on below that, so the world can sink
+the whole thing to bury more of it on other days.
+"""
+from __future__ import annotations
+
+import math
+import random
+
+from kit import Model, group
+
+# old oak, black from a long time wet; a little paler where the tops dry out between tides
+OAK = "#352e3b"
+OAK_DRY = "#5a4d57"
+# the green-black of weed where the sand and the water meet the wood
+WEED = "#2c3a39"
+IRON = "#3a3440"
+
+LENGTH = 10.0
+BEAM = 3.2
+DEPTH = 2.3
+SAND_BELOW = 0.7  # how far the ribs go on under the sand line
+
+
+def _half_beam(t: float) -> float:
+    """The hull's half-width at t (-1 stern … 1 bow): bluff at both ends, the bow rounder."""
+    end = 0.55 if t > 0 else 0.7
+    k = max(0.0, abs(t) - (1 - end)) / end
+    return BEAM / 2 * math.sqrt(max(0.0, 1 - k * k * (0.92 if t > 0 else 0.75)))
+
+
+def _profile(half: float, steps: int = 6) -> list[tuple[float, float]]:
+    """One side of a frame, from the keel out and up: a flat floor, the bilge turned round, then
+    the side going up near-vertical with a little tumblehome. (y out, z up)"""
+    floor = half * 0.62
+    r = half - floor
+    pts = [(0.0, -SAND_BELOW), (floor, -SAND_BELOW)]
+    for i in range(1, steps + 1):
+        a = i / steps * math.pi / 2
+        pts.append((floor + math.sin(a) * r, -SAND_BELOW + r - math.cos(a) * r))
+    top = DEPTH - SAND_BELOW
+    pts.append((half * 0.97, top))
+    return pts
+
+
+def _cut(pts: list[tuple[float, float]], height: float) -> list[tuple[float, float]]:
+    """The profile, broken off at `height` (z)."""
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        if b[1] <= height:
+            out.append(b)
+            continue
+        if a[1] < height:
+            k = (height - a[1]) / (b[1] - a[1])
+            out.append((a[0] + (b[0] - a[0]) * k, height))
+        break
+    return out
+
+
+def wreck():
+    rng = random.Random(1857)
+    root = group("wreck", (0, -900, 0), lowwater="wreck",
+                 length=LENGTH, beam=BEAM)
+    m = Model("wreck_wood", seed=7)
+
+    # the keelson down the middle, and the stem and sternpost at the ends
+    m.box((LENGTH * 0.92, 0.26, 0.24), (0, 0, -SAND_BELOW + 0.12), OAK)
+    # the stem: a tjalk's bow is round, so it rises in a curve, and it's the tallest thing left
+    stem = [(LENGTH / 2 - 0.25, -SAND_BELOW), (LENGTH / 2 + 0.05, 0.2), (LENGTH / 2 + 0.3, 1.1), (LENGTH / 2 + 0.42, 2.0)]
+    for a, b in zip(stem, stem[1:]):
+        m.plank_line((a[0], 0, a[1]), (b[0], 0, b[1]), 0.24, 0.22, OAK)
+    m.box((0.3, 0.28, 0.12), (LENGTH / 2 + 0.42, 0, 2.02), OAK_DRY)
+    m.plank_line((-LENGTH / 2 + 0.2, 0, -SAND_BELOW), (-LENGTH / 2 - 0.1, 0, 0.9), 0.24, 0.22, OAK)
+
+    # the frames, in pairs, broken off at their own heights: the side it lists towards (-y) is
+    # mostly gone under, the high side stands up out of the sand
+    n = 15
+    for i in range(n):
+        t = -0.9 + 1.8 * i / (n - 1)
+        x = t * LENGTH / 2
+        half = _half_beam(t)
+        pts = _profile(half)
+        for side in (-1, 1):
+            if side < 0:
+                h = rng.uniform(0.1, 0.7)
+            else:
+                # tallest amidships, and some broken short anyway
+                h = DEPTH - SAND_BELOW - rng.uniform(0.0, 0.45) - abs(t) * 0.5
+                if rng.random() < 0.25:
+                    h = rng.uniform(0.3, 0.8)
+            seg = _cut(pts, h)
+            for (y0, z0), (y1, z1) in zip(seg, seg[1:]):
+                m.plank_line((x, y0 * side, z0), (x, y1 * side, z1), 0.2, 0.17, OAK)
+            # where it broke, the end is paler: dry at low water
+            if len(seg) > 1 and seg[-1][1] > -0.05:
+                y, z = seg[-1]
+                m.box((0.18, 0.18, 0.07), (x, y * side, z), OAK_DRY)
+
+    # a few strakes of planking still on the high side, low down where the sand kept them
+    for z, x0, x1 in ((0.15, -2.9, 1.6), (0.45, -1.8, 0.6), (-0.15, -3.6, 3.2)):
+        for k in range(8):
+            xa = x0 + (x1 - x0) * k / 8
+            xb = x0 + (x1 - x0) * (k + 1) / 8
+            ya = _half_beam(xa / (LENGTH / 2)) * 0.99 + 0.06
+            yb = _half_beam(xb / (LENGTH / 2)) * 0.99 + 0.06
+            m.plank_line((xa, ya, z), (xb, yb, z), 0.08, 0.2, OAK)
+    # weed where the wood meets the sand
+    for i in range(n):
+        if rng.random() < 0.6:
+            t = -0.9 + 1.8 * i / (n - 1)
+            m.box((0.24, 0.24, 0.1), (t * LENGTH / 2, _half_beam(t) * 0.96, 0.02), WEED)
+    m.build(parent=root)
+
+    # the leeboard: a tjalk's swing keel, fan-shaped, come off and lying in the sand alongside
+    lee = Model("wreck_leeboard", seed=8)
+    fan = [(-0.25, 0), (0.25, 0), (0.55, 2.3), (-0.55, 2.3)]
+    lee.prism(fan, 0.09, (0, 0, 0), OAK, rot=(0, 0, 0))
+    lee.box((0.18, 0.12, 0.1), (0, 0, 0.05), IRON)
+    lee.build(parent=root, loc=(-1.2, BEAM / 2 + 0.4, 0.05)).rotation_euler = (math.radians(-86), 0, math.radians(-18))
+    return root
+
+
+def build():
+    wreck()

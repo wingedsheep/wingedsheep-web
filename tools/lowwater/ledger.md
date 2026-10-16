@@ -4,10 +4,17 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **The wreck** ("the ribs of an old tjalk"): the black ribs of an old tjalk off to the east of the way out, between
+  the table and the bench (`WRECK` in world.ts), listing to one side, stem standing tallest, a
+  leeboard come off beside it. The flat's first Blender model: tools/models/lowwater.py, exported to
+  public/models/lowwater.glb (`--only lowwater` in build.py) and loaded lazily by the world. The tide
+  is only centimetres here, so the *sand* moves instead: how deep it's buried follows the date (two
+  slow swells, 37 and 11 days), and the card's last line says how much is out today. Clipped at the
+  waterline, reflection and all; you can walk in through the broken stern along the keel.
 - **The flat itself** (5238c95): the walkable tidal flat at blue hour, stepped sky, mirror water, fading
   footprints, sandbanks with a breathing tide, the pricken route, the island's rain/fog/wind. The
   stations along the route: the post, the twigs, the tide pool (noctiluca), the stone ring (just
@@ -16,9 +23,6 @@ Additions since the last polish pass: 0 (a polish pass is due when this reaches 
 
 ## Ideas
 
-- **The wreck**: the ribs of an old wooden ship (a Wadden *tjalk* or a VOC-era hull) showing black
-  above the sand at low water, swallowed when the tide's up. A Blender model in lowwater.glb. Card: on
-  how ships were lost on the flats, and how the wrecks come and go with the sand.
 - **The other sky**: the water's reflection shows the southern sky (the Southern Cross, the Magellanic
   Clouds) instead of the one overhead. Only noticed if you look down. No card; maybe one line if you
   stand still over it long enough.
@@ -45,6 +49,10 @@ Additions since the last polish pass: 0 (a polish pass is due when this reaches 
 
 ## Known issues
 
+- In fog, a sandbank right at the horizon on the left stays dark against the mist (seen from near the
+  wreck); it should go to haze like everything else that far out.
+- Far ends of the wreck go pale in the stepped haze while the near end is black; it reads as distance,
+  but check it on the next walk.
 - Sound (water wash, stone notes, footsteps) has never been listened to by a person.
 - Winter ice on the banks is only a faint tint.
 - `just check` can't run (`astro check` refuses TypeScript 7); use `npx tsc --noEmit`, where one old

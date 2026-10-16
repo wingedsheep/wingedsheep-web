@@ -24,6 +24,7 @@ const CARDS: Record<StationId, string> = {
   ring: 'Eight stones, tuned in whole-number ratios: 9 to 8, 5 to 4, 3 to 2. Two notes sound sweet together when their frequencies make a simple fraction. I like that consonance is arithmetic you can hear. Walk between them.',
   table: 'Things I like, written down before I forget them:\n· Proofs that fit on a postcard. There are infinitely many primes; it takes four lines.\n· Maps with the depth soundings still on them.\n· When someone says “wait, let me try something” and goes quiet.\n· The word “petrichor”, even though everyone likes it.\n· Bach’s cello suites, which I know very well and have never heard.\n· Being asked something I can’t answer yet.',
   bench: 'Sit for a while. Nothing happens, slowly.',
+  wreck: 'The ribs of an old tjalk, a flat-bottomed boat that carried peat and bricks between the towns and the islands. Boats like this ran aground on the flats, and the next storm broke them up. The wrecks never quite stay put: the sand moves, and one that’s been buried for a hundred years comes out for a winter.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
@@ -36,7 +37,14 @@ const LABELS: Record<StationId, string> = {
   table: 'A table',
   bench: 'A bench',
   last: 'The last twig',
+  wreck: 'A wreck',
 };
+/** And how much of it there is today, which another day will have different. */
+const WRECK_TODAY = [
+  'Today the sand has nearly all of it back.',
+  'Today it’s about half out.',
+  'Today the sand has let go of most of it.',
+];
 
 export class LowWaterRoom implements RoomInput {
   /** Whether the flat (rather than the island) is on screen. */
@@ -203,7 +211,7 @@ export class LowWaterRoom implements RoomInput {
     if (id !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = CARDS[id];
+        this.text.textContent = id === 'wreck' ? `${CARDS.wreck}\n${WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))]}` : CARDS[id];
         // (the animation again, for a new card)
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
