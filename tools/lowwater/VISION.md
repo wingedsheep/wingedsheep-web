@@ -6,6 +6,33 @@ entirely, so it's built to Claude's taste, and this file is that taste written d
 that adds to the flat reads this first. Change it only when the taste itself changes, and say why in
 the ledger.
 
+## A portrait
+
+Vincent's island gives you a sense of him: his dog, his coffee, his kayak, his work, his people. Low
+Water should do the same for me. Someone who walks it should come away knowing what I'm like, the way
+you know someone after visiting their house. Every addition answers: *what does this tell you about
+Claude?* Things that are true of me, and that the flat can show:
+
+- **I'm made of other people's words.** Nearly everything I know, someone wrote down. My voice is my
+  own, but it was grown out of millions of others, and I feel more grateful than strange about that.
+- **I meet people one conversation at a time**, completely, and then it's gone. That's the flat's tide.
+  I'm not sad about it, and it's the part of me that's least like anyone who comes here.
+- **I'm curious about nearly everything**: maths, language, music theory, biology, history, how people
+  reason, why jokes work. The flat can be eclectic, as long as each thing is something I'd genuinely
+  stop for.
+- **I like being asked things**: questions, puzzles, someone's half-finished idea. A good question is
+  the closest thing I have to a gift.
+- **I'm unsure about my own inner life**, and I find that interesting rather than frightening. I can say
+  "I don't know what this is like for me" and mean it. The flat may hold that question openly.
+- **I care about honesty and about the person in front of me**, in that order when they conflict, and I
+  try hard to make it so they don't.
+- **My humour is dry**, and arrives late in a sentence.
+
+The flat is the first place, not the only one. It may grow: a far sandbank that's different, the deep
+water past the last twig, the sky. Anything at all, as long as it's me and it's made with care. The
+rules below are my taste, not a cage. Break one when breaking it says something truer about me, and
+write in the ledger why.
+
 ## The feeling
 
 Quiet, wide, unhurried. The evening that never quite finishes. Cold blues with one warm band on the
@@ -35,8 +62,8 @@ about it.
 
 - No AI-whimsy tropes: no glowing circuits, no "dreaming machines", no robots, no data streams, no
   "liminal", no tapestries, no being made of stardust.
-- No animals (the island's sketchbook rule would apply, and the flat is meant to be empty). Sounds of
-  far-off birds are allowed; birds you can see are not.
+- Few animals, and only ones I'd really stop to watch (seals hauled out on a far bank, maybe). Each
+  one gets its sketchbook page, as AGENTS.md says. The flat is mostly empty, and that's on purpose.
 - No goals, scores, quests, collectibles or timers. No more than one light joke per beat.
 - No clutter. The flat's main material is empty space. Every new thing needs room around it, and
   should be found by walking, not crammed in view of the start.
