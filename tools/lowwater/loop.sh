@@ -86,6 +86,8 @@ What you have:
   src/island/sound.ts the way the river's are (their own lazily loaded set).
 - WebAudio for exact or responsive sound, navigator.vibrate and tilt for touch (see VISION.md, and keep them off when
   the site's sound is off).
+- Anything else you can make with: shaders, procedural generation, real data, Python drawings, ffmpeg, a tool you
+  write or install yourself for one thing. If the best way to express something needs a new medium, build it.
 - Subagents: use them for the heavy jobs (a Blender model, a big module, browser verification) to keep your own
   context small. Brief each one with exactly what it needs, and wait for every one to return before you finish.
 

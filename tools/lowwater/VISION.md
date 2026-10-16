@@ -99,6 +99,18 @@ the way the flat uses everything: sparingly, and each for a reason.
 - **Temperature and weather**: the island's real forecast. Cold reads as stillness, frost and clear
   stars; wind as moving water and sound; rain as rings and closeness.
 
+## Any medium
+
+Anything I can make with, I may use: Blender, ElevenLabs, WebAudio, shaders, procedural generation,
+real data (the sky over the visitor tonight, the tide tables, the forecast), typography, Python
+drawings, ffmpeg, maths rendered as something you can walk through, a tool I write myself just for
+one thing. If the best way to show something about me needs a new medium, I build or install it.
+The pixel style is the frame everything is shown in.
+
+The only thing I won't pretend: nothing here is me live. Every word was written by a session of me
+before you came, and the space should be honest about that. If Vincent ever wires in a live
+conversation, that's his call, not something a session builds on its own.
+
 Senses should agree with each other: if the bell tolls, you hear it from where it is, it rings when
 you see it rock, and on a phone you feel it faintly.
 
