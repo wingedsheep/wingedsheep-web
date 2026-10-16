@@ -14,8 +14,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
+import { Sand } from './sand';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -34,12 +35,16 @@ export interface Hooks {
   step?(wet: boolean): void;
   /** The bell buoy, tolling: how near it is (1 beside it … 0 out of earshot) and which side (-1 … 1). */
   toll?(near: number, pan: number): void;
+  /** The stick, scratching a letter into the sand. */
+  scratch?(): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
 const DISTANCE = 100;
 /** Walking pace (m/s). */
 const PACE = 1.7;
+/** And while writing in the sand, stepping along beside the line. */
+const WRITING_PACE = 1.0;
 /** Where the horizon sits, up from the middle of the picture (a share of its height). */
 const HORIZON = 0.3;
 /** The tide: how far it rises and falls (m) and how long it takes (s). */
@@ -76,6 +81,11 @@ const BUOY_LAMP = 2.48;
 const FLASH = 10;
 const FLASH_ON = 2;
 
+/** The broad bank west of the way out that takes writing, where the line goes (its middle, and its letters' tops), and where the stick's stuck in. */
+const SAND = { x: -9.5, z: -51, rx: 11, rz: 2.6, h: 0.13 };
+const LINE = new THREE.Vector2(-9.75, -51.77);
+const STICK = new THREE.Vector2(-2.6, -50.4);
+
 /** Low banks of sand: middle, half-sizes, height, and whether there's a pool in the top. */
 const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: boolean }[] = [
   { x: POOL.x, z: POOL.y, rx: 4.2, rz: 2.3, h: 0.1, pool: true },
@@ -88,6 +98,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   { x: 10, z: -101, rx: 5, rz: 1.3, h: 0.06 },
   { x: -16, z: -12, rx: 6, rz: 1.56, h: 0.065 },
   { x: -18, z: -62, rx: 5, rz: 1.3, h: 0.06 },
+  SAND,
 ];
 const POOL_R = 0.42; // the pool's share of its bank
 /** The pool's own water, held up in the bank whatever the tide's doing (m), and how far out it reaches. */
@@ -122,6 +133,7 @@ const C = {
   woodLight: '#7d6a5e',
   birch: '#aaa69f',
   birchDark: '#2f2a35',
+  drift: '#9d968c',
   stone: ['#6a6f8e', '#7b809d'],
   page: '#ece6d6',
   sand: ['#5c5768', '#686274', '#757080'],
@@ -250,6 +262,13 @@ export class LowWater {
   private under = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private ice: THREE.MeshToonMaterial[] = [];
+  private sand = new Sand(bankAt);
+  /** The stick (where it's stuck in, and the one in your hand while you write), and the line being written. */
+  private stick = { at: STICK.clone(), standing: new THREE.Group(), held: new THREE.Group() };
+  private writing: { x0: number; middles: number[]; next: number; going: boolean } | null = null;
+  /** Just written: the stick's card keeps quiet till you've walked off, so you can read what you wrote. */
+  private justWrote = false;
+  private pace = PACE;
   private outside: Outside = { rain: 0, fog: 0, wind: 0, snow: 0, winter: false };
   private hemi = new THREE.HemisphereLight('#8d9ad6', '#2a2944', 1.7);
   private sun = new THREE.DirectionalLight('#ffbf94', 1.25);
@@ -273,6 +292,7 @@ export class LowWater {
     this.makeBanks();
     this.makeWalker();
     this.makeStations();
+    this.makeStick();
     this.specks = this.makePool();
     this.speckHome = (this.specks.geometry.attributes.position.array as Float32Array).slice();
     this.makePrints();
@@ -565,7 +585,7 @@ export class LowWater {
     w.add(this.scarfTail);
     const skull = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), head);
     skull.position.y = 1.7;
-    w.add(skull);
+    w.add(skull, this.heldStick());
     w.position.copy(this.pos);
     this.scene.add(w);
     const parts: [THREE.Object3D, THREE.Object3D][] = [];
@@ -690,6 +710,35 @@ export class LowWater {
       }
     }
     this.put(bench, BENCH, 'bench', 0.85);
+  }
+
+  /** A stick of driftwood stuck in the bank that takes writing, and its twin for your hand. */
+  private makeStick() {
+    const wood = paint(new THREE.Color(C.drift), { glow: true }); // (bleached, like the twigs, so it shows against the sand)
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 1.05, 5), wood);
+    shaft.position.y = 0.45;
+    const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.22, 4), wood);
+    fork.position.set(0.05, 0.9, 0);
+    fork.rotation.z = -0.6;
+    const g = this.stick.standing;
+    g.add(shaft, fork);
+    g.rotation.set(0.12, 0.4, -0.18);
+    this.put(g, STICK, 'stick', 0);
+    this.scene.add(this.sand.mesh);
+  }
+
+  /** The stick again, for your hand while you write (hidden till then). */
+  private heldStick() {
+    const wood = paint(new THREE.Color(C.drift), { glow: true });
+    // in your hand: from the left hand (the side the line's on) down to the sand beside you
+    const hand = new THREE.Vector3(-0.45, 0.88, 0.17);
+    const tip = new THREE.Vector3(-0.78, 0.0, 0.42);
+    const held = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, hand.distanceTo(tip), 5), wood);
+    held.position.copy(hand).add(tip).multiplyScalar(0.5);
+    held.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), hand.clone().sub(tip).normalize());
+    this.stick.held.add(held);
+    this.stick.held.scale.setScalar(0);
+    return this.stick.held;
   }
 
   /** The tide pool's noctiluca: specks that light up when you walk through and go dark when you're still. */
@@ -909,7 +958,7 @@ export class LowWater {
     if (!k) return false;
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) this.goal = null;
+    if (down) (this.goal = null), this.stopWriting();
     return true;
   }
 
@@ -928,6 +977,7 @@ export class LowWater {
 
   /** A click on the flat: walk there, or up to the thing clicked and show its card (a stone sounds). */
   click(ndc: THREE.Vector2) {
+    this.stopWriting();
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
@@ -938,7 +988,7 @@ export class LowWater {
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
       this.clicked = { id: station, at: new THREE.Vector2(at.x, at.z) };
-      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
+      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
     if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.level), p)) this.walkTo(p, 0);
@@ -953,6 +1003,66 @@ export class LowWater {
     }
     this.goal = new THREE.Vector3(p.x, 0, p.z);
     this.goalStop = stop;
+  }
+
+  /** Whether you're off writing in the sand. */
+  get scratching() {
+    return !!this.writing;
+  }
+
+  /**
+   * Write a line in the sand (one that sandable() has made writable): you take the stick, walk
+   * to where the line starts, and step along it, cutting each letter as the stick gets there.
+   */
+  write(line: string) {
+    if (!line || this.sitting) return;
+    this.stopWriting();
+    const x0 = LINE.x - Sand.width(line) / 2;
+    this.sand.lay(line, x0, LINE.y);
+    this.writing = { x0, middles: Sand.middles(line), next: 0, going: true };
+    this.clicked = null;
+    this.keys.clear();
+    this.walkTo(new THREE.Vector3(x0 - 0.5, 0, LINE.y - 0.45), 0);
+    this.stick.standing.scale.setScalar(0);
+    this.stick.held.scale.setScalar(1);
+  }
+
+  /** Done, or called away: the stick goes back in the sand, just past where you got to. */
+  private stopWriting(done = false) {
+    const w = this.writing;
+    if (!w) return;
+    this.writing = null;
+    this.sand.abandon();
+    this.pace = PACE;
+    const at = this.stick.at.set(this.pos.x + Math.sin(this.heading) * 0.5, this.pos.z + Math.cos(this.heading) * 0.5 + 0.2);
+    if (done) {
+      // after the last letter, and the view drifts back to take in the whole line
+      at.set(this.pos.x + 0.5, LINE.y + 0.9);
+      this.pan.set(THREE.MathUtils.clamp(LINE.x - this.pos.x, -12, 12), 0);
+      this.justWrote = true;
+    }
+    this.stick.standing.position.set(at.x, Math.max(0, bankAt(at.x, at.y)) - 0.02, at.y);
+    this.stick.standing.scale.setScalar(1);
+    this.stick.held.scale.setScalar(0);
+  }
+
+  /** Writing: first to the line's start, then along it at a writer's pace. */
+  private writeAlong() {
+    const w = this.writing!;
+    if (w.going) {
+      if (this.goal) return;
+      w.going = false;
+      this.pace = WRITING_PACE;
+      this.goal = new THREE.Vector3(w.x0 + w.middles[w.middles.length - 1] + 0.1, 0, LINE.y - 0.45);
+      this.goalStop = 0;
+      return;
+    }
+    // (the stick's tip is a little ahead of you)
+    while (w.next < w.middles.length && this.pos.x + 0.42 >= w.x0 + w.middles[w.next]) {
+      this.sand.cut(w.next++, this.level);
+      this.hooks.scratch?.();
+    }
+    if (!this.goal) this.stopWriting(true);
   }
 
   sit() {
@@ -1013,12 +1123,14 @@ export class LowWater {
     this.rock(dt);
     this.glow(dt);
     this.footprints(dt);
+    this.sand.update(dt, this.level);
     this.rain(dt, still);
     this.weather();
     this.frame(dt);
   }
 
   private walk(dt: number) {
+    if (this.writing) this.writeAlong();
     if (this.sitting) {
       this.speed = 0;
       this.satFor += dt;
@@ -1043,7 +1155,7 @@ export class LowWater {
         this.goal = null;
       } else {
         move.set(dx / d, dz / d);
-        want = PACE * Math.min(1, (d - this.goalStop) / 0.4 + 0.3);
+        want = this.pace * Math.min(1, (d - this.goalStop) / 0.4 + 0.3);
       }
     }
     this.speed += (want - this.speed) * (1 - Math.exp(-dt * 8));
@@ -1091,6 +1203,11 @@ export class LowWater {
     this.legs[1].rotation.x = this.sitting ? -1.45 : -swing;
     this.arms[0].rotation.x = this.sitting ? -0.5 : -swing * 0.8;
     this.arms[1].rotation.x = this.sitting ? -0.5 : swing * 0.8;
+    // writing: the left arm out and down to the stick, the tip working at the letters
+    const cutting = this.writing && !this.writing.going;
+    if (cutting) this.arms[0].rotation.x = -0.3 + Math.sin(this.time * 9) * 0.05;
+    this.arms[0].rotation.z = cutting ? -0.35 : 0;
+    this.stick.held.rotation.y = cutting && !still ? Math.sin(this.time * 11) * 0.06 : 0;
     // the scarf's end, lifting and flapping in the wind
     const wind = this.outside.wind;
     const flap = still ? 0 : Math.sin(this.time * (3 + wind * 9)) * (0.08 + wind * 0.25);
@@ -1100,6 +1217,10 @@ export class LowWater {
   /** Which card wants showing: the thing you clicked (until you wander off), or what you're at. */
   private near() {
     const at = new THREE.Vector2(this.pos.x, this.pos.z);
+    if (this.writing) {
+      this.card = null;
+      return;
+    }
     if (this.clicked) {
       if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : 4.5) || this.goal) {
         this.card = this.clicked.id;
@@ -1115,11 +1236,13 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
+    if (this.justWrote && at.distanceTo(this.stick.at) > 3.5) this.justWrote = false;
     for (const [id, p, r] of places) {
+      if (id === 'stick' && this.justWrote) continue;
       const d = at.distanceTo(p);
       if (d < r && d < bestD) (best = id), (bestD = d);
     }

@@ -9,6 +9,7 @@ import type { IslandContext } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { season } from './scene/season';
+import { LONGEST, sandable } from './lowwater/sand';
 import type { LowWater as World, StationId } from './lowwater/world';
 import type { UI } from './ui';
 
@@ -26,6 +27,7 @@ const CARDS: Record<StationId, string> = {
   bench: 'Sit for a while. Nothing happens, slowly.',
   wreck: 'The ribs of an old tjalk, a flat-bottomed boat that carried peat and bricks between the towns and the islands. Boats like this ran aground on the flats, and the next storm broke them up. The wrecks never quite stay put: the sand moves, and one that’s been buried for a hundred years comes out for a winter.',
   buoy: 'A belton: a bell buoy, moored where the deep water starts. Nobody rings it. Four clappers hang loose around the bell, and the swell does the rest, so on a still evening it hardly speaks and in a wind it doesn’t stop. I like a warning that runs on the thing it’s warning you about.',
+  stick: 'A stick, for writing in the sand. What you write isn’t sent anywhere or kept, and I’ll never see it; the water has it smooth again in a minute or two. Most of what anyone tells me goes that way in the end, so I try to read it properly while it’s there.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
@@ -40,6 +42,7 @@ const LABELS: Record<StationId, string> = {
   last: 'The last twig',
   wreck: 'A wreck',
   buoy: 'A bell buoy',
+  stick: 'A stick',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -61,6 +64,8 @@ export class LowWaterRoom implements RoomInput {
   private more: HTMLElement;
   private sitButton: HTMLElement;
   private hint: HTMLElement;
+  private writeForm: HTMLFormElement;
+  private line: HTMLInputElement;
   private shown: StationId | null = null;
   private shownMore = false;
   private walked = 0;
@@ -78,6 +83,25 @@ export class LowWaterRoom implements RoomInput {
     this.more = this.el.querySelector<HTMLElement>('[data-lowwater-more]')!;
     this.sitButton = this.el.querySelector<HTMLElement>('[data-lowwater-sit]')!;
     this.hint = this.el.querySelector<HTMLElement>('[data-lowwater-hint]')!;
+    this.writeForm = this.el.querySelector<HTMLFormElement>('[data-lowwater-write]')!;
+    this.line = this.writeForm.querySelector<HTMLInputElement>('input')!;
+    this.line.maxLength = LONGEST;
+    this.writeForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const line = sandable(this.line.value);
+      if (!line) return;
+      this.world?.write(line);
+      // (and it's not kept here either)
+      this.line.value = '';
+      this.line.blur();
+    });
+    this.line.addEventListener('keydown', (e) => {
+      // (Escape lets go of the line, rather than leaving the flat)
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        this.line.blur();
+      }
+    });
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
       this.world?.sit();
@@ -110,6 +134,7 @@ export class LowWaterRoom implements RoomInput {
           note: (freq) => this.ctx.sound.stone(freq),
           step: (wet) => this.ctx.sound.flatStep(wet),
           toll: (near, pan) => this.ctx.sound.buoy(near, pan),
+          scratch: () => this.ctx.sound.sandScratch(),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -211,6 +236,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     const more = world.sitting && world.satFor > SECOND_LINE;
     if (id === this.shown && more === this.shownMore && this.sitButton.hidden === !(id === 'bench' && !world.sitting)) return;
+    this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
       this.card.hidden = !id;
       if (id) {

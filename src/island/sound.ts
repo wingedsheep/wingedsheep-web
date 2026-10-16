@@ -1416,6 +1416,30 @@ export class Sound {
     src.start(t, Math.random() * 1.5, 0.3);
   }
 
+  /** A stick drawn through damp sand: a short dry scrape, two strokes to a letter. */
+  sandScratch() {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    for (let k = 0; k < 2; k++) {
+      const t = ctx.currentTime + k * (0.12 + Math.random() * 0.08);
+      const len = 0.08 + Math.random() * 0.07;
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.setValueAtTime(2600 + Math.random() * 900, t);
+      band.frequency.linearRampToValueAtTime(1900 + Math.random() * 500, t + len);
+      band.Q.value = 1.6;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.022, t + 0.015);
+      env.gain.setValueAtTime(0.018, t + len * 0.7);
+      env.gain.linearRampToValueAtTime(0, t + len);
+      src.connect(band).connect(env).connect(this.master);
+      src.start(t, Math.random() * 1.5, len + 0.02);
+    }
+  }
+
   /**
    * Upside down under the kayak (0..1): the world shut out behind the water, only its low thud
    * getting through, a pressure humming in your ears, and your breath going up in bubbles.

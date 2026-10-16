@@ -796,6 +796,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: #f0b088; color: var(--ink); box-shadow: inset 0 -3px 0 #c07e5e;
 }
 .lowwater-sit:hover { background: #f6c3a2; }
+.lowwater-write { display: flex; gap: 8px; margin-top: 10px; }
+.lowwater-write[hidden] { display: none; }
+.lowwater-write input {
+  flex: 1; min-width: 0; padding: 4px 10px 6px; border: 0; font: 15px var(--ui); letter-spacing: 0.06em; text-transform: uppercase;
+  color: #e9e6f2; background: rgba(8, 10, 28, 0.7); box-shadow: inset 0 0 0 2px rgba(150, 160, 210, 0.3); clip-path: var(--notch);
+}
+.lowwater-write input::placeholder { color: rgba(196, 201, 230, 0.5); text-transform: none; letter-spacing: 0; }
+.lowwater-write input:focus { outline: none; box-shadow: inset 0 0 0 2px rgba(240, 176, 136, 0.7); }
+.lowwater-write button {
+  padding: 4px 16px 6px; border: 0; cursor: pointer; font: 700 15px var(--ui); clip-path: var(--notch);
+  background: #f0b088; color: var(--ink); box-shadow: inset 0 -3px 0 #c07e5e;
+}
+.lowwater-write button:hover { background: #f6c3a2; }
 .lowwater-hint {
   position: absolute; bottom: 10px; right: 14px; margin: 0; font: 13px var(--ui); color: rgba(220, 225, 245, 0.55);
   transition: opacity 1.5s;

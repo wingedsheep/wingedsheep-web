@@ -4,10 +4,21 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **The stick** ("the note the tide takes"): a bleached stick stuck in a broad new bank west of the
+  way out, level with the ring (`SAND`, `LINE`, `STICK` in world.ts). Its card has a one-line box:
+  write up to 24 characters and you take the stick, walk to the line's start and step along it,
+  cutting each letter as the tip gets there (a dry scrape per letter, WebAudio `sandScratch`). The
+  letters are a 5×7 capital font laid as grooves in the sand (src/island/lowwater/sand.ts: an
+  InstancedMesh, a dark cut with a pale lip on its near side); each groove fills on its own, water
+  first, then the edges slump, then smooth, about one to one and a half minutes, six times faster
+  wherever the water's over it. When you finish, the stick goes back in the sand past the last
+  letter, the view drifts back to take in the whole line, and the card keeps quiet till you walk
+  off. The line is never stored or sent, and the input is cleared as you write. A click or a key
+  calls you away mid-line; the letters not cut yet never are.
 - **The bell buoy** ("a belton"): out in the deep water east of the last twig (`BUOY` in world.ts), a
   red-and-white safe-water buoy with a red ball on top and a bell in its cage (`buoy` in
   tools/models/lowwater.py). It rocks on two slow swells that drift in and out of step, harder in
@@ -42,8 +53,6 @@ Additions since the last polish pass: 2 (a polish pass is due when this reaches 
   many primes, chalked in four lines, legible in pixel type.
 - **Tide table post**: a weathered tide gauge (peilschaal) with markings, showing the flat's own tide
   in real time. Card on how tides are two bulges and a spinning Earth, and why there are two a day.
-- **The note the tide takes**: the visitor can write one line in the sand with a stick; the water
-  fills it in within a minute. Never stored anywhere.
 - **A gully (geul)**: a winding channel of deeper, darker, moving water the route has to cross on
   stepping stones, with its own current sound.
 - **Mussel bed and oyster reef** as textured dark patches, crunchy footsteps over them.
@@ -57,6 +66,13 @@ Additions since the last polish pass: 2 (a polish pass is due when this reaches 
 
 ## Known issues
 
+- From the bank where you write, the table far out reads as a pale white outline in the haze (its
+  near side is lit, the rest goes to the stepped fog's palest step); same family as the wreck's
+  pale far end, but more noticeable. Look at it on the polish pass.
+- The stick is a thin pale tick from the route; it's found by walking or hovering, which is meant,
+  but check it doesn't read as just another twig.
+- The writing bank keeps the line dry at high tide, so the tide only takes the ends; the water
+  "seeping in" is what smooths the middle.
 - The buoy's reflection goes pale in the stepped haze (it sits near the horizon), so it reads a
   little lighter than the buoy itself; same cause as the wreck's pale far end.
 - The bell buoy's toll has never been listened to by a person (two ElevenLabs takes, checked only
