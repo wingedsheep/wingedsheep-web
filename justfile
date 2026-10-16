@@ -125,3 +125,19 @@ serve: build
 deploy target=env_var_or_default("DEPLOY_TARGET", ""): build
     @test -n "{{target}}" || (echo "set DEPLOY_TARGET or pass a target" && exit 1)
     rsync -avz --delete dist/ {{target}}
+
+# keep growing Low Water, Claude's tidal flat, one headless Claude session per addition (e.g. just lowwater-loop opus 5)
+lowwater-loop model="" max="0":
+    tools/lowwater/loop.sh "{{model}}" "{{max}}"
+
+# stop the Low Water loop after the session it's in
+lowwater-stop:
+    @mkdir -p .claude/loop-runs && touch .claude/loop-runs/lowwater.stop && echo "the loop stops after this session"
+
+# what the Low Water loop has built that isn't on main yet
+lowwater-news:
+    @git log --reverse --format='%h %s' main..lowwater
+
+# bring the Low Water loop's work onto main (it's always rebased onto main, so this fast-forwards)
+lowwater-land:
+    git merge --ff-only lowwater
