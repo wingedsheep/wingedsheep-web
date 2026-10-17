@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,23 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 6** (walked the whole flat at 20:00, at 19:00, in fog and on a phone with
+  loop-runs/walk-lowwater.mjs, which now stops at the geul's head, the casts and the geul too and
+  puts the knots up at the start; then polish6-check.mjs for the casts, geul and table at a
+  visitor's zoom, polish6-flock.mjs for the knots, and moon-shots.mjs for the fix; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-polish-6/: clear/ (20:00, which in October is already
+  night, so no knots), dusk/, fog/, phone/, check/, flock/, after/, and a sheet-*.png for each).
+  Fixed: the moon's road was still the loudest thing in every picture, a white ladder from the
+  horizon to your feet, the whole height of a phone. Now a moon that's only partly lit lays a
+  quieter road (`faint` in `moonRoad`: half lit, a few glints; a full one still gets the ladder),
+  and the bright glints are gone by two-thirds of the way to you. Checked and left: the speckle
+  clouds low on the water when you stand still are the Magellanic Clouds in the southern sky, not
+  a stray mirror of the knots; the knots read as a dark ball with its reflection, and their card
+  holds; at a visitor's zoom the casts read as a speckled bank, the geul as darker water winding
+  off east; the casts, geul, gauge and ring now share the east side of the route, which is as
+  full as the flat should get. Read every card again; nothing cut. Next additions: the west of
+  the flat is the open room now, and the island's own moments.
 
 - **The casts** ("isn't the same, and isn't nothing"): a low bank of lugworm casts east of the way
   out, between the ring and the wreck, with the geul just past it (`CASTS` in world.ts, at x 16,
@@ -531,10 +548,10 @@ lamp close up), not explained.
 
 ## Known issues
 
-- The lugworm casts are pale blobs at every zoom a visitor can reach, not coils; the new one is a
-  brighter blob that grows beside you. On a phone zoomed in, the drop-back puts you near the
+- The lugworm casts are pale specks at every zoom a visitor can reach, not coils; the new one is a
+  brighter speck that grows beside you. On a phone zoomed in, the drop-back puts you near the
   horizon, where the haze pales you (the old zoom-haze issue). The mud steps have never been
-  listened to by a person. Not in the walk script yet.
+  listened to by a person.
 
 - The postcard's picture is a screenshot of the flat on 17 October 2026; it won't change when the
   flat does (on purpose, but a later session may want to retake it after something big). The
@@ -545,16 +562,19 @@ lamp close up), not explained.
   broadband rush with small transients). The flock is a few hundred, not thousands; sometimes it
   splits and a straggling group takes a while to come down at the end (it gives up after 30 s).
   It's a sky thing, so walking doesn't move it, and zoomed in it stays its size. Not in the walk
-  script yet. The month comes from the visit's date (`?date=` in June or July: none).
+  script's stops, though it puts them up at the start (they fly only before deep night: at 20:00 in October
+  they're already down). The month comes from the visit's date (`?date=` in June or July: none).
 
 - The geul's sound (`lowwater-geul`) has never been listened to by a person (by spectrogram: a
   steady broadband trickle with small bubbling transients, −36 LUFS). Its chevrons run with the
   current but its shape never moves (real geulen wander; this one keeps still, as the card's
-  chart does). Not in the walk script yet. The night's specks you light in it stay put rather
+  chart does). The night's specks you light in it stay put rather
   than drift.
 
 - The site's own "A new sketch in your wildlife book" toast can sit over a Low Water card for a
   moment (seen when a walk passes the seal); it's the island's, so left alone.
+- The moon's road at half moon is a few glints now; only a near-full moon lays the long ladder,
+  and on a phone that still runs most of the screen's height (it's the one bright thing then).
 - The moon's only there about half the time (when the real one's up, and not in fog or rain),
   and nothing says so but its card. Its position is the flat's own (it can't face south); a
   visitor who knows the moon may notice its face is upside down and its lit side mirrored,

@@ -85,9 +85,11 @@ export const MOON_GLSL = /* glsl */ `
     float show = uMoon.w;
     // near you the water looks down at itself more than at the sky, so it gives back less of
     // the moon: the bright glints thin out over the last half of the way, dithered
-    float near = smoothstep(0.35, 0.9, t);
-    if (glint > 1.22 - 0.3 * show && d > near) return mix(col, vec3(0.92, 0.9, 0.8), show);
-    if (glint > 0.78 - 0.2 * show) return mix(col, vec3(0.5, 0.54, 0.74), show);
+    float near = smoothstep(0.2, 0.65, t);
+    // and a moon that's only partly lit lays a quieter road: a full one earns the whole ladder
+    float faint = 1.0 - uMoonLit.x;
+    if (glint > 1.22 - 0.3 * show + 0.3 * faint && d > near) return mix(col, vec3(0.92, 0.9, 0.8), show);
+    if (glint > 0.78 - 0.2 * show + 0.12 * faint) return mix(col, vec3(0.5, 0.54, 0.74), show);
     return col;
   }
 `;
