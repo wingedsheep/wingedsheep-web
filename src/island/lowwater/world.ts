@@ -14,6 +14,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
+import { GAUGE, makeGauge, reading } from './gauge';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
 import { Glow } from './glow';
@@ -30,7 +31,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -464,6 +465,7 @@ export class LowWater {
     this.makeStations();
     this.makeStick();
     this.makeLead();
+    this.makeGauge();
     this.makePraam();
     (this.shells.mesh.material as THREE.Material).clippingPlanes = [this.farEdge];
     this.shells.mesh.userData.id = 'shells';
@@ -982,6 +984,17 @@ export class LowWater {
     copy.traverse((o) => b.push(o));
     this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
     this.scene.add(this.lead.flying, this.lead.line);
+  }
+
+  /** The tide gauge (gauge.ts), out in the shallows east of the ring, cut at the waterline. */
+  private makeGauge() {
+    const cut = (c: string) => Object.assign(paint(new THREE.Color(c)), { clippingPlanes: [this.clip] });
+    this.put(makeGauge(cut(C.lead), cut(C.page), cut(C.boots), cut('#b0473f')), GAUGE, 'gauge', 0.25);
+  }
+
+  /** What the gauge reads just now. */
+  get gaugeSaid() {
+    return reading(this.level, Math.cos((this.time / TIDE_PERIOD) * Math.PI * 2));
   }
 
   /** Heave the lead, if you're stood at it. */
@@ -1987,7 +2000,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -2286,6 +2299,8 @@ export class LowWater {
     if (this.card === 'ring' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(RING) < RING_R - 1.1) want.set(RING.x, 0, RING.y - lead + (this.aspect < 0.8 ? 17 : 9));
     // at the lead line, the view drops back so you and the water you heave into are both above the card
     if (this.card === 'lead' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HEAVE_AT) < 2) want.set(this.pos.x + 1, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11)); // (more on a phone, where the card's taller)
+    // at the tide gauge, back so the board and the water at its foot are above the card
+    if (this.card === 'gauge' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(GAUGE) < 3) want.set(GAUGE.x - 0.5, 0, GAUGE.y - lead + (this.aspect < 0.8 ? 15 : 8));
     // in the boat, back a little, so you're above the card, and she's ahead of you
     if (this.praam.afloat) want.z += this.aspect < 0.8 ? 12 : 6;
     if (dt) this.target.lerp(want, 1 - Math.exp(-dt * 2.2));

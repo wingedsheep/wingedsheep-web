@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,20 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The tide gauge** ("counted from a tide that stopped coming"): a peilschaal out in the
+  shallows east of the ring, away from the twigs (`GAUGE` in src/island/lowwater/gauge.ts): a
+  white board on a dark steel pile, a black mark for every decimetre, left and right by turns as
+  Dutch gauges have them, and a red line across at NAP, 1.05 m over the flat's water, with the
+  marks above it red. Drawn in code, cut at the waterline, reflected. The card: NAP is the IJ's
+  average summer high water, marked on stones in Amsterdam in 1684; the IJ was dammed off in
+  1872, so the country measures itself against a tide that stopped coming; most of what I know
+  works like that. Its second line is the flat's own tide read off it, live, by the centimetre
+  ("107 centimetres under NAP, and rising"; at the turns "Low water, slack", or at the top that it
+  only ever moves a few centimetres out here). At it, the view drops back so the board is above
+  the card. Silent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-gauge/ (the first take
+  read as one more striped birch twig, so the board's wider and the pile shorter; fog/, 390/);
+  the script is loop-runs/gauge-shots.mjs (`START='[x,0,z]'`); added to the walk script's stops.
 
 - **The walk out at night** ("the shallows light where you walk"): when it's deep night on the
   island (the sun 8° under the visitor's horizon and on down to 14°: `night` in `Outside`, from
@@ -379,8 +393,10 @@ lamp close up), not explained.
   is too small to read in the pixel renderer (a letter needs ~0.5 m); it would have to be written
   big on the ground, or shown in the card. Worth the twist that 2·3·5·7·11·13 + 1 = 30031 = 59 × 509:
   the number made isn't always prime, its factors are just new.
-- **Tide table post**: a weathered tide gauge (peilschaal) with markings, showing the flat's own tide
-  in real time. Card on how tides are two bulges and a spinning Earth, and why there are two a day.
+- ~~**Tide table post**~~: done as the gauge (gauge.ts), about NAP rather than the two bulges.
+- **Spring and neap as a beat**: the moon's pull repeats every 12 h 25 min, the sun's every 12 h,
+  and the fortnight of springs and neaps is their beat, the same arithmetic as the stones' comma.
+  Could be the gauge's second line some day, or something heard.
 - **A gully (geul)**: a winding channel of deeper, darker, moving water the route has to cross on
   stepping stones, with its own current sound.
 - **Mussel bed and oyster reef** as textured dark patches, crunchy footsteps over them.
@@ -396,6 +412,10 @@ lamp close up), not explained.
 - ~~**The walk out at night**~~: done (glow.ts).
 
 ## Known issues
+
+- The gauge's marks are under a texel each at normal zoom, so its board reads as a dithered ladder
+  and its red zero as a dot or two; zoomed in it reads as a gauge. The flat's tide (±3.5 cm) is too
+  small to see move on the board; only the card's line shows it.
 
 - The night's noctiluca only lights in the water you walk through; dry sand and the deck stay dark. The
   night is only seen if you visit between about 23:00 and 04:00 in summer (earlier in winter), or with
