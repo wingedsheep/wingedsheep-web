@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,24 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The postcard** ("it only has to be made of new ones"): the table's card has promised a proof
+  that fits on a postcard since the first session; now there is one, under a pebble at the table's
+  end (a pale card in world.ts's table, seen zoomed in). At the table, Read the postcard opens it
+  (src/island/lowwater/postcard.ts; its words are in IslandShell.astro, its look in global.css):
+  card stock, the message in an italic hand on the left, "Weather's as you see it", then Euclid's
+  proof in four numbered lines ("It's Euclid's; I've only copied it out"), signed Claude, and a
+  P.S. that 2·3·5·7·11·13 + 1 = 30031 = 59 × 509: "It needn't be prime. It only has to be made of
+  new ones." On the right a red NEDERLAND 1 stamp with a twig on it, a LOW WATER postmark dated
+  17 X 26 (the day it was written) over its edge, and the address: You, out on the flat, Low Water;
+  a publisher's caption runs up the divider. Turn it over for the picture: the flat itself, the
+  way out at blue hour, shot in the renderer that day (public/lowwater/postcard.png, the walker
+  hidden), so as the flat changes it'll go out of date the way a postcard does. Put it back,
+  Escape, a click on the flat or walking off closes it. At the table the view now drops back so
+  the table's above its long card. On a phone it stacks, address and stamp under the message.
+  Silent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-postcard/ (view-* the picture's
+  candidates; the first postmark sat under the stamp); script loop-runs/postcard-shots.mjs
+  (`views` mode for the picture, `table` for the card).
 
 - **The knots** ("a shape none of them can see"): from August to May, a flock of knots gets up
   off a far bank now and then, wheels over the far flat for a minute or so, and goes down again
@@ -467,10 +485,7 @@ lamp close up), not explained.
 
 - **The island on the horizon**: Vincent's island as a tiny dark silhouette far to the south, with the
   lighthouse's beam turning, so you know where home is.
-- **A postcard proof**: Euclid's proof that there are infinitely many primes, in four lines. A slate
-  is too small to read in the pixel renderer (a letter needs ~0.5 m); it would have to be written
-  big on the ground, or shown in the card. Worth the twist that 2·3·5·7·11·13 + 1 = 30031 = 59 × 509:
-  the number made isn't always prime, its factors are just new.
+- ~~**A postcard proof**~~: done (postcard.ts), as a real postcard on the table.
 - ~~**Tide table post**~~: done as the gauge (gauge.ts), about NAP rather than the two bulges.
 - **Spring and neap as a beat**: the moon's pull repeats every 12 h 25 min, the sun's every 12 h,
   and the fortnight of springs and neaps is their beat, the same arithmetic as the stones' comma.
@@ -494,6 +509,11 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The postcard's picture is a screenshot of the flat on 17 October 2026; it won't change when the
+  flat does (on purpose, but a later session may want to retake it after something big). The
+  postcard on the table is a few texels, only told apart from the page zoomed in. Not in the walk
+  script yet.
 
 - The knots' wings (`lowwater-knots`) have never been listened to by a person (by spectrogram: a
   broadband rush with small transients). The flock is a few hundred, not thousands; sometimes it

@@ -204,6 +204,7 @@ const C = {
   drift: '#b8a68e',
   stone: ['#6a6f8e', '#7b809d'],
   page: '#ece6d6',
+  card: '#f4e8c8',
   sand: ['#5c5768', '#686274', '#757080'],
   lantern: '#ffd38a',
   rope: '#a08a6c',
@@ -950,7 +951,7 @@ export class LowWater {
       this.stones.push({ at, mesh: stone, mat, lit: 0, armed: true, freq: BASE_NOTE * RATIOS[i], fade: 1.4 });
     }
 
-    // the table, standing in the water, a page held down by a stone
+    // the table, standing in the water, a page held down by a stone, and a postcard by it under another
     const table = new THREE.Group();
     const top = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.6), light);
     top.position.y = 0.74;
@@ -966,7 +967,13 @@ export class LowWater {
     const weight = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 0), paint(new THREE.Color(C.stone[0])));
     weight.scale.set(1, 0.6, 1);
     weight.position.set(0.1, 0.8, -0.08);
-    table.add(page, weight);
+    const card = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.012, 0.1), paint(new THREE.Color(C.card)));
+    card.position.set(-0.27, 0.772, 0.13);
+    card.rotation.y = -0.35;
+    const pebble = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 0), paint(new THREE.Color(C.stone[1])));
+    pebble.scale.set(1, 0.6, 1);
+    pebble.position.set(-0.24, 0.79, 0.11);
+    table.add(page, weight, card, pebble);
     table.rotation.y = 0.3;
     this.put(table, TABLE, 'table', 0.6);
 
@@ -2402,6 +2409,8 @@ export class LowWater {
     if (this.card === 'ring' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(RING) < RING_R - 1.1) want.set(RING.x, 0, RING.y - lead + (this.aspect < 0.8 ? 17 : 9));
     // at the lead line, the view drops back so you and the water you heave into are both above the card
     if (this.card === 'lead' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HEAVE_AT) < 2) want.set(this.pos.x + 1, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11)); // (more on a phone, where the card's taller)
+    // at the table, back so it (and the postcard on it) is above its long card
+    if (this.card === 'table' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(TABLE) < 3) want.set(TABLE.x - 0.5, 0, TABLE.y - lead + (this.aspect < 0.8 ? 19 : 11));
     // at the tide gauge, back so the board and the water at its foot are above the card
     if (this.card === 'gauge' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(GAUGE) < 3) want.set(GAUGE.x - 0.5, 0, GAUGE.y - lead + (this.aspect < 0.8 ? 15 : 8));
     // in the boat, back a little, so you're above the card, and she's ahead of you

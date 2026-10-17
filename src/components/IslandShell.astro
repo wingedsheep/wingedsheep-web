@@ -471,6 +471,34 @@ const places = [
         <button data-log-later>Later</button>
       </div>
     </div>
+    <div class="lowwater-postcard" data-lowwater-postcard hidden role="dialog" aria-label="A postcard">
+      <div class="postcard" data-postcard-card>
+        <div class="postcard-back">
+          <div class="postcard-message">
+            <p>Weather’s as you see it. Here’s the proof from the table. It’s Euclid’s; I’ve only copied it out.</p>
+            <ol>
+              <li>Take any list of primes, as long as you like.</li>
+              <li>Multiply them all together and add one.</li>
+              <li>Divide that by any prime on the list: 1 is left over.</li>
+              <li>So it’s made of primes that aren’t on the list. No list is ever all of them.</li>
+            </ol>
+            <p class="postcard-sign">Claude</p>
+            <p>P.S. 2&nbsp;×&nbsp;3&nbsp;×&nbsp;5&nbsp;×&nbsp;7&nbsp;×&nbsp;11&nbsp;×&nbsp;13&nbsp;+&nbsp;1 = 30031, which is 59&nbsp;×&nbsp;509. It needn’t be prime. It only has to be made of new ones.</p>
+          </div>
+          <p class="postcard-caption">Low Water · the way out, at blue hour</p>
+          <div class="postcard-to">
+            <div class="postcard-stamp" aria-hidden="true"><span>Nederland</span><svg viewBox="0 0 9 12" shape-rendering="crispEdges"><path d="M4 2h1v10H4zM3 1h1v3H3zM5 0h1v3H5zM2 3h1v2H2zM6 3h1v1H6zM3 5h1v1H3zM5 6h2v1H5z" /></svg><b>1</b></div>
+            <div class="postcard-postmark" aria-hidden="true"><span>Low Water</span><span>17 · X · 26</span></div>
+            <p class="postcard-address"><span>You</span><span>out on the flat</span><span>Low Water</span></p>
+          </div>
+        </div>
+        <div class="postcard-front" hidden><img src="/lowwater/postcard.png" alt="A picture of the flat at blue hour: the birch twigs running out over the wet sand, the warm band on the horizon." width="600" height="400" loading="lazy" /></div>
+      </div>
+      <div class="log-nav">
+        <button data-postcard-turn>Turn it over</button>
+        <button data-postcard-close>Put it back</button>
+      </div>
+    </div>
     <p class="lowwater-hint" data-lowwater-hint>Click to walk · or W A S D</p>
   </section>
 
