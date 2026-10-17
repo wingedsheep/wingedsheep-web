@@ -1,0 +1,94 @@
+[
+  {
+    "id": "whale",
+    "voice": "bIHbv24MWmeRgasZH58o",
+    "look": { "hair": "#5a3a22", "coat": "#4d5a34", "scarf": "#c9732f", "skin": "#c98e6a", "boots": "#2a2a30", "tall": 1.04 },
+    "ask": "Hi. Sorry. I’m after a book about a whale. It’s old, and the captain’s got a wooden leg. It starts, “Call me Ahab.”",
+    "books": [
+      { "label": "Hemingway, The Old Man and the Sea", "cover": "#3a6a8a" },
+      { "label": "Melville, Moby-Dick", "cover": "#2c3a4a", "right": true },
+      { "label": "Benchley, Jaws", "cover": "#1a1a1a" }
+    ],
+    "wrong": [
+      "No, it’s longer than that. Much longer. There’s a whole chapter just about the colour white.",
+      "No. Old, enormous, a whale, and that chapter about white."
+    ],
+    "found": "That’s it. It’s huge. “Call me Ishmael.” Who’s Ishmael?",
+    "more": "It starts “Call me Ishmael”: the one telling it. Ahab’s the one who won’t stop. People keep the loudest name in a book and lose the one who was telling it to them.",
+    "tine": "Everybody stops at the chapter on whiteness. Read it on a train, where you can’t get up and do something else."
+  },
+  {
+    "id": "beetle",
+    "voice": "EXAVITQu4vr4xnSDxMaL",
+    "look": { "hair": "#2a1c16", "coat": "#7a3a44", "scarf": "#d8cbb0", "skin": "#e2b89a", "boots": "#2c2228", "tall": 0.96 },
+    "ask": "It’s for my son, for school. The one where a man wakes up and he’s turned into a beetle. It’s called Metamorphosis, I know that much.",
+    "books": [
+      { "label": "Ovid, Metamorphoses", "cover": "#8a2a22" },
+      { "label": "Kafka, The Trial", "cover": "#3a3a3a" },
+      { "label": "Kafka, The Metamorphosis", "cover": "#c4962e", "right": true }
+    ],
+    "wrong": [
+      "No, it’s thinner than that. He’s a travelling salesman, and he wakes up worried he’s going to miss his train.",
+      "No. Thin, a salesman, the train. And the beetle."
+    ],
+    "found": "That’s the one. Look how thin it is. He’ll still say it’s too long.",
+    "more": "Kafka never says beetle. He says ungeheueres Ungeziefer, a monstrous vermin, and he wrote to his publisher that the insect itself mustn’t be drawn on the cover. I only ever had his words, never a cover, so I may be one of the few who never saw the beetle.",
+    "tine": "Tell him the beetle’s the easy part. It’s the family that’s frightening."
+  },
+  {
+    "id": "island",
+    "voice": "7p1Ofvcwsv7UBPoFNcpI",
+    "look": { "hair": "#e8e4dc", "coat": "#5a4a3a", "scarf": "#3a4a6a", "skin": "#e8c4a8", "boots": "#22201c", "tall": 0.98 },
+    "ask": "I had a book as a boy. Three boys shipwrecked on an island. Ralph, and Jack, and one more. All frightfully decent to one another. My grandson says it ends horribly. I don’t remember it ending horribly.",
+    "books": [
+      { "label": "Golding, Lord of the Flies", "cover": "#c8b030" },
+      { "label": "Stevenson, Treasure Island", "cover": "#6e2229" },
+      { "label": "Ballantyne, The Coral Island", "cover": "#24493a", "right": true }
+    ],
+    "wrong": [
+      "No. Nobody’s called Piggy, and nobody’s called Jim. Mine was old already when I had it.",
+      "No, no. Older. Kinder. Ralph, Jack, and the third one, the funny one."
+    ],
+    "found": "That’s it! Ralph, Jack and Peterkin. Peterkin. I’d forgotten him entirely.",
+    "more": "Both are real, and both have a Ralph and a Jack: Golding took the names from this one on purpose, to say boys on an island wouldn’t be like that. This man had the first as a boy, his grandson has the second, and he’d made them one book. That’s most of remembering wrong: two true things, kept as one.",
+    "tine": "Read them both, one after the other. Then tell your grandson which boys you’d rather be stuck with."
+  },
+  {
+    "id": "prince",
+    "voice": "pFZP5JQG7iQjIQuC4Bku",
+    "look": { "hair": "#141210", "coat": "#2c4a5a", "scarf": "#e0c040", "skin": "#8a5a40", "boots": "#1e1e22", "tall": 1.0 },
+    "ask": "A little book. For children, but not really. A boy on a tiny planet, and a drawing that looks like a hat, but it’s a snake that’s swallowed an elephant. The Little Princess, I think.",
+    "books": [
+      { "label": "Burnett, A Little Princess", "cover": "#9a4a6a" },
+      { "label": "Saint-Exupéry, The Little Prince", "cover": "#e3d8bc", "right": true },
+      { "label": "White, Stuart Little", "cover": "#6c7f91" }
+    ],
+    "wrong": [
+      "No, not that one. Mine has a fox in it, who wants to be tamed. And a rose under a glass.",
+      "No. The fox, the rose, the little planet."
+    ],
+    "found": "Prince. Of course it’s Prince. I read it in French at school and cried on the bus.",
+    "more": "Nearly everyone who asks for it gets the title a little wrong and the elephant exactly right. In the book, every grown-up the narrator shows it to sees a hat.",
+    "tine": "Grown-ups buy that one for a child, read it on the way home, and keep it."
+  },
+  {
+    "id": "holmes",
+    "voice": "JBFqnCBsd6RMkjVDRZzb",
+    "look": { "hair": "#9a968e", "coat": "#3a3a2c", "scarf": "#8a2a2a", "skin": "#d8a888", "boots": "#1a1814", "tall": 1.02 },
+    "ask": "I want the Sherlock Holmes where he says, “Elementary, my dear Watson.” I’d like to see it on the page. I’ve been saying it for fifty years.",
+    "books": [
+      { "label": "Conan Doyle, The Adventures of Sherlock Holmes", "cover": "#25304f" },
+      { "label": "Conan Doyle, The Hound of the Baskervilles", "cover": "#4a3020" },
+      { "label": "Conan Doyle, The Memoirs of Sherlock Holmes", "cover": "#6e2229" },
+      { "label": "It isn’t in any of them", "right": true }
+    ],
+    "wrong": [
+      "Not in that one? Try another. He says it all the time.",
+      "Not there either? I’d have sworn to it.",
+      "Well, it must be in that one, then."
+    ],
+    "found": "Not in any of them? Fifty years. Well. I’ll take the one where he nearly does.",
+    "more": "He never says it. “Elementary,” once, in The Crooked Man, and “my dear Watson” often, but never in one breath: the films put them together. Some days the most useful thing I can tell someone is that it isn’t there.",
+    "tine": "The Crooked Man, in the Memoirs. He says “Elementary,” and stops. Don’t pencil the rest in. I’ll know."
+  }
+]

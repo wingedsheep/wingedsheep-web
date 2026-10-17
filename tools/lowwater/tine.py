@@ -1,5 +1,6 @@
 """Tine at her counter in the bookshop behind the page (src/island/lowwater/shop.ts): her lines
-(src/island/lowwater/tine.json) recorded with ElevenLabs, levelled with ffmpeg into
+(src/island/lowwater/tine.json), and the customers who come in (customers.json) in their own
+voices with hers after them, recorded with ElevenLabs, levelled with ffmpeg into
 public/audio/lowwater/tine/, and listed in src/island/lowwater/tine-tape.json for sound.ts.
 
 Each clip is named after its line's place and a hash of its words and the voice, so an edited
@@ -20,6 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent.parent
 LINES = ROOT / "src" / "island" / "lowwater" / "tine.json"
+CUSTOMERS = ROOT / "src" / "island" / "lowwater" / "customers.json"
 TAPE = ROOT / "src" / "island" / "lowwater" / "tine-tape.json"
 RAW = ROOT / "tools" / "sounds" / "raw" / "tine"
 OUT = ROOT / "public" / "audio" / "lowwater" / "tine"
@@ -38,22 +40,29 @@ def key() -> str:
 
 
 def lines():
-    """(id, text) for every line: first.<moment>, then again.<n>."""
+    """(id, text, voice) for every line: Tine's first.<moment> and again.<n>, then each customer's
+    ask, wrong.<n> and found in their own voice, and what Tine says to them as they pay."""
     t = json.loads(LINES.read_text())
     for moment, text in t["first"].items():
-        yield f"first.{moment}", text
+        yield f"first.{moment}", text, VOICE
     for i, text in enumerate(t["again"]):
-        yield f"again.{i}", text
+        yield f"again.{i}", text, VOICE
+    for c in json.loads(CUSTOMERS.read_text()):
+        yield f"{c['id']}.ask", c["ask"], c["voice"]
+        for i, text in enumerate(c["wrong"]):
+            yield f"{c['id']}.wrong{i}", text, c["voice"]
+        yield f"{c['id']}.found", c["found"], c["voice"]
+        yield f"{c['id']}.tine", c["tine"], VOICE
 
 
-def name(ident: str, text: str) -> str:
-    h = hashlib.sha1(f"{VOICE}|{MODEL}|{text}".encode()).hexdigest()[:8]
+def name(ident: str, text: str, voice: str) -> str:
+    h = hashlib.sha1(f"{voice}|{MODEL}|{text}".encode()).hexdigest()[:8]
     return f"{ident.replace('.', '-')}-{h}.mp3"
 
 
-def record(text: str, raw: Path, out: Path):
+def record(text: str, voice: str, raw: Path, out: Path):
     if not raw.exists():
-        req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE}?output_format=mp3_44100_128",
+        req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128",
                                      headers={"xi-api-key": key(), "content-type": "application/json"},
                                      data=json.dumps({"text": text, "model_id": MODEL, "language_code": "en", "voice_settings": SETTINGS}).encode())
         with urllib.request.urlopen(req, timeout=90) as r:
@@ -69,10 +78,10 @@ def main(args: list[str]):
     RAW.mkdir(parents=True, exist_ok=True)
     OUT.mkdir(parents=True, exist_ok=True)
     tape = {}
-    for ident, text in lines():
-        f = name(ident, text)
+    for ident, text, voice in lines():
+        f = name(ident, text, voice)
         if not (OUT / f).exists() or "--relevel" in args:
-            record(text, RAW / f, OUT / f)
+            record(text, voice, RAW / f, OUT / f)
             print(f"{f}  {text[:70]}")
         tape[ident] = f
     TAPE.write_text(json.dumps(tape, indent=1) + "\n")

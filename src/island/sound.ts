@@ -1824,8 +1824,8 @@ export class Sound {
     this.play('lowwater-creak', near, { air: 1500 + near * near * 9000 });
   }
 
-  /** A footstep on her deck: a soft hollow knock on planking. */
-  deckStep() {
+  /** A footstep on her deck: a soft hollow knock on planking (in the bookshop, a customer's too: quieter, from where they are). */
+  deckStep(level = 1, side = 0) {
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
@@ -1837,9 +1837,11 @@ export class Sound {
     band.Q.value = 5;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.12, t + 0.006);
+    env.gain.linearRampToValueAtTime(0.12 * level, t + 0.006);
     env.gain.setTargetAtTime(0, t + 0.02, 0.04);
-    src.connect(band).connect(env).connect(this.master);
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = Math.max(-1, Math.min(1, side)) * 0.6;
+    src.connect(band).connect(env).connect(pan).connect(this.master);
     src.start(t, Math.random() * 1.5, 0.25);
   }
 

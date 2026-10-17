@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
 import { makeFigure, type Figure } from './figure';
+import { Customer, CUSTOMERS } from './customer';
 
 /** The room (m): x west to east, z north (back wall) to south (cut away); TALL to the ceiling. */
 const WEST = -4.5;
@@ -57,6 +58,8 @@ const SUN_ALONG = -0.3;
 const PACE = 1.6;
 /** Stood still this long in the open middle, the shop's card again (s). */
 const STILL = 8;
+/** How long after you've come in (and left her counter) someone comes in after a book (s). */
+const CUSTOMER_IN = 7;
 /** Near the counter, Tine looks up (m); nearer, she talks. */
 const LOOK_UP = 2.5;
 const TALK = 1.5;
@@ -65,7 +68,7 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type ShopCard = 'shop' | 'tine' | 'shelves' | 'window' | 'door' | 'clock';
+export type ShopCard = 'shop' | 'tine' | 'shelves' | 'window' | 'door' | 'clock' | 'customer';
 type Thing = 'tine' | 'shelves' | 'window' | 'door' | 'clock';
 
 /** The worn book-cloth of a secondhand shop: oxblood, bottle green, navy, mustard, tan, cream, grey-blue, and some browns. */
@@ -215,12 +218,20 @@ export class Shop {
   onBell?: (side: number) => void;
   onTick?: (tock: boolean, side: number, near: number) => void;
   onTurn?: (side: number, near: number) => void;
+  /** A customer's step on the boards. */
+  onTheirStep?: (side: number, near: number) => void;
   /** The island's hour and weather, from lowwater.ts: sun up, a low sun, rain, fog, snow (each 0–1), and the clock (hours since midnight, and its seconds). */
   readonly moment = { day: 1, warm: 0, rain: 0, fog: 0, snow: 0, hours: 14, seconds: 0 };
   /** Reduced motion: no drifting dust, no running rain. */
   still = false;
   /** How many times you've come to the counter this visit (Tine's first line, then the others in turn). */
   visits = 0;
+  /** Someone in after a book they half remember (customer.ts), once a visit. */
+  customer: Customer | null = null;
+  private customerIn = CUSTOMER_IN;
+  private served = false;
+  private rungOut = false;
+  private arrivals = 0;
   private you: Figure;
   private tine: Tine;
   private pos = new THREE.Vector3();
@@ -861,6 +872,12 @@ export class Shop {
     this.zoomed = 1;
     this.ringBell();
     this.ticked = -1;
+    // (a new visit, a new customer: whoever was in has gone)
+    this.customer?.remove();
+    this.customer = null;
+    this.customerIn = CUSTOMER_IN;
+    this.served = false;
+    this.arrivals++;
     this.frame(0);
   }
 
@@ -936,11 +953,15 @@ export class Shop {
     if (atCounter && !this.atCounter) this.visits++;
     this.atCounter = atCounter;
     const west = this.pos.x < WEST + 1.5;
+    this.serve(dt);
+    const p = this.customer?.phase;
+    const byDoor = west && this.pos.z > DOOR.z0 - 0.4 && this.pos.z < FRONT;
     this.card =
       this.fresh ? 'shop'
+      : (p === 'ask' || p === 'wait' || p === 'found' || p === 'pay') && !byDoor ? 'customer'
       : atCounter ? 'tine'
       : byClock ? 'clock'
-      : this.pos.z < BACK + CASE.deep + 1.5 && this.pos.x > -3.2 && this.pos.x < 1.4 ? 'shelves'
+      : this.atShelves ? 'shelves'
       : west && this.pos.z > WIN.z0 && this.pos.z < WIN.z1 ? 'window'
       : west && this.pos.z > DOOR.z0 - 0.4 && this.pos.z < FRONT ? 'door'
       : this.stillFor > STILL ? 'shop'
@@ -949,6 +970,43 @@ export class Shop {
     if (this.out && this.pos.x < WEST + 0.35) this.leaving = true;
     if (this.leaving && this.ring < 0.5) this.ringBell();
     this.frame(dt);
+  }
+
+  /** By the back wall's shelves. */
+  get atShelves() {
+    return this.pos.z < BACK + CASE.deep + 1.5 && this.pos.x > -3.2 && this.pos.x < 1.4;
+  }
+
+  /**
+   * Someone comes in after a book, a while after you've come in yourself (not while Tine's talking
+   * to you), in turn by the hour and the visit; the bell as they come and go.
+   */
+  private serve(dt: number) {
+    if (!this.customer && !this.served && !this.fresh && !this.atCounter && this.talking <= 0) {
+      this.customerIn -= dt;
+      if (this.customerIn <= 0) {
+        // (`?customer=<id>` brings that one in, for a look)
+        const asked = CUSTOMERS.find((p) => p.id === new URLSearchParams(location.search).get('customer'));
+        const who = asked ?? CUSTOMERS[(Math.floor(this.moment.hours) + this.arrivals) % CUSTOMERS.length];
+        this.customer = new Customer(who, this.scene);
+        this.customer.onStep = (x, z) => this.onTheirStep?.(this.sideOf(x, z), this.nearness(x, z));
+        this.served = true;
+        this.rungOut = false;
+        this.ringBell();
+      }
+    }
+    const c = this.customer;
+    if (!c) return;
+    c.update(dt);
+    // (the bell again as they go out of the door)
+    if (c.phase === 'out' && c.x < WEST + 0.6 && !this.rungOut) (this.rungOut = true), this.ringBell();
+    if (c.phase === 'gone') (c.remove(), (this.customer = null));
+  }
+
+  /** Where the customer is from you, across the picture, and how near (for their voice). */
+  customerSide() {
+    const c = this.customer;
+    return c ? { side: this.sideOf(c.x, c.z), near: this.nearness(c.x, c.z) } : { side: 0, near: 0 };
   }
 
   /** The shop's light for the moment: the sun at the window, the lamps when it's dim, the street. */
@@ -1048,12 +1106,14 @@ export class Shop {
   /** Tine reads, turning a page every so often; come to the counter and she looks up at you, and goes back to it when you go. */
   private tineLives(dt: number) {
     const t = this.tine;
-    const near = this.toCounter() < LOOK_UP && !this.fresh;
+    const near = this.toCounter() < LOOK_UP && !this.fresh && !(this.customer?.phase === 'ask');
     // where she looks: at you (her head turned, and up), or down at the book
     const want = new THREE.Vector2(0, 0.42);
-    if (near) {
-      const dx = this.pos.x - TINE_AT.x;
-      const dz = this.pos.z - TINE_AT.z;
+    const c = this.customer;
+    const them = c && c.phase === 'pay' && c.speaker === 'tine' && c.talking > 0;
+    if (near || them) {
+      const dx = (them ? c.x : this.pos.x) - TINE_AT.x;
+      const dz = (them ? c.z : this.pos.z) - TINE_AT.z;
       const turn = Math.atan2(dx, dz) - TINE_FACING;
       want.set(THREE.MathUtils.clamp(Math.atan2(Math.sin(turn), Math.cos(turn)), -1.1, 1.1), -0.08);
     }

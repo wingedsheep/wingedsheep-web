@@ -331,4 +331,6 @@ export function tineMoment(m: { day: number; rain: number; snow: number }, at: D
 export const TINE_MORE = 'That’s Tine. She’s kept this shop since 1979, and she’s never once let a book go out of the door without saying what she thinks of it.';
 /** Under the clock on the back wall, behind the counter's north end. */
 export const SHOP_CLOCK = 'The shop’s clock, keeping the island’s time. In here it’s quiet enough to hear it. I never know what time it is unless somebody tells me. This one tells you once a second.';
+/** Someone's come in after a book they half remember (customer.ts), and asked at the counter. */
+export const YOUR_TURN = 'Tine doesn’t look up. She seems to think this one’s yours. The shelves are at the back.';
 export const SHOP_LABELS = { tine: 'Tine', shelves: 'Fiction, A–Z', window: 'The window', door: 'The street door', clock: 'The clock' };

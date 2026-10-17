@@ -22,7 +22,7 @@ import type { Ridge } from './lowwater/ridge';
 import type { Shop } from './lowwater/shop';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, SHOP_WINDOW, STREET_DOOR, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -91,6 +91,9 @@ export class LowWaterRoom implements RoomInput {
   private text: HTMLElement;
   private more: HTMLElement;
   private sitButton: HTMLElement;
+  /** In the bookshop, the books a customer might mean. */
+  private choices: HTMLElement;
+  private shownChoices = '';
   private foldButton: HTMLElement;
   private hint: HTMLElement;
   private writeForm: HTMLFormElement;
@@ -122,6 +125,12 @@ export class LowWaterRoom implements RoomInput {
     this.text = this.el.querySelector<HTMLElement>('[data-lowwater-text]')!;
     this.more = this.el.querySelector<HTMLElement>('[data-lowwater-more]')!;
     this.sitButton = this.el.querySelector<HTMLElement>('[data-lowwater-sit]')!;
+    this.choices = this.el.querySelector<HTMLElement>('[data-lowwater-choices]')!;
+    this.choices.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-book]');
+      if (b && this.inShop) this.shop?.customer?.choose(Number(b.dataset.book));
+    });
     this.foldButton = this.el.querySelector<HTMLElement>('[data-lowwater-fold]')!;
     // (a tap on the card, or its corner, folds it away or opens it again; not on its button or its line)
     this.card.addEventListener('click', (e) => {
@@ -220,6 +229,7 @@ export class LowWaterRoom implements RoomInput {
         this.shop.onBell = (side) => this.ctx.sound.shopBell(side);
         this.shop.onTick = (tock, side, near) => this.ctx.sound.shopTick(tock, side, near);
         this.shop.onTurn = (side, near) => this.ctx.sound.shopTurn(side, near);
+        this.shop.onTheirStep = (side, near) => this.ctx.sound.deckStep(0.35 + near * 0.4, side);
         this.shop.still = this.reducedMotion;
         this.floor = new Floor(() => this.pixels.height);
         this.floor.onStep = (on) => (on === 'clay' ? this.ctx.sound.clayStep() : on === 'print' ? this.ctx.sound.printStep() : this.ctx.sound.flatStep(on === 'wash'));
@@ -505,6 +515,13 @@ export class LowWaterRoom implements RoomInput {
       seconds: (this.ctx.sky.time / 1000) % 86400,
     });
     shop.update(dt);
+    // (a customer's said something: out loud, from where they are; as they pay, it's Tine)
+    const c = shop.customer;
+    if (c?.fresh) {
+      c.fresh = false;
+      if (this.ctx.sound.enabled) this.ctx.sound.tine(TAPE[c.line as keyof typeof TAPE], c.speaker === 'tine' ? shop.tineSide() : shop.customerSide().side);
+      if (c.speaker === 'tine') shop.tineSays(c.talking);
+    }
     const u = this.pixels.uniforms;
     (u.uGrade.value as THREE.Vector3).set(1.02, 1.02, 1.0);
     u.uShade.value.setRGB(0.9, 0.84, 0.86);
@@ -521,15 +538,24 @@ export class LowWaterRoom implements RoomInput {
 
   private showShopCard(shop: Shop) {
     const id = shop.card;
-    // (each time you come to the counter is a new card: she says something else)
-    const key = id && (id === 'tine' ? `shop:tine:${shop.visits}` : `shop:${id}`);
-    const more = id === 'tine' ? TINE_MORE : '';
+    const c = id === 'customer' ? shop.customer : null;
+    // (each time you come to the counter is a new card: she says something else; a customer's, each thing they say)
+    const key = id && (id === 'tine' ? `shop:tine:${shop.visits}` : c ? `shop:customer:${c.line}` : `shop:${id}`);
+    const more = id === 'tine' ? TINE_MORE : c ? (c.phase === 'found' ? c.who.more : c.phase === 'ask' || (c.phase === 'wait' && c.left.length === c.who.books.length && !shop.atShelves) ? YOUR_TURN : '') : '';
     const button = id === 'door' ? 'Go out' : '';
-    if (key === this.shown && more === this.shownMore && button === this.shownButton) return;
+    // (at the shelves, while they wait, the books they might mean)
+    const books = c && shop.atShelves ? c.choices() : [];
+    const choices = books.map((b) => b.label).join('|');
+    if (key === this.shown && more === this.shownMore && button === this.shownButton && choices === this.shownChoices) return;
     this.writeForm.hidden = true;
     if (key !== this.shown) {
       this.card.hidden = !id;
-      if (id) {
+      if (c) {
+        // (what they say, on the card and out loud, from where they are; as they pay, it's Tine)
+        // (a quote inside what they say goes in single marks)
+        this.text.textContent = `“${c.said.replace(/“/g, '‘').replace(/”/g, '’')}”`;
+        this.fold(this.keepFolded && this.small.matches);
+      } else if (id) {
         // (what Tine says, on the card and out loud: the first time by the moment, then the rest in turn)
         const line = shop.visits <= 1 ? `first.${tineMoment(shop.moment, visitDate(), new Date(this.ctx.sky.time).getHours())}` : `again.${(shop.visits - 2) % TINE_AGAIN.length}`;
         const [part, which] = line.split('.');
@@ -541,6 +567,8 @@ export class LowWaterRoom implements RoomInput {
           shop.tineSays(0.25 + said.length / 15);
         }
         this.fold(this.keepFolded && this.small.matches);
+      }
+      if (id) {
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
         this.card.style.animation = '';
@@ -550,6 +578,19 @@ export class LowWaterRoom implements RoomInput {
     if (more) this.more.textContent = more;
     this.sitButton.hidden = !button;
     if (button) this.sitButton.textContent = button;
+    if (choices !== this.shownChoices) {
+      this.choices.replaceChildren(
+        ...books.map((b) => {
+          const el = document.createElement('button');
+          el.type = 'button';
+          el.textContent = b.label;
+          el.dataset.book = String(b.i);
+          return el;
+        }),
+      );
+    }
+    this.choices.hidden = !books.length;
+    this.shownChoices = choices;
     this.shownButton = button;
     this.shown = key;
     this.shownMore = more;
@@ -597,6 +638,7 @@ export class LowWaterRoom implements RoomInput {
     const key = id && `floor:${id}`;
     if (key === this.shown && !this.shownMore && !this.shownButton) return;
     this.writeForm.hidden = true;
+    this.choices.hidden = true;
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
@@ -623,6 +665,7 @@ export class LowWaterRoom implements RoomInput {
     // (at either end, the line in the card takes a number: yours)
     const asks = id === 'down' || id === 'one';
     this.writeForm.hidden = !asks;
+    this.choices.hidden = true;
     if (asks) this.lineFor('number');
     if (key !== this.shown) {
       this.card.hidden = !id;
@@ -719,6 +762,7 @@ export class LowWaterRoom implements RoomInput {
     const button = id === 'door' && !page.entering ? 'Go in' : '';
     if (key === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = true;
+    this.choices.hidden = true;
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
@@ -745,6 +789,7 @@ export class LowWaterRoom implements RoomInput {
     const button = id === 'slide' ? (room.hole < SLIDE_NOW.length - 1 ? 'Smaller' : 'Open it wide') : 'Go out';
     if (key === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = true;
+    this.choices.hidden = true;
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
@@ -793,6 +838,7 @@ export class LowWaterRoom implements RoomInput {
     const button = id === 'last' && lantern === 'hung' ? 'Take the lantern' : id === 'last' && lantern === 'held' ? 'Hang it back' : id === 'lantern' ? (lantern === 'held' ? 'Set it down' : 'Take the lantern') : id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'canon' ? (world.canonBusy ? '' : world.canonPlayed ? 'Walk it back' : 'Walk it') : id === 'bean' ? (world.beanHere ? 'Send it on' : '') : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : id === 'hide' ? 'Go in' : id === 'baak' ? 'Climb it' : id === 'scour' ? 'Follow them' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
+    this.choices.hidden = true;
     if (id === 'stick') this.lineFor('sand');
     if (id !== this.shown) {
       this.card.hidden = !id;

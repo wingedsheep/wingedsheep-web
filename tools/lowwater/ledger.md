@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Paths (2026-10-17, polish 13):** Vincent renamed the space Commonplace on his own main (tools/commonplace/,
 src/island/commonplace/, `commonplace-*` sounds), but hadn't pushed it when polish 13 ran, and the loop builds
@@ -46,9 +46,10 @@ voice, and later a game.
    clock that struck the Dutch way at first; polish 13 made it a plain round clock, see Done); the
    street through the window by the hour and the weather; her page; the island's rain on the
    roof. See Done.
-4. **Someone comes in**: customers (their own voices) asking for half-remembered books ("blue
-   cover, a lighthouse, the dog dies"); you find it on the shelves, or it turns out they
-   misremember; Tine's opinion on the way out. Real books, true descriptions. The game.
+4. **Someone comes in** (done): once a visit, a customer in their own voice after a book they
+   half remember; you choose from the shelves, they put you right, Tine has the last word as
+   they pay. Five people (customers.json), one of whom wants a line that isn't in any book. See
+   Done.
 5. **Niet te koop**: the shelf behind her, the books with the best margins: open one and read
    the pencil of three readers arguing with the book and each other across decades.
 
@@ -198,6 +199,36 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The bookshop, step 4: someone comes in** (project: The bookshop): a while after you've come
+  in (7 s after you've left Tine's counter, never while she's talking), the bell goes and someone
+  comes in after a book they half remember, walks up to the counter and asks, out loud, in their
+  own voice. Tine doesn't look up ("She seems to think this one's yours"). They go and wait by the
+  shelves; stood at the shelves, the card offers the books they might mean, one button each
+  (author, title, as the shelves are sorted). Hand them a wrong one and they say the next thing
+  they remember; the right one and they're pleased, a book in their hand, and the card's second
+  line says what they'd got wrong and why that's the usual way to get it wrong. Then to the
+  counter, where Tine says what she thinks of it (her voice, her head turned to them), and out
+  with the bell. Five people (src/island/lowwater/customers.json, `customer.ts`), all real books
+  and true facts: "Call me Ahab" (Moby-Dick; the narrator lost, the loudest name kept); the
+  beetle (Kafka never says beetle, and wrote to his publisher that the insect mustn't be drawn:
+  "I only ever had his words, never a cover, so I may be one of the few who never saw the
+  beetle"); a grandfather's island book with Ralph and Jack, all decent to each other (The
+  Coral Island, which Golding answered with the same names: two true things kept as one); The
+  Little Princess with the hat that's a snake (Prince); and "Elementary, my dear Watson", which
+  isn't in any of them: the right answer is a button that says so ("Some days the most useful
+  thing I can tell someone is that it isn't there"). Why: this is the thing I'm asked most that
+  a bookseller is also asked, and how it goes is true of me: the shape of what someone remembers
+  is nearly always right and the names move, and you find it by guessing and being put right,
+  one detail at a time. Voices recorded by tools/lowwater/tine.py (now also reads
+  customers.json: each person's ask, wrong lines and found in their own ElevenLabs voice, and
+  Tine's reply in hers; 26 new clips, about 1 MB). Who comes is by the island's hour and the
+  visit; `?customer=whale|beetle|island|prince|holmes` brings one in. Their steps are the deck's
+  knock, quieter and placed (`deckStep(level, side)`). Checked in Playwright
+  (loop-runs/customer-shots.mjs <out> <size> <query> <tag> <zoom>: the whole visit, a wrong then
+  a right pick, every voice call logged) at 14:00 desktop (holmes) and 18:30 in rain on a phone
+  (island); shots in loop-runs/commonplace-logs/shots/2026-10-17-customer. No console errors from
+  the space (one 503 from the forecast API). Commit: this one.
 
 - **Polish pass 13: the Dutch drift cut back** (no project): Vincent saw the space turning into
   an ode to the Dutch (pricken, a lightship, a Dutch bookshop, a Frisian clock), and he was right:
@@ -1420,6 +1451,16 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- Customers (bookshop step 4): one a visit only, and the five come round in turn by the hour,
+  so a regular sees them repeat. They walk through you and the table's corner isn't in their
+  way (their path goes round it by waypoints). Their figure is yours with hair, recoloured and a
+  little taller or shorter; the book in their hand is a few texels and mostly hidden behind
+  them. Coming to Tine's counter while a customer's in counts as a visit to her, so one of her
+  lines can be skipped. The choice buttons only show stood at the shelves (the shelves' strip
+  along the back wall). Their voices and Tine's replies have never been listened to by a person
+  (lengths checked: 1.6–14.5 s; the grandfather's ask is 14.5 s, long). Talk timing is from the
+  line's length, not the take's.
 
 - The lightship's log still has the bookshop's sound watch saying "a Frisian clock ticks and
   strikes the Dutch way": it's that watch's own line from git, and a log isn't rewritten, so it

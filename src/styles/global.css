@@ -811,6 +811,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: #f0b088; color: var(--ink); box-shadow: inset 0 -3px 0 #c07e5e;
 }
 .lowwater-sit:hover { background: #f6c3a2; }
+/* in the bookshop, the books on the shelves a customer might mean, one button each (src/island/lowwater/customer.ts) */
+.lowwater-choices { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; }
+.lowwater-choices[hidden] { display: none; }
+.lowwater-choices button {
+  padding: 3px 12px 5px; border: 0; cursor: pointer; font: 15px var(--serif); text-align: left; clip-path: var(--notch);
+  background: rgba(240, 176, 136, 0.16); color: #f3e6d6; box-shadow: inset 0 0 0 2px rgba(240, 176, 136, 0.55);
+}
+.lowwater-choices button:hover, .lowwater-choices button:focus-visible { background: #f0b088; color: var(--ink); outline: none; }
 .lowwater-write { display: flex; gap: 8px; margin-top: 10px; }
 .lowwater-write[hidden] { display: none; }
 .lowwater-write input {
