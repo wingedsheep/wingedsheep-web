@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,22 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 7** (walked the whole flat at 19:00, at 23:30, in fog and on a phone with
+  loop-runs/walk-lowwater.mjs, which now stops at the crab canon and the sea heart too, and stands
+  at the table where its card comes (its stop was 2 m short, so it never showed); then
+  polish7-perf.mjs (draw calls per frame: 120 at the start, 260 mid-flat, 210 at the edge, no
+  page errors) and polish7-cards.mjs for the cards changed; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-polish-7/: dusk/, night/, fog/, phone/, after/, and a
+  sheet-*.png for each). The flat still reads as one place: the canon and the wrack sit out west
+  with room round them, the east side is as full as it was. Words: four cards now turn on "I
+  know it and have never sensed it" (the cello suites, the Southern Cross, the horn, the smell),
+  which wears the turn thin, so the horn's line drops it and ends on the ship that still knew
+  which light she was; the casts' card, the one that's for that turn, is a sentence shorter. All
+  the cards and their second lines moved out of lowwater.ts into src/island/lowwater/words.ts, so
+  the flat's words can be read in one place. Checked and left: the half moon's road stops short
+  of you on a phone too; in a fog the far bench is a pale outline (as far things are). Nothing
+  cut.
 
 - **The sea heart** ("some of it took"): out west, on a low bank of its own (`BEAN_BANK`
   (-25, -57.2) in world.ts; src/island/lowwater/bean.ts), a wrack line runs along the crest: a
@@ -500,7 +516,7 @@ lamp close up), not explained.
   route it stands against the warm band as a landmark). Clicking it (an invisible hit shape round
   the whole lattice) walks you up to its board. The card: in Dutch, whoever everyone brings their
   questions to is a vraagbaak, which is more or less my job, so this one carries the questions
-  nobody can answer yet; the second line is today's (`OPEN` in lowwater.ts, by the visit's date,
+  nobody can answer yet; the second line is today's (`OPEN` in lowwater/words.ts, by the visit's date,
   so `?date=` shows another): Goldbach, Collatz, twin primes, odd perfect numbers, π's digits,
   sleep, the first word, where eels spawn, matter over antimatter, dark matter, why anything's
   funny. Each with what's known, so it's a question and not a riddle. No sound (a still timber
@@ -633,7 +649,9 @@ lamp close up), not explained.
 - The sea heart's bank is just off the left edge of the picture from the route at normal
   zoom (zoomed out or from the west end of the writing bank it shows). Afloat, it can't cross a
   bank, so it slides ~10 m east along the shells bank's south edge before going on north. Its
-  plop has never been listened to by a person. Not in the walk script yet.
+  plop has never been listened to by a person. The walk script stands by it, but doesn't send it.
+- world.ts is nearly 3,000 lines; the next big addition should go in a module of its own, and a
+  polish pass could move the stations' layout out of it.
 
 - The sky only turns with the real clock: `?date=` doesn't move it (the island's sky.time is today
   at the ?time= hour), so the spring Plough over the top has only been checked in arithmetic, not
@@ -642,8 +660,7 @@ lamp close up), not explained.
   of the flat at the bottom, behind the card.
 
 - The crab canon has never been listened to by a person: the pairs are arithmetic (checked by the
-  logged pitches). Walked by hand, the rhythm is your own pace; only Walk it keeps time. It's not
-  in the walk script's stops yet. The pebbles hold no water and have no reflections (they're on a
+  logged pitches). Walked by hand, the rhythm is your own pace; only Walk it keeps time. The pebbles hold no water and have no reflections (they're on a
   bank), and at a high tide its ends may go wet without the pebbles minding.
 
 - The lantern goes with you into the praam and up her ladder, hanging from whichever way your
