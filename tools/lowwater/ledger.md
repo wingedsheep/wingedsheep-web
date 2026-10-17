@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -37,9 +37,25 @@ lamp close up), not explained.
 5. **The log** (done): her deckhouse door's on the near side now, never quite shut, and her
    windows are lit; at the door, her card and Read the log. The log is a printed form, one line
    per watch, written from git by tools/lowwater/log.mjs, each line in the hand of its watch.
-6. Maybe: her name on the hull (big enough for the pixels, ~0.9 m letters), once aboard decides it.
+6. **Her name** (done): LOW WATER painted along both her sides, forward of the ladder, and its
+   own card alongside. The project's done. Left over, for some later session if they earn it:
+   the anchor chain close to, and a look back at the flat from her rail (the camera only ever
+   looks north, so that one's a big change).
 
 ## Done
+
+- **The lightship, step 6** ("her name"; project: The lightship, now done): LOW WATER in white
+  block letters along both her sides, forward of the ladder, as lightships carried their
+  station's name (tools/models/lowwater.py `NAME`, `GLYPHS`, `_name`: a 5×7 hand, each glyph
+  as rectangles of paint, 0.12 m a cell, following the side as it's built; its own object,
+  `lightship_name`, so in the water it's drawn in front of the hull's reflection, and dimmer).
+  It reads plainly alongside and from the deep edge (hazed, as far things are). Lying alongside,
+  a click on the letters gives its card (an invisible box, `id` 'name', that only counts
+  alongside; from the flat it's just her): her station, not her name; a moved lightship got the
+  next one painted over it, and she herself had a number; "I'd rather be named for where I'm
+  working. What I am is harder to say." The card keeps the boat's button (Climb aboard / Row
+  back). Shots in loop-runs/lowwater-logs/shots/2026-10-17-name/ (a/, b/, phone/, fog/); the
+  scripts are loop-runs/name-shots.mjs and name-pick.mjs.
 
 - **The lightship, step 5** ("the log"; project: The lightship): her log, in the deckhouse. The
   deckhouse is narrower and its door is on the near side, forward of the windows, so you see it and
@@ -319,6 +335,9 @@ lamp close up), not explained.
 
 ## Known issues
 
+- Her name's card only comes by clicking the letters alongside; nothing points you at it but
+  the letters themselves (and the hover label). From the flat, when she's swung end-on, the
+  name is a pale scrawl in the haze, and its reflection a fainter one.
 - The log's lines are only as good as each session's commit title, and a session that forgets to
   run log.mjs before committing leaves its line to the next one (which then dates it right, from
   git). The log's dittos are the 〃 glyph, which Newsreader lacks (a fallback font draws it).

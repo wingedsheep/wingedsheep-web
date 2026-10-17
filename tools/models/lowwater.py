@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import math
 import random
+import re
 
 from kit import Model, group
 
@@ -310,6 +311,62 @@ def _ship_outline(scale: float = 1.0, steps: int = 14) -> list[tuple[float, floa
     return top + [side[-1]] + bottom
 
 
+# her station's name, painted along both sides forward of the ladder in a plain block hand, a
+# cell of the grid a square of paint (big enough for the pixels to read alongside)
+NAME = "LOW WATER"
+NAME_WHITE = "#d9d3ca"  # her white, a touch off it, so the paint is its own part
+NAME_CELL = 0.12
+NAME_X = -0.55  # where it starts, aft, on the near side
+NAME_Z = 0.3
+GLYPHS = {
+    "L": ["X....", "X....", "X....", "X....", "X....", "X....", "XXXXX"],
+    "O": [".XXX.", "X...X", "X...X", "X...X", "X...X", "X...X", ".XXX."],
+    "W": ["X...X", "X...X", "X...X", "X.X.X", "X.X.X", "XX.XX", "X...X"],
+    "A": [".XXX.", "X...X", "X...X", "XXXXX", "X...X", "X...X", "X...X"],
+    "T": ["XXXXX", "..X..", "..X..", "..X..", "..X..", "..X..", "..X.."],
+    "E": ["XXXXX", "X....", "X....", "XXXX.", "X....", "X....", "XXXXX"],
+    "R": ["XXXX.", "X...X", "X...X", "XXXX.", "X.X..", "X..X.", "X...X"],
+    " ": [".....", ".....", ".....", ".....", ".....", ".....", "....."],
+}
+
+
+def _side_at(x: float) -> tuple[float, float]:
+    """Her side at x, as it's actually built (the outline's straight runs): half-width and slope."""
+    pts = [(t * SHIP_LENGTH / 2, _ship_half(t)) for t in (-1 + 2 * i / 14 for i in range(15))]
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if x0 <= x <= x1:
+            k = (y1 - y0) / (x1 - x0)
+            return y0 + k * (x - x0), k
+    return pts[-1][1], 0.0
+
+
+def _glyph_blocks(rows: list[str]):
+    """A glyph as rectangles of paint (col0, col1, row0, row1): runs along a row, run down the rows below while they match."""
+    runs = [{(r.start(), r.end()) for r in re.finditer("X+", row)} for row in rows]
+    for r0, row in enumerate(runs):
+        for run in sorted(row):
+            r1 = r0 + 1
+            while r1 < len(runs) and run in runs[r1]:
+                runs[r1].discard(run)
+                r1 += 1
+            yield run[0], run[1], r0, r1
+
+
+def _name(m: Model):
+    """The name, each block of paint a thin slab on her side, both sides, read from outboard."""
+    c = NAME_CELL
+    width = len(NAME) * 6 * c - c
+    for side in (-1, 1):
+        for i, ch in enumerate(NAME):
+            for c0, c1, r0, r1 in _glyph_blocks(GLYPHS[ch]):
+                z = NAME_Z + (7 - (r0 + r1) / 2) * c
+                u = (i * 6 + (c0 + c1) / 2) * c  # along the name, from its start
+                # (read from outboard: on the near side the bow's to your right, on the far side to your left)
+                x = NAME_X + u if side < 0 else NAME_X + width - u
+                half, slope = _side_at(x)
+                a = math.atan(slope) * side
+                m.box(((c1 - c0) * c / math.cos(a) + 0.01, 0.03, (r1 - r0) * c + 0.01), (x, side * (half + 0.01), z), NAME_WHITE, rot=(0, 0, a))
+
 def lightship():
     root = group("lightship", (0, -940, 0), lowwater="lightship")
     m = Model("lightship", seed=15)
@@ -376,6 +433,9 @@ def lightship():
     m.cyl(0.1, 5.2, (zx, 0, FREEBOARD), TAR, segs=6, r_top=0.06)
     m.prism([(zx - 0.05, FREEBOARD + 1.6), (zx - 0.05, FREEBOARD + 5.0), (zx - 2.4, FREEBOARD + 1.9)], 0.04, (0, 0, 0), SAIL)
     m.build(parent=root)
+    name = Model("lightship_name", seed=16)
+    _name(name)
+    name.build(parent=root)
     return root
 
 

@@ -28,7 +28,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -391,6 +391,8 @@ export class LowWater {
   /** Up her ladder and about her deck (deck.ts), and whether you've been up this visit. */
   private deck = new Deck();
   private beenAboard = false;
+  /** Lying alongside, you've clicked her name on her side: its card, not the boat's. */
+  private readName = false;
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
   /** The stick (where it's stuck in, and the one in your hand while you write), and the line being written. */
@@ -1002,6 +1004,7 @@ export class LowWater {
   /** Up her ladder from the praam, lying alongside her (or down it again, from her deck). */
   climb() {
     if (!this.lightship) return;
+    this.readName = false;
     if (this.deck.onDeck) return this.deck.leave();
     if (!this.praam.alongside || this.deck.aboard) return;
     this.keys.clear();
@@ -1306,6 +1309,8 @@ export class LowWater {
       // in front of the house and the mast, and the lit lamp in front of its glass)
       if (mesh.userData.hull) mesh.renderOrder = -4.9;
       if (mesh.name === 'lamp') mesh.renderOrder = -4.8;
+      // (and the name on her side in front of the side, and dimmer: in the water it was a pale scrawl)
+      if (mesh.name === 'lightship_name') (mesh.renderOrder = -4.85), mat.color.lerp(WATER, 0.35);
       mesh.material = mat;
     });
     const a: THREE.Object3D[] = [];
@@ -1325,7 +1330,11 @@ export class LowWater {
     hull.position.y = 1.1 * k;
     const mast = new THREE.Mesh(new THREE.BoxGeometry(1.6 * k, 9.8 * k, 1.6 * k), hidden);
     mast.position.set(0.4 * k, 4.9 * k, 0);
-    g.add(hull, mast);
+    // and her name, painted on her near side forward of the ladder: read close to, from the boat
+    const name = new THREE.Mesh(new THREE.BoxGeometry(6.6 * k, 1.1 * k, 0.4 * k), hidden);
+    name.position.set(2.6 * k, 0.72 * k, 2.2 * k);
+    name.userData.id = 'name';
+    g.add(hull, mast, name);
   }
 
   /** Whether the seal's gone into the water (you came too close). */
@@ -1501,7 +1510,11 @@ export class LowWater {
   pick(ndc: THREE.Vector2): string | null {
     this.ray.setFromCamera(ndc, this.camera);
     for (const hit of this.ray.intersectObjects(this.pickables, true)) {
-      for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) if (o.userData.id) return o.userData.id;
+      for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) {
+        // (her name's only something of its own close to; from anywhere else it's just her)
+        if (o.userData.id === 'name' && !(this.praam.alongside && !this.deck.aboard)) continue;
+        if (o.userData.id) return o.userData.id;
+      }
     }
     return null;
   }
@@ -1519,7 +1532,10 @@ export class LowWater {
       return;
     }
     // alongside: a click on her is a climb up her ladder
-    if (this.praam.alongside && !this.deck.aboard && this.pick(ndc) === 'lightship') return this.climb();
+    const at = this.praam.alongside && !this.deck.aboard ? this.pick(ndc) : null;
+    if (at === 'name') return void (this.readName = true);
+    this.readName = false;
+    if (at === 'lightship') return this.climb();
     if (this.praam.afloat) return;
     this.stopWriting();
     this.boardOnArrival = false;
@@ -1883,7 +1899,9 @@ export class LowWater {
       return;
     }
     if (this.praam.afloat) {
-      this.card = 'praam';
+      // (alongside, her name on her side, once you've looked at it, until you do something else)
+      if (!this.praam.alongside) this.readName = false;
+      this.card = this.readName ? 'name' : 'praam';
       return;
     }
     if (this.clicked) {
