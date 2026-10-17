@@ -6,7 +6,9 @@
  * trebling a step and a half up), running east. The next stone isn't there until you stand on
  * this one, then it comes up out of the cloud: nobody knows a shortcut, so to find out where a
  * number goes you walk it. Behind you the ones you've walked stay up, a range of your own. It
- * climbs to 9,232 and comes down to 1, where it would only go round.
+ * climbs to 9,232 and comes down to 1, where it only goes round: the rule says 4 next, so the 4
+ * behind you goes down into the cloud and comes up in front, then the 2, then the 1, three stones
+ * walking with you round the only loop anyone has found, for as long as you like.
  *
  * Its own scene and camera, drawn through the island's PixelRenderer like the page. Looking north
  * at a low slant, so the stones stand against the sky, with the cloud's far edge cut where the
@@ -33,8 +35,9 @@ const R = 1.1;
 const WIDE = 2 * R;
 /** The cloud's top, under the lowest stone (1, whose top is at 0). */
 const CLOUD = -2.8;
-/** How long a stone takes to come up out of the cloud (s). */
+/** How long a stone takes to come up out of the cloud (s); and, going round at the end, to go back down into it. */
 const RISING = 0.9;
+const SINKING = 0.6;
 /** Off 27 to the west, the baak's top, and past it the way down. */
 const BAAK_X = -2.4;
 const WAY_DOWN = -1.5;
@@ -61,7 +64,7 @@ const KEYS: Record<string, 'east' | 'west'> = {
   KeyD: 'east', ArrowRight: 'east', KeyW: 'east', ArrowUp: 'east', KeyA: 'west', ArrowLeft: 'west', KeyS: 'west', ArrowDown: 'west',
 };
 
-export type RidgeCard = 'hail' | 'tune' | 'peak' | 'one' | 'down';
+export type RidgeCard = 'hail' | 'tune' | 'peak' | 'one' | 'loop' | 'laps' | 'down';
 export type RidgePick = { stone: number } | 'down';
 
 /** A number's way to 1. */
@@ -120,6 +123,9 @@ interface Stone {
   up: number;
   /** When it last rang (the ridge's own clock, s). */
   rang: number;
+  /** Where along it stands (a stone's place); and where it's going, which only the last three, 4, 2 and 1, ever do. */
+  at: number;
+  to: number;
 }
 
 export class Ridge {
@@ -334,7 +340,7 @@ export class Ridge {
     const ours = new Set(hailstones(FROM));
     const at = this.numbers.findIndex((n) => ours.has(n));
     this.joined = this.from !== FROM && this.numbers.length - at > 20 ? this.numbers[at] : null;
-    this.stones = this.numbers.map((n) => ({ n, top: Math.log2(n) * RISE, wide: String(n).length * 4 - 1, up: -1, rang: -9 }));
+    this.stones = this.numbers.map((n, i) => ({ n, top: Math.log2(n) * RISE, wide: String(n).length * 4 - 1, up: -1, rang: -9, at: i, to: i }));
     this.makeBaak();
   }
 
@@ -344,7 +350,7 @@ export class Ridge {
     const root = new THREE.Group();
     const body = new THREE.Mesh(column(tall), toon(STONES[(i * 7 + (s.n % 5)) % STONES.length], { bare: true }));
     body.position.y = s.top - tall / 2;
-    body.userData.stone = i;
+    body.userData.stone = s;
     root.add(body);
     const [geometry] = cutNumber(s.n);
     const cut = new THREE.Mesh(geometry, this.face);
@@ -409,7 +415,7 @@ export class Ridge {
     this.rung = 0;
     // (so 27 rings as you step out onto it)
     this.wasOn = -1;
-    for (const s of this.stones) (s.up = -1), (s.rang = -9), s.root && (s.root.visible = false);
+    this.stones.forEach((s, i) => ((s.up = -1), (s.rang = -9), (s.at = s.to = i), s.root && ((s.root.visible = false), (s.root.position.x = i * GAP))));
     this.call(0);
     this.stones[0].up = 1;
     this.pos.set(-0.5, this.stones[0].top, 0);
@@ -427,7 +433,12 @@ export class Ridge {
     s.up = 0;
     if (!s.root) this.makeStone(i);
     s.root!.visible = true;
-    this.onRise?.(THREE.MathUtils.clamp((i * GAP - this.target.x) / (this.view * this.aspect * 0.5), -1, 1));
+    this.onRise?.(this.panOf(s.at));
+  }
+
+  /** How far across the picture a stone's place is (−1 … 1), for its sound. */
+  private panOf(at: number) {
+    return THREE.MathUtils.clamp((at * GAP - this.target.x) / (this.view * this.aspect * 0.5), -1, 1);
   }
 
   /** A stone ringing its number, from where it is across the picture. */
@@ -435,8 +446,33 @@ export class Ridge {
     const s = this.stones[i];
     s.rang = this.time;
     this.rung++;
-    const pan = THREE.MathUtils.clamp((i * GAP - this.target.x) / (this.view * this.aspect * 0.5), -1, 1);
-    this.onRing?.(ringOf(s.n), pan, loud, loud && i === this.stones.length - 1);
+    this.onRing?.(ringOf(s.n), this.panOf(s.at), loud, loud && i === this.stones.length - 1);
+  }
+
+  /** The last three stones, 4, 2 and 1, which go round (none, for a number whose way is shorter). */
+  private get loop() {
+    return this.stones.length >= 3 ? this.stones.slice(-3) : [];
+  }
+
+  /** The stone standing at a place along it, if one is (round at the end, there are only ever three). */
+  standing(at: number): Stone | undefined {
+    const last = this.stones.length - 1;
+    if (at < 0) return undefined;
+    if (at < last - 2 || (at <= last && !this.loop.length)) return this.stones[at];
+    return this.loop.find((s) => s.at === at);
+  }
+
+  /**
+   * Once you've stood on 1, the three places the loop's stones are wanted: the one you're on and
+   * one either side. Each place is 4's, 2's or 1's by where it falls in the round, so as you walk
+   * on, the stone behind you is the one that's due in front, and it goes down and comes up there.
+   */
+  private goRound() {
+    const loop = this.loop;
+    if (!loop.length) return;
+    const home = this.stones.length - 3;
+    const start = Math.max(home, this.wasOn - 1);
+    for (let j = start; j < start + 3; j++) loop[(j - home) % 3].to = j;
   }
 
   key(code: string, down: boolean) {
@@ -453,14 +489,14 @@ export class Ridge {
 
   pick(ndc: THREE.Vector2): RidgePick | null {
     this.ray.setFromCamera(ndc, this.camera);
-    const hit = this.ray.intersectObjects(this.pickables.filter((o) => o.userData.down || this.stones[o.userData.stone].up >= 0.95), false)[0];
+    const hit = this.ray.intersectObjects(this.pickables.filter((o) => o.userData.down || (o.userData.stone.up >= 0.95 && o.userData.stone.to === o.userData.stone.at)), false)[0];
     if (!hit) return null;
-    return hit.object.userData.down ? 'down' : { stone: hit.object.userData.stone as number };
+    return hit.object.userData.down ? 'down' : { stone: (hit.object.userData.stone as Stone).at };
   }
 
-  /** The number a stone has cut in it, and how far it is along. */
+  /** The number cut in the stone at a place. */
   stoneAt(i: number) {
-    return this.numbers[i];
+    return this.standing(i)?.n;
   }
 
   /** A click: along the ridge to that stone (or as near it as the stones go); on the baak, back down. */
@@ -471,7 +507,7 @@ export class Ridge {
     if (at) return void (this.goal = at.stone * GAP);
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
-    if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), p)) this.goal = THREE.MathUtils.clamp(p.x, -0.5, this.reach);
+    if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), p)) this.goal = THREE.MathUtils.clamp(p.x, Math.max(-0.5, this.back), this.reach);
   }
 
   /** Come down off 1, as hail does. */
@@ -494,22 +530,43 @@ export class Ridge {
     this.view = Math.max(22, Math.min(30, 20 / this.aspect + 10));
   }
 
-  /** The stone you're on (or nearest). */
+  /** The place you're on (or nearest): past 1, round the loop, it goes on as far as you walk. */
   get on() {
-    return THREE.MathUtils.clamp(Math.round(this.pos.x / GAP), 0, this.stones.length - 1);
+    return Math.max(0, Math.round(this.pos.x / GAP));
   }
 
-  /** How far east you can go: onto the last stone that's all the way up. */
+  /** Whether there's a stone at a place, all but up, to step onto. */
+  private firm(at: number) {
+    const s = this.standing(at);
+    return !!s && s.up >= 0.85 && s.to === s.at;
+  }
+
+  /** How far east you can go: onto the last stone that's up. */
   private get reach() {
-    let i = 0;
-    while (i + 1 < this.stones.length && this.stones[i + 1].up >= 0.85) i++;
+    let i = Math.max(0, this.wasOn);
+    while (this.firm(i + 1)) i++;
     return i * GAP + 0.3;
+  }
+
+  /** And west: back to the baak, unless you've gone round and the stones behind you are under the cloud. */
+  private get back() {
+    let i = Math.max(0, this.wasOn);
+    while (i > 0 && this.firm(i - 1)) i--;
+    return i ? i * GAP - 0.3 : WAY_DOWN - 1.2;
   }
 
   update(dt: number) {
     this.time += dt;
+    this.goRound();
     this.stones.forEach((s, i) => {
-      if (s.up < 0 || s.up >= 1) return;
+      if (s.up < 0) return;
+      // (round at the end, one that's due somewhere else goes down into the cloud first, and comes up there)
+      if (s.to !== s.at) {
+        s.up = Math.max(0, s.up - dt / SINKING);
+        if (s.up === 0) (s.at = s.to), (s.root!.position.x = s.at * GAP), this.onRise?.(this.panOf(s.at));
+        return;
+      }
+      if (s.up >= 1) return;
       s.up = Math.min(1, s.up + dt / RISING);
       // (it rings as it lands)
       if (s.up === 1 && i) this.ring(i, true);
@@ -517,19 +574,23 @@ export class Ridge {
     this.walk(dt);
     // a stone you're stood on calls up the next; and one you come back onto rings again, softer
     const on = this.on;
-    if (Math.abs(this.pos.x - on * GAP) < WIDE / 2) {
+    const here = this.standing(on);
+    if (here && Math.abs(this.pos.x - on * GAP) < WIDE / 2) {
       if (on > this.furthest) this.furthest = on;
-      if (on !== this.wasOn && this.stones[on].up === 1 && this.time - this.stones[on].rang > 2.5) this.ring(on, false);
+      if (on !== this.wasOn && here.up === 1 && this.time - here.rang > 2.5) this.ring(this.stones.indexOf(here), false);
       this.wasOn = on;
-      this.call(on + 1);
+      if (on + 1 < this.stones.length) this.call(on + 1);
     }
     this.animate(dt);
     // (a number that's highest where it starts, a power of two, has no peak to come to)
     const peak = this.peak < 3 ? -9 : this.peak;
     const last = this.stones.length - 1;
+    // (round the loop: its card for the first time round, and again when you stand)
+    const round = on - last;
     this.card =
       this.pos.x < -0.2 || this.downClicked ? 'down'
       : on === last ? 'one'
+      : round > 0 ? (this.stillFor > STILL ? (this.rings && round > 6 ? 'laps' : 'loop') : round <= 3 ? 'loop' : null)
       : Math.abs(on - peak) <= 2 ? 'peak'
       : on <= 2 ? 'hail'
       : this.stillFor > STILL ? (peak >= 0 && on > peak ? 'peak' : this.rings && this.rung >= 6 ? 'tune' : 'hail')
@@ -564,7 +625,7 @@ export class Ridge {
     const facing = Math.sign(Math.sin(this.heading)) || 1;
     const step = this.speed * dt;
     // (not past the last stone that's up, and back west only as far as the baak)
-    const x = THREE.MathUtils.clamp(this.pos.x + (dir || facing) * step, WAY_DOWN - 1.2, Math.max(this.reach, this.pos.x));
+    const x = THREE.MathUtils.clamp(this.pos.x + (dir || facing) * step, Math.min(this.back, this.pos.x), Math.max(this.reach, this.pos.x));
     this.stride += Math.abs(x - this.pos.x);
     this.pos.x = x;
     this.pos.y += (this.ground(this.pos.x) - this.pos.y) * (1 - Math.exp(-dt * 12));
@@ -575,11 +636,12 @@ export class Ridge {
     }
   }
 
-  /** The height underfoot: the nearest stone's top (and over the gap, the one you're stepping to); west of 27, the baak's. */
+  /** The height underfoot: the nearest stone's top (and over the gap, the one you're stepping from); west of 27, the baak's. */
   private ground(x: number) {
     if (x < -0.6) return this.stones[0].top;
-    const i = THREE.MathUtils.clamp(Math.round(x / GAP), 0, this.stones.length - 1);
-    return this.stones[i].up >= 0.85 ? this.stones[i].top : this.stones[Math.max(0, i - 1)].top;
+    const i = Math.max(0, Math.round(x / GAP));
+    if (this.firm(i)) return this.standing(i)!.top;
+    return this.standing(this.wasOn)?.top ?? this.pos.y;
   }
 
   private animate(dt: number) {
@@ -596,7 +658,8 @@ export class Ridge {
     // the stones coming up out of the cloud
     for (const s of this.stones) {
       if (s.up < 0) continue;
-      const e = 1 - Math.pow(1 - s.up, 3);
+      // (up eases in as it lands; going back down, it slips off slowly and then drops)
+      const e = s.to === s.at ? 1 - Math.pow(1 - s.up, 3) : s.up * s.up * (3 - 2 * s.up);
       s.root!.position.y = (1 - e) * (CLOUD - s.top - 0.4);
     }
     this.cloudU.uTime.value += dt;

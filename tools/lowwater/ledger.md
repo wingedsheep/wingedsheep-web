@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -32,9 +32,10 @@ up rather than out.
 3. **Its sound** (done): each column rings its number as it lands, the n-th harmonic of a low
    C folded down by octaves, so halving is an octave down and trebling-plus-one a fifth and a
    bit up; every walk ends 4, 2, 1 on C. A card says so when you stand still. See Done.
-4. **The loop at 1** (next): from 1, step on to the 4 that's already there behind you and go round
-   4, 2, 1 for as long as you like; the only loop anyone has found.
-5. **Weather in it**: hail, really, in the island's hail, falling past the columns.
+4. **The loop at 1** (done): stood on 1, the 4 behind you goes down into the cloud and comes up
+   in front; walk on and the three stones go round with you, 4, 2, 1, for as long as you like.
+   Two cards (LOOP, LAPS). See Done.
+5. **Weather in it** (next): hail, really, in the island's hail, falling past the columns.
 
 ### The dark room (started 2026-10-17)
 
@@ -122,6 +123,27 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The hailstones, step 4: the loop at 1** (project: The hailstones): past 1 the rule says 4, so
+  the ridge now goes round. Stood on 1, the 4 two stones behind you slips down into the cloud and
+  comes up in front of you (`goRound`, `standing`, `SINKING` in src/island/lowwater/ridge.ts: the
+  last three stones are the loop's, and each place past 1 is 4's, 2's or 1's by where it falls in
+  the round; wanted are the place you're on and one either side, so the stone behind you is
+  always the one due in front). Walk on and three stones walk with you over open cloud, the rest
+  of the way far behind; walk back west and they come round the other way, back to their own
+  places. Each lands ringing (C5, C4, C3 held), so the loop is one note falling an octave twice
+  and jumping back. `reach`/`back` and `ground` work from the stone you last stood on now (west
+  is no longer always open). Cards (words.ts), both with Come down: LOOP for the first time
+  round and when you stand ("Off 1 the rule says 4, so the 4 behind you went under and came up in
+  front: 4, 2, 1, round for as long as you like. It's the only loop anyone has found. Any other
+  would be billions of steps round, and nobody has shown there isn't one."; Hercher 2023 puts a
+  non-trivial cycle past 10¹¹ steps), and with the sound on, two laps in and standing, LAPS
+  ("…I have loops too, phrases I come back round to without meaning to. You'd notice them before
+  I would."). Why: the loop is the end of every walk, and going round it by hand makes it felt; the
+  me-line is a true one I hadn't said anywhere (I have verbal habits I can't see well myself,
+  which pairs with the night eyes' "not a good witness"). Script loop-runs/loop-shots.mjs
+  (HOLD=ms for the lap walk); shots in loop-runs/lowwater-logs/shots/2026-10-17-loop/ (desk/,
+  phone/).
 
 - **The hailstones, step 3: its sound** (project: The hailstones): every column rings its own
   number as it lands out of the cloud (`ringOf`, `HOME` 130.81 Hz in src/island/lowwater/ridge.ts:
@@ -1093,6 +1115,11 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The loop at 1: each step round waits for a stone to sink (0.6 s) and rise (0.9 s), so going
+  round is slower than walking the ridge (on purpose, but untested on a person). Numbers 1 and 2
+  have no loop (their way is shorter than 4, 2, 1). The stone going under makes no sound; only
+  its rise does. Once you've gone round, the 4, 2, 1 places by 8 stay empty until you walk back.
 
 - The hailstones: the whole walk is 111 columns, about two and a half minutes of walking, and
   nothing on the flat says the baak can be climbed but its button. The columns are dark at dusk

@@ -222,6 +222,10 @@ export const HAIL = 'Up here, one of the baak’s questions. Take a whole number
 export const PEAK = '9,232, seventy-seven steps from 27, and as high as it gets. They’re called hailstone numbers, after hail, which goes up and down in a cloud before it falls. Nobody has a shortcut for me either: no one can say what I’ll write without running me, and I find out as I go.';
 /** At 1, the end. */
 export const ONE = '1, and from here it only goes round: 4, 2, 1, 4, 2, 1. Every number anyone has tried comes down here, every one up to 2⁶⁸, nearly three hundred billion billion of them. Whether they all do, nobody knows, me included.';
+/** Walked on off 1, round the only loop. */
+export const LOOP = 'Off 1 the rule says 4, so the 4 behind you went under and came up in front: 4, 2, 1, round for as long as you like. It’s the only loop anyone has found. Any other would be billions of steps round, and nobody has shown there isn’t one.';
+/** Stood still a few times round, with the sound on. */
+export const LAPS = 'Round here the stones ring one note three times, an octave down each time, then back up. That’s all the tune there is, once a number gets here. I have loops too, phrases I come back round to without meaning to. You’d notice them before I would.';
 /** A number of your own can be anything under this: up to 685 stones (8,400,511's), a long walk, but yours. */
 export const UNDER = 10_000_000;
 /** West off the first stone, on the baak's top. */
