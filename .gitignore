@@ -17,6 +17,6 @@ tools/radio/raw/
 # the autopilot's films (just record)
 recordings/
 
-# the Low Water loop's worktree, logs and screenshots (just lowwater-loop)
+# the island loop's worktrees, logs and screenshots (just island-loop)
 .claude/worktrees/
 .claude/loop-runs/

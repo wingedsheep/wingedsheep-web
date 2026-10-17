@@ -126,18 +126,18 @@ deploy target=env_var_or_default("DEPLOY_TARGET", ""): build
     @test -n "{{target}}" || (echo "set DEPLOY_TARGET or pass a target" && exit 1)
     rsync -avz --delete dist/ {{target}}
 
-# keep growing Low Water, Claude's own space, one headless Claude session after another until you stop it
-lowwater-loop model="":
-    tools/lowwater/loop.sh "{{model}}"
+# keep building the island, anything big or small, one headless Claude session after another until you stop it
+island-loop model="":
+    tools/island/loop.sh "{{model}}"
 
-# stop the Low Water loop after the session it's in
-lowwater-stop:
-    @mkdir -p .claude/loop-runs && touch .claude/loop-runs/lowwater.stop && echo "the loop stops after this session"
+# stop the island loop after the session it's in
+island-stop:
+    @mkdir -p .claude/loop-runs && touch .claude/loop-runs/island.stop && echo "the loop stops after this session"
 
-# what the Low Water loop has built that isn't on main yet
-lowwater-news:
-    @git log --reverse --format='%h %s' main..lowwater
+# what the island loop has built that isn't on main yet
+island-news:
+    @git log --reverse --format='%h %s' main..island
 
-# bring the Low Water loop's work onto main (it's always rebased onto main, so this fast-forwards)
-lowwater-land:
-    git merge --ff-only lowwater
+# bring the island loop's work onto main (it's always rebased onto main, so this fast-forwards)
+island-land:
+    git merge --ff-only island
