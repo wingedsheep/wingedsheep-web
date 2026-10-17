@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
-import { makeFigure, type Figure } from './figure';
+import { makeFigure, STEP, walk, type Figure } from './figure';
 import PEOPLE from './customers.json';
 
 export type Person = (typeof PEOPLE)[number];
@@ -168,8 +168,9 @@ export class Customer {
     this.pos.x += (dx / d) * step;
     this.pos.z += (dz / d) * step;
     this.stride += step;
-    if (this.stride - this.lastStep > 0.6) {
-      this.lastStep = this.stride;
+    const long = STEP * this.figure.root.scale.x;
+    if (this.stride - this.lastStep >= long) {
+      this.lastStep = Math.floor(this.stride / long) * long;
       this.onStep?.(this.pos.x, this.pos.z);
     }
   }
@@ -178,12 +179,10 @@ export class Customer {
     const f = this.figure;
     f.root.position.copy(this.pos);
     f.root.rotation.set(0, this.heading, 0);
-    const swing = Math.sin(this.stride * 9) * Math.min(1, this.speed / PACE) * 0.4;
-    f.legs[0].rotation.x = swing;
-    f.legs[1].rotation.x = -swing;
-    f.arms[0].rotation.x = -swing * 0.8;
+    // (their steps as long as they're tall)
+    walk(f, this.stride / (STEP * f.root.scale.x), Math.min(1, this.speed / PACE));
     // (the hand with the book in it holds it to them)
-    f.arms[1].rotation.x = this.book.visible ? -0.5 : swing * 0.8;
+    if (this.book.visible) f.arms[1].rotation.x = -0.5;
     f.scarfTail.rotation.x = 0.1 + this.speed * 0.1;
   }
 

@@ -13,6 +13,33 @@ export interface Figure {
   scarfTail: THREE.Group;
 }
 
+/** How far one step takes you (m): a foot comes down every STEP of the way, left then right. */
+export const STEP = 0.7;
+/** Hip to boot sole (m). */
+const LEG = 0.82;
+
+/**
+ * Walking, `steps` steps in (the way you've come over STEP, so the legs go by the ground and not by
+ * the clock), `amount` of a full stride (less as you slow to a stop), each step `long` metres. The
+ * foot that's down goes back under you exactly as fast as you go on, so it stays where it was put;
+ * the other swings through to come down half a step ahead. The arms go against the legs.
+ */
+export function walk(f: Pick<Figure, 'legs' | 'arms'>, steps: number, amount: number, long = STEP) {
+  for (let i = 0; i < 2; i++) {
+    const u = (((steps + i) % 2) + 2) % 2;
+    // (how far ahead of the hip the boot is: down and going back for a step, then through the air)
+    const ahead = u < 1 ? long * (0.5 - u) : long * (THREE.MathUtils.smootherstep(u - 1, 0, 1) - 0.5);
+    const hip = -Math.asin(THREE.MathUtils.clamp(ahead / LEG, -1, 1)) * amount;
+    f.legs[i].rotation.x = hip;
+    f.arms[i].rotation.x = -hip * 0.8;
+  }
+}
+
+/** Which foot came down last, `steps` steps in, as the side of you it's on: -1 for legs[0], 1 for legs[1]. */
+export function footDown(steps: number) {
+  return Math.floor(steps) % 2 ? 1 : -1;
+}
+
 export function makeFigure(mat: { coat: THREE.Material; boots: THREE.Material; scarf: THREE.Material; skin: THREE.Material }, root = new THREE.Group(), scarfTail = new THREE.Group()): Figure {
   const legs: THREE.Object3D[] = [];
   const arms: THREE.Object3D[] = [];

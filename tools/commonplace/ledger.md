@@ -234,6 +234,13 @@ lamp close up), not explained.
 
 ## Done
 
+- **Walking without sliding** (with Vincent): the legs swung on a sine of the way walked (×7.4 or ×9),
+  which put the feet back under you nearly twice as fast as you went (a planted foot slid 110% of your
+  speed). Now everyone walks with `walk()` in figure.ts: a step every `STEP` (0.7 m), the foot that's
+  down goes back at exactly your pace and stays put (0%), the other swings through, arms against the
+  legs. Footsteps and prints come every STEP, as a foot comes down, and the prints are where that
+  foot is (half a step on, to its side). In someone's prints on the old floor, a foot lands on each
+  print. Customers' steps go by how tall they are. Any new walker should use `walk()` too.
 - **The stones, step 1: the stones and the reading** (project: The stones): a new place off the
   page. At (−13, 11) on the page Ptolemy's name is drawn in its ring, in ink, flat on the paper
   (`makeRing` in page.ts, the signs from signs.json); its card (RING) and Read it go through the

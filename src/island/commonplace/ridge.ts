@@ -17,7 +17,7 @@
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
-import { makeFigure, type Figure } from './figure';
+import { makeFigure, STEP, walk, type Figure } from './figure';
 import { Squall } from './squall';
 
 const ELEVATION = THREE.MathUtils.degToRad(16);
@@ -682,8 +682,8 @@ export class Ridge {
     this.pos.x = x;
     this.pos.y += (this.ground(this.pos.x) - this.pos.y) * (1 - Math.exp(-dt * 12));
     if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
-    if (this.stride - this.lastStep > 0.5) {
-      this.lastStep = this.stride;
+    if (this.stride - this.lastStep >= STEP) {
+      this.lastStep = Math.floor(this.stride / STEP) * STEP;
       if (this.pos.x > -0.6) this.onStep?.();
     }
   }
@@ -733,11 +733,7 @@ export class Ridge {
     const w = this.you;
     w.root.position.copy(this.pos);
     w.root.rotation.set(0, this.heading, 0);
-    const swing = Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
-    w.legs[0].rotation.x = swing;
-    w.legs[1].rotation.x = -swing;
-    w.arms[0].rotation.x = -swing * 0.8;
-    w.arms[1].rotation.x = swing * 0.8;
+    walk(w, this.stride / STEP, Math.min(1, this.speed / PACE));
     // (a little wind up here, from the west)
     w.scarfTail.rotation.x = 0.35 + Math.sin(this.time * 2.3) * 0.12;
     // the stones coming up out of the cloud

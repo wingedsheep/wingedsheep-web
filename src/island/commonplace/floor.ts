@@ -16,7 +16,7 @@
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
-import { makeFigure, type Figure } from './figure';
+import { makeFigure, STEP, walk, type Figure } from './figure';
 import { Curlew } from './curlew';
 
 const ELEVATION = THREE.MathUtils.degToRad(48);
@@ -270,6 +270,8 @@ export class Floor {
   private keys = new Set<string>();
   private stride = 0;
   private lastStep = 0;
+  /** How long the step is that you're in, in someone's prints (m). */
+  private long = STEP;
   private walked = 0;
   private stillFor = 0;
   private time = 0;
@@ -774,8 +776,8 @@ export class Floor {
     this.walked += step;
     if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
     this.stride += step;
-    if (this.stride - this.lastStep > 0.72) {
-      this.lastStep = this.stride;
+    if (this.stride - this.lastStep >= STEP) {
+      this.lastStep = Math.floor(this.stride / STEP) * STEP;
       this.onStep?.(this.pos.z > sandZ(this.pos.x) ? 'sand' : this.pos.z < this.washZ(this.pos.x) + 0.4 ? 'wash' : 'clay');
     }
     if (move.lengthSq() && this.speed > 0.5) this.fallIn(move);
@@ -850,8 +852,9 @@ export class Floor {
       turn = Math.atan2(Math.sin(turn), Math.cos(turn));
       this.heading += turn * (1 - Math.exp(-dt * 8));
     }
-    // (a leg forward for each print, landing on it)
-    this.stride = (Math.PI * (this.stepsAll + s)) / 7.4;
+    // (a foot down on each print as you come halfway to it, so it's under you as you pass over it)
+    this.stride = STEP * (this.stepsAll + s - 0.5);
+    this.long = long;
     this.lastStep = this.stride;
     if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
   }
@@ -907,11 +910,7 @@ export class Floor {
     const up = this.pos.z > sandZ(this.pos.x) ? 0.1 : 0;
     w.root.position.set(this.pos.x, up, this.pos.z);
     w.root.rotation.set(0, this.heading, 0);
-    const swing = Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
-    w.legs[0].rotation.x = swing;
-    w.legs[1].rotation.x = -swing;
-    w.arms[0].rotation.x = -swing * 0.8;
-    w.arms[1].rotation.x = swing * 0.8;
+    walk(w, this.stride / STEP, Math.min(1, this.speed / PACE), this.inStep ? this.long : STEP);
     w.scarfTail.rotation.x = 0.2 + this.speed * 0.15 + Math.sin(this.time * 1.7) * 0.05;
   }
 

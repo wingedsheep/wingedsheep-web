@@ -11,7 +11,7 @@
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
-import { makeFigure, type Figure } from './figure';
+import { footDown, makeFigure, STEP, walk, type Figure } from './figure';
 import { Forks } from './forks';
 import SIGNS from './signs.json';
 
@@ -74,7 +74,6 @@ export class Page {
   private keys = new Set<string>();
   private stride = 0;
   private lastPrint = 0;
-  private footSide = 1;
   private prints: THREE.InstancedMesh;
   private made = 0;
   private walked = 0;
@@ -477,17 +476,18 @@ export class Page {
     this.walked += step;
     if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
     this.stride += step;
-    if (this.stride - this.lastPrint > 0.42) {
-      this.lastPrint = this.stride;
+    if (this.stride - this.lastPrint >= STEP) {
+      this.lastPrint = Math.floor(this.stride / STEP) * STEP;
       this.print();
     }
   }
 
   /** A footprint, in ink, and it stays. (When the page is full, the first ones go first.) */
   private print() {
-    this.footSide = -this.footSide;
-    const x = this.pos.x + Math.cos(this.heading) * 0.1 * this.footSide;
-    const z = this.pos.z - Math.sin(this.heading) * 0.1 * this.footSide;
+    // (where the foot that's just come down is: half a step on, to its side)
+    const side = footDown(this.stride / STEP) * 0.1;
+    const x = this.pos.x + Math.sin(this.heading) * STEP * 0.5 + Math.cos(this.heading) * side;
+    const z = this.pos.z + Math.cos(this.heading) * STEP * 0.5 - Math.sin(this.heading) * side;
     // (square on to the view, not turned with you, and deep enough to be a texel whichever way you walk: a dot of ink)
     const m = new THREE.Matrix4().makeTranslation(x, 0.004, z);
     this.prints.setMatrixAt(this.made % PRINTS, m);
@@ -501,11 +501,7 @@ export class Page {
     const w = this.you;
     w.root.position.copy(this.pos);
     w.root.rotation.set(0, this.heading, 0);
-    const swing = Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
-    w.legs[0].rotation.x = swing;
-    w.legs[1].rotation.x = -swing;
-    w.arms[0].rotation.x = -swing * 0.8;
-    w.arms[1].rotation.x = swing * 0.8;
+    walk(w, this.stride / STEP, Math.min(1, this.speed / PACE));
     // (no wind here: the scarf only moves as you do)
     w.scarfTail.rotation.x = 0.15 + this.speed * 0.15;
   }

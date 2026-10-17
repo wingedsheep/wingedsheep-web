@@ -17,7 +17,7 @@
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
-import { makeFigure, type Figure } from './figure';
+import { makeFigure, STEP, walk, type Figure } from './figure';
 import SIGNS from './signs.json';
 
 type Glyph = keyof typeof SIGNS;
@@ -749,8 +749,8 @@ export class Stone {
     if (this.goal && (this.goal.x > EAST || this.goal.z < NEAR || this.goal.z > FAR_OUT)) this.goal.set(THREE.MathUtils.clamp(this.goal.x, WEST - 1, EAST), 0, THREE.MathUtils.clamp(this.goal.z, NEAR, FAR_OUT));
     if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
     this.stride += step;
-    if (this.stride - this.lastStep > 0.62) {
-      this.lastStep = this.stride;
+    if (this.stride - this.lastStep >= STEP) {
+      this.lastStep = Math.floor(this.stride / STEP) * STEP;
       this.onStep?.();
     }
   }
@@ -759,11 +759,7 @@ export class Stone {
     const w = this.you;
     w.root.position.copy(this.pos);
     w.root.rotation.set(0, this.heading, 0);
-    const swing = Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
-    w.legs[0].rotation.x = swing;
-    w.legs[1].rotation.x = -swing;
-    w.arms[0].rotation.x = -swing * 0.8;
-    w.arms[1].rotation.x = swing * 0.8;
+    walk(w, this.stride / STEP, Math.min(1, this.speed / PACE));
     // (no wind in here)
     w.scarfTail.rotation.x = 0.15 + this.speed * 0.15;
   }

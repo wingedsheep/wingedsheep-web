@@ -21,7 +21,7 @@
  * A real eye takes half an hour over this, the change coming at about seven minutes; here it's two.
  */
 import * as THREE from 'three';
-import { makeFigure, type Figure } from './figure';
+import { makeFigure, STEP, walk, type Figure } from './figure';
 
 const ELEVATION = THREE.MathUtils.degToRad(15);
 const DISTANCE = 30;
@@ -501,8 +501,8 @@ export class Obscura {
     this.pos.x = THREE.MathUtils.clamp(this.pos.x + Math.sin(this.heading) * step, -WIDE / 2 + 0.3, WIDE / 2 - 0.3);
     this.pos.z = THREE.MathUtils.clamp(this.pos.z + Math.cos(this.heading) * step, behind ? 0.25 : 0.45, DEPTH - 0.3);
     this.stride += step;
-    if (this.stride - this.lastStep > 0.62) {
-      this.lastStep = this.stride;
+    if (this.stride - this.lastStep >= STEP) {
+      this.lastStep = Math.floor(this.stride / STEP) * STEP;
       this.onStep?.();
     }
   }
@@ -511,11 +511,7 @@ export class Obscura {
     const w = this.you;
     w.root.position.copy(this.pos);
     w.root.rotation.set(0, this.heading, 0);
-    const swing = Math.sin(this.stride * 9) * Math.min(1, this.speed / PACE) * 0.45;
-    w.legs[0].rotation.x = swing;
-    w.legs[1].rotation.x = -swing;
-    w.arms[0].rotation.x = -swing * 0.8;
-    w.arms[1].rotation.x = swing * 0.8;
+    walk(w, this.stride / STEP, Math.min(1, this.speed / PACE));
     w.scarfTail.rotation.x = 0.1 + this.speed * 0.1;
   }
 

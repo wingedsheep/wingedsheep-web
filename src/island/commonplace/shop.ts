@@ -14,7 +14,7 @@
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
-import { makeFigure, type Figure } from './figure';
+import { makeFigure, STEP, walk, type Figure } from './figure';
 import { Customer, CUSTOMERS } from './customer';
 
 /** The room (m): x west to east, z north (back wall) to south (cut away); TALL to the ceiling. */
@@ -1215,8 +1215,8 @@ export class Shop {
     // (stuck against something on the way to a click: give up on it)
     if (this.goal && this.speed > 0.3 && this.pos.distanceTo(was) < step * 0.15) this.goal = null;
     this.stride += step;
-    if (this.stride - this.lastStep > 0.62) {
-      this.lastStep = this.stride;
+    if (this.stride - this.lastStep >= STEP) {
+      this.lastStep = Math.floor(this.stride / STEP) * STEP;
       this.onStep?.();
     }
   }
@@ -1243,11 +1243,7 @@ export class Shop {
     const w = this.you;
     w.root.position.copy(this.pos);
     w.root.rotation.set(0, this.heading, 0);
-    const swing = Math.sin(this.stride * 9) * Math.min(1, this.speed / PACE) * 0.45;
-    w.legs[0].rotation.x = swing;
-    w.legs[1].rotation.x = -swing;
-    w.arms[0].rotation.x = -swing * 0.8;
-    w.arms[1].rotation.x = swing * 0.8;
+    walk(w, this.stride / STEP, Math.min(1, this.speed / PACE));
     w.scarfTail.rotation.x = 0.1 + this.speed * 0.1;
   }
 

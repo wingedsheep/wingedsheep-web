@@ -35,7 +35,7 @@ import { Canon, CANON_PACE } from './canon';
 import { Casts } from './casts';
 import { Lantern } from './lantern';
 import { SeaHeart } from './bean';
-import { makeFigure } from './figure';
+import { footDown, makeFigure, STEP, walk } from './figure';
 import { Bells } from './bells';
 
 /** Her deckhouse, as tools/models/commonplace.py has it (her model's metres): its middle along her, its windows each side, its door. */
@@ -447,7 +447,6 @@ export class Commonplace {
   private keys = new Set<string>();
   private stride = 0;
   private lastPrint = 0;
-  private footSide = 1;
   private target = new THREE.Vector3();
   private pan = new THREE.Vector2();
   private clicked: { id: StationId; at: THREE.Vector2 } | null = null;
@@ -2476,8 +2475,8 @@ export class Commonplace {
     }
     if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
     this.stride += step;
-    if (this.stride - this.lastPrint > 0.42) {
-      this.lastPrint = this.stride;
+    if (this.stride - this.lastPrint >= STEP) {
+      this.lastPrint = Math.floor(this.stride / STEP) * STEP;
       this.print();
     }
   }
@@ -2501,8 +2500,8 @@ export class Commonplace {
     const went = this.deck.update(dt, new THREE.Vector2(move.x, move.z), PACE / k, seat) * k;
     this.speed += (went / Math.max(dt, 1e-3) - this.speed) * (1 - Math.exp(-dt * 8));
     this.stride += went;
-    if (this.stride - this.lastPrint > 0.42) {
-      this.lastPrint = this.stride;
+    if (this.stride - this.lastPrint >= STEP) {
+      this.lastPrint = Math.floor(this.stride / STEP) * STEP;
       this.hooks.deckStep?.();
     }
   }
@@ -2583,11 +2582,7 @@ export class Commonplace {
         this.legs[0].rotation.x = -0.5 - s * 0.4 * r;
         this.legs[1].rotation.x = -0.5 + s * 0.4 * r;
       } else {
-        const swing = Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
-        this.legs[0].rotation.x = swing;
-        this.legs[1].rotation.x = -swing;
-        this.arms[0].rotation.x = -swing * 0.8;
-        this.arms[1].rotation.x = swing * 0.8;
+        walk({ legs: this.legs, arms: this.arms }, this.stride / STEP, Math.min(1, this.speed / PACE));
       }
       for (const a of this.arms) a.rotation.z = 0;
       this.scarfTail.rotation.x = 0.15 + this.outside.wind * 0.9 + this.speed * 0.15;
@@ -2602,11 +2597,10 @@ export class Commonplace {
       this.scarfTail.rotation.x = 0.15 + this.outside.wind * 0.9;
       return;
     }
-    const swing = this.sitting ? 0 : Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
-    this.legs[0].rotation.x = this.sitting ? -1.45 : swing;
-    this.legs[1].rotation.x = this.sitting ? -1.45 : -swing;
-    this.arms[0].rotation.x = this.sitting ? -0.5 : -swing * 0.8;
-    this.arms[1].rotation.x = this.sitting ? -0.5 : swing * 0.8;
+    if (this.sitting) {
+      for (const l of this.legs) l.rotation.x = -1.45;
+      for (const a of this.arms) a.rotation.x = -0.5;
+    } else walk({ legs: this.legs, arms: this.arms }, this.stride / STEP, Math.min(1, this.speed / PACE));
     // writing: the left arm out and down to the stick, the tip working at the letters
     const cutting = this.writing && !this.writing.going;
     if (cutting) this.arms[0].rotation.x = -0.3 + Math.sin(this.time * 9) * 0.05;
@@ -2619,7 +2613,7 @@ export class Commonplace {
     if (toss !== null) this.arms[0].rotation.x = toss;
     // carrying the lantern: that arm hardly swings, and holds it a little out from your side
     const carrying = this.lantern.where === 'held' && heave === null && !this.sitting;
-    if (carrying) this.arms[1].rotation.x = swing * 0.2;
+    if (carrying) this.arms[1].rotation.x *= 0.25;
     this.arms[1].rotation.z = carrying ? 0.14 : 0;
     this.stick.held.rotation.y = cutting && !still ? Math.sin(this.time * 11) * 0.06 : 0;
     // the scarf's end, lifting and flapping in the wind
@@ -2877,9 +2871,10 @@ export class Commonplace {
 
   private print() {
     const p = this.prints.find((x) => x.age > 18) ?? this.prints.reduce((a, b) => (a.age > b.age ? a : b));
-    this.footSide = -this.footSide;
-    const sx = Math.cos(this.heading) * 0.1 * this.footSide;
-    const sz = -Math.sin(this.heading) * 0.1 * this.footSide;
+    // (where the foot that's just come down is: half a step on, to its side)
+    const side = footDown(this.stride / STEP) * 0.1;
+    const sx = Math.sin(this.heading) * STEP * 0.5 + Math.cos(this.heading) * side;
+    const sz = Math.cos(this.heading) * STEP * 0.5 - Math.sin(this.heading) * side;
     const x = this.pos.x + sx;
     const z = this.pos.z + sz;
     // (in the geul, the current takes the print before it's made)
