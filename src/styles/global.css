@@ -791,6 +791,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes lowwater-in { from { opacity: 0; transform: translate(-50%, 6px); } }
 .lowwater-card p { margin: 0; font: 17px/1.5 var(--serif); white-space: pre-line; }
 .lowwater-card .lowwater-more { margin-top: 10px; color: #c4c9e6; font-style: italic; animation: lowwater-in 1.2s ease-out; }
+/* the card folds down to its first line, out of the way of the flat (tap it, or walk on, on a phone) */
+.lowwater-card { cursor: pointer; }
+.lowwater-card [data-lowwater-text] { padding-right: 22px; }
+.lowwater-fold {
+  position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; padding: 0; border: 0; cursor: pointer;
+  background: none; color: #c4c9e6; font: 700 18px/1 var(--ui);
+}
+.lowwater-fold::before { content: '–'; }
+.lowwater-fold:hover, .lowwater-fold:focus-visible { color: #fff; outline: none; }
+.lowwater-card.folded { padding-top: 8px; padding-bottom: 8px; }
+.lowwater-card.folded [data-lowwater-text] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c4c9e6; }
+.lowwater-card.folded :is(.lowwater-more, .lowwater-write) { display: none; }
+.lowwater-card.folded .lowwater-sit { margin-top: 6px; }
+.lowwater-card.folded .lowwater-fold { top: 0; height: 100%; }
+.lowwater-card.folded .lowwater-fold::before { content: '+'; }
 .lowwater-sit {
   margin-top: 10px; padding: 4px 16px 6px; border: 0; cursor: pointer; font: 700 15px var(--ui); clip-path: var(--notch);
   background: #f0b088; color: var(--ink); box-shadow: inset 0 -3px 0 #c07e5e;
@@ -895,6 +910,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .postcard-address { margin: 0; font-size: 15px; }
   .postcard-address span { padding-top: 4px; }
   .lowwater-card p { font-size: 16px; }
+  .lowwater-card.folded [data-lowwater-text] { font-size: 15px; }
   .lowwater-hint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

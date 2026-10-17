@@ -67,6 +67,7 @@ export class LowWaterRoom implements RoomInput {
   private text: HTMLElement;
   private more: HTMLElement;
   private sitButton: HTMLElement;
+  private foldButton: HTMLElement;
   private hint: HTMLElement;
   private writeForm: HTMLFormElement;
   private line: HTMLInputElement;
@@ -75,6 +76,12 @@ export class LowWaterRoom implements RoomInput {
   private shown: string | null = null;
   private shownMore = '';
   private shownButton = '';
+  /** The card's folded down to its first line. */
+  private folded = false;
+  /** On a phone, you folded one away yourself: the next ones come folded too, until you open one. */
+  private keepFolded = false;
+  /** A small screen, where walking on folds the card out of the flat's way. */
+  private small = matchMedia('(max-width: 700px), (pointer: coarse)');
   private walked = 0;
   private where = visitorLocation();
 
@@ -91,6 +98,14 @@ export class LowWaterRoom implements RoomInput {
     this.text = this.el.querySelector<HTMLElement>('[data-lowwater-text]')!;
     this.more = this.el.querySelector<HTMLElement>('[data-lowwater-more]')!;
     this.sitButton = this.el.querySelector<HTMLElement>('[data-lowwater-sit]')!;
+    this.foldButton = this.el.querySelector<HTMLElement>('[data-lowwater-fold]')!;
+    // (a tap on the card, or its corner, folds it away or opens it again; not on its button or its line)
+    this.card.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('input, form, button:not([data-lowwater-fold])')) return;
+      this.fold(!this.folded);
+      this.keepFolded = this.folded;
+      if (e.target === this.foldButton) this.foldButton.blur();
+    });
     this.hint = this.el.querySelector<HTMLElement>('[data-lowwater-hint]')!;
     this.writeForm = this.el.querySelector<HTMLFormElement>('[data-lowwater-write]')!;
     this.line = this.writeForm.querySelector<HTMLInputElement>('input')!;
@@ -239,8 +254,13 @@ export class LowWaterRoom implements RoomInput {
   click(ndc: THREE.Vector2) {
     const world = this.world;
     if (!world || !this.inside) return;
-    if (this.onPage) return void (this.crossing || this.page?.click(ndc), this.ui.tooltip(null));
+    if (this.onPage) {
+      if (this.small.matches && !this.card.hidden) this.fold(true);
+      return void (this.crossing || this.page?.click(ndc), this.ui.tooltip(null));
+    }
     if (world.sitting) return world.stand();
+    // (on a phone, walking on folds the card out of the way)
+    if (this.small.matches && !this.card.hidden) this.fold(true);
     // (a click off the book shuts it)
     if (this.log?.open) return this.log.show(false);
     if (this.postcard?.open) return this.postcard.show(false);
@@ -358,6 +378,7 @@ export class LowWaterRoom implements RoomInput {
       this.card.hidden = !id;
       if (id) {
         this.text.textContent = id === 'page' ? CARDS.page : id === 'forks' ? FORKS : id === 'lean' ? LEAN : id === 'past' ? PAST : id === 'said' ? page.forks.sentence : PAGE_BACK;
+        this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
         this.card.style.animation = '';
@@ -369,6 +390,13 @@ export class LowWaterRoom implements RoomInput {
     this.shownButton = '';
     this.shown = key;
     this.shownMore = more;
+  }
+
+  private fold(folded: boolean) {
+    this.folded = folded;
+    this.card.classList.toggle('folded', folded);
+    this.foldButton.setAttribute('aria-expanded', String(!folded));
+    this.foldButton.setAttribute('aria-label', folded ? 'Open the card again' : 'Fold the card away');
   }
 
   /** The real moon for the visitor, on the island's clock (so ?time= moves it too). */
@@ -404,6 +432,7 @@ export class LowWaterRoom implements RoomInput {
       if (id) {
         this.text.textContent = CARDS[id];
         // (the animation again, for a new card)
+        this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
         this.card.style.animation = '';
