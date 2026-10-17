@@ -22,7 +22,7 @@ import type { Ridge } from './lowwater/ridge';
 import type { Shop } from './lowwater/shop';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_LABELS, SHOP_WINDOW, STREET_DOOR, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, SHOP_WINDOW, STREET_DOOR, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -217,6 +217,10 @@ export class LowWaterRoom implements RoomInput {
       .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }, { Shop }]) => {
         this.shop = new Shop(() => this.pixels.height);
         this.shop.onStep = () => this.ctx.sound.deckStep();
+        this.shop.onBell = (side) => this.ctx.sound.shopBell(side);
+        this.shop.onTick = (tock, side, near) => this.ctx.sound.shopTick(tock, side, near);
+        this.shop.onStrike = (count, small, side, near) => this.ctx.sound.shopStrike(count, small, side, near);
+        this.shop.onTurn = (side, near) => this.ctx.sound.shopTurn(side, near);
         this.shop.still = this.reducedMotion;
         this.floor = new Floor(() => this.pixels.height);
         this.floor.onStep = (on) => (on === 'clay' ? this.ctx.sound.clayStep() : on === 'print' ? this.ctx.sound.printStep() : this.ctx.sound.flatStep(on === 'wash'));
@@ -489,6 +493,7 @@ export class LowWaterRoom implements RoomInput {
   /** In the bookshop: the island's own hour and weather at its window, warm light, no water to hear. */
   private runShop(shop: Shop, dt: number) {
     const w = this.ctx.weather;
+    const now = new Date(this.ctx.sky.time);
     const alt = this.ctx.sky.alt;
     Object.assign(shop.moment, {
       day: THREE.MathUtils.clamp((alt + 4) / 10, 0, 1),
@@ -497,6 +502,8 @@ export class LowWaterRoom implements RoomInput {
       rain: Math.min(1, w.now.rain + w.now.hail),
       fog: w.now.fog,
       snow: w.now.snow,
+      hours: (now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600),
+      seconds: (this.ctx.sky.time / 1000) % 86400,
     });
     shop.update(dt);
     const u = this.pixels.uniforms;
@@ -506,7 +513,9 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0.5;
     u.uVignette.value = 0.35;
     u.uHeat.value = 0;
-    this.ctx.sound.lowWater(true, 0, 'page');
+    this.ctx.sound.lowWater(true, 0, 'shop');
+    const street = shop.street();
+    this.ctx.sound.shopStreet(street.level, street.side);
     this.showShopCard(shop);
     if (shop.leaving && !this.crossing) (this.crossing = 'page'), (this.crossDark = false), (this.crossMist = false), (this.crossWarm = true);
   }
@@ -526,7 +535,7 @@ export class LowWaterRoom implements RoomInput {
         const line = shop.visits <= 1 ? `first.${tineMoment(shop.moment, visitDate(), new Date(this.ctx.sky.time).getHours())}` : `again.${(shop.visits - 2) % TINE_AGAIN.length}`;
         const [part, which] = line.split('.');
         const said = part === 'first' ? TINE_FIRST[which as keyof typeof TINE_FIRST] : TINE_AGAIN[Number(which)];
-        this.text.textContent = id === 'tine' ? `“${said}”` : id === 'shelves' ? SHELVES : id === 'window' ? SHOP_WINDOW : id === 'door' ? STREET_DOOR : SHOP;
+        this.text.textContent = id === 'tine' ? `“${said}”` : id === 'shelves' ? SHELVES : id === 'window' ? SHOP_WINDOW : id === 'door' ? STREET_DOOR : id === 'clock' ? SHOP_CLOCK : SHOP;
         if (id === 'tine' && this.ctx.sound.enabled) {
           this.ctx.sound.tine(TAPE[line as keyof typeof TAPE], shop.tineSide());
           // (her takes run about fifteen characters a second, after a breath)

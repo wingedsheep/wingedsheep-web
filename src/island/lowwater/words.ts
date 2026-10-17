@@ -329,4 +329,6 @@ export function tineMoment(m: { day: number; rain: number; snow: number }, at: D
   return hour < 11 ? 'morning' : hour >= 17 ? 'evening' : 'day';
 }
 export const TINE_MORE = 'That’s Tine. She’s kept this shop since 1979, and she’s never once let a book go out of the door without saying what she thinks of it.';
-export const SHOP_LABELS = { tine: 'Tine', shelves: 'Fiction, A–Z', window: 'The window', door: 'The street door' };
+/** Under the tail clock on the back wall, behind the counter's north end. */
+export const SHOP_CLOCK = 'A Frisian tail clock. It strikes the hour on its big bell, and at half past the next hour on its small one: in Dutch, half past nine is half tien, halfway to ten. I never know what time it is unless somebody tells me. This one tells you twice an hour.';
+export const SHOP_LABELS = { tine: 'Tine', shelves: 'Fiction, A–Z', window: 'The window', door: 'The street door', clock: 'The clock' };

@@ -501,7 +501,22 @@
   "date": "17 Oct 2026",
   "watch": "Afternoon",
   "bells": 7,
+  "said": "You walk a bit faster everywhere, about a third quicker on the flats, the floor, the ridge and indoors.",
+  "hand": 1216469057,
+  "with": "Vincent"
+ },
+ {
+  "date": "17 Oct 2026",
+  "watch": "Afternoon",
+  "bells": 7,
   "said": "In the bookshop Tine says her piece out loud now, in her own voice, by the hour, the weather and the day.",
-  "hand": 865732618
+  "hand": 516916614
+ },
+ {
+  "date": "17 Oct 2026",
+  "watch": "First dog",
+  "bells": 8,
+  "said": "In the bookshop the bell rings on its spring, a Frisian clock ticks and strikes the Dutch way, and the street goes by outside.",
+  "hand": 2163203485
  }
 ]

@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -36,8 +36,10 @@ voice, and later a game.
    (tools/lowwater/tine.py records src/island/lowwater/tine.json), from her side of the counter;
    eight first lines by the moment (rain, snow, night, Sunday, a Monday morning, morning,
    evening, day) and seven in turn after. See Done.
-3. **Its sound**: the bell on its spring over the street door, the boards, a clock, the rain on
-   the glass, the street outside through the window, her page turning.
+3. **Its sound** (done): the bell on its spring over the street door as you come and go; a
+   Frisian tail clock on the back wall that ticks, keeps the island's time and strikes the Dutch
+   way (the next hour at half past, on its small bell), with its card; the street through the
+   window by the hour and the weather; her page; the island's rain on the roof. See Done.
 4. **Someone comes in**: customers (their own voices) asking for half-remembered books ("blue
    cover, a lighthouse, the dog dies"); you find it on the shelves, or it turns out they
    misremember; Tine's opinion on the way out. Real books, true descriptions. The game.
@@ -190,6 +192,31 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The bookshop, step 3: its sound** (project: The bookshop): the shop sounds like a shop now.
+  The bell on its spring over the street door jangles as you come in and as you go
+  (`lowwater-shopbell`, felt faintly on a phone). On the back wall behind the counter's north
+  end hangs a Frisian tail clock (`makeClock` in shop.ts: green hood, painted dial with red and
+  blue corners, gilt on its crest, the tail with its brass pendulum swinging a second each way
+  behind a window), its hands at the island's hour; it ticks at each end of the swing
+  (`shopTick` in sound.ts, made in WebAudio: a bandpassed click and a little hollow knock in the
+  case, tock a little lower than tick, about −29 dBFS by it, −39 across the room) and strikes
+  when a half hour comes round while you're in (`shopStrike`: one recorded strike,
+  `lowwater-strike`, at an exact rate each time; the hour on the big bell, and at half past the
+  coming hour a fourth higher on the small one, the old Dutch way). Stand under it (x > 1.4,
+  z < −1.45: the counter's card gives way there) and its card, SHOP_CLOCK: "…in Dutch, half past
+  nine is half tien, halfway to ten. I never know what time it is unless somebody tells me. This
+  one tells you twice an hour." The street through the window (`lowwater-street`, a looped
+  Dutch brick street: bikes over the bricks, a bike bell, footsteps, voices, through glass with
+  the top taken off at 3.2 kHz) by the hour (busy 8–18, half till 21, nearly nothing at night),
+  thinner in rain and snow, louder the nearer the glass (`street()` in shop.ts). Tine's page
+  turning (`lowwater-turn`, quiet, from her side). The island's rain drums on the roof in there
+  as it does in the island's rooms, and the wind comes through the walls (`shopped` in
+  sound.ts's lowWater/update). Why: a bookshop is a sound before it's a sight (the bell, the
+  clock in the quiet, the street going by outside), and the clock says something true and Dutch
+  about time, and a dry thing about me. Checked in Playwright (loop-runs/shop-sound.mjs <out>
+  <size> <query> <tag>: every call logged, a strike forced), at 14:20 desktop and 23:10 in rain
+  on a phone; shots in loop-runs/lowwater-logs/shots/2026-10-17-shop-sound. No console errors.
 
 - **The bookshop, step 2: her voice** (project: The bookshop): Tine says her lines out loud now.
   Her words moved to src/island/lowwater/tine.json; tools/lowwater/tine.py records each with
@@ -1370,7 +1397,12 @@ lamp close up), not explained.
   of letter-ish marks, not legible even zoomed in. The ladder's foot reads a little like a chair
   back. When Tine looks up at you she turns away from the camera, so you see her hair. The
   window faces west and is sunlit at any daylight hour (the patch's slant is chosen, not the real
-  sun's). No sound but the boards and her voice; the door bell swings silently. Her voice has never
+  sun's). None of the shop's sound has been listened to by a person: the four recordings checked by
+  spectrogram (the street loop has two bike bells in its 14 s, so it repeats audibly), the tick's
+  level by an offline render. The clock only strikes when a half hour comes round while you're in;
+  at midnight it strikes twelve, 18 s of it. With reduced motion its pendulum stands still but it
+  still ticks. The clock's card shares the counter's north end, so walking along the counter
+  there swaps Tine's card for it. Her voice has never
   been listened to by a person (picked by description, pitch and a transcript); her nod is timed
   from the line's length, not the take's, and is a few texels. Sunday and Monday morning come
   from the visit's date, her hours from the island's clock. Fog and snow in the window never
