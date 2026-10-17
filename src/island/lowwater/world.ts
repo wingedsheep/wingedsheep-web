@@ -28,6 +28,7 @@ import { Deck } from './deck';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
+import { Canon, CANON_PACE } from './canon';
 import { Casts } from './casts';
 import { Lantern } from './lantern';
 
@@ -36,7 +37,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -87,6 +88,8 @@ export interface Hooks {
   knots?(level: number, pan: number): void;
   /** The lantern's bail, taken off its hook, set down, or hung back. */
   lantern?(): void;
+  /** A pebble of the crab canon, sounded (its frequency, Hz): which side (-1 … 1), and whether it's the one you stepped on or its partner. */
+  canon?(freq: number, pan: number, yours: boolean): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -149,6 +152,8 @@ const STICK = new THREE.Vector2(-2.6, -50.4);
 const SHELLS = new THREE.Vector2(-19, -79);
 /** The lugworms' bank, low and broad, east of the way out between the ring and the wreck, by the geul (casts.ts). */
 const CASTS = { x: 16, z: -65, rx: 5, rz: 2.0, h: 0.085 };
+/** The crab canon's pebbles, in a row across a bank of their own out west, past the pool (canon.ts). */
+const CANON = new THREE.Vector2(-21, -31);
 /**
  * The baak, a tall beacon on a high bank out west by the deep water, and how tall it is (m). It's
  * the one thing out here tall enough to come up over the horizon as you walk out: top first, as
@@ -175,6 +180,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   { x: SHELLS.x, z: SHELLS.y, rx: 5, rz: 6, h: 0.1 },
   SEAL_BANK,
   CASTS,
+  { x: CANON.x, z: CANON.y - 0.1, rx: 9, rz: 2.2, h: 0.08 },
   { x: BAAK.x - 0.3, z: BAAK.y - 0.2, rx: 4.2, rz: 1.5, h: 0.11 },
 ];
 const POOL_R = 0.42; // the pool's share of its bank
@@ -446,6 +452,10 @@ export class LowWater {
   private shipHaze = { value: 0.25 };
   // (hazed as their bank is, so they never go paler than the sand they're on)
   private shells = new Shells(SHELLS, (x, z) => Math.max(0, bankAt(x, z)), steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(23));
+  private canon = new Canon(CANON, BASE_NOTE, (c) => paint(c), mulberry(53));
+  /** Walking the canon for you: on the way to its near end, or along it. */
+  private canonOnArrival = false;
+  private canonWalking = false;
   private casts = new Casts(CASTS, bankAt, () => steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(41));
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private seal?: Seal;
@@ -989,6 +999,15 @@ export class LowWater {
       g.add(stone);
       this.put(g, at, 'ring', 0.4, `stone:${i}`);
       this.stones.push({ at, mesh: stone, mat, lit: 0, armed: true, freq: BASE_NOTE * RATIOS[i], fade: 1.4 });
+    }
+
+    // the crab canon: a row of pebbles, each a note, out west
+    // (on the bank, never in the water: no reflections)
+    for (const p of this.canon.pebbles) {
+      p.mesh.position.set(p.at.x, Math.max(0, bankAt(p.at.x, p.at.y)) + 0.03, p.at.y);
+      p.mesh.userData.id = 'canon';
+      this.scene.add(p.mesh);
+      this.pickables.push(p.mesh);
     }
 
     // the table, standing in the water, a page held down by a stone, and a postcard by it under another
@@ -1699,7 +1718,7 @@ export class LowWater {
     }
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false);
+    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), this.letGoCanon();
     return true;
   }
 
@@ -1746,6 +1765,7 @@ export class LowWater {
     if (this.praam.afloat) return;
     this.stopWriting();
     this.boardOnArrival = false;
+    this.letGoCanon();
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
@@ -1781,6 +1801,12 @@ export class LowWater {
       if (station === 'baak') return this.walkTo(new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1), 0);
       // (the praam: to where you get in)
       if (station === 'praam') return this.walkTo(new THREE.Vector3(BOARD.x, 0, BOARD.y), 0);
+      // (the canon: to the nearer end of the row, where a walk along it starts)
+      if (station === 'canon') {
+        const [end] = this.canon.ends(this.pos.x);
+        this.clicked = { id: station, at: end.clone() };
+        return this.walkTo(new THREE.Vector3(end.x, 0, end.y), 0);
+      }
       this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' || station === 'casts' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
@@ -1798,6 +1824,42 @@ export class LowWater {
     }
     this.goal = new THREE.Vector3(p.x, 0, p.z);
     this.goalStop = stop;
+  }
+
+  /**
+   * Walk the canon: to the nearer end of the row, if you're not at one, then along it at a
+   * steady two notes a second to the other end.
+   */
+  walkCanon() {
+    if (this.sitting || this.praam.afloat) return;
+    const [end, other] = this.canon.ends(this.pos.x);
+    this.letGoCanon();
+    this.stopWriting();
+    this.lead.letGo();
+    if (end.distanceTo(new THREE.Vector2(this.pos.x, this.pos.z)) > 0.6) {
+      this.walkTo(new THREE.Vector3(end.x, 0, end.y), 0);
+      this.canonOnArrival = true;
+      return;
+    }
+    this.canonWalking = true;
+    this.pace = CANON_PACE;
+    this.goal = new THREE.Vector3(other.x, 0, other.y);
+    this.goalStop = 0;
+  }
+
+  private letGoCanon() {
+    this.canonOnArrival = false;
+    if (this.canonWalking) this.pace = PACE;
+    this.canonWalking = false;
+  }
+
+  /** Whether you've walked the canon end to end (until you walk off), and whether you're being walked along it now. */
+  get canonPlayed() {
+    return this.canon.played;
+  }
+
+  get canonBusy() {
+    return this.canonOnArrival || this.canonWalking;
   }
 
   /** Whether you've stood in the ring long enough to hear its third chord waver (until you walk off). */
@@ -1938,6 +2000,7 @@ export class LowWater {
     this.curlew.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), outside, (near, pan) => this.hooks.curlew?.(near, pan) ?? false);
     this.settle(dt);
     this.casts.update(dt, this.pos.x, this.pos.z, this.stillFor);
+    this.walkingCanon(dt);
     this.near();
     this.ring(dt);
     this.rock(dt);
@@ -2074,6 +2137,18 @@ export class LowWater {
     this.lean = Math.max(0, this.lean - dt / 1.6);
   }
 
+  /** The canon: on to the other end once you're at this one; and each pebble you step on, heard with its partner. */
+  private walkingCanon(dt: number) {
+    if (this.canonOnArrival && !this.goal) this.walkCanon();
+    else if (this.canonWalking && !this.goal) this.letGoCanon();
+    if (this.praam.afloat) return;
+    this.canon.update(dt, this.pos.x, this.pos.z, (yours, theirs) => {
+      const side = (i: number) => THREE.MathUtils.clamp((this.canon.x(i) - this.pos.x) / 6, -0.8, 0.8);
+      this.hooks.canon?.(this.canon.pebbles[yours].freq, side(yours), true);
+      if (theirs !== yours) this.hooks.canon?.(this.canon.pebbles[theirs].freq, side(theirs), false);
+    });
+  }
+
   /** At the lead line: heave on arriving, face out over the deep water while it's out, and pay it out from your hand. */
   private heaving(dt: number) {
     if (this.heaveOnArrival && !this.goal) this.heave();
@@ -2184,7 +2259,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -2517,6 +2592,8 @@ export class LowWater {
     if (this.card === 'casts' && this.casts.on(this.pos.x, this.pos.z)) want.set(this.pos.x, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11));
     // at the table, back so it (and the postcard on it) is above its long card
     if (this.card === 'table' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(TABLE) < 3) want.set(TABLE.x - 0.5, 0, TABLE.y - lead + (this.aspect < 0.8 ? 19 : 11));
+    // on the canon's row, back so the whole row is above the card, and stays put as you walk it
+    if (this.card === 'canon' && this.canon.near(this.pos.x, this.pos.z, 1)) want.set(CANON.x, 0, CANON.y - lead + (this.aspect < 0.8 ? 15 : 8));
     // at the tide gauge, back so the board and the water at its foot are above the card
     if (this.card === 'gauge' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(GAUGE) < 3) want.set(GAUGE.x - 0.5, 0, GAUGE.y - lead + (this.aspect < 0.8 ? 15 : 8));
     // in the boat, back a little, so you're above the card, and she's ahead of you

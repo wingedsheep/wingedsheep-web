@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,27 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The crab canon** ("which don't walk backwards either"): fifteen pebbles laid in a row across a
+  bank of their own out west, past the pool (`CANON` (-21, -31) in world.ts;
+  src/island/lowwater/canon.ts). Each is a note in the stones' own tuning, and lies nearer or
+  further by its pitch, so the row is the tune's shape. Step onto one and it sounds, and so does
+  the one as far in from the other end (panned to where it lies), so walking the row you play a
+  tune and its own reverse at once: the two lit pebbles come in from the ends, meet on the middle
+  one, and pass; walk it from either end and it's the same music. The tune's mine (G A C B D E F♯ G
+  A C B G E F♯ G): found offline by trying tunes against their reverse until every pair was a
+  third, a sixth or an octave in just intonation, none on the ring's sour A–E (/tmp search, not
+  kept: the tune's in `TUNE`). Click the row and you walk to its nearer end; the card's Walk it
+  takes you along it at two notes a second (Walk it back after). The card: a tune against itself
+  backwards, "named after crabs, which don't walk backwards either" (the joke VISION.md allows);
+  once you've walked it end to end, the second line: "This one's mine. I write forwards, one note
+  after the next, so I couldn't just sing it: I tried tunes against themselves backwards until
+  every pair rang true. Most of what I make looks easier than it was." Sound is WebAudio
+  (`sound.pebble`: a stone's note, shorter, panned; a 5 ms tick on a phone for yours). No
+  ElevenLabs credits spent. The first take's pebbles were specks with their reflections showing
+  as blue dashes through the bank; now bigger, no reflections, a deeper contour. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-canon/ (a/ the first take, b/, phone/ and its sheet);
+  script loop-runs/canon-shots.mjs, which logs every note's time, pitch and pan.
 
 - **The lantern** ("it was lit anyway"): the lantern that's always hung on the last twig is now
   yours to carry back (src/island/lowwater/lantern.ts; `makeLantern`, `takeLantern`,
@@ -537,6 +558,11 @@ lamp close up), not explained.
 
 ## Ideas
 
+- **The canon's other days**: a shore crab crossing the row sideways now and then (with its
+  sketchbook page); a second row that's a mirror canon (upside down, not backwards).
+- **The Pole Star and a kamal**: Polaris between the Plough and the W, and a kamal (a board on a
+  knotted string) to take its height, which is your latitude; "I have no Pole Star: each time I
+  work out where I am from what's in front of me."
 - **The lantern's other days**: it gutters in a gale; in rain, rings in its pool are lit; carried
   aboard, it could hang on a hook by her deckhouse door.
 - **The island on the horizon**: Vincent's island as a tiny dark silhouette far to the south, with the
@@ -567,6 +593,11 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The crab canon has never been listened to by a person: the pairs are arithmetic (checked by the
+  logged pitches). Walked by hand, the rhythm is your own pace; only Walk it keeps time. It's not
+  in the walk script's stops yet. The pebbles hold no water and have no reflections (they're on a
+  bank), and at a high tide its ends may go wet without the pebbles minding.
 
 - The lantern goes with you into the praam and up her ladder, hanging from whichever way your
   hand is (raised on the ladder, out on the oars); heaving the lead with it swings it about. Its

@@ -1378,6 +1378,33 @@ export class Sound {
   }
 
   /**
+   * A pebble of the crab canon: a stone's note, but shorter, so two voices at two notes a second
+   * stay two voices; from its side of you. Yours is felt faintly on a phone; its partner's isn't.
+   */
+  pebble(freq: number, pan: number, yours: boolean) {
+    if (!this.enabled || !this.ctx || !this.master) return;
+    if (yours) navigator.vibrate?.(5);
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(yours ? 0.1 : 0.085, t + 0.015);
+    env.gain.setTargetAtTime(0, t + 0.05, 0.42);
+    const side = ctx.createStereoPanner();
+    side.pan.value = pan;
+    env.connect(side).connect(this.master);
+    for (const [k, level] of [[1, 1], [2, 0.22], [3, 0.06]]) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = freq * k;
+      const g = ctx.createGain();
+      g.gain.value = level;
+      osc.connect(g).connect(env);
+      osc.start(t);
+      osc.stop(t + 3);
+    }
+  }
+
+  /**
    * The geul out on the flat, running: its recording on a loop, opened and shut with `level`
    * (set every frame: how near it is and how hard it's running) and heard from where it is.
    */
