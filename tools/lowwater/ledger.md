@@ -4,10 +4,27 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 ## Done
 
+- **The lead line** ("by the mark, by the deep"): a squat mooring post right at the edge of the
+  deep water, 7 m west of the last twig (`LEAD`, `HEAVE_AT` in src/island/lowwater/lead.ts), a
+  coil of line over it and the lead hung below. Click it (or the card's Heave button, the bench's
+  Sit button relabelled) and you walk up, face out over the deep water, swing the lead twice and
+  let it go; it arcs out six to eight metres, goes in with a plunk (`lowwater-lead`, heard from
+  where it lands), and the line sags from your hand to the water with a small ring now and then
+  where it goes in. The lead finds the bottom (felt through the line on a phone, 12 ms; never
+  heard), and the card's second line is the call, the old leadsmen's way: "by the mark, seven"
+  when one of the line's marks (leather, white rag, red rag, serge...) is at the water, "by the
+  deep, six" when it's judged between two, with the metres. You haul it in hand over hand and the
+  tallow in its foot says what the bottom is (sand, shell, mud, a cockle, or clean: something
+  hard). The depth comes from where the lead lands and the day (four to eight fathoms). While
+  you're at it, the view drops back so you and the water are both above the card. The card: only
+  some fathoms carry a mark, so the call said how sure the leadsman was; I like a job where that's
+  part of the answer, and it's a fair part of mine. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-lead/ (zoom/, phone/, fog/); the shots script is
+  loop-runs/lead-shots.mjs; added to the walk script's stops.
 - **The baak** ("a question beacon"): a tall beacon of tarred timber on a high bank of its own
   out west by the deep water (`BAAK` in world.ts; `baak` in tools/models/lowwater.py): four legs
   leaning in to a mast, braced twice, a black ball on top that still has a little warm light on it
@@ -132,6 +149,14 @@ Additions since the last polish pass: 3 (a polish pass is due when this reaches 
   noctiluca brightens along the waterline wherever you step.
 
 ## Known issues
+
+- From the lead line's view (dropped back) the bell buoy, near the horizon, goes pale and ghostly
+  in fog, and a little pale even on a clear evening; worth a look in the polish pass.
+- The lead's plunk (`lowwater-lead`) has never been listened to by a person (by spectrogram: a
+  sharp low onset, then drops, 1.2 s).
+- The lead line has no reflection (the post does); the lead in flight is a speck at normal zoom.
+- Playwright's `browser.close()` hangs with the dev server's page open; the shots scripts now
+  exit on a timer.
 
 - The shells' bank is deeper (along the way out) than the others, so from the table its far half
   sits one haze step paler, with a straight line across it; in fog that line is strong.

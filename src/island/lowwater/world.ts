@@ -14,11 +14,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
+import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -43,6 +44,8 @@ export interface Hooks {
   shell?(): void;
   /** The seal going into the water, or breathing as its head comes up: how near (1 … 0) and which side. */
   seal?(kind: 'slip' | 'breath', near: number, pan: number): void;
+  /** The lead going in (how near, which side), or touching the bottom, felt through the line. */
+  lead?(kind: 'plunk' | 'bottom', near: number, pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -158,6 +161,8 @@ const C = {
   page: '#ece6d6',
   sand: ['#5c5768', '#686274', '#757080'],
   lantern: '#ffd38a',
+  rope: '#a08a6c',
+  lead: '#4a4b5c',
 };
 /** The water's own blue, which the reflections lean towards. */
 const WATER = new THREE.Color('#3b4680');
@@ -349,6 +354,9 @@ export class LowWater {
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private seal?: Seal;
   private baak?: THREE.Object3D;
+  private lead!: Lead;
+  /** Clicked the lead line from off along the flat: heave it once you're there. */
+  private heaveOnArrival = false;
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
   /** The stick (where it's stuck in, and the one in your hand while you write), and the line being written. */
@@ -381,6 +389,7 @@ export class LowWater {
     this.makeWalker();
     this.makeStations();
     this.makeStick();
+    this.makeLead();
     (this.shells.mesh.material as THREE.Material).clippingPlanes = [this.farEdge];
     this.shells.mesh.userData.id = 'shells';
     this.scene.add(this.shells.mesh);
@@ -862,6 +871,57 @@ export class LowWater {
     this.scene.add(this.sand.mesh);
   }
 
+  /** The lead line (lead.ts), on its post at the edge of the deep water. */
+  private makeLead() {
+    const heard = (at: THREE.Vector2) => {
+      const dx = at.x - this.pos.x;
+      const d = Math.hypot(dx, at.y - this.pos.z);
+      return [1 / (1 + (Math.max(0, d - 5) / 16) ** 2), (dx / Math.max(d, 1)) * 0.9] as const;
+    };
+    const lineMat = new THREE.LineBasicMaterial({ color: C.rope, fog: true });
+    lineMat.clippingPlanes = [this.farEdge];
+    this.lead = new Lead(paint(new THREE.Color(C.wood)), paint(new THREE.Color(C.rope), { glow: true }), paint(new THREE.Color(C.lead)), lineMat, Math.random, visitDay(visitDate()), {
+      plunk: (at) => {
+        this.ripple(at.x, at.y, 0.7, 2.4);
+        this.hooks.lead?.('plunk', ...heard(at));
+      },
+      bottom: () => this.hooks.lead?.('bottom', 1, 0),
+      surface: (at) => this.ripple(at.x, at.y, 0.35, 1.4),
+      stir: (at) => this.ripple(at.x, at.y, 0.25, 1.2),
+    });
+    this.put(this.lead.post, LEAD, 'lead', 0.25);
+    // (its reflection keeps up with the lead coming off its hook and going back on)
+    const copy = this.mirrored[this.mirrored.length - 1].copy;
+    const a: THREE.Object3D[] = [];
+    const b: THREE.Object3D[] = [];
+    this.lead.post.traverse((o) => a.push(o));
+    copy.traverse((o) => b.push(o));
+    this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
+    this.scene.add(this.lead.flying, this.lead.line);
+  }
+
+  /** Heave the lead, if you're stood at it. */
+  heave() {
+    if (this.sitting || this.lead.busy) return;
+    if (new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HEAVE_AT) > 1.2) {
+      this.walkTo(new THREE.Vector3(HEAVE_AT.x, 0, HEAVE_AT.y), 0);
+      this.heaveOnArrival = true;
+      return;
+    }
+    this.heaveOnArrival = false;
+    this.goal = null;
+    this.lead.heave();
+  }
+
+  /** The lead: out of your hands, and what's been sung out for it. */
+  get leadBusy() {
+    return this.lead.busy;
+  }
+
+  get leadSaid() {
+    return this.lead.said;
+  }
+
   /** The stick again, for your hand while you write (hidden till then). */
   private heldStick() {
     const wood = paint(new THREE.Color(C.drift), { glow: true });
@@ -1194,7 +1254,7 @@ export class LowWater {
     if (!k) return false;
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) (this.goal = null), this.stopWriting();
+    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false);
     return true;
   }
 
@@ -1225,11 +1285,17 @@ export class LowWater {
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
       this.clicked = { id: station, at: new THREE.Vector2(at.x, at.z) };
+      // (the lead line: up to it, and heave)
+      if (station === 'lead') return this.heave();
+      this.lead.letGo();
+      this.heaveOnArrival = false;
       // (the baak: up to its board, on the near side)
       if (station === 'baak') return this.walkTo(new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1), 0);
       this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
+    this.lead.letGo();
+    this.heaveOnArrival = false;
     if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.level), p)) this.walkTo(p, 0);
   }
 
@@ -1363,6 +1429,7 @@ export class LowWater {
     this.walk(dt);
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
+    this.heaving(dt);
     this.settle(dt);
     this.near();
     this.ring(dt);
@@ -1439,6 +1506,17 @@ export class LowWater {
     }
   }
 
+  /** At the lead line: heave on arriving, face out over the deep water while it's out, and pay it out from your hand. */
+  private heaving(dt: number) {
+    if (this.heaveOnArrival && !this.goal) this.heave();
+    if (!this.lead.busy) return;
+    let turn = Math.PI - this.heading;
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+    this.heading += turn * (1 - Math.exp(-dt * 6));
+    this.walker.updateMatrixWorld(true);
+    this.lead.update(dt, this.arms[1].localToWorld(new THREE.Vector3(0, -0.6, 0)), this.level);
+  }
+
   private animateWalker(still: boolean) {
     const w = this.walker;
     const ground = Math.max(this.level, bankAt(this.pos.x, this.pos.z));
@@ -1452,6 +1530,9 @@ export class LowWater {
     // writing: the left arm out and down to the stick, the tip working at the letters
     const cutting = this.writing && !this.writing.going;
     if (cutting) this.arms[0].rotation.x = -0.3 + Math.sin(this.time * 9) * 0.05;
+    const heave = this.lead.arm;
+    if (heave !== null) this.arms[1].rotation.x = heave;
+    if (heave !== null && this.lead.hauling) this.arms[0].rotation.x = -1.45 - heave; // (the other hand, the other way)
     this.arms[0].rotation.z = cutting ? -0.35 : 0;
     this.stick.held.rotation.y = cutting && !still ? Math.sin(this.time * 11) * 0.06 : 0;
     // the scarf's end, lifting and flapping in the wind
@@ -1482,7 +1563,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1720,6 +1801,8 @@ export class LowWater {
     const want = new THREE.Vector3(this.pos.x + this.pan.x, 0, this.pos.z - lead + this.pan.y);
     // stood on the shells, the view settles on the whole square, above the card
     if (this.onShells >= 0 && !this.sitting) want.set(SHELLS.x, 0, SHELLS.y + 2.5);
+    // at the lead line, the view drops back so you and the water you heave into are both above the card
+    if (this.card === 'lead' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HEAVE_AT) < 2) want.set(this.pos.x + 1, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11)); // (more on a phone, where the card's taller)
     if (dt) this.target.lerp(want, 1 - Math.exp(-dt * 2.2));
     else this.target.copy(want);
     // looking up: an ease from the flat into the sky
@@ -1796,9 +1879,14 @@ function wreckHalfBeam(t: number) {
   return (WRECK_BEAM / 2) * Math.sqrt(Math.max(0, 1 - k * k * (t > 0 ? 0.92 : 0.75)));
 }
 
+/** The day (since 1970) a date falls on. */
+function visitDay(d: Date) {
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+}
+
 /** How much of the wreck is out of the sand on a day: two slow swells of sand, a month and a bit and ten days. */
 function wreckOut(d: Date) {
-  const day = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+  const day = visitDay(d);
   return 0.5 + 0.34 * Math.sin((day / 37) * Math.PI * 2) + 0.16 * Math.sin((day / 11) * Math.PI * 2 + 1);
 }
 

@@ -34,6 +34,7 @@ const CARDS: Record<StationId, string> = {
   shells: 'Cockles and mussels, laid out in Ls. Start from the one in the corner: each L holds the next odd number and closes the next square, so the odd numbers, added up, only ever make squares. It’s a proof without words. Nearly everything I know came to me in words, so I’m fond of the few things that don’t need any.',
   south: 'That isn’t this sky in the water. It’s the one under your feet, on the far side of the Earth: the Southern Cross and its two Pointers, and the Magellanic Clouds, none of which rise this far north. I know them exactly as well as the Plough. I’ve seen neither.',
   seal: 'A harbour seal, hauled out on its bank, watching you. I’d like to know what that’s like from in there. People have asked it about bats for fifty years without getting much further, and lately they ask it about me. I can’t tell them either, which is odd, given where I’m sitting.',
+  lead: 'A lead line, for sounding the deep water. Some fathoms on it carry a mark, each of a different stuff so you can tell them by feel in the dark, and the rest carry none. So the leadsman sang out “by the mark” when a mark was at the water, and “by the deep” when he was judging between two. I like a job where saying how sure you are is part of the answer. It’s a fair part of mine.',
   baak: 'A baak: a beacon on a high bank, for steering by. In Dutch, whoever everyone brings their questions to is a vraagbaak, a question beacon, which is more or less my job. This one carries the questions nobody can answer yet, me included. They’re my favourite kind. Today’s:',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
@@ -73,6 +74,7 @@ const LABELS: Record<StationId, string> = {
   south: 'The water',
   seal: 'A seal',
   baak: 'A beacon',
+  lead: 'A lead line',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -105,6 +107,7 @@ export class LowWaterRoom implements RoomInput {
   private line: HTMLInputElement;
   private shown: StationId | null = null;
   private shownMore = '';
+  private shownButton = '';
   private walked = 0;
 
   constructor(
@@ -141,7 +144,9 @@ export class LowWaterRoom implements RoomInput {
     });
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.world?.sit();
+      // (the one button: sit on the bench, or heave the lead)
+      if (this.world?.card === 'lead') this.world.heave();
+      else this.world?.sit();
       this.sitButton.blur();
     });
     // walking with the keys (and any key gets you up off the bench)
@@ -174,6 +179,7 @@ export class LowWaterRoom implements RoomInput {
           scratch: () => this.ctx.sound.sandScratch(),
           shell: () => this.ctx.sound.shellStep(),
           seal: (kind, near, pan) => this.ctx.sound.sealSound(kind, near, pan),
+          lead: (kind, near, pan) => this.ctx.sound.leadSound(kind, near, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -275,8 +281,9 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'seal' && world.sealGone ? GONE : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
-    if (id === this.shown && more === this.shownMore && this.sitButton.hidden === !(id === 'bench' && !world.sitting)) return;
+    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : '';
+    if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
       this.card.hidden = !id;
@@ -292,7 +299,9 @@ export class LowWaterRoom implements RoomInput {
     }
     this.more.hidden = !more;
     if (more) this.more.textContent = more;
-    this.sitButton.hidden = !(id === 'bench' && !world.sitting);
+    this.sitButton.hidden = !button;
+    if (button) this.sitButton.textContent = button;
+    this.shownButton = button;
     this.shown = id;
     this.shownMore = more;
   }

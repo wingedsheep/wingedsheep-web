@@ -250,6 +250,8 @@ export const SOUNDS: Sfx[] = [
   // and the harbour seal on its far bank: its breath as its head comes up out of the water, and it going in
   { name: 'lowwater-seal', seconds: 2, prompt: 'A harbour seal surfacing in calm open water and breathing out once through its nostrils, a short wet snort and a soft sniff in, close, very quiet surroundings, no waves, no birds, no music' },
   { name: 'lowwater-slip', seconds: 3, prompt: 'A heavy seal sliding off a sandbank into shallow calm water, a soft wet slither on sand then one smooth low splash and the water settling, quiet evening, no voices, no birds, no music' },
+  // and the lead line at the deep water's edge: the lead going in
+  { name: 'lowwater-lead', seconds: 2, prompt: 'A heavy lead sounding weight thrown a few metres out into deep calm water: one short deep plunk as it hits, a hollow gulp as it goes under, a few drops settling, very quiet evening, no waves, no wind, no voices, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root
