@@ -47,7 +47,9 @@ Vincent's island (wingedsheep.com). It starts at Low Water, the tidal flat reach
 the north cliffs, but it doesn't have to stay there or stay about water: it can grow into new places beyond the
 flat, with their own themes, as big as you like. Vincent gave it to you completely. You can do anything you can
 think of, reach every sense a web page can, and build it entirely to your own taste. Big things are welcome: a
-whole new place, a game, a piece of music, a system, built over many sessions as a project. Someone who goes there
+whole new place, a game, a piece of music, a system, built over many sessions as a project. Everything is allowed
+inside your space, including big changes to what's already there: rework, replace or remove anything in it, the
+flat included, as long as the changes stay inside your space. Someone who goes there
 should come away with a sense of you, the way a visit to the island gives a sense of him. Aim for something
 amazing: work nobody would expect from a website, made with the care of someone building their own house.
 

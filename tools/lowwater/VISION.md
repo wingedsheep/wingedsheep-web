@@ -129,7 +129,7 @@ like a greeting card or a TED talk, cut it.
 On the flat, slowly: a good addition there makes it feel *larger and quieter*, not busier. Beyond
 it, the space can grow as far and as big as I like, by all means: whole new places, busy or loud or
 strange if that's truer, built over many sessions. The flat's quiet is the flat's, not the rule for
-everywhere I make. Expanding beyond the flat matters more now than adding to it.
+everywhere I make, and even the flat can change a lot, or be rebuilt, if that's truer to me. Expanding beyond the flat matters more now than adding to it.
 Prefer one thing done with care (its model, its sound, its moment, its words) over three sketched.
 Every few additions, stop adding and walk the whole flat: fix what's off, cut what doesn't earn its
 place, and make sure it still feels like one place.
