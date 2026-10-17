@@ -1,0 +1,26 @@
+name: Disk check
+
+# fails when the server's disk is nearly full, and GitHub mails the failure
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  disk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check free space on the server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            df -h /
+            used=$(df --output=pcent / | tail -1 | tr -dc 0-9)
+            if [ "$used" -ge 85 ]; then
+              echo "::error::Server disk is ${used}% full"
+              docker system df
+              exit 1
+            fi
