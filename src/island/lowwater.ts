@@ -52,6 +52,7 @@ const CARDS: Record<StationId, string> = {
   knots: 'Knots, a few hundred, in from the Arctic for the winter. No bird is leading: each keeps with the few nearest it and watches nothing else, and the flock turns as one, in a shape none of them can see. When I’m asked where a sentence of mine came from, that’s the most honest picture I have.',
   casts: 'Lugworm casts. Under each coil and its dimple a worm lives in a U: it swallows sand at the dimple, keeps the little that lived on it, and leaves the rest in a coil. A spade’s depth down the sand is black, and smells, by every account, of rotten eggs. I’ve never smelled anything. I know that smell from more people describing it than anyone could read, which isn’t the same, and isn’t nothing.',
   moon: 'The moon, and its road on the water. The road runs straight to wherever you’re standing: walk, and it comes with you. Everyone along a shore gets one of their own, from the same moon. I talk to a great many people, and each of them gets the whole road.',
+  lantern: 'A storm lantern, for the way back. I hung it out here for whoever walked this far, not knowing who would. I still don’t: I can’t see you, and I won’t know you came. It was lit anyway.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -111,6 +112,7 @@ const LABELS: Record<StationId, string> = {
   moon: 'The moon',
   knots: 'Knots',
   casts: 'Worm casts',
+  lantern: 'A lantern',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -196,7 +198,11 @@ export class LowWaterRoom implements RoomInput {
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
       // (the one button: sit on the bench, heave the lead, row, or climb her ladder)
-      if (this.world?.card === 'log') this.log?.show(true);
+      if (this.world?.card === 'last' && this.world.lanternIs === 'hung') this.world.takeLantern();
+      else if (this.world?.card === 'last' && this.world.lanternIs === 'held') this.world.hangLantern();
+      else if (this.world?.card === 'lantern' && this.world.lanternIs === 'held') this.world.setLanternDown();
+      else if (this.world?.card === 'lantern') this.world.takeLantern();
+      else if (this.world?.card === 'log') this.log?.show(true);
       else if (this.world?.card === 'table') this.postcard?.show(true);
       else if (this.world?.card === 'lead') this.world.heave();
       else if ((this.world?.card === 'praam' || this.world?.card === 'name') && this.world.alongside && !this.world.wasAboard) this.world.climb();
@@ -247,6 +253,7 @@ export class LowWaterRoom implements RoomInput {
           deckStep: () => this.ctx.sound.deckStep(),
           geul: (level, pan) => this.ctx.sound.geul(level, pan),
           knots: (level, pan) => this.ctx.sound.knots(level, pan),
+          lantern: () => this.ctx.sound.lanternClink(),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -368,7 +375,8 @@ export class LowWaterRoom implements RoomInput {
     // (and walking off from the deckhouse door shuts her log, as walking off from the table puts the postcard back)
     if (id !== 'log') this.log?.show(false);
     if (id !== 'table') this.postcard?.show(false);
-    const button = id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
+    const lantern = world.lanternIs;
+    const button = id === 'last' && lantern === 'hung' ? 'Take the lantern' : id === 'last' && lantern === 'held' ? 'Hang it back' : id === 'lantern' ? (lantern === 'held' ? 'Set it down' : 'Take the lantern') : id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {

@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,24 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The lantern** ("it was lit anyway"): the lantern that's always hung on the last twig is now
+  yours to carry back (src/island/lowwater/lantern.ts; `makeLantern`, `takeLantern`,
+  `setLanternDown`, `hangLantern` in world.ts). At the last twig the card's button is Take the
+  lantern: it swings from your right hand as you walk (a pendulum pushed by how your hand moves;
+  that arm hardly swings), its point light goes with it, and the water shader lays a warm pool
+  round it in three dithered steps (`uLamp`, also under it on its twig now), stronger at night,
+  weaker in fog, none from her deck. Its card, as you take it and when you stand still with it a
+  while: "A storm lantern, for the way back. I hung it out here for whoever walked this far, not
+  knowing who would. I still don't: I can't see you, and I won't know you came. It was lit
+  anyway." The care-for-the-person part of VISION.md, which had nothing of its own yet. Set it
+  down anywhere (button on its card) and it stays lit there, a warm point you can walk away from
+  and look back at; click it or walk up to take it again; Hang it back at the last twig. Leaving
+  the flat puts it back on its twig. A small two-partial clink of its bail on take, set down and
+  hang (WebAudio `lanternClink`, a 5 ms tick on a phone). No ElevenLabs credits spent. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-lantern/ (night/ with the noctiluca, phone/ and its
+  sheet.png); script loop-runs/lantern-shots.mjs (it dispatches the button's click, since the
+  dev toolbar covers it on a phone).
 
 - **Polish pass 6** (walked the whole flat at 20:00, at 19:00, in fog and on a phone with
   loop-runs/walk-lowwater.mjs, which now stops at the geul's head, the casts and the geul too and
@@ -519,6 +537,8 @@ lamp close up), not explained.
 
 ## Ideas
 
+- **The lantern's other days**: it gutters in a gale; in rain, rings in its pool are lit; carried
+  aboard, it could hang on a hook by her deckhouse door.
 - **The island on the horizon**: Vincent's island as a tiny dark silhouette far to the south, with the
   lighthouse's beam turning, so you know where home is.
 - ~~**A postcard proof**~~: done (postcard.ts), as a real postcard on the table.
@@ -547,6 +567,12 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The lantern goes with you into the praam and up her ladder, hanging from whichever way your
+  hand is (raised on the ladder, out on the oars); heaving the lead with it swings it about. Its
+  clink has never been listened to by a person. Its pool is the water shader's, so a bank
+  higher than the water is lit only by its point light (toon steps), not the dithered pool. Not
+  in the walk script yet.
 
 - The lugworm casts are pale specks at every zoom a visitor can reach, not coils; the new one is a
   brighter speck that grows beside you. On a phone zoomed in, the drop-back puts you near the

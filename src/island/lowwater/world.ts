@@ -29,13 +29,14 @@ import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 import { Casts } from './casts';
+import { Lantern } from './lantern';
 
 /** Her deckhouse, as tools/models/lowwater.py has it (her model's metres): its middle along her, its windows each side, its door. */
 const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -84,6 +85,8 @@ export interface Hooks {
   geul?(level: number, pan: number): void;
   /** The knots over the far flat, flying: how loud their wings are (0 … 1), and which side (-1 … 1). */
   knots?(level: number, pan: number): void;
+  /** The lantern's bail, taken off its hook, set down, or hung back. */
+  lantern?(): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -331,6 +334,10 @@ const MIRAGE_LINE = 10;
 const KNOTS_LINE = 6;
 /** At night, stood still this long (s) after lighting the water, a line about it (once it's gone out). */
 const GLOW_LINE = 5;
+/** Carrying the lantern, stood still this long with nothing near (s): its card again. */
+const LANTERN_LINE = 8;
+/** Where the lantern's light falls on the water: x, z, how strong, how far (m). */
+const LAMP = { value: new THREE.Vector4(0, 0, 0, 1) };
 
 interface Mirrored {
   src: THREE.Object3D;
@@ -470,6 +477,10 @@ export class LowWater {
   private sun = new THREE.DirectionalLight('#ffbf94', 1.25);
   private fill = new THREE.DirectionalLight('#7f8cc4', 0.55);
   private lamp = new THREE.PointLight(C.lantern, 2, 5, 1.5);
+  /** The lantern from the last twig (lantern.ts) and its glow; just taken, its card till you walk on. */
+  private lantern!: Lantern;
+  private halo!: THREE.Sprite;
+  private lanternSaid = false;
   private ray = new THREE.Raycaster();
 
   constructor(renderer: THREE.WebGLRenderer, private texels: () => number) {
@@ -547,6 +558,7 @@ export class LowWater {
         uMoonLit: MOON.lit,
         uMoonYou: MOON.you,
         uNight: NIGHT,
+        uLamp: LAMP,
         uFlow: GEUL.flow,
         uCurrent: GEUL.current,
         uHorizon: { value: 0 },
@@ -599,6 +611,7 @@ export class LowWater {
         uniform vec4 uClouds[${CLOUDS.length}];
         uniform vec2 uSouthPole;
         uniform float uSouthShow; // (0 walking … 1 stood still a while: the bright ones first)
+        uniform vec4 uLamp;
         varying vec3 vWorld;
         varying vec2 vView;
         ${MOON_GLSL}
@@ -661,6 +674,9 @@ export class LowWater {
           float deep = step(p.y, uDeep + sin(p.x * 0.7) * 0.6 + (d - 0.5) * 0.5);
           col = mix(col, col * vec3(0.48, 0.52, 0.66), deep);
           col = geulTint(col, gn, p, d);
+          // the lantern's light on the wet sand round it: warm, in three dithered steps
+          float lk = uLamp.z * clamp(1.0 - length(p - uLamp.xy) / uLamp.w + (d - 0.5) * 0.12, 0.0, 1.0);
+          col += vec3(0.26, 0.15, 0.05) * floor(lk * 3.0 + d * 0.99) / 3.0 * (1.0 - deep * 0.6);
           // the moon's road, if it's up, coming down the water to you
           col = moonRoad(col, (uHorizon - vView.y) / uView, x, r, uWind, d);
           if (uSouthShow > 0.0) {
@@ -837,6 +853,26 @@ export class LowWater {
     }
   }
 
+  /** The lantern, on its hook on the last twig, with its glow, and its light. */
+  private makeLantern(hook: THREE.Object3D, metal: THREE.Material) {
+    const glass = paint(new THREE.Color(C.lantern), { glow: true });
+    glass.emissiveIntensity = 1.2;
+    this.lantern = new Lantern(glass, metal);
+    hook.updateWorldMatrix(true, false);
+    this.lantern.hangAt(hook.getWorldPosition(new THREE.Vector3()));
+    this.lantern.update(0, null, 0, 0);
+    const root = this.lantern.root;
+    root.userData.id = 'last';
+    this.scene.add(root);
+    this.pickables.push(root);
+    this.reflect(root);
+    this.scene.add(this.lamp);
+    this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(), color: C.lantern, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
+    this.halo.scale.setScalar(1.3);
+    this.halo.renderOrder = 6;
+    this.scene.add(this.halo);
+  }
+
   /** You: a small dark figure in a long coat, with a pale scarf that the wind gets at. */
   private makeWalker() {
     const w = this.walker;
@@ -906,6 +942,7 @@ export class LowWater {
     const mark = paint(new THREE.Color(C.birchDark));
     const rand = mulberry(3);
     const n = Math.floor(length / 4.2);
+    let hook: THREE.Object3D | null = null;
     for (let i = 0; i <= n; i++) {
       const p = curve.getPointAt(i / n);
       const last = i === n;
@@ -929,24 +966,15 @@ export class LowWater {
       }
       twig.rotation.set((rand() - 0.5) * 0.12, rand() * 6, (rand() - 0.5) * 0.12);
       if (last) {
-        // a lantern hung on the last one, out where it gets deep
-        const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 0.14), paint(new THREE.Color(C.lantern), { glow: true }));
-        (lantern.material as THREE.MeshToonMaterial).emissiveIntensity = 1.2;
-        lantern.position.set(0.12, h - 0.25, 0);
-        const cap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.18), mark);
-        cap.position.set(0.12, h - 0.14, 0);
-        twig.add(lantern, cap);
-        this.lamp.position.set(p.x + 0.12, h - 0.2, p.z);
-        this.scene.add(this.lamp);
-        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(), color: C.lantern, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
-        halo.scale.setScalar(1.3);
-        halo.position.set(p.x + 0.12, h - 0.25, p.z);
-        halo.renderOrder = 6;
-        this.scene.add(halo);
+        // a lantern hung on the last one, out where it gets deep (lantern.ts: it's yours to carry back)
+        hook = new THREE.Object3D();
+        hook.position.set(0.12, h - 0.1, 0);
+        twig.add(hook);
       }
       this.put(twig, new THREE.Vector2(p.x, p.z), last ? 'last' : 'pricken', 0.12);
       this.twigs.push(new THREE.Vector2(p.x, p.z));
     }
+    this.makeLantern(hook!, mark);
 
     // the stone ring: eight low stones, each its own note
     for (let i = 0; i < 8; i++) {
@@ -1168,12 +1196,52 @@ export class LowWater {
 
   /** Back on the flat at once (leaving Low Water while out on the water). */
   ashore() {
+    // (the lantern's back on its twig for whoever walks out next)
+    this.lantern.hang();
+    this.lantern.root.userData.id = 'last';
+    this.lanternSaid = false;
     if (!this.praam.afloat) return;
     this.deck.reset();
     if (this.lightship) this.lightship.aboard = false;
     this.beenAboard = false;
     this.praam.beach();
     this.land();
+  }
+
+  /** The lantern: on its twig, in your hand, or set down out on the flat. */
+  get lanternIs() {
+    return this.lantern.where;
+  }
+
+  /** Take the lantern, off its twig or up off the sand. */
+  takeLantern() {
+    if (this.lantern.where === 'held') return;
+    this.lantern.take(this.pos.x, this.pos.z);
+    delete this.lantern.root.userData.id;
+    this.lanternSaid = true;
+    this.clicked = null;
+    this.hooks.lantern?.();
+  }
+
+  /** Set it down beside you, on the side you carry it, where it stays lit. */
+  setLanternDown() {
+    if (this.lantern.where !== 'held' || this.praam.afloat) return;
+    const x = this.pos.x + Math.cos(this.heading) * 0.45;
+    const z = this.pos.z - Math.sin(this.heading) * 0.45;
+    this.lantern.putDown(x, Math.max(0, bankAt(x, z)), z);
+    this.lantern.root.userData.id = 'lantern';
+    this.lanternSaid = false;
+    this.clicked = { id: 'lantern', at: new THREE.Vector2(x, z) };
+    this.hooks.lantern?.();
+  }
+
+  /** Hang it back on the last twig. */
+  hangLantern() {
+    if (this.lantern.where !== 'held') return;
+    this.lantern.hang();
+    this.lantern.root.userData.id = 'last';
+    this.lanternSaid = false;
+    this.hooks.lantern?.();
   }
 
   /** Out of the boat, onto the sand beside it. */
@@ -2065,6 +2133,10 @@ export class LowWater {
     if (heave !== null) this.arms[1].rotation.x = heave;
     if (heave !== null && this.lead.hauling) this.arms[0].rotation.x = -1.45 - heave; // (the other hand, the other way)
     this.arms[0].rotation.z = cutting ? -0.35 : 0;
+    // carrying the lantern: that arm hardly swings, and holds it a little out from your side
+    const carrying = this.lantern.where === 'held' && heave === null && !this.sitting;
+    if (carrying) this.arms[1].rotation.x = swing * 0.2;
+    this.arms[1].rotation.z = carrying ? 0.14 : 0;
     this.stick.held.rotation.y = cutting && !still ? Math.sin(this.time * 11) * 0.06 : 0;
     // the scarf's end, lifting and flapping in the wind
     const wind = this.outside.wind;
@@ -2091,6 +2163,12 @@ export class LowWater {
       this.card = this.readName ? 'name' : 'praam';
       return;
     }
+    // (the lantern, just taken: its card, till you walk on)
+    if (this.lanternSaid && this.lantern.where === 'held' && at.distanceTo(this.lantern.takenAt) < 3.5) {
+      this.card = 'lantern';
+      return;
+    }
+    this.lanternSaid = false;
     if (this.clicked) {
       if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : this.clicked.id === 'seal' ? 11 : this.clicked.id === 'lightship' ? 26 : this.clicked.id === 'praam' ? 3 : 4.5) || this.goal) {
         this.card = this.clicked.id;
@@ -2116,6 +2194,9 @@ export class LowWater {
     if (geul.d < 2.2) places.push(['geul', new THREE.Vector2(at.x - geul.d, at.y), 2.2]); // (a point as far off as its bank is)
     // (the casts: anywhere on their bank)
     if (this.casts.on(at.x, at.y)) places.push(['casts', new THREE.Vector2(at.x + 1, at.y), 1.5]);
+    // (the lantern, wherever you set it down)
+    const down = this.lantern.down;
+    if (down) places.push(['lantern', down, 1.8]);
     for (const [id, p, r] of places) {
       if (id === 'stick' && this.justWrote) continue;
       const d = at.distanceTo(p);
@@ -2135,8 +2216,10 @@ export class LowWater {
     // or, at night, a few seconds after the water you lit has gone out again
     // or a little while, with the knots up
     const flying = !best && !this.sitting && this.stillFor > KNOTS_LINE && this.flock.seen > 0.5;
+    // or a while, carrying the lantern
+    const carrying = !best && !this.sitting && this.stillFor > LANTERN_LINE && this.lantern.where === 'held';
     const lit = !best && !this.sitting && this.outside.night > 0.4 && this.stillFor > GLOW_LINE && this.wake.litAgo < this.stillFor + 3 && !this.wake.points.visible;
-    this.card = this.sitting ? 'bench' : (best ?? (flying ? 'knots' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
+    this.card = this.sitting ? 'bench' : (best ?? (flying ? 'knots' : carrying ? 'lantern' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
   }
 
   /** Where you are in the picture, for the moon's road: across (a share of the width) and down from the horizon (view heights). */
@@ -2510,6 +2593,16 @@ export class LowWater {
       this.walker.quaternion.copy(root.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.deck.heading));
       this.pos.set(at.x, 0, at.z);
     }
+    // the lantern: on its twig, in your hand, or where you set it down, and its light with it
+    const held = this.lantern.where === 'held';
+    if (held) this.walker.updateMatrixWorld(true);
+    this.lantern.update(dt, held ? this.arms[1].localToWorld(new THREE.Vector3(0, -0.62, 0.03)) : null, this.outside.wind, this.time);
+    const lit = this.lantern.light(new THREE.Vector3());
+    this.lamp.position.copy(lit);
+    this.halo.position.copy(lit);
+    // (on the water under it, as far out as it's high; from her deck, too high up to show)
+    const above = lit.y - this.level;
+    LAMP.value.set(lit.x, lit.z, (0.6 + this.outside.night * 0.4) * (1 - this.outside.fog * 0.4) * THREE.MathUtils.clamp(1 - (above - 1.5) / 2, 0, 1), 1.7 + above * 0.8);
     // the reflections: everything hung upside down under the water's surface
     const flip = new THREE.Matrix4().makeScale(1, -1, 1).premultiply(new THREE.Matrix4().makeTranslation(0, this.level * 2, 0));
     this.scene.updateMatrixWorld();

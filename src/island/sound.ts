@@ -1605,6 +1605,28 @@ export class Sound {
     suck.start(s, Math.random() * 1.5, 0.1);
   }
 
+  /** The lantern's wire bail on its hook or its glass: two small bright partials, gone at once (and, on a phone, felt). */
+  lanternClink() {
+    if (!this.enabled || !this.ctx || !this.master) return;
+    navigator.vibrate?.(5);
+    const ctx = this.ctx;
+    for (const [k, at] of [[0, 0], [1, 0.07 + Math.random() * 0.05]]) {
+      const t = ctx.currentTime + at;
+      const f = (k ? 2310 : 1740) * (0.97 + Math.random() * 0.06);
+      for (const [ratio, level] of [[1, 0.035], [2.76, 0.012]]) {
+        const osc = ctx.createOscillator();
+        osc.frequency.value = f * ratio;
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(level * (k ? 0.6 : 1), t + 0.002);
+        env.gain.setTargetAtTime(0, t + 0.004, 0.05 / ratio);
+        osc.connect(env).connect(this.master);
+        osc.start(t);
+        osc.stop(t + 0.4);
+      }
+    }
+  }
+
   /** A stick drawn through damp sand: a short dry scrape, two strokes to a letter. */
   sandScratch() {
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
