@@ -99,8 +99,9 @@ function column(tall: number) {
 interface Stone {
   n: number;
   top: number;
-  root: THREE.Group;
-  cut: THREE.Mesh;
+  /** Made when it's first called up (a long walk is hundreds of them). */
+  root?: THREE.Group;
+  cut?: THREE.Mesh;
   /** Its number's width, in texels. */
   wide: number;
   /** 0 under the cloud … 1 up; −1 not yet called up. */
@@ -117,10 +118,14 @@ export class Ridge {
   /** Each footstep on stone; and a stone coming up out of the cloud, from so far across the picture (−1 … 1). */
   onStep?: () => void;
   onRise?: (pan: number) => void;
-  readonly numbers = hailstones(FROM);
-  /** Where it's highest: 9,232, seventy-seven steps along. */
-  readonly peak = this.numbers.indexOf(Math.max(...this.numbers));
+  /** The number you're walking, its way to 1, and where that's highest (for 27, 9,232, seventy-seven steps along). */
+  from = FROM;
+  numbers = hailstones(FROM);
+  peak = 0;
+  /** The first number on your way that's on 27's. */
+  joined: number | null = null;
   private stones: Stone[] = [];
+  private face = new THREE.MeshBasicMaterial({ color: CUT });
   private you: Figure;
   private pos = new THREE.Vector3();
   private heading = Math.PI / 2;
@@ -162,7 +167,6 @@ export class Ridge {
     this.cloud = cloud.mesh;
     this.cloudU = cloud.uniforms;
     this.makeStones();
-    this.makeBaak();
     this.resize(innerWidth, innerHeight);
   }
 
@@ -294,31 +298,53 @@ export class Ridge {
     return { mesh, uniforms };
   }
 
-  /** A stone for every number on 27's way down, each called up only when you reach the one before. */
+  /** A stone for every number on the way down, each made and called up only when you reach the one before. */
   private makeStones() {
-    const face = new THREE.MeshBasicMaterial({ color: CUT });
-    this.numbers.forEach((n, i) => {
-      const top = Math.log2(n) * RISE;
-      const tall = top - CLOUD + 6;
-      const root = new THREE.Group();
-      const body = new THREE.Mesh(column(tall), toon(STONES[(i * 7 + (n % 5)) % STONES.length], { bare: true }));
-      body.position.y = top - tall / 2;
-      body.userData.stone = i;
-      root.add(body);
-      const [geometry, wide] = cutNumber(n);
-      const cut = new THREE.Mesh(geometry, face);
-      cut.position.set(0, top - 0.16, R * 0.97 * Math.cos(Math.PI / 6) + 0.02);
-      root.add(cut);
-      root.position.x = i * GAP;
-      root.visible = false;
-      this.scene.add(root);
-      this.pickables.push(body);
-      this.stones.push({ n, top, root, cut, wide, up: -1 });
-    });
+    for (const s of this.stones) {
+      if (!s.root) continue;
+      this.scene.remove(s.root);
+      // (the stones' materials are the shared toon ones: only their shapes go)
+      for (const m of s.root.children as THREE.Mesh[]) m.geometry.dispose();
+    }
+    this.pickables = [];
+    this.numbers = hailstones(this.from);
+    this.peak = this.numbers.indexOf(Math.max(...this.numbers));
+    // (where it meets 27's way, if it's a good way before the shared last stretch that every number ends on)
+    const ours = new Set(hailstones(FROM));
+    const at = this.numbers.findIndex((n) => ours.has(n));
+    this.joined = this.from !== FROM && this.numbers.length - at > 20 ? this.numbers[at] : null;
+    this.stones = this.numbers.map((n) => ({ n, top: Math.log2(n) * RISE, wide: String(n).length * 4 - 1, up: -1 }));
+    this.makeBaak();
   }
 
-  /** The baak's top, just west of 27: its mast and black ball, up out of the cloud, the way you came. */
+  private makeStone(i: number) {
+    const s = this.stones[i];
+    const tall = s.top - CLOUD + 6;
+    const root = new THREE.Group();
+    const body = new THREE.Mesh(column(tall), toon(STONES[(i * 7 + (s.n % 5)) % STONES.length], { bare: true }));
+    body.position.y = s.top - tall / 2;
+    body.userData.stone = i;
+    root.add(body);
+    const [geometry] = cutNumber(s.n);
+    const cut = new THREE.Mesh(geometry, this.face);
+    cut.position.set(0, s.top - 0.16, R * 0.97 * Math.cos(Math.PI / 6) + 0.02);
+    root.add(cut);
+    root.position.x = i * GAP;
+    this.scene.add(root);
+    this.pickables.push(body);
+    s.root = root;
+    s.cut = cut;
+  }
+
+  /** The baak's top, just west of the first stone and as high: its mast and black ball, up out of the cloud, the way you came. */
   private makeBaak() {
+    this.scene.remove(this.baak);
+    this.baak.traverse((o) => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose();
+      (m.material as THREE.Material | undefined)?.dispose();
+    });
+    this.baak = new THREE.Group();
     const tar = toon(new THREE.Color('#2f2a35'), { own: true, bare: true });
     const top = this.stones[0].top;
     const tall = top + 1.2 - CLOUD;
@@ -350,17 +376,18 @@ export class Ridge {
     this.pickables.push(hit);
   }
 
-  /** Up off the baak: onto 27, with 82 coming up out of the cloud beside you. */
-  arrive() {
+  /** Up off the baak: onto 27 (or your own number), with the next coming up out of the cloud beside you. */
+  arrive(from = FROM) {
+    if (from !== this.from || !this.stones.length) (this.from = from), this.makeStones();
     this.leaving = false;
     this.downClicked = false;
     this.keys.clear();
     this.pan.set(0, 0);
     this.furthest = 0;
     this.stillFor = 0;
-    for (const s of this.stones) (s.up = -1), (s.root.visible = false);
+    for (const s of this.stones) (s.up = -1), s.root && (s.root.visible = false);
+    this.call(0);
     this.stones[0].up = 1;
-    this.stones[0].root.visible = true;
     this.pos.set(-0.5, this.stones[0].top, 0);
     this.heading = Math.PI / 2;
     this.speed = 0;
@@ -374,7 +401,8 @@ export class Ridge {
     const s = this.stones[i];
     if (!s || s.up >= 0) return;
     s.up = 0;
-    s.root.visible = true;
+    if (!s.root) this.makeStone(i);
+    s.root!.visible = true;
     this.onRise?.(THREE.MathUtils.clamp((i * GAP - this.target.x) / (this.view * this.aspect * 0.5), -1, 1));
   }
 
@@ -456,14 +484,15 @@ export class Ridge {
       this.call(on + 1);
     }
     this.animate(dt);
-    const peak = this.peak;
+    // (a number that's highest where it starts, a power of two, has no peak to come to)
+    const peak = this.peak < 3 ? -9 : this.peak;
     const last = this.stones.length - 1;
     this.card =
       this.pos.x < -0.2 || this.downClicked ? 'down'
       : on === last ? 'one'
       : Math.abs(on - peak) <= 2 ? 'peak'
       : on <= 2 ? 'hail'
-      : this.stillFor > STILL ? (on > peak ? 'peak' : 'hail')
+      : this.stillFor > STILL ? (peak >= 0 && on > peak ? 'peak' : 'hail')
       : null;
     if (this.pos.x < WAY_DOWN) this.leaving = true;
     this.frame(dt);
@@ -528,7 +557,7 @@ export class Ridge {
     for (const s of this.stones) {
       if (s.up < 0) continue;
       const e = 1 - Math.pow(1 - s.up, 3);
-      s.root.position.y = (1 - e) * (CLOUD - s.top - 0.4);
+      s.root!.position.y = (1 - e) * (CLOUD - s.top - 0.4);
     }
     this.cloudU.uTime.value += dt;
   }
@@ -581,9 +610,9 @@ export class Ridge {
     this.skyU.uDrift.value = (t.x / view) * 0.02;
     // the numbers, a texel a mark, however near you've zoomed; and zoomed out, where one won't fit its face, none
     for (const s of this.stones) {
-      if (!s.root.visible) continue;
-      s.cut.scale.set(texel, texel / cos, 1);
-      s.cut.visible = s.wide * texel <= R * 1.02;
+      if (!s.root?.visible) continue;
+      s.cut!.scale.set(texel, texel / cos, 1);
+      s.cut!.visible = s.wide * texel <= R * 1.02;
     }
   }
 }

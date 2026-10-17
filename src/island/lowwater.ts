@@ -19,7 +19,7 @@ import type { Page } from './lowwater/page';
 import type { Ridge } from './lowwater/ridge';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, HAIL, HAIL_DOWN, ONE, PEAK, RIDGE_LABELS, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, HAIL_DOWN, hailFor, oneFor, peakFor, RIDGE_LABELS, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -68,6 +68,8 @@ export class LowWaterRoom implements RoomInput {
   private ridge?: Ridge;
   private onRidge = false;
   private crossMist = false;
+  /** A number of your own, to walk next time the cloud opens. */
+  private yours?: number;
   private mist = new THREE.Color('#9d98b5');
   private cross = 0;
   private paper = new THREE.Color();
@@ -123,6 +125,18 @@ export class LowWaterRoom implements RoomInput {
     this.line.maxLength = LONGEST;
     this.writeForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      // (up on the baak, a number of your own: back through the cloud, and up on that)
+      if (this.onRidge) {
+        const n = Number(this.line.value.replace(/[\s,._']/g, ''));
+        if (!Number.isInteger(n) || n < 1 || n >= UNDER || this.crossing) return;
+        this.yours = n;
+        this.line.value = '';
+        this.line.blur();
+        this.crossing = 'ridge';
+        this.crossDark = false;
+        this.crossMist = true;
+        return;
+      }
       const line = sandable(this.line.value);
       if (!line) return;
       this.world?.write(line);
@@ -441,14 +455,19 @@ export class LowWaterRoom implements RoomInput {
 
   private showRidgeCard(ridge: Ridge) {
     const id = ridge.card;
-    const key = id && `ridge:${id}`;
+    // (a new number is a new card)
+    const key = id && `ridge:${id}:${ridge.from}`;
     const button = id === 'one' ? 'Come down' : id === 'down' ? 'Climb down' : '';
     if (key === this.shown && !this.shownMore && button === this.shownButton) return;
-    this.writeForm.hidden = true;
+    // (at either end, the line in the card takes a number: yours)
+    const asks = id === 'down' || id === 'one';
+    this.writeForm.hidden = !asks;
+    if (asks) this.lineFor('number');
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = id === 'hail' ? HAIL : id === 'peak' ? PEAK : id === 'one' ? ONE : HAIL_DOWN;
+        const n = ridge.numbers;
+        this.text.textContent = id === 'hail' ? hailFor(ridge.from) : id === 'peak' ? peakFor(ridge.from, n[ridge.peak], ridge.peak) : id === 'one' ? oneFor(ridge.from, n.length - 1, ridge.joined) : HAIL_DOWN;
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
@@ -463,6 +482,20 @@ export class LowWaterRoom implements RoomInput {
     this.shownMore = '';
   }
 
+  /** The card's one line: words in the sand on the flat, or up on the baak, a number. */
+  private lineFor(what: 'sand' | 'number') {
+    const line = this.line;
+    if (line.dataset.for === what) return;
+    line.dataset.for = what;
+    const number = what === 'number';
+    line.placeholder = number ? 'A number' : 'One line';
+    line.setAttribute('aria-label', number ? 'A number of your own' : 'Write in the sand');
+    line.inputMode = number ? 'numeric' : 'text';
+    line.maxLength = number ? 10 : LONGEST;
+    line.value = '';
+    this.writeForm.querySelector('button')!.textContent = number ? 'Walk it' : 'Write';
+  }
+
   /** The iris is shut: onto the page, or back onto the flat at the end of the withies. */
   private crossOver() {
     const to = this.crossing;
@@ -474,7 +507,8 @@ export class LowWaterRoom implements RoomInput {
     } else if (to === 'ridge' && this.ridge) {
       this.world?.releaseKeys();
       this.world!.goingUp = false;
-      this.ridge.arrive();
+      this.ridge.arrive(this.yours);
+      this.yours = undefined;
       this.onRidge = true;
     } else if (to === 'room' && this.room) {
       this.world?.releaseKeys();
@@ -574,6 +608,7 @@ export class LowWaterRoom implements RoomInput {
     const button = id === 'last' && lantern === 'hung' ? 'Take the lantern' : id === 'last' && lantern === 'held' ? 'Hang it back' : id === 'lantern' ? (lantern === 'held' ? 'Set it down' : 'Take the lantern') : id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'canon' ? (world.canonBusy ? '' : world.canonPlayed ? 'Walk it back' : 'Walk it') : id === 'bean' ? (world.beanHere ? 'Send it on' : '') : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : id === 'hide' ? 'Go in' : id === 'baak' ? 'Climb it' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
+    if (id === 'stick') this.lineFor('sand');
     if (id !== this.shown) {
       this.card.hidden = !id;
       // (a page in the wildlife book, the first time; said once there's no card up, not over one)

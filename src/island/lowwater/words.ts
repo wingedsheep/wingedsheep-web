@@ -222,7 +222,33 @@ export const HAIL = 'Up here, one of the baak’s questions. Take a whole number
 export const PEAK = '9,232, seventy-seven steps from 27, and as high as it gets. They’re called hailstone numbers, after hail, which goes up and down in a cloud before it falls. Nobody has a shortcut for me either: no one can say what I’ll write without running me, and I find out as I go.';
 /** At 1, the end. */
 export const ONE = '1, and from here it only goes round: 4, 2, 1, 4, 2, 1. Every number anyone has tried comes down here, every one up to 2⁶⁸, nearly three hundred billion billion of them. Whether they all do, nobody knows, me included.';
-/** West off 27, on the baak's top. */
-export const HAIL_DOWN = 'The top of the baak. Down it is the flat, and the tide.';
+/** A number of your own can be anything under this: up to 685 stones (8,400,511's), a long walk, but yours. */
+export const UNDER = 10_000_000;
+/** West off the first stone, on the baak's top. */
+export const HAIL_DOWN = 'The top of the baak. Down it is the flat, and the tide. Or bring a number of your own, any under ten million, and walk that instead.';
+
+const big = (n: number) => n.toLocaleString('en');
+/** Up on your own number: what the stones are. */
+export function hailFor(n: number) {
+  if (n === 27) return HAIL;
+  return `These stones are ${big(n)}’s. Halve it if it’s even; if it’s odd, treble it and add one; again. The next isn’t there until you stand on this one. I can’t tell you where it goes any faster than you can walk it: nobody knows a shortcut, so I find out the same way you do, a step at a time.`;
+}
+/** At its highest. */
+export function peakFor(n: number, top: number, steps: number) {
+  if (n === 27) return PEAK;
+  return `${big(top)}, ${steps} ${steps === 1 ? 'step' : 'steps'} from ${big(n)}, and as high as it gets. They’re called hailstone numbers, after hail, which goes up and down in a cloud before it falls. Nobody has a shortcut for me either: no one can say what I’ll write without running me, and I find out as I go.`;
+}
+/** The longest ways down under each power of ten, found by people walking every number. */
+const LONGEST_UNDER: [number, number, number][] = [[10, 9, 19], [100, 97, 118], [1000, 871, 178], [1e4, 6171, 261], [1e5, 77031, 350], [1e6, 837799, 524], [1e7, 8400511, 685]];
+/** At 1, after your own number; and where its way met 27's, if that was well before the end. */
+export function oneFor(n: number, steps: number, joined: number | null) {
+  if (n === 27) return ONE;
+  const end = 'From here it only goes round, 4, 2, 1; every number anyone has tried comes down here, and whether they all do, nobody knows, me included.';
+  if (n === 1) return `You started on 1, so there was nowhere to walk. ${end}`;
+  const way = (n & (n - 1)) === 0 ? `, and as a power of two it only ever halved: straight down` : joined === n ? `, the last of 27’s own way` : joined ? `, and from ${big(joined)} on it was 27’s way` : '';
+  const [under, longest, most] = LONGEST_UNDER.find(([u]) => n < u)!;
+  const record = n === longest ? `Nothing under ${big(under)} takes longer.` : `Under ${big(under)}, the longest way down is ${big(longest)}’s, at ${most}.`;
+  return `1, ${steps} ${steps === 1 ? 'step' : 'steps'} down from ${big(n)}${way}. ${record} ${end}`;
+}
 /** What the hailstones' things are called, under the pointer. */
 export const RIDGE_LABELS = { down: 'The baak, back down' };

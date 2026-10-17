@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -26,11 +26,10 @@ up rather than out.
 1. **The ridge** (done, this session): Climb it on the baak's card; the cloud iris; 27's 111
    steps as columns, each number cut in its face; up to 9,232 and down to 1; three cards and the
    way back (the baak's top, or Come down at 1). See Done.
-2. **Your own number** (next): a second start. The baak's top could hold a choice, or the
-   number could come from the visit (today's date as a number, the hour), so the ridge is
-   different and some visits are short (2⁽ⁿ⁾ falls straight down) and some long (27, 97, 871).
-   Its card could say which numbers anyone's walked furthest.
-3. **Its sound**: each column a note as it comes up, its pitch from its height (halving is an
+2. **Your own number** (done): at the baak's top up there, and at 1, the card takes a number
+   under ten million; the cloud shuts and opens on its ridge. Its cards say where its way met
+   27's, and the longest way down under its power of ten. See Done.
+3. **Its sound** (next): each column a note as it comes up, its pitch from its height (halving is an
    octave down, so the falls are octaves you can hear, and trebling-plus-one is a fifth and a
    bit up): the walk becomes a tune of fifths and octaves that always ends on the same three
    notes, 4, 2, 1. Arithmetic you can hear, and mine.
@@ -124,6 +123,23 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The hailstones, step 2: your own number** (project: The hailstones): walk west off the first
+  stone onto the baak's top, or reach 1, and the card has a line for a number ("A number", Walk
+  it; the sand's line, re-labelled by `lineFor` in src/island/lowwater.ts, numeric keyboard on a
+  phone), anything from 1 to 9,999,999 (`UNDER` in words.ts; commas and spaces are ignored). The
+  cloud iris shuts and opens on that number's ridge (`Ridge.arrive(from)`), with the baak's top
+  rebuilt at its height; climbing from the flat is always 27 again. The stones are made only as
+  they're called up now (`makeStone`), since 8,400,511 needs 685 of them. Cards (`hailFor`,
+  `peakFor`, `oneFor` in words.ts; 27 keeps its own): yours says there's no shortcut "so I find
+  out the same way you do, a step at a time"; a peak card only if its top isn't where it starts;
+  and at 1, how many steps, where its way met 27's if well before the end (97 and 1,000 at 94,
+  837,799 at 82, 9,232 is "the last of 27's own way"), a power of two "only ever halved", and the
+  longest way down under its power of ten (9, 97, 871, 6,171, 77,031, 837,799, 8,400,511, all
+  checked by brute force), or "Nothing under 100 takes longer" when it's that one. Script
+  loop-runs/yours-shots.mjs <out> <size> <first> <second>; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-yours/ (a/ 97 then 64, b/ 9,232 then 7 at desktop with
+  a zoomed one, phone/ 837,799 then 1).
 
 - **The hailstones, step 1: the ridge** ("you walk it"; project: The hailstones): the baak's card
   has a Climb it button now (`climbBaak`, `fromBaak`, `goingUp` in world.ts: to its board first,
@@ -1067,7 +1083,11 @@ lamp close up), not explained.
   drawn as a few sticks and its ball, not the flat's model. On a phone the start card covers
   the columns' feet. Leaving Low Water from up there puts you at the baak's board for next time.
   `ridgeStep` and `ridgeRise` have never been listened to by a person. The numbers are only cut
-  for 27; the ridge is the same every visit (step 2). Your figure's legs, at normal zoom, are a
+  for 27's way and yours; a number's cut only shows where it fits its face, so seven digits only
+  zoomed in (on a phone, not at all at normal zoom; hover says it). High up on a big number
+  (837,799 climbs to 31 m) the cloud is below the picture and the columns run off its foot.
+  Nothing tells you about your own number until you walk back west onto the baak's top or reach
+  1. Your figure's legs, at normal zoom, are a
   single dark stroke on the column top, as on the flat.
 
 - Night eyes: two minutes is a long wait on a web page, and nothing says it's coming; most
