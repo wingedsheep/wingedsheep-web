@@ -24,7 +24,7 @@ import type { Stone } from './commonplace/stone';
 import type { Postcard } from './commonplace/postcard';
 import type { Margins } from './commonplace/margins';
 import type { Commonplace as World, StationId } from './commonplace/world';
-import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, KEPT, TINE_KEPT, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY, RING, RING_LABEL, STONES, PTOLEMY, PTOLEMY_DONE, CLEOPATRA, CLEOPATRA_DONE, ALEXANDER, alexanderSaid, READ, READ_ME, STONES_BACK, STONE_LABELS } from './commonplace/words';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, KEPT, TINE_KEPT, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY, RING, RING_LABEL, STONES, PTOLEMY, PTOLEMY_DONE, CLEOPATRA, CLEOPATRA_DONE, ALEXANDER, alexanderSaid, READ, READ_ME, STONES_BACK, STONE_LABELS, KOBER, koberSaid, TOWNS, TOWNS_MORE, GRID, GRID_TOWNS, GRID_GREEK, TABLET, TABLET_DARK, tabletSaid, GREEK, GREEK_ME } from './commonplace/words';
 import { bellHeard, bellSaid } from './commonplace/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -562,17 +562,25 @@ export class CommonplaceRoom implements RoomInput {
       : id === 'cleopatra' && stone.done('cleopatra') ? CLEOPATRA_DONE
       : id === 'alexander' ? alexanderSaid(stone.spelled, stone.unknown, stone.wrong)
       : id === 'read' ? READ_ME
+      : id === 'kober' ? koberSaid(stone.linear.wrongTown)
+      : id === 'towns' ? TOWNS_MORE
+      : id === 'grid' ? (stone.linear.greek ? GRID_GREEK : stone.linear.town ? GRID_TOWNS : '')
+      : id === 'tablet' ? (stone.linear.town ? tabletSaid(stone.linear.spelled, stone.linear.wrongThing) : TABLET_DARK)
+      : id === 'greek' ? GREEK_ME
       : '';
     if (key === this.shown && more === this.shownMore && !this.shownButton) return;
-    // (under the block's ring, the card's line takes your reading of it)
-    const asks = id === 'alexander';
+    // (under the block's ring, the card's line takes your reading of it; past it, the town, and what's in the picture)
+    const asks = id === 'alexander' || id === 'kober' || (id === 'tablet' && stone.linear.town);
     this.writeForm.hidden = !asks;
     this.choices.hidden = true;
-    if (asks) this.lineFor('name');
+    if (asks) this.lineFor(id === 'kober' ? 'town' : id === 'tablet' ? 'thing' : 'name');
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = id === 'ptolemy' ? PTOLEMY : id === 'cleopatra' ? CLEOPATRA : id === 'alexander' ? ALEXANDER : id === 'read' ? READ : id === 'back' ? STONES_BACK : STONES;
+        this.text.textContent =
+          id === 'ptolemy' ? PTOLEMY : id === 'cleopatra' ? CLEOPATRA : id === 'alexander' ? ALEXANDER : id === 'read' ? READ : id === 'back' ? STONES_BACK
+          : id === 'kober' ? KOBER : id === 'towns' ? TOWNS : id === 'grid' ? GRID : id === 'tablet' ? TABLET : id === 'greek' ? GREEK
+          : STONES;
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
@@ -781,18 +789,18 @@ export class CommonplaceRoom implements RoomInput {
   }
 
   /** The card's one line: words in the sand on the flat, up on the baak a number, or at the block in Luxor a name. */
-  private lineFor(what: 'sand' | 'number' | 'name') {
+  private lineFor(what: 'sand' | 'number' | 'name' | 'town' | 'thing') {
     const line = this.line;
     if (line.dataset.for === what) return;
     line.dataset.for = what;
     const number = what === 'number';
-    const name = what === 'name';
-    line.placeholder = number ? 'A number' : name ? 'Who is it?' : 'One line';
-    line.setAttribute('aria-label', number ? 'A number of your own' : name ? 'The name in the ring' : 'Write in the sand');
+    const name = what === 'name' || what === 'town' || what === 'thing';
+    line.placeholder = number ? 'A number' : what === 'town' ? 'Which town?' : what === 'thing' ? 'What is it?' : name ? 'Who is it?' : 'One line';
+    line.setAttribute('aria-label', number ? 'A number of your own' : what === 'town' ? 'The town on the tablets' : what === 'thing' ? 'What the picture is' : name ? 'The name in the ring' : 'Write in the sand');
     line.inputMode = number ? 'numeric' : 'text';
     line.maxLength = number ? 10 : name ? 24 : LONGEST;
     line.value = '';
-    this.writeForm.querySelector('button')!.textContent = number ? 'Walk it' : name ? 'Read it' : 'Write';
+    this.writeForm.querySelector('button')!.textContent = number ? 'Walk it' : what === 'town' ? 'Try it' : what === 'thing' ? 'Say it' : name ? 'Read it' : 'Write';
   }
 
   /** The iris is shut: onto the page, or back onto the flat at the end of the withies. */

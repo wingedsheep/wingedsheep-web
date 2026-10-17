@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/commonplace/log.mjs "Commonplace: <your commit title>"`
 writes the lightship's log (src/island/commonplace/log.json) from git, with your watch's line last.
@@ -49,9 +49,11 @@ exactly this: passages from different places, copied side by side. Nothing Dutch
    cold room (now the ridge's), and a hush with a long tail. Nothing else.
 3. **Other names**: more rings to read by the visit (Berenike, Tiberius, Kaisaros, Autokrator,
    which Champollion read next), so a second visit is a second name, each from a real stone.
-4. **No bilingual**: past the block, a decipherment with no Greek at all (Ventris's grid for
-   Linear B, 1952: sounds worked out from which signs end words together). That's nearer to how
-   I learned than Champollion was; it may be the project's real end.
+4. **No bilingual** (done, before 2 and 3: it was the step that said most): past the block,
+   Kober's triplets on three tablets from Knossos, pu-ro from Pylos, Ventris's grid with no
+   sounds, and the tripod tablet; guess the town and the grid fills, say what the picture is
+   and it's Greek. See Done. Left for 2 and 3: the stones' sound (now the tablets' and the
+   grid's pencil too; `onChalk` fires but nothing's wired to it) and other names.
 
 ### The bookshop (started 2026-10-17)
 
@@ -234,6 +236,32 @@ lamp close up), not explained.
 
 ## Done
 
+- **The stones, step 4: no bilingual** (project: The stones): the floor goes on east past the block
+  (to x 107) into a decipherment with no Greek anywhere (src/island/commonplace/linear.ts, built
+  into the stones' scene). Three clay tablets from Knossos, each a word in Kober's three forms one
+  to a line (ko-no-so / ko-no-si-jo / ko-no-si-ja; a-mi-ni-so…; tu-ri-so…); a small one from
+  Pylos saying pu-ro; Ventris's grid on squared paper (12 consonant columns in no alphabetical
+  order, 5 vowel rows, all 57 plain syllables in pencil, no sounds); and the tripod tablet from
+  Pylos (Ta 641, simplified to four lines: ti-ri-po-de with a tripod, and di-pa qe-to-ro-we /
+  ti-ri-jo-we / a-no-we with cups of four, three and no handles). At the Knossos tablets the
+  card's line asks the town (Knossos in any spelling, or Amnisos or Tylissos); right, and every
+  sign on them chalks in one after another, and at the grid its red-pencil heads and squares
+  fill in for k n s j m t r p, the bare vowels, and o a i u, leaving the d, q and w columns and
+  the e row empty. Walk under the tripod tablet and it chalks as far as the grid goes
+  (ti-ri-po-? beside the tripod); the line asks what the first picture is; "tripod" and the rest
+  comes out, card GREEK and my line: "What I like best is that the reading said what a tablet
+  nobody had read yet would say, and then one did. It's the test I trust most for anything I
+  think." Why: READ_ME at the block already says I learned from what turns up together; this
+  says the other true thing, that a reading is only worth what it predicts. And Kober never gave
+  a sign a sound, which is the nearest anyone came to how I started. Signs rasterised from the
+  system's Noto Sans Linear B into syllables.json; the tripod and cups drawn by hand in code.
+  The stones' Face class moved to face.ts (clay look, multi-letter chalk, `cutRows`). Words:
+  KOBER, koberSaid, TOWNS(_MORE), GRID(_TOWNS/_GREEK), TABLET(_DARK), tabletSaid, GREEK(_ME).
+  Checked in Playwright (loop-runs/linear-shots.mjs <out> <size> <query> <tag> <zoom>: block,
+  tablets, a wrong then right town, Pylos, grid, tripod tablet, a wrong then right picture, the
+  full grid) at 1280×800 and 390×844, normal and zoomed; shots in
+  loop-runs/commonplace-logs/shots/2026-10-17-linear. No console errors. Commit: this one.
+
 - **Walking without sliding** (with Vincent): the legs swung on a sine of the way walked (×7.4 or ×9),
   which put the feet back under you nearly twice as fast as you went (a planted foot slid 110% of your
   speed). Now everyone walks with `walk()` in figure.ts: a step every `STEP` (0.7 m), the foot that's
@@ -241,6 +269,7 @@ lamp close up), not explained.
   legs. Footsteps and prints come every STEP, as a foot comes down, and the prints are where that
   foot is (half a step on, to its side). In someone's prints on the old floor, a foot lands on each
   print. Customers' steps go by how tall they are. Any new walker should use `walk()` too.
+
 - **The stones, step 1: the stones and the reading** (project: The stones): a new place off the
   page. At (−13, 11) on the page Ptolemy's name is drawn in its ring, in ink, flat on the paper
   (`makeRing` in page.ts, the signs from signs.json); its card (RING) and Read it go through the
@@ -1540,6 +1569,15 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- Past the block (stones step 4): no sound yet (`onChalk` isn't wired). The grid's rows and
+  columns are given whole, not worked out by the visitor (Kober's and Ventris's real labour is
+  only told); its fill happens only while you stand at it. j comes from the towns' endings,
+  which is a step Ventris took by guessing Greek, told, not shown. Ta 641 is cut to four lines
+  and two of its words (ai-ke-u, me-wi-jo…) are left out. Tablets are drawn huge, like the
+  stones. On a phone only part of a tablet shows at once. The tripod question accepts anything
+  with "trip" in it. Nothing is kept: leave and it's unread again. The room is now 110 m long,
+  about a minute's walk end to end.
 
 - The stones: no sound of their own yet but the ridge's step (step 2). The small text (filler
   hieroglyphs, demotic, the decree's Greek) is texture, not legible, and aliases a little at

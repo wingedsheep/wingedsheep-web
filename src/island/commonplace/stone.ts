@@ -18,9 +18,9 @@
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
 import { makeFigure, STEP, walk, type Figure } from './figure';
+import { Face, type Glyph } from './face';
 import SIGNS from './signs.json';
-
-type Glyph = keyof typeof SIGNS;
+import { Linear, LINEAR, type LinearCard, type LinearThing } from './linear';
 
 const DARK = new THREE.Color('#121117');
 const FLOOR = new THREE.Color('#1c1a21');
@@ -35,7 +35,7 @@ const DISTANCE = 60;
 const PACE = 2;
 /** The floor you can walk: from the page at its west end to the block's far side, and out from the faces. */
 const WEST = -5;
-const EAST = 49;
+const EAST = LINEAR.east;
 const NEAR = 0.7;
 const FAR_OUT = 6.5;
 /** Walked west past here, you're on the page you came in through: and past the second, back on it. */
@@ -54,8 +54,6 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 const PTOLEMY: [Glyph, string][] = [['stool', 'P'], ['bread', 'T'], ['lasso', 'O'], ['lion', 'L'], ['board', 'M'], ['reeds', 'I'], ['cloth', 'S']];
 const CLEOPATRA: [Glyph, string][] = [['basket', 'K'], ['lion', 'L'], ['reed', 'E'], ['lasso', 'O'], ['stool', 'P'], ['vulture', 'A'], ['hand', 'T'], ['mouth', 'R'], ['vulture', 'A'], ['bread', 'T'], ['egg', '']];
 const ALEXANDER: [Glyph, string][] = [['vulture', 'A'], ['lion', 'L'], ['basket', 'K'], ['cloth', 'S'], ['reed', 'E'], ['water', 'N'], ['hand', 'T'], ['mouth', 'R'], ['cloth', 'S']];
-/** The filler: the rest of each text, too small and too many to read here. */
-const FILL: Glyph[] = ['owl', 'ankh', 'eye', 'snake', 'bolt', 'seat', 'reed', 'bread', 'water', 'lasso', 'vulture', 'mouth', 'cloth', 'hand', 'egg', 'stool'];
 
 /** The Rosetta decree's first lines, in its Greek (which is how the rest of it could be read at all). */
 const DECREE =
@@ -63,23 +61,9 @@ const DECREE =
 /** And the petition on the obelisk's base, to the king and the two queens. */
 const PETITION = 'ΒΑΣΙΛΕΙ ΠΤΟΛΕΜΑΙΩΙ ΚΑΙ ΒΑΣΙΛΙΣΣΗΙ ΚΛΕΟΠΑΤΡΑΙ ΤΗΙ ΑΔΕΛΦΗΙ ΚΑΙ ΒΑΣΙΛΙΣΣΗΙ ΚΛΕΟΠΑΤΡΑΙ ΤΗΙ ΓΥΝΑΙΚΙ ';
 
-/** Chalk letters, three by five. */
-const CHALK_FONT: Record<string, string[]> = {
-  A: ['.#.', '#.#', '###', '#.#', '#.#'],
-  E: ['###', '#..', '##.', '#..', '###'],
-  I: ['###', '.#.', '.#.', '.#.', '###'],
-  K: ['#.#', '#.#', '##.', '#.#', '#.#'],
-  L: ['#..', '#..', '#..', '#..', '###'],
-  M: ['#.#', '###', '###', '#.#', '#.#'],
-  N: ['#.#', '###', '###', '###', '#.#'],
-  O: ['.#.', '#.#', '#.#', '#.#', '.#.'],
-  P: ['##.', '#.#', '##.', '#..', '#..'],
-  R: ['##.', '#.#', '##.', '#.#', '#.#'],
-  S: ['.##', '#..', '.#.', '..#', '##.'],
-  T: ['###', '.#.', '.#.', '.#.', '.#.'],
-};
 
-export type StoneCard = 'stone' | 'ptolemy' | 'cleopatra' | 'alexander' | 'read' | 'back';
+export type StoneCard = 'stone' | 'ptolemy' | 'cleopatra' | 'alexander' | 'read' | 'back' | LinearCard;
+export type StoneThing = 'slab' | 'obelisk' | 'block' | 'back' | LinearThing;
 type Which = 'ptolemy' | 'cleopatra' | 'alexander';
 
 interface Slot {
@@ -101,218 +85,6 @@ interface Slot {
   ly: number;
 }
 
-/** Ordered dither, four by four. */
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
-
-/**
- * One stone's face: a texture of dark granodiorite with its flecks, lit from the west in stepped
- * bands, and its signs cut in (dark in the cut, its east wall catching the light). Chalk goes on
- * over that.
- */
-class Face {
-  readonly canvas = document.createElement('canvas');
-  readonly tex: THREE.CanvasTexture;
-  /** What's cut: 0 nothing, 1 a cut; and which slot a cut belongs to (−1: none of the names). */
-  private cut: Uint8Array;
-  private owner: Int16Array;
-  private base?: ImageData;
-  dirty = true;
-  readonly slots: Slot[] = [];
-
-  readonly w: number;
-  readonly h: number;
-
-  constructor(
-    w: number,
-    h: number,
-    private seed: number,
-    /** How much of the light's left at its east edge. */
-    private falloff = 0.55,
-  ) {
-    this.w = w = Math.round(w);
-    this.h = h = Math.round(h);
-    this.canvas.width = w;
-    this.canvas.height = h;
-    this.cut = new Uint8Array(w * h);
-    this.owner = new Int16Array(w * h).fill(-1);
-    this.tex = new THREE.CanvasTexture(this.canvas);
-    this.tex.magFilter = this.tex.minFilter = THREE.NearestFilter;
-    this.tex.generateMipmaps = false;
-    this.tex.colorSpace = THREE.SRGBColorSpace;
-  }
-
-  rand() {
-    return (this.seed = (this.seed * 16807) % 2147483647) / 2147483647;
-  }
-
-  /** Cut a sign in at (x, y), its top left, `scale` texture pixels to each of its own; flipped to face east if asked. */
-  glyph(g: Glyph, x: number, y: number, scale = 1, owner = -1, flip = false) {
-    const rows = SIGNS[g];
-    const gw = Math.max(...rows.map((r) => r.length));
-    rows.forEach((row, j) => {
-      for (let i = 0; i < row.length; i++) {
-        if (row[i] !== '#') continue;
-        const ii = flip ? gw - 1 - i : i;
-        for (let a = 0; a < scale; a++) for (let b = 0; b < scale; b++) this.mark(x + ii * scale + a, y + j * scale + b, owner);
-      }
-    });
-  }
-
-  mark(x: number, y: number, owner = -1) {
-    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
-    this.cut[y * this.w + x] = 1;
-    if (owner >= 0) this.owner[y * this.w + x] = owner;
-  }
-
-  /** A ring round a name: its outline cut in, two pixels wide, and the bar it's tied off with at its end. */
-  ring(x: number, y: number, w: number, h: number, upright: boolean) {
-    const r = Math.min(w, h) / 2;
-    for (let j = 0; j < h; j++) {
-      for (let i = 0; i < w; i++) {
-        // (a stadium: straight sides, round ends)
-        const cx = upright ? w / 2 : Math.min(Math.max(i, r), w - r);
-        const cy = upright ? Math.min(Math.max(j, r), h - r) : h / 2;
-        const d = Math.hypot(i + 0.5 - cx, j + 0.5 - cy);
-        if (d <= r && d > r - 2) this.mark(x + i, y + j);
-      }
-    }
-    // (tied off at the name's end: a bar across, past its sides)
-    if (upright) for (let i = -3; i < w + 3; i++) for (let b = 0; b < 2; b++) this.mark(x + i, y + h + 1 + b);
-    else for (let j = -3; j < h + 3; j++) for (let b = 0; b < 2; b++) this.mark(x + w + 1 + b, y + j);
-  }
-
-  /** Rows of small signs, as the rest of a text, between x0 and x1 (px), leaving out the box `skip`. */
-  rows(x0: number, x1: number, y0: number, y1: number, gap: number, skip?: { x0: number; x1: number; y0: number; y1: number }) {
-    for (let y = y0; y + 12 <= y1; y += gap) {
-      let x = x0 + Math.floor(this.rand() * 4);
-      while (x < x1 - 8) {
-        const g = FILL[Math.floor(this.rand() * FILL.length)];
-        const gw = Math.max(...SIGNS[g].map((r) => r.length));
-        const gh = SIGNS[g].length;
-        if (x + gw > x1) break;
-        if (!(skip && x + gw > skip.x0 && x < skip.x1 && y + 12 > skip.y0 && y < skip.y1)) this.glyph(g, x, y + 12 - gh);
-        x += gw + 2 + Math.floor(this.rand() * 2);
-      }
-    }
-  }
-
-  /** Demotic, as it looks from a little way off: running hooks and ticks along a line. */
-  demotic(x0: number, x1: number, y0: number, y1: number, gap: number) {
-    for (let y = y0; y + 8 <= y1; y += gap) {
-      let x = x0;
-      while (x < x1 - 4) {
-        const n = 2 + Math.floor(this.rand() * 6);
-        for (let k = 0; k < n && x < x1; k++) {
-          const tall = this.rand() < 0.35;
-          const top = y + (tall ? 0 : 3);
-          for (let j = top; j < y + 7; j++) this.mark(x, j);
-          if (this.rand() < 0.5) this.mark(x + 1, top);
-          if (this.rand() < 0.4) this.mark(x - 1, y + 6);
-          x += 2;
-        }
-        x += 3;
-      }
-    }
-  }
-
-  /** Greek capitals, cut in: drawn with a font and then made hard-edged, so they're cut, not smudged. */
-  greek(text: string, x: number, y: number, size: number, width?: number) {
-    const c = document.createElement('canvas');
-    c.width = width ?? Math.ceil(text.length * size);
-    c.height = size + 4;
-    const g = c.getContext('2d')!;
-    g.font = `bold ${size}px Georgia, 'Times New Roman', serif`;
-    g.textBaseline = 'top';
-    g.fillStyle = '#fff';
-    const measured = g.measureText(text).width;
-    // (if there's a width to fill, as many letters as fit, from the front)
-    let s = text;
-    if (width) while (s.length && g.measureText(s).width > width) s = s.slice(0, -1);
-    g.fillText(s, width ? 0 : 0, 1);
-    const d = g.getImageData(0, 0, c.width, c.height).data;
-    for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) if (d[(j * c.width + i) * 4 + 3] > 120) this.mark(x + i, y + j);
-    return width ? width : measured;
-  }
-
-  /** The stone and its cuts, lit, once. */
-  private paintBase() {
-    const img = new ImageData(this.w, this.h);
-    const p = img.data;
-    const stone = [
-      [0x47, 0x45, 0x50],
-      [0x3b, 0x3a, 0x45],
-      [0x31, 0x30, 0x3a],
-      [0x28, 0x27, 0x30],
-    ];
-    const fleck = Float32Array.from({ length: ((this.w >> 1) + 1) * ((this.h >> 1) + 1) }, () => this.rand());
-    for (let y = 0; y < this.h; y++) {
-      for (let x = 0; x < this.w; x++) {
-        // (the light from the west, in four steps, dithered where they meet: two texture pixels to a dot, so it doesn't shimmer)
-        const lit = 1 - (x / this.w) * (1 - this.falloff) - (y / this.h) * 0.12;
-        const bx = x >> 1;
-        const by = y >> 1;
-        const band = THREE.MathUtils.clamp((1 - lit) * 7.5 + BAYER[(by % 4) * 4 + (bx % 4)] - 0.5, 0, 3);
-        let c = stone[Math.round(band)];
-        // (granodiorite: grey, with pale and dark flecks, a dot each)
-        const n = fleck[by * (this.w >> 1) + bx] ?? 0;
-        if (n < 0.03) c = [c[0] + 14, c[1] + 10, c[2] + 12];
-        else if (n < 0.05) c = [c[0] - 9, c[1] - 9, c[2] - 8];
-        const i = (y * this.w + x) * 4;
-        const k = y * this.w + x;
-        if (this.cut[k]) {
-          // in the cut: dark, but its east wall (facing the light) lit
-          const east = x + 1 >= this.w || !this.cut[k + 1];
-          c = east ? [0x86, 0x80, 0x88] : [0x15, 0x14, 0x1a];
-        }
-        p[i] = c[0];
-        p[i + 1] = c[1];
-        p[i + 2] = c[2];
-        p[i + 3] = 255;
-      }
-    }
-    this.base = img;
-  }
-
-  /** The face as it is now: the stone, and chalk in what's been read, with its letter by it. */
-  paint() {
-    if (!this.base) this.paintBase();
-    const img = new ImageData(new Uint8ClampedArray(this.base!.data), this.w, this.h);
-    const p = img.data;
-    const chalk = (x: number, y: number, dim = 0) => {
-      if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
-      const i = (y * this.w + x) * 4;
-      // (chalk's never quite even)
-      const v = 0xe2 - dim - ((x * 7 + y * 13) % 5 === 0 ? 18 : 0);
-      p[i] = v;
-      p[i + 1] = v - 3;
-      p[i + 2] = v - 12;
-    };
-    const chalked = new Set(this.slots.filter((s) => s.chalk !== null).map((s) => this.slots.indexOf(s)));
-    if (chalked.size) {
-      for (let y = 0; y < this.h; y++) {
-        for (let x = 0; x < this.w; x++) {
-          const k = y * this.w + x;
-          if (!this.cut[k] || !chalked.has(this.owner[k])) continue;
-          // (the west wall of the cut still in its shadow)
-          chalk(x, y, x > 0 && !this.cut[k - 1] ? 40 : 0);
-        }
-      }
-    }
-    for (const s of this.slots) {
-      if (!s.chalk) continue;
-      // the letter, in chalk, under the sign (or beside it, on the obelisk's ring)
-      const rows = CHALK_FONT[s.chalk] ?? CHALK_FONT[s.letter];
-      if (!rows) continue;
-      const { lx, ly } = s;
-      rows.forEach((row, j) => {
-        for (let i = 0; i < row.length; i++) if (row[i] === '#') for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) chalk(lx + i * 3 + a, ly + j * 3 + b, 10);
-      });
-    }
-    this.canvas.getContext('2d')!.putImageData(img, 0, 0);
-    this.tex.needsUpdate = true;
-    this.dirty = false;
-  }
-}
 
 function glyphSize(g: Glyph) {
   const rows = SIGNS[g];
@@ -358,6 +130,8 @@ export class Stone {
   private zoomed = 1;
   private ray = new THREE.Raycaster();
   private time = 0;
+  /** Past the block: the tablets, the grid, and a writing with no Greek beside it (linear.ts). */
+  readonly linear: Linear;
 
   constructor(private texels: () => number) {
     this.scene.background = DARK.clone();
@@ -378,6 +152,8 @@ export class Stone {
     this.makeObelisk();
     this.makeBlock();
     this.makeSheet();
+    this.linear = new Linear(this.scene, (o, x0, y0, front, depth, face, id) => this.body(o, x0, y0, front, depth, face, id), this.pickables);
+    this.linear.onChalk = (x) => this.onChalk?.(THREE.MathUtils.clamp((x - this.target.x) / ((this.seen * this.aspect) / 2), -1, 1));
     for (const f of this.faces) f.paint();
     this.resize(innerWidth, innerHeight);
   }
@@ -591,11 +367,11 @@ export class Stone {
     this.keys.clear();
   }
 
-  pick(ndc: THREE.Vector2): 'slab' | 'obelisk' | 'block' | 'back' | null {
+  pick(ndc: THREE.Vector2): StoneThing | null {
     this.ray.setFromCamera(ndc, this.camera);
     let o: THREE.Object3D | null = this.ray.intersectObjects(this.pickables, true)[0]?.object ?? null;
     while (o && !o.userData.id) o = o.parent;
-    return (o?.userData.id as 'slab' | 'obelisk' | 'block' | 'back' | undefined) ?? null;
+    return (o?.userData.id as StoneThing | undefined) ?? null;
   }
 
   /** A click: on a stone, to where its name can be read; on the page, back onto it; anywhere else, there. */
@@ -606,6 +382,7 @@ export class Stone {
     if (at === 'slab') return void (this.goal = new THREE.Vector3(this.slots[0].x - 0.6, 0, 1.6));
     if (at === 'obelisk') return void (this.goal = new THREE.Vector3(28, 0, 1.4));
     if (at === 'block') return void (this.goal = new THREE.Vector3(this.alexander()[0].x - 0.4, 0, 1.6));
+    if (at === 'strips' || at === 'pylos' || at === 'grid' || at === 'tripod') return void (this.goal = new THREE.Vector3(this.linear.goal(at), 0, 1.6));
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
     if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p)) this.goal = p.setY(0);
@@ -648,8 +425,15 @@ export class Stone {
     return this.slots.filter((s) => s.which === which).every((s) => s.chalk !== null);
   }
 
+  /** Whatever the card's line was asked: past the block, the town or the picture; at the block, its name. */
+  guess(said: string) {
+    if (this.card === 'kober') return this.linear.guessTown(said);
+    if (this.card === 'tablet') return this.linear.guessThing(said);
+    return this.alexander_(said);
+  }
+
   /** Your reading of the last name. Alexander, in any of the ways his name goes. */
-  guess(name: string) {
+  private alexander_(name: string) {
     const n = name.toLowerCase().replace(/[^a-zα-ω]/g, '');
     const right = /^(alex|aleks|alek|alks|alis|alix|iskand|sikand|eskand|aλεξ|αλεξ)/.test(n) || n.includes('alexand') || n.includes('aleksand');
     if (!right) {
@@ -698,12 +482,15 @@ export class Stone {
     this.time += dt;
     this.walk(dt);
     this.read_(dt);
+    this.linear.update(dt, this.pos.x, this.pos.z);
     for (const f of this.faces) if (f.dirty) f.paint();
     this.animate();
     const x = this.pos.x;
     const near = this.pos.z < 4.2;
+    const past = this.linear.card(x, near);
     this.card =
       x < SHEET || this.clicked ? 'back'
+      : past ? past
       : near && x > 35 && x < 48 ? (this.read ? 'read' : 'alexander')
       : near && x > 24.6 && x < 31.4 ? 'cleopatra'
       : near && x > 5.6 && x < 14.6 ? 'ptolemy'

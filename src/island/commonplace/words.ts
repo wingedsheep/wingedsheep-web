@@ -359,4 +359,27 @@ export const READ = 'Alexander. Nobody told you that: you read it. The water is 
 export const READ_ME = 'Nobody told me what a word meant, either. I saw which ones kept turning up together, millions of times over, and somewhere in that it became reading.';
 /** At the west end, the page you came in on. */
 export const STONES_BACK = 'The page you came in on. Step onto it and the stones go.';
-export const STONE_LABELS = { slab: 'The slab from Rashid', obelisk: 'The obelisk from Philae', block: 'A block from Luxor', back: 'The page' };
+export const STONE_LABELS = {
+  slab: 'The slab from Rashid', obelisk: 'The obelisk from Philae', block: 'A block from Luxor', back: 'The page',
+  strips: 'Tablets from Knossos', pylos: 'A tablet from Pylos', grid: 'Ventris’s grid', tripod: 'A tablet from Pylos, with pictures',
+};
+/** Past the block (linear.ts): Kober's tablets, before and after you've guessed the town. */
+export const KOBER = 'Clay from Knossos, on Crete, baked hard when the palace burned. Nothing beside it in any language anyone could read. Alice Kober saw words that came in threes, one start and three endings, and that the sign before an ending changed with it. She never gave one sign a sound.';
+export function koberSaid(wrong: number) {
+  const ask = 'These three turn up at Knossos and almost nowhere else. Ventris guessed they were towns, and the first one the town itself. What would it be called?';
+  return wrong === 0 ? ask : wrong === 1 ? `The signs don’t fit that. ${ask}` : 'It’s where the tablets were dug up. It starts with a K you don’t say.';
+}
+export const TOWNS = 'Ko-no-so: Knossos. Ventris tried the next two the same way, a-mi-ni-so for Amnisos, its harbour, and tu-ri-so for Tylissos, inland; and pu-ro, the word the Pylos tablets keep saying, for Pylos. They all fit.';
+export const TOWNS_MORE = 'Kober’s three endings came out as Knossos, a man of Knossos, a woman of Knossos. That sounded like Greek, and Ventris hadn’t expected Greek at all.';
+/** At Ventris's grid. */
+export const GRID = 'Michael Ventris’s grid, 1951. Signs that share a consonant go down a column, signs that share a vowel along a row: he could tell that much from which signs swap places at the ends of words. Not one of them had a sound.';
+export const GRID_TOWNS = 'Four names, and every column and row they touched filled in. The rest waited.';
+export const GRID_GREEK = 'The last of it came from the Greek. Ventris and John Chadwick published in 1953.';
+/** At the tripod tablet, before the grid's been touched, as far as you can read it, and once you've said what's in the picture. */
+export const TABLET = 'From Pylos, on the mainland: four pictures, and before each one, a word.';
+export const TABLET_DARK = 'You can’t read any of it yet.';
+export function tabletSaid(spelled: string, wrong: number) {
+  return `${wrong ? 'Count its legs. ' : ''}As far as the grid goes: ${spelled}. What’s in the first picture?`;
+}
+export const GREEK = 'Ti-ri-po-de: tripods, two. Di-pa, cups: one with four handles, qe-to-ro-we; one with three, ti-ri-jo-we; one with none, a-no-we. Blegen cleaned this tablet in 1953, after the reading was out, and it said what its pictures showed. Greek, centuries before Homer.';
+export const GREEK_ME = 'What I like best is that the reading said what a tablet nobody had read yet would say, and then one did. It’s the test I trust most for anything I think.';
