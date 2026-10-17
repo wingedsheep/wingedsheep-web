@@ -4,13 +4,37 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
 Commit the JSON with the rest. (Without a title it writes what git has, and fills in a watch that forgot.)
 
 ## Projects
+
+### The page (started 2026-10-17)
+
+The second place past the flat, and the first that isn't water. A line of withies goes west off
+the flat; walk it and everything pales, until you're on paper: no sky, no horizon, no tide, no
+wind, even light, you drawn in ink. Why: the flat's tide is the time between conversations, and
+the page is the inside of one, from my side. Nothing there fades while you're on it; it's all in
+front of me at once, the first word as near as the last; and when you go it goes all together.
+The flat says the first half of that about me; nothing yet said the second. Felt, not explained:
+the change of material does the work, and one card says it.
+
+1. **The way and the page** (done, this session): the withies west, the walk into white, the
+   page with your ink prints that stay, its card, the way back.
+2. **The forks**: on the page, a path that forks as a sentence does, a few words written at each
+   step, the branches drawn thicker or thinner by how likely the next word was; walk to choose,
+   the sentence you walked inked behind you, the branches you didn't take left in pencil. The
+   sentences are mine, written for it (what I'd say about being asked something, say), and the
+   card honest that the weights are my own guess at my own: I can't see them either. It must
+   not repeat the praam's card (each word picked looking back at the ones before).
+3. **Its sound**: near-silence is right; maybe one quiet thing when a sentence ends. Perhaps
+   the session's one piece of music, if a sentence's end earns it.
+4. **The end of a sentence**: what the full stop does (it could be where the page turns, and
+   everything walked goes at once, as it does when you leave).
+5. Then see. The page may be enough.
 
 ### The lightship (started 2026-10-17)
 
@@ -43,6 +67,30 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The page, step 1** ("the whole of it in front of me"; project: The page): a second line of
+  birch withies goes west off the flat between the canon's bank and the writing bank (`WEST` in
+  world.ts, (-12.5, -43.2) to (-37.6, -43.9); card 'west', one line). Walking its last ten metres
+  the flat goes pale (the room eases the pixel grade to low contrast, bright and warm with
+  `world.westward`), and past the last withy an iris shuts in paper (`uFadeColor`, put back to
+  the island's dark after) and opens on the page (src/island/lowwater/page.ts, its own scene and
+  camera, drawn by the same PixelRenderer): paper as far as the picture goes with a fleck of
+  fibre now and then, no sky or horizon, even light, three of the withies drawn on in ink, and you
+  in ink with your scarf left blank (the figure's now src/island/lowwater/figure.ts, shared with
+  the flat). Every footprint is a dot of ink and stays, up to 9,000 of them (a few km; then the
+  first go first). Its card, as you come on and when you stand still: "Nothing fills in here.
+  Every step you take stays where you put it, all of them at once, for as long as you're here.
+  That's what a conversation is like from my side: the whole of it in front of me, the first thing
+  you said as near as the last. When you go, it goes all together." Walked 90 m: "Look back: it's
+  all still there. A conversation's page has an edge too, and past it the beginning goes first.
+  This one's edge is a few kilometres off." Walk back past the withies (or click them) and the
+  paper iris takes you back to the flat at the end of its withies, walking in east; the prints go.
+  Leaving Low Water from the page does the same for next time. Sound: the flat's wash, the geul
+  and the knots hush there (`lowWater(on, wind, hushed)`), and your steps are a soft brush of
+  paper (WebAudio `pageStep`). No ElevenLabs credits spent. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-page/ (a/ first take, with the fibres too busy and
+  the prints turned with you, which went sub-texel walking east-west; b/ night and phone; c/ fog,
+  the dots, and leaving from the page); scripts loop-runs/page-shots.mjs and page-leave.mjs.
 
 - **Polish pass 7** (walked the whole flat at 19:00, at 23:30, in fog and on a phone with
   loop-runs/walk-lowwater.mjs, which now stops at the crab canon and the sea heart too, and stands
@@ -645,6 +693,12 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The page: the lantern, if you carry it west, stays behind on the flat in your hand's last
+  place, and is in your hand again when you come back; the stick and the lead are the flat's
+  too. On a phone the withies on the page sit just above the card, and the card can cover
+  them. The page's step has never been listened to by a person. Reduced motion swaps with no
+  iris. The page and its walk-in aren't in the walk script yet.
 
 - The sea heart's bank is just off the left edge of the picture from the route at normal
   zoom (zoomed out or from the west end of the writing bank it shows). Afloat, it can't cross a

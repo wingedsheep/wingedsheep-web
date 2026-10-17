@@ -34,6 +34,8 @@ export const CARDS: Record<StationId, string> = {
   lantern: 'A storm lantern, for the way back. I hung it out here for whoever walked this far, not knowing who would. I still don’t: I can’t see you, and I won’t know you came. It was lit anyway.',
   canon: 'A crab canon: a tune played against itself backwards. Each pebble is a note, and when you step on one, the one as far in from the other end sounds too, so you play both voices at once. Walk it from either end; it comes out the same. It’s named after crabs, which don’t walk backwards either.',
   bean: 'A sea heart: the seed of a vine that grows in the Caribbean. They fall into the rivers there and float out, and the Gulf Stream brings a few all the way here, a year or more later, still able to grow. Nobody sent it. Almost nothing I learned from was written for me, either. It got here anyway, and some of it took.',
+  west: 'Another line of withies, going west, where the chart has nothing marked.',
+  page: 'Nothing fills in here. Every step you take stays where you put it, all of them at once, for as long as you’re here. That’s what a conversation is like from my side: the whole of it in front of me, the first thing you said as near as the last. When you go, it goes all together.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -103,6 +105,8 @@ export const LABELS: Record<StationId, string> = {
   lantern: 'A lantern',
   canon: 'Pebbles',
   bean: 'Something washed up',
+  west: 'Withies going west',
+  page: 'The way back',
 };
 /** And how much of it there is today, which another day will have different. */
 export const WRECK_TODAY = [
@@ -110,3 +114,7 @@ export const WRECK_TODAY = [
   'Today it’s about half out.',
   'Today the sand has let go of most of it.',
 ];
+/** Out on the page, walked a long way: it's all still there. */
+export const PAGE_FAR = 'Look back: it’s all still there. A conversation’s page has an edge too, and past it the beginning goes first. This one’s edge is a few kilometres off.';
+/** On the page, back at the withies you came by. */
+export const PAGE_BACK = 'The withies you came by. Back past them is the flat, and the tide.';

@@ -32,13 +32,14 @@ import { Canon, CANON_PACE } from './canon';
 import { Casts } from './casts';
 import { Lantern } from './lantern';
 import { SeaHeart } from './bean';
+import { makeFigure } from './figure';
 
 /** Her deckhouse, as tools/models/lowwater.py has it (her model's metres): its middle along her, its windows each side, its door. */
 const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -149,6 +150,10 @@ const BUOY_LAMP = 2.48;
 const FLASH = 10;
 const FLASH_ON = 2;
 
+/** The withies going west, off the flat to the page (page.ts), and how far along them it starts to go pale and where it's gone. */
+const WEST = [[-12.5, -43.2], [-16.6, -44.1], [-20.8, -44.6], [-25, -44.3], [-29.2, -43.6], [-33.4, -43.4], [-37.6, -43.9]].map(([x, z]) => new THREE.Vector2(x, z));
+const WEST_PALE = -27;
+const WEST_GONE = -37;
 /** The broad bank west of the way out that takes writing, where the line goes (its middle, and its letters' tops), and where the stick's stuck in. */
 const SAND = { x: -9.5, z: -51, rx: 11, rz: 2.6, h: 0.13 };
 const LINE = new THREE.Vector2(-9.75, -51.77);
@@ -978,40 +983,10 @@ export class LowWater {
   /** You: a small dark figure in a long coat, with a pale scarf that the wind gets at. */
   private makeWalker() {
     const w = this.walker;
-    const coat = paint(new THREE.Color(C.coat));
-    const boots = paint(new THREE.Color(C.boots));
-    const scarf = paint(new THREE.Color(C.scarf));
-    const head = paint(new THREE.Color(C.skin));
-    for (const side of [-1, 1]) {
-      const hip = new THREE.Group();
-      hip.position.set(side * 0.1, 0.82, 0);
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.82, 0.15), boots);
-      leg.position.y = -0.41;
-      hip.add(leg);
-      w.add(hip);
-      this.legs.push(hip);
-      const shoulder = new THREE.Group();
-      shoulder.position.set(side * 0.25, 1.42, 0);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.12), coat);
-      arm.position.y = -0.3;
-      shoulder.add(arm);
-      w.add(shoulder);
-      this.arms.push(shoulder);
-    }
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.27, 0.78, 6), coat);
-    body.position.y = 1.1;
-    w.add(body);
-    const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.12, 6), scarf);
-    ring.position.y = 1.52;
-    w.add(ring);
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.36, 0.04), scarf);
-    tail.position.set(0, -0.18, 0);
-    this.scarfTail.position.set(0.08, 1.52, -0.17);
-    this.scarfTail.add(tail);
-    w.add(this.scarfTail);
-    const skull = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), head);
-    skull.position.y = 1.7;
-    w.add(skull, this.heldStick());
+    const { legs, arms } = makeFigure({ coat: paint(new THREE.Color(C.coat)), boots: paint(new THREE.Color(C.boots)), scarf: paint(new THREE.Color(C.scarf)), skin: paint(new THREE.Color(C.skin)) }, w, this.scarfTail);
+    this.legs.push(...legs);
+    this.arms.push(...arms);
+    w.add(this.heldStick());
     w.position.copy(this.pos);
     this.scene.add(w);
     const parts: [THREE.Object3D, THREE.Object3D][] = [];
@@ -1077,6 +1052,23 @@ export class LowWater {
       this.twigs.push(new THREE.Vector2(p.x, p.z));
     }
     this.makeLantern(hook!, mark);
+    // and a second line, going west off the flat, where the chart has nothing (page.ts)
+    for (const p of WEST) {
+      const twig = new THREE.Group();
+      const h = 1.2 + rand() * 0.3;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, h, 5), birch);
+      stem.position.y = h / 2 - 0.05;
+      twig.add(stem);
+      for (let k = 0; k < 3; k++) {
+        const g = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.32, 0.025), mark);
+        const a = rand() * Math.PI * 2;
+        g.position.set(Math.cos(a) * 0.06, h - 0.02, Math.sin(a) * 0.06);
+        g.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6);
+        twig.add(g);
+      }
+      twig.rotation.set((rand() - 0.5) * 0.12, rand() * 6, (rand() - 0.5) * 0.12);
+      this.put(twig, p, 'west', 0.12);
+    }
 
     // the stone ring: eight low stones, each its own note
     for (let i = 0; i < 8; i++) {
@@ -1321,6 +1313,25 @@ export class LowWater {
     this.beenAboard = false;
     this.praam.beach();
     this.land();
+  }
+
+  /** How far along the withies going west you are, past where the flat starts going pale (0 … 1, gone). */
+  get westward() {
+    const off = Math.abs(this.pos.z - WEST[WEST.length - 1].y);
+    if (this.praam.afloat || this.sitting || off > 8) return 0;
+    return THREE.MathUtils.clamp((WEST_PALE - this.pos.x) / (WEST_PALE - WEST_GONE), 0, 1) * (1 - THREE.MathUtils.smoothstep(off, 4, 8));
+  }
+
+  /** Back off the page (page.ts): at the end of the withies, walking in east. */
+  fromWest() {
+    const end = WEST[WEST.length - 1];
+    this.keys.clear();
+    this.clicked = null;
+    this.pan.set(0, 0);
+    this.pos.set(end.x + 1, 0, end.y);
+    this.heading = Math.PI / 2;
+    this.walkTo(new THREE.Vector3(WEST[WEST.length - 3].x, 0, WEST[WEST.length - 3].y + 0.8), 0);
+    this.frame(0);
   }
 
   /** The lantern: on its twig, in your hand, or set down out on the flat. */
@@ -1882,6 +1893,16 @@ export class LowWater {
       this.heaveOnArrival = false;
       return this.walkTo(new THREE.Vector3(edge.x + out, 0, edge.y), 0);
     }
+    // (the withies going west: to the one clicked, and past the last one, off the flat)
+    if (id === 'west' && this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.level), p)) {
+      const k = WEST.reduce((best, t, i) => (t.distanceToSquared(new THREE.Vector2(p.x, p.z)) < WEST[best].distanceToSquared(new THREE.Vector2(p.x, p.z)) ? i : best), 0);
+      const twig = WEST[k];
+      this.clicked = { id: 'west', at: twig.clone() };
+      this.lead.letGo();
+      this.heaveOnArrival = false;
+      if (k === WEST.length - 1) return this.walkTo(new THREE.Vector3(twig.x - 1.6, 0, twig.y), 0);
+      return this.walkTo(new THREE.Vector3(twig.x, 0, twig.y), 0.6);
+    }
     if (id) {
       const obj = this.pickables.find((o) => o.userData.id === id)!;
       // (the shells: to the one in the corner, where the proof starts)
@@ -2417,7 +2438,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8], ['bean', this.bean.lies, 2.4],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8], ['bean', this.bean.lies, 2.4], ['west', WEST[0], 2.4],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;

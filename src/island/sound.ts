@@ -1313,7 +1313,7 @@ export class Sound {
    * left is a hush of air over very shallow water, a little brighter and louder in a wind. The
    * weather still comes along.
    */
-  lowWater(on: boolean, wind = 0) {
+  lowWater(on: boolean, wind = 0, hushed = false) {
     this.atFlat = on;
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
     const ctx = this.ctx;
@@ -1345,9 +1345,10 @@ export class Sound {
       this.flat = { gain, filter };
     }
     const t = ctx.currentTime;
-    this.flat.gain.gain.setTargetAtTime(on ? 0.09 + wind * 0.1 : 0, t, on ? 1.5 : 0.3);
-    if (!on) this.geulRun?.gain.gain.setTargetAtTime(0, t, 0.3);
-    if (!on) this.knotsUp?.gain.gain.setTargetAtTime(0, t, 0.3);
+    // (hushed: out on the page, where there's no water and no wind, only your steps)
+    this.flat.gain.gain.setTargetAtTime(on && !hushed ? 0.09 + wind * 0.1 : 0, t, on && !hushed ? 1.5 : 0.3);
+    if (!on || hushed) this.geulRun?.gain.gain.setTargetAtTime(0, t, 0.3);
+    if (!on || hushed) this.knotsUp?.gain.gain.setTargetAtTime(0, t, 0.3);
     this.flat.filter.frequency.setTargetAtTime(480 + wind * 900, t, 1);
   }
 
@@ -1571,6 +1572,25 @@ export class Sound {
     env.gain.setValueAtTime(0, t);
     env.gain.linearRampToValueAtTime(wet ? 0.05 : 0.03, t + 0.012);
     env.gain.setTargetAtTime(0, t + 0.03, wet ? 0.05 : 0.03);
+    src.connect(band).connect(env).connect(this.master);
+    src.start(t, Math.random() * 1.5, 0.3);
+  }
+
+  /** A footstep on the page: a soft dry brush of a sole on paper, quieter than anything on the flat. */
+  pageStep() {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 2600 * (0.85 + Math.random() * 0.3);
+    band.Q.value = 0.6;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.016, t + 0.02);
+    env.gain.setTargetAtTime(0, t + 0.045, 0.035);
     src.connect(band).connect(env).connect(this.master);
     src.start(t, Math.random() * 1.5, 0.3);
   }

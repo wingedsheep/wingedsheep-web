@@ -14,13 +14,16 @@ import { moonPosition, visitorLocation } from './scene/sun';
 import { LONGEST, sandable } from './lowwater/sand';
 import { sum } from './lowwater/shells';
 import type { Log } from './lowwater/log';
+import type { Page } from './lowwater/page';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, COMMA, CRAB, GONE, HORN, LABELS, LADDER, NEW_CAST, NORWAY, OPEN, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, COMMA, CRAB, GONE, HORN, LABELS, LADDER, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
+/** And between the flat and the page, slower, closing in paper rather than dark. */
+const CROSS = 0.9;
 /** How long you've been sat on the bench before the second line comes (s). */
 const SECOND_LINE = 6;
 
@@ -50,6 +53,14 @@ export class LowWaterRoom implements RoomInput {
   /** The postcard on the table (lowwater/postcard.ts). */
   private postcard?: Postcard;
   private loading?: Promise<World | undefined>;
+  /** The page, past the withies going west (lowwater/page.ts), whether you're on it, and the iris between it and the flat. */
+  private page?: Page;
+  private onPage = false;
+  private crossing: 'page' | 'flat' | null = null;
+  private cross = 0;
+  private paper = new THREE.Color();
+  private dusk = new THREE.Color();
+  private papered = false;
   private el: HTMLElement;
   private card: HTMLElement;
   private text: HTMLElement;
@@ -60,7 +71,7 @@ export class LowWaterRoom implements RoomInput {
   private line: HTMLInputElement;
   /** The seal, the curlew or the knots have just gone in the wildlife book, and that's still to be said. */
   private sketched = false;
-  private shown: StationId | null = null;
+  private shown: string | null = null;
   private shownMore = '';
   private shownButton = '';
   private walked = 0;
@@ -73,6 +84,7 @@ export class LowWaterRoom implements RoomInput {
     private host: HTMLElement,
     private reducedMotion: boolean,
   ) {
+    this.dusk.copy(this.pixels.uniforms.uFadeColor.value);
     this.el = document.querySelector<HTMLElement>('[data-panel="lowwater"]')!;
     this.card = this.el.querySelector<HTMLElement>('[data-lowwater-card]')!;
     this.text = this.el.querySelector<HTMLElement>('[data-lowwater-text]')!;
@@ -119,6 +131,10 @@ export class LowWaterRoom implements RoomInput {
     // walking with the keys (and any key gets you up off the bench)
     window.addEventListener('keydown', (e) => {
       if (!this.inside || !this.world || this.log?.open || this.postcard?.open || (e.target as HTMLElement).closest('input, textarea, button')) return;
+      if (this.onPage) {
+        if (this.page?.key(e.code, true)) e.preventDefault();
+        return;
+      }
       if (this.world.sitting && e.key !== 'Escape') {
         this.world.stand();
         e.preventDefault();
@@ -126,8 +142,8 @@ export class LowWaterRoom implements RoomInput {
       }
       if (this.world.key(e.code, true)) e.preventDefault();
     });
-    window.addEventListener('keyup', (e) => this.world?.key(e.code, false));
-    window.addEventListener('blur', () => this.world?.releaseKeys());
+    window.addEventListener('keyup', (e) => (this.world?.key(e.code, false), this.page?.key(e.code, false)));
+    window.addEventListener('blur', () => (this.world?.releaseKeys(), this.page?.releaseKeys()));
   }
 
   /** Whether the pointer should drive the flat rather than the island. */
@@ -136,8 +152,11 @@ export class LowWaterRoom implements RoomInput {
   }
 
   load() {
-    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard')])
-      .then(([{ LowWater }, { Log }, { Postcard }]) => {
+    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page')])
+      .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }]) => {
+        this.page = new Page(() => this.pixels.height);
+        this.page.onStep = () => this.ctx.sound.pageStep();
+        this.paper.copy(PAPER);
         this.log = new Log(this.el.querySelector<HTMLElement>('[data-lowwater-log]')!, () => this.log?.show(false));
         this.postcard = new Postcard(this.el.querySelector<HTMLElement>('[data-lowwater-postcard]')!, () => this.postcard?.show(false));
         const world = new LowWater(this.pixels.renderer, () => this.pixels.height);
@@ -163,7 +182,7 @@ export class LowWaterRoom implements RoomInput {
           bean: (pan) => this.ctx.sound.beanPlop(pan),
         };
         this.world = world;
-        if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
+        if (import.meta.env.DEV) Object.assign(window, { lowwater: world, lowwaterPage: this.page });
         this.resize();
         return world;
       })
@@ -186,18 +205,27 @@ export class LowWaterRoom implements RoomInput {
 
   resize() {
     this.world?.resize(this.host.clientWidth, this.host.clientHeight);
+    this.page?.resize(this.host.clientWidth, this.host.clientHeight);
   }
 
   zoom(factor: number) {
-    this.world?.zoom(factor);
+    if (this.onPage) this.page?.zoom(factor);
+    else this.world?.zoom(factor);
   }
 
   pan(dx: number, dy: number) {
-    this.world?.drag(dx, dy, this.host.clientHeight);
+    if (this.onPage) this.page?.drag(dx, dy, this.host.clientHeight);
+    else this.world?.drag(dx, dy, this.host.clientHeight);
   }
 
   hover(ndc: THREE.Vector2 | null, client: { x: number; y: number }) {
     const canvas = this.host.querySelector('canvas')!;
+    if (this.onPage) {
+      const back = ndc && this.page?.pick(ndc);
+      canvas.style.cursor = back ? 'pointer' : '';
+      this.ui.tooltip(back ? LABELS.page : null, client.x, client.y);
+      return;
+    }
     const id = ndc && this.world && !this.world.sitting && !this.world.afloat ? this.world.pick(ndc) : null;
     const station = id?.startsWith('stone:') ? 'ring' : (id as StationId | null);
     canvas.style.cursor = station ? 'pointer' : '';
@@ -207,6 +235,7 @@ export class LowWaterRoom implements RoomInput {
   click(ndc: THREE.Vector2) {
     const world = this.world;
     if (!world || !this.inside) return;
+    if (this.onPage) return void (this.crossing || this.page?.click(ndc), this.ui.tooltip(null));
     if (world.sitting) return world.stand();
     // (a click off the book shuts it)
     if (this.log?.open) return this.log.show(false);
@@ -223,11 +252,24 @@ export class LowWaterRoom implements RoomInput {
     } else {
       this.fade = Math.max(0, this.fade - step);
     }
-    this.pixels.uniforms.uFade.value = this.fade;
+    // (and between the flat and the page: shut in paper, swap, open again)
+    const across = this.reducedMotion ? 1 : dt / CROSS;
+    if (this.crossing) {
+      this.cross = Math.min(1, this.cross + across);
+      if (this.cross >= 1) this.crossOver();
+    } else {
+      this.cross = Math.max(0, this.cross - across);
+    }
+    this.pixels.uniforms.uFade.value = Math.max(this.fade, this.cross);
+    // (the island's own dark, put back as soon as it's not paper)
+    const paper = this.cross > this.fade;
+    if (paper || this.papered) this.pixels.uniforms.uFadeColor.value.copy(paper ? this.paper : this.dusk);
+    this.papered = paper;
     const world = this.world;
     if (!this.inside || !world) return;
     try {
-      this.run(world, dt);
+      if (this.onPage && this.page) this.runPage(this.page, dt);
+      else this.run(world, dt);
     } catch (err) {
       // never take the island down with it: back ashore, and say so
       console.error(err);
@@ -254,16 +296,73 @@ export class LowWaterRoom implements RoomInput {
     // its own light: blue hour, cool in the shadows, the grade a touch soft, and the edges
     // closing in a little more when you sit back and look up
     const u = this.pixels.uniforms;
-    (u.uGrade.value as THREE.Vector3).set(0.95, 1.02, 1.0);
-    u.uShade.value.setRGB(0.82, 0.86, 1.08);
-    u.uLight.value.setRGB(1.04, 0.98, 0.96);
+    // (and walking the last of the withies going west, it all goes pale, towards paper)
+    const west = world.westward;
+    const pale = west * west * (3 - 2 * west);
+    (u.uGrade.value as THREE.Vector3).set(0.95 - 0.75 * pale, 1.02 - 0.85 * pale, 1.0 + 0.75 * pale);
+    u.uShade.value.setRGB(0.82 + 0.38 * pale, 0.86 + 0.29 * pale, 1.08 - 0.08 * pale);
+    u.uLight.value.setRGB(1.04 + 0.16 * pale, 0.98 + 0.17 * pale, 0.96 + 0.04 * pale);
     u.uTone.value = 0.6;
+    if (west >= 1 && !this.crossing) this.crossing = 'page';
     u.uVignette.value = 0.45 + world.lean * 0.3;
     u.uHeat.value = 0;
     this.ctx.sound.lowWater(true, w.windiness);
     this.showCard(world);
     this.walked += dt;
     if (this.walked > 12) this.hint.classList.add('gone');
+  }
+
+  /** On the page: even light, no grade to speak of, no water to hear. */
+  private runPage(page: Page, dt: number) {
+    page.update(dt);
+    const u = this.pixels.uniforms;
+    (u.uGrade.value as THREE.Vector3).set(1, 1, 1);
+    u.uShade.value.setRGB(1, 1, 1);
+    u.uLight.value.setRGB(1, 1, 1);
+    u.uTone.value = 0;
+    u.uVignette.value = 0.12;
+    u.uHeat.value = 0;
+    this.ctx.sound.lowWater(true, 0, true);
+    this.showPageCard(page);
+    if (page.leaving && !this.crossing) this.crossing = 'flat';
+  }
+
+  /** The iris is shut: onto the page, or back onto the flat at the end of the withies. */
+  private crossOver() {
+    const to = this.crossing;
+    this.crossing = null;
+    if (to === 'page' && this.page) {
+      this.world?.releaseKeys();
+      this.page.arrive();
+      this.onPage = true;
+    } else {
+      this.page?.releaseKeys();
+      if (this.onPage) this.world?.fromWest();
+      this.onPage = false;
+    }
+  }
+
+  private showPageCard(page: Page) {
+    const id = page.card;
+    const key = id && `page:${id}`;
+    const more = id === 'page' && page.far ? PAGE_FAR : '';
+    if (key === this.shown && more === this.shownMore && !this.shownButton) return;
+    this.writeForm.hidden = true;
+    if (key !== this.shown) {
+      this.card.hidden = !id;
+      if (id) {
+        this.text.textContent = id === 'page' ? CARDS.page : PAGE_BACK;
+        this.card.style.animation = 'none';
+        void this.card.offsetWidth;
+        this.card.style.animation = '';
+      }
+    }
+    this.more.hidden = !more;
+    if (more) this.more.textContent = more;
+    this.sitButton.hidden = true;
+    this.shownButton = '';
+    this.shown = key;
+    this.shownMore = more;
   }
 
   /** The real moon for the visitor, on the island's clock (so ?time= moves it too). */
@@ -314,7 +413,7 @@ export class LowWaterRoom implements RoomInput {
   }
 
   render() {
-    const world = this.world!;
+    const world = this.onPage && this.page ? this.page : this.world!;
     this.pixels.render(world.scene, world.camera, world.subTexel);
   }
 
@@ -326,6 +425,12 @@ export class LowWaterRoom implements RoomInput {
     } else {
       if (this.ctx.rig.room === this) this.ctx.rig.room = null;
       this.world?.releaseKeys();
+      // (off the page too: the flat has you back at the end of its withies, for next time)
+      if (this.onPage || this.crossing) this.world?.fromWest();
+      this.onPage = false;
+      this.crossing = null;
+      this.cross = 0;
+      this.page?.releaseKeys();
       this.world?.stand();
       this.world?.ashore();
       this.log?.show(false);
