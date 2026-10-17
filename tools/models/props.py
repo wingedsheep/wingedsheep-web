@@ -69,7 +69,7 @@ def pricken(root, twigs):
     a small lantern on it, lit only after dark."""
     m = Model("pricken", seed=23)
     for i, (x, y, z, h) in enumerate(twigs):
-        m.cyl(0.035, h, (x, y, z), BIRCH if i % 2 else BIRCH_DARK, segs=4, r_top=0.022,
+        m.cyl(0.06, h, (x, y, z), BIRCH if i % 2 else BIRCH_DARK, segs=4, r_top=0.035,
               rot=(m.rng.uniform(-0.08, 0.08), m.rng.uniform(-0.08, 0.08), 0))
         # a couple of twiglets left on at the top, splayed
         for _ in range(2):

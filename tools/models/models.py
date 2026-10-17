@@ -41,10 +41,10 @@ def landmarks(t: Terrain):
     place(t, "cat", dx + 0.4, dy - L.DOCK_LEN + 1.6, characters.cat, z=0.84, id="cat")
     place(t, "kayak", *L.KAYAK, props.kayak, z=0.05, rot_z=0.25, id="kayak")
     place(t, "signpost", *L.SIGNPOST, props.signpost, id="signpost")
-    # birch twigs running out into the sea from the north beach: each stands about half a metre
-    # out of the water, whatever's under it
+    # birch twigs running out into the sea from the north beach: each stands over a metre out of
+    # the water, whatever's under it, so the line shows from the default camera
     (ox, oy), oz = L.PRICKEN[0], t.sample(*L.PRICKEN[0])
-    twigs = [(x - ox, y - oy, t.sample(x, y) - oz, max(t.sample(x, y) + 0.6, 0.55) - t.sample(x, y)) for x, y in L.PRICKEN]
+    twigs = [(x - ox, y - oy, t.sample(x, y) - oz, max(t.sample(x, y) + 1.2, 1.1) - t.sample(x, y)) for x, y in L.PRICKEN]
     place(t, "pricken", ox, oy, lambda r: props.pricken(r, twigs), id="pricken")
     place(t, "card_table", *L.CARD_TABLE, props.card_table, id="card_table")
     place(t, "campfire", cx, cy, props.campfire, id="campfire")
