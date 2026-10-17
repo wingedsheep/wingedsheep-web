@@ -37,7 +37,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -52,6 +52,8 @@ export interface Outside {
   night: number;
   /** The real moon over the island, if it's up (moon.ts). */
   moon?: MoonNow;
+  /** How far the sky has turned for you right now: the local sidereal time, as an angle (radians). */
+  turn?: number;
 }
 
 export interface Hooks {
@@ -277,6 +279,28 @@ const SKY_GLSL = /* glsl */ `
 `;
 
 /**
+ * The northern sky, as it really is (right ascension in hours, declination in degrees): the Plough
+ * (Alkaid along the handle to Megrez, then Phecda, Merak and Dubhe), Cassiopeia's W (Caph to
+ * Segin), and Polaris, which is a little off the true pole, and turns with the rest by a hair.
+ */
+const PLOUGH: [number, number][] = [[13.792, 49.31], [13.399, 54.93], [12.9, 55.96], [12.257, 57.03], [11.897, 53.69], [11.031, 56.38], [11.062, 61.75]];
+const CASSIOPEIA: [number, number][] = [[0.153, 59.15], [0.675, 56.54], [0.945, 60.72], [1.43, 60.24], [1.907, 63.67]];
+const POLARIS: [number, number] = [2.53, 89.26];
+/** Degrees of the northern sky to a view height: squeezed (as the moon's height is), so the whole wheel fits over the horizon when you sit back. */
+const NORTH_SCALE = 120;
+/** How high the pole stands (view heights): as many degrees up as the flat is north, 53½. */
+export const POLE_UP = 53.4 / NORTH_SCALE;
+/** How long you've been sat on the bench before the Pole Star's card comes (s). */
+export const POLE_LINE = 16;
+
+/** A star of the northern sky from the pole, with the sky turned to sidereal time 0 (the wheel turns it on from there). */
+function northAt(ra: number, dec: number) {
+  const r = (90 - dec) / NORTH_SCALE;
+  const a = ra * (Math.PI / 12);
+  return [r * Math.sin(a), r * Math.cos(a)];
+}
+
+/**
  * The sky the water shows: not this one, but the one under your feet. The brightest stars round
  * the south celestial pole (right ascension in hours, declination in degrees, and how bright, in
  * the steps the stars are drawn in), laid out as they really sit, and the two Magellanic Clouds (with their
@@ -376,6 +400,10 @@ export class LowWater {
   sitting = false;
   lean = 0;
   satFor = 0;
+  /** Sat with the Pole Star long enough for its second line. */
+  get poleLong() {
+    return this.card === 'pole' && this.satFor > POLE_LINE + 20;
+  }
   /** How much of the wreck the sand has given back today (0 nearly none … 1 most of it). */
   readonly wreckOut = wreckOut(visitDate());
 
@@ -417,6 +445,9 @@ export class LowWater {
   private sky: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private stars: THREE.Group;
   private starMat: THREE.ShaderMaterial;
+  /** The northern sky, turned round its pole (its stars, their shapes, and the dashes to Polaris). */
+  private wheel: THREE.Group;
+  private pointers: THREE.LineSegments;
   private lines: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   private mirror = new THREE.Group();
   private waters: THREE.ShaderMaterial[] = [];
@@ -502,10 +533,12 @@ export class LowWater {
     this.scene.add(this.hemi, this.sun, this.fill, this.camera, this.mirror);
     this.ground = this.makeGround();
     this.sky = this.makeSky();
-    const { group, mat, lines } = this.makeStars();
+    const { group, mat, lines, wheel, pointers } = this.makeStars();
     this.stars = group;
     this.starMat = mat;
     this.lines = lines;
+    this.wheel = wheel;
+    this.pointers = pointers;
     this.camera.add(this.flock.birds, this.flock.mirror);
     this.makeBanks();
     this.makeWalker();
@@ -761,21 +794,27 @@ export class LowWater {
 
   /**
    * The stars, a scatter of them, and two shapes everyone from up north knows: the Plough and
-   * Cassiopeia's W, high enough that you have to sit back to see them. In sky units: across, and
-   * up from the horizon, both in view heights.
+   * Cassiopeia's W, high enough that you have to sit back to see them, and the Pole Star between
+   * them. They're on a wheel round the pole, turned to the real sidereal time for you, so the
+   * Plough is low in the north on an autumn evening and over the top in spring, and goes round
+   * through the night; only Polaris stays put. In sky units: across, and up from the horizon, both
+   * in view heights.
    */
   private makeStars() {
     const rand = mulberry(7);
     const pos: number[] = [];
     const bright: number[] = [];
-    for (let i = 0; i < 170; i++) {
-      pos.push((rand() - 0.5) * 3, 0.12 + rand() ** 0.8 * 1.0, 0);
+    // (an even scatter over a disc round the pole, so however it's turned the sky's as full)
+    for (let i = 0; i < 560; i++) {
+      const r = 1.75 * Math.sqrt(rand());
+      const a = rand() * Math.PI * 2;
+      pos.push(r * Math.sin(a), r * Math.cos(a), 0);
       bright.push(rand() < 0.12 ? 1 : rand() < 0.5 ? 0.6 : 0.35);
     }
-    // the Plough (the seven of the Big Dipper), handle up to the left; Cassiopeia's W, higher, to the right
-    const plough = [[-0.42, 0.42], [-0.34, 0.47], [-0.27, 0.49], [-0.19, 0.47], [-0.17, 0.39], [-0.06, 0.4], [-0.06, 0.5]];
-    const cas = [[0.06, 0.74], [0.12, 0.66], [0.18, 0.71], [0.24, 0.64], [0.31, 0.69]];
-    for (const [x, y] of [...plough, ...cas]) {
+    const plough = PLOUGH.map(([ra, dec]) => northAt(ra, dec));
+    const cas = CASSIOPEIA.map(([ra, dec]) => northAt(ra, dec));
+    const polaris = northAt(...POLARIS);
+    for (const [x, y] of [...plough, ...cas, polaris]) {
       pos.push(x, y, 0);
       bright.push(1);
     }
@@ -783,7 +822,7 @@ export class LowWater {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('bright', new THREE.Float32BufferAttribute(bright, 1));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uShow: { value: 0 }, uTime: { value: 0 }, uMoon: MOON.at, uMoonLit: MOON.lit, uSqueeze: { value: 1 } },
+      uniforms: { uShow: { value: 0 }, uTime: { value: 0 }, uMoon: MOON.at, uMoonLit: MOON.lit, uSqueeze: { value: 1 }, uTurn: { value: 0 } },
       vertexShader: /* glsl */ `
         attribute float bright;
         uniform float uShow;
@@ -791,14 +830,17 @@ export class LowWater {
         uniform vec4 uMoon;
         uniform vec3 uMoonLit;
         uniform float uSqueeze;
+        uniform float uTurn;
         varying float vLevel;
         void main() {
           vec4 v = modelViewMatrix * vec4(position, 1.0);
+          // where it is in the sky tonight: turned round the pole
+          vec2 sky = vec2(cos(uTurn) * position.x - sin(uTurn) * position.y, sin(uTurn) * position.x + cos(uTurn) * position.y + ${POLE_UP.toFixed(4)});
           // (none in front of the moon)
-          float behind = uMoon.w > 0.0 && length(vec2(position.x * uSqueeze - uMoon.x * uMoonLit.z, position.y - uMoon.y)) < uMoon.z * 1.3 ? 0.0 : 1.0;
+          float behind = uMoon.w > 0.0 && length(vec2(sky.x * uSqueeze - uMoon.x * uMoonLit.z, sky.y - uMoon.y)) < uMoon.z * 1.3 ? 0.0 : 1.0;
           // a slow, stepped twinkle
           float tw = step(0.93, fract(sin(dot(position.xy, vec2(91.7, 37.3)) + floor(uTime * 1.5 + position.x * 9.0)) * 4375.85));
-          vLevel = bright * uShow * behind * clamp(position.y * 3.0 - 0.3, 0.0, 1.0) * (1.0 - tw * 0.5);
+          vLevel = bright * uShow * behind * clamp(sky.y * 3.0 - 0.3, 0.0, 1.0) * (1.0 - tw * 0.5);
           gl_PointSize = bright > 0.9 ? 2.0 : 1.0;
           gl_Position = projectionMatrix * v;
         }
@@ -816,9 +858,12 @@ export class LowWater {
       fog: false,
     });
     const group = new THREE.Group();
+    const wheel = new THREE.Group();
+    wheel.position.y = POLE_UP;
+    group.add(wheel);
     const points = new THREE.Points(geo, mat);
     points.frustumCulled = false;
-    group.add(points);
+    wheel.add(points);
     // the shapes drawn between them, faintly, only when you're sat looking up
     const seg: number[] = [];
     const join = (list: number[][], pairs: number[][]) => {
@@ -831,9 +876,25 @@ export class LowWater {
     const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({ color: '#141a40', depthWrite: false, fog: false }));
     lines.frustumCulled = false;
     lines.visible = false;
-    group.add(lines);
+    wheel.add(lines);
+    // and, sat a while longer, the way to the Pole Star: on from Merak through Dubhe, in dashes
+    // (the two point at the pole, and Polaris is a little off it, so the dashes go to Polaris itself)
+    const [dx, dy] = plough[6];
+    const [px, py] = polaris;
+    const dash: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t0 = 0.12 + i * 0.17;
+      const t1 = t0 + 0.08;
+      dash.push(dx + (px - dx) * t0, dy + (py - dy) * t0, 0, dx + (px - dx) * t1, dy + (py - dy) * t1, 0);
+    }
+    const dashGeo = new THREE.BufferGeometry();
+    dashGeo.setAttribute('position', new THREE.Float32BufferAttribute(dash, 3));
+    const pointers = new THREE.LineSegments(dashGeo, lines.material);
+    pointers.frustumCulled = false;
+    pointers.visible = false;
+    wheel.add(pointers);
     this.camera.add(group);
-    return { group, mat, lines };
+    return { group, mat, lines, wheel, pointers };
   }
 
   /** The banks, each a low mound cut off at the water (wherever the tide has it). */
@@ -2294,7 +2355,7 @@ export class LowWater {
     // or a while, carrying the lantern
     const carrying = !best && !this.sitting && this.stillFor > LANTERN_LINE && this.lantern.where === 'held';
     const lit = !best && !this.sitting && this.outside.night > 0.4 && this.stillFor > GLOW_LINE && this.wake.litAgo < this.stillFor + 3 && !this.wake.points.visible;
-    this.card = this.sitting ? 'bench' : (best ?? (flying ? 'knots' : carrying ? 'lantern' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
+    this.card = this.sitting ? (this.satFor > POLE_LINE && this.clear() > 0.6 ? 'pole' : 'bench') : (best ?? (flying ? 'knots' : carrying ? 'lantern' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
   }
 
   /** Where you are in the picture, for the moon's road: across (a share of the width) and down from the horizon (view heights). */
@@ -2555,6 +2616,10 @@ export class LowWater {
     const lines = this.sitting ? THREE.MathUtils.clamp((this.satFor - 3) / 3, 0, 1) * clear : 0;
     this.lines.visible = lines > 0.3;
     this.lines.material.color.set(lines > 0.8 ? '#4a5590' : '#333d78');
+    this.pointers.visible = this.card === 'pole';
+    // the sky, turned as it really is for you now
+    this.wheel.rotation.z = o.turn ?? 0;
+    this.starMat.uniforms.uTurn.value = o.turn ?? 0;
     // winter: a skin of ice on the banks' wet edges
     for (const m of this.ice) m.emissive.setRGB(o.winter ? 0.05 : 0, o.winter ? 0.06 : 0, o.winter ? 0.09 : 0);
     // far off, things only go a step into the haze on a clear evening (the banks low dark slivers on
@@ -2602,7 +2667,8 @@ export class LowWater {
     else this.target.copy(want);
     // looking up: an ease from the flat into the sky
     const ease = this.lean * this.lean * (3 - 2 * this.lean);
-    const lift = ease * view * 0.78;
+    // (not quite all the way: the horizon stays just over the card, so the Plough low in the north on an autumn evening isn't under it)
+    const lift = ease * view * 0.62;
     cam.position.set(this.target.x, Math.sin(ELEVATION) * DISTANCE + lift * Math.cos(ELEVATION), this.target.z + Math.cos(ELEVATION) * DISTANCE - lift * Math.sin(ELEVATION));
     cam.up.set(0, 1, 0);
     cam.lookAt(this.target.x, lift * Math.cos(ELEVATION), this.target.z - lift * Math.sin(ELEVATION));

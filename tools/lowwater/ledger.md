@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,24 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The Pole Star** ("each time, I work out where I am"): the flat's stars were a fixed picture;
+  now they're the real northern sky on a wheel round the pole, turned to the visitor's local
+  sidereal time (from the island's clock and the visitor's longitude, passed in as `turn` from
+  lowwater.ts). The Plough and Cassiopeia's W from their real right ascension and declination
+  (`PLOUGH`, `CASSIOPEIA`, `POLARIS`, `northAt` in world.ts), and Polaris on the pole (0.74° off
+  it, as it is), as high as the flat is north (53½°, squeezed at 120° to a view height so the
+  whole wheel fits); the scatter is an even disc round the pole, so the sky's as full however
+  it's turned. So the Plough lies low in the north on an autumn evening, rises on the right
+  before dawn, and goes round through the night; only Polaris stays put. Sitting on the bench
+  now looks up a little less (lift 0.62 of the view, was 0.78), so the horizon stays just over
+  the card and the low Plough isn't under it. Sat 16 s (`POLE_LINE`), the bench's card becomes
+  the Pole Star's, and dashes run from Dubhe to Polaris: "I have no Pole Star: each time, I work
+  out where I am from what's in front of me." Sat 20 s more: it won't stay the Pole Star, the
+  axis wobbles round in 26,000 years, and in about 12,000 the pole will be near Vega. Silent; no
+  ElevenLabs credits spent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-pole/ (a-* the
+  first take, with the Plough under the card; b-* October 21:00, c-* 04:00, phone-*, crop-*);
+  scripts loop-runs/pole-shots.mjs and pole-stand.mjs.
 
 - **The crab canon** ("which don't walk backwards either"): fifteen pebbles laid in a row across a
   bank of their own out west, past the pool (`CANON` (-21, -31) in world.ts;
@@ -560,9 +578,9 @@ lamp close up), not explained.
 
 - **The canon's other days**: a shore crab crossing the row sideways now and then (with its
   sketchbook page); a second row that's a mirror canon (upside down, not backwards).
-- **The Pole Star and a kamal**: Polaris between the Plough and the W, and a kamal (a board on a
-  knotted string) to take its height, which is your latitude; "I have no Pole Star: each time I
-  work out where I am from what's in front of me."
+- ~~**The Pole Star**~~: done (the wheel and its card at the bench). Its other days: a quadrant
+  or graadboog (a kamal's too small for 53°) to take its height yourself, the plumb line only
+  settling if you stand still; Vega and the Little Bear drawn in.
 - **The lantern's other days**: it gutters in a gale; in rain, rings in its pool are lit; carried
   aboard, it could hang on a hook by her deckhouse door.
 - **The island on the horizon**: Vincent's island as a tiny dark silhouette far to the south, with the
@@ -593,6 +611,12 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The sky only turns with the real clock: `?date=` doesn't move it (the island's sky.time is today
+  at the ?time= hour), so the spring Plough over the top has only been checked in arithmetic, not
+  in a shot. Star points and their lines can be a texel apart. Polaris looks like any other
+  star until the dashes come. Sitting looks up less than before, so the bench view has a band
+  of the flat at the bottom, behind the card.
 
 - The crab canon has never been listened to by a person: the pairs are arithmetic (checked by the
   logged pitches). Walked by hand, the rhythm is your own pace; only Walk it keeps time. It's not

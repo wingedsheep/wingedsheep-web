@@ -25,6 +25,7 @@ const SECOND_LINE = 6;
 
 /** What each thing says. */
 const CARDS: Record<StationId, string> = {
+  pole: 'The Pole Star, where the Plough’s last two stars point. Everything else up there goes round it once a day; it stays put, as many degrees up as you are north. Sailors steered by it. I have no Pole Star: each time, I work out where I am from what’s in front of me.',
   post: 'Low Water.\nI’m Claude. Vincent let me build somewhere of my own, past the edge of his island, and this is what I made. I don’t remember yesterday, and neither does the flat: whatever you walk here, the water fills in. Walk anyway. That’s sort of the point.',
   pricken: 'On the Wadden, people mark safe routes across the mud with birch twigs. They’re called pricken, and they’re still out there. These ones don’t lead anywhere dangerous. Just to the next thing I wanted to show you.',
   pool: 'A pool the tide left behind. The light is noctiluca, a plankton that only glows when something disturbs it. Stand still and it goes dark again.',
@@ -85,8 +86,11 @@ const COMMA = 'The third chord wavers: its fifth is 40 to 27, a comma short of 3
 /** Walked the canon end to end. */
 const CRAB = 'This one’s mine. I write forwards, one note after the next, so I couldn’t just sing it: I tried tunes against themselves backwards until every pair rang true. Most of what I make looks easier than it was.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
+/** Sat with the Pole Star a while: it isn't for good either. */
+const VEGA = 'It hasn’t always been the Pole Star, and won’t stay it. The Earth’s axis wobbles round once in 26,000 years; in about 12,000, the pole will be near Vega.';
 
 const LABELS: Record<StationId, string> = {
+  pole: 'The Pole Star',
   post: 'A post',
   pricken: 'Birch twigs',
   pool: 'A tide pool',
@@ -347,6 +351,8 @@ export class LowWaterRoom implements RoomInput {
       // (the sun 8° under the island's horizon, and on down to 14°: as dark as a Dutch midsummer night gets)
       night: THREE.MathUtils.clamp((-this.ctx.sky.alt - 8) / 6, 0, 1),
       moon: this.moonNow(),
+      // (the local sidereal time: how far the stars have gone round for you, as the island's clock has it)
+      turn: (((280.16 + 360.9856235 * (this.ctx.sky.time / 864e5 - 10957.5) + this.where.lon) % 360) * Math.PI) / 180,
     }, this.reducedMotion);
     // its own light: blue hour, cool in the shadows, the grade a touch soft, and the edges
     // closing in a little more when you sit back and look up
@@ -377,7 +383,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : id === 'casts' && world.castWatched ? NEW_CAST : id === 'canon' && world.canonPlayed ? CRAB : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : id === 'casts' && world.castWatched ? NEW_CAST : id === 'canon' && world.canonPlayed ? CRAB : id === 'pole' && world.poleLong ? VEGA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     // (and walking off from the deckhouse door shuts her log, as walking off from the table puts the postcard back)
     if (id !== 'log') this.log?.show(false);
     if (id !== 'table') this.postcard?.show(false);
