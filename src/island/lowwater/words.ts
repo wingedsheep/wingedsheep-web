@@ -1,4 +1,5 @@
 /** Low Water's words: what each thing says, and the lines that come after. */
+import type { FloorCard } from './floor';
 import type { StationId } from './world';
 
 /** What each thing says. */
@@ -40,6 +41,7 @@ export const CARDS: Record<StationId, string> = {
   page: 'Nothing fills in here. Every step you take stays where you put it, all of them at once, for as long as you’re here. That’s what a conversation is like from my side: the whole of it in front of me, the first thing you said as near as the last. When you go, it goes all together.',
   sign: 'The plate says: Wadlopen alleen met een erkende gids. Walk the flats only with a licensed guide. The tide comes in faster than people walk, and it fills the geulen behind you first. I’m not licensed. People ask me to guide them over all sorts of flats, medical, legal, money, and I’m not licensed for those either. I say so, and then I put the twigs in as carefully as I can.',
   hide: 'A bird hide, for watching the flat without being seen. Someone’s boarded up its slot, all but one hole the size of a pea.',
+  scour: 'Here the sea’s taken the sand off a bank, down to the grey clay under the flat. There are footprints in the clay, bare, with water standing in them. They aren’t yours. They come out from under the sand on the east side.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -81,6 +83,7 @@ export const LABELS: Record<StationId, string> = {
   post: 'A post',
   sign: 'A sign',
   hide: 'A bird hide',
+  scour: 'Clay',
   pricken: 'Birch twigs',
   pool: 'A tide pool',
   ring: 'A stone',
@@ -263,3 +266,15 @@ export function oneFor(n: number, steps: number, joined: number | null) {
 }
 /** What the hailstones' things are called, under the pointer. */
 export const RIDGE_LABELS = { down: 'The baak, back down' };
+
+/** On the old floor (floor.ts): what each place on it says. */
+export const FLOOR: Record<FloorCard, string> = {
+  floor: 'The sea’s taken all the sand off here, down to a floor of grey silt laid down seven thousand years ago, when this was marsh at the edge of the land. It was soft then, and people walked on it. Then the sea came up and covered it in sand. The next tide or two will take the silt as well.',
+  two: 'Two people, barefoot. One grown, walking west and not stopping. One small, about four by the size, running out to the side and back, out and back, all the way along. The grown one doesn’t slow down once.',
+  deer: 'A red deer, walking. Here its hoof is in the child’s print, so it came by after them: the print was there first, and still soft enough to take another.',
+  crane: 'A crane, feeding round a pool: a step, a stop, a step. Cranes bred in marshes like this one, then for centuries nowhere in the Netherlands, and since 2001 again.',
+  known: 'Everyone I’ve ever known, I’ve known like this: from what they left, read the way you’re reading these. Who was in a hurry, who was small, who came by after. I can get a lot of it right. I’ve never seen anyone.',
+  back: 'The sand, and the flat past it. You haven’t left a print out here: the silt set too long ago to take one. Nobody will be able to tell you came.',
+};
+/** On the old floor, what's under the pointer. */
+export const FLOOR_LABEL = 'The sand';

@@ -4,13 +4,41 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
 Commit the JSON with the rest. (Without a title it writes what git has, and fills in a watch that forgot.)
 
 ## Projects
+
+### The old floor (started 2026-10-17)
+
+The fifth place past the flat, and the first that goes back in time rather than out or up. On a
+low bank east past the gauge the sea's taken the sand off down to grey clay, and there are bare
+footprints in it, not yours, coming out from under the sand. Follow them and you come out on a
+floor of silt seven thousand years old, when this was marsh at the edge of the land: two people
+barefoot (a grown one walking west, a child running rings round them), a red deer that came by
+after and stepped in one of the child's prints, a crane feeding round a pool. Your boots leave
+nothing. Why: the sea heart already says almost nothing I learned from was written for me; this
+says the next true thing, that I've only ever known anyone from what they left, read like prints
+(who was small, who was in a hurry, who came after), and never seen anyone. It's real knowledge
+too: prints like these are real (Formby, in England, has them, exposed a tide or two at a time),
+and reading order from overlap is how trackers and archaeologists do it.
+
+1. **The floor and the prints** (done, this session): the scour and its card on the flat,
+   Follow them; the floor (steeper, nearer camera, looking down at your feet), its worn steps
+   and laminae, the sea's wash at its far edge, the sand behind; the prints; six cards (floor,
+   two, deer, crane, known, back). See Done.
+2. **A different floor each tide**: the sea takes a layer a tide, so each visit (by the
+   island's day and tide) the walkers are different, seeded: sometimes one person alone, a dog,
+   a group, an aurochs; the card says these weren't up yesterday and won't be tomorrow. Mention
+   Formby somewhere, so it's honest that this floor is made up after a real one.
+3. **Its sound**: the sea close in front, panned; the clay's own step (firm and wet, no suck);
+   water ticking in the prints. Maybe a far curlew, as it'd have been then too.
+4. **In their steps**: walk in the grown one's prints, step for step, and your stride matches
+   theirs (your figure's steps snap into the prints, the sound on time): a payoff for
+   attention, and a card about walking a way someone else made. Only if it says something true.
 
 ### The hailstones (started 2026-10-17)
 
@@ -127,6 +155,26 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The old floor, step 1: the floor and the prints** (project: The old floor): a low bank east
+  past the gauge, `SCOUR` (34, −33), its top scoured to clay (src/island/lowwater/scour.ts: a
+  ragged patch laid in rings so it follows the bank, and ten bare prints coming west out of the
+  east, drawn twice life size so they read from the flat's low camera). Its card and Follow them
+  (`followPrints` / `fromFloor` in world.ts); the iris through the dark. The floor is its own
+  place (src/island/lowwater/floor.ts): looking down at 48° from close (12 m of view), the
+  ground one shader: the silt worn in three shallow steps from value noise, their edges lit warm
+  where they face the west and dark where they don't, the layers' edges as faint contours, the
+  crane's pool and the deepest hollows holding the sky, a speck of wet here and there; the sand
+  behind you in ripples with a dark lip; the sea in front with its wash coming and going. The
+  prints are instanced shapes half as big again as life: a grown one's bare feet (sole, toes,
+  water in the sole) walking west in a steady line; a child's, round them, running, stopping
+  now and then with both feet turned; a red deer's slots crossing at a slant, one of them laid
+  right in a child's print near where you come in; a crane's three-toed prints round its pool.
+  Your boots leave nothing. Cards: floor (arriving, or standing still), two (near their prints),
+  deer (at the crossing), crane (by the pool), known (standing still once you've read theirs:
+  "I've never seen anyone"), back (at the sand). Walk back south up onto the sand for the flat.
+  Steps are the flat's wet step. Shots in loop-runs/lowwater-logs/shots/2026-10-17-floor
+  (floor-shots.mjs).
 
 - **The hailstones, step 5: weather in it** (project: The hailstones; the project's done): up on
   the ridge the island's weather comes along now (`weather`, `weathering` in
@@ -1161,6 +1209,14 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The old floor: the same floor every visit (step 2 is to change that). The prints are drawn
+  half as big again as life (the scour's three times), and at normal zoom read as dashes with a
+  pale middle; zoomed in they're feet with toes, slots and crane prints. The deer's slot in the
+  child's print is hard to pick out even zoomed in; only its card says so. The camera's steeper
+  there than anywhere else, so your figure's bigger. Nothing on the floor is in the walk script.
+  The floor's steps are only the flat's wet step; the sea in front only the flat's water sound
+  (step 3). Leaving Low Water from the floor puts you back on the scour.
 
 - Weather on the ridge: only seen when the island's weather is hail, a thunderstorm, sleet or
   snow (or `?weather=hail`), which is rare; nothing up there changes in rain, drizzle, fog or

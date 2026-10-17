@@ -16,6 +16,7 @@ import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { GAUGE, makeGauge, reading } from './gauge';
 import { DEEP as DEEP_HIDE, HIDE, HIDE_BANK, HIDE_DOOR, PICTURE_X, WIDE as HIDE_WIDE, makeHide } from './hide';
+import { SCOUR, SCOUR_FOOT, makeScour } from './scour';
 import { GEUL, GEUL_GLSL, geulDepth, geulNear, geulSaid, geulStrip, runGeul } from './geul';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
@@ -42,7 +43,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page' | 'others' | 'sign' | 'hide';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page' | 'others' | 'sign' | 'hide' | 'scour';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -203,6 +204,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   { x: BAAK.x - 0.3, z: BAAK.y - 0.2, rx: 4.2, rz: 1.5, h: 0.11 },
   BEAN_BANK,
   HIDE_BANK,
+  SCOUR,
 ];
 const POOL_R = 0.42; // the pool's share of its bank
 /** The pool's own water, held up in the bank whatever the tide's doing (m), and how far out it reaches. */
@@ -559,6 +561,9 @@ export class LowWater {
   goingUp = false;
   private baakOnArrival = false;
   private hideOnArrival = false;
+  /** Following the prints off the scour, onto the old floor (floor.ts); and on your way onto its clay to do that. */
+  goingDown = false;
+  private scourOnArrival = false;
   private notInPicture: THREE.Object3D[] = [];
   private ray = new THREE.Raycaster();
 
@@ -585,6 +590,7 @@ export class LowWater {
     this.makeLead();
     this.makeGauge();
     this.makeHide();
+    this.makeScour();
     this.makePraam();
     this.makeBean();
     const strip = geulStrip();
@@ -1240,6 +1246,45 @@ export class LowWater {
     // (it's longer than it's deep: round its ends too)
     for (const k of [-1, 1]) this.obstacles.push({ x: HIDE.x + k * (HIDE_WIDE / 2 - DEEP_HIDE / 2), z: HIDE.y, r: DEEP_HIDE / 2 + 0.1 });
     this.notInPicture.push(hut, this.mirrored[this.mirrored.length - 1].copy);
+  }
+
+  /** The scour (scour.ts), out east past the gauge: clay where the sand's gone, and prints in it going east. */
+  private makeScour() {
+    const scour = makeScour(bankAt, (c) => steppedFog(new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }), this.bankHaze));
+    this.scene.add(scour);
+    this.pickables.push(scour.children[0]);
+  }
+
+  /** Follow the prints: onto the clay, if you're not there, and on east after them. */
+  followPrints() {
+    if (this.sitting || this.praam.afloat) return;
+    this.letGoCanon();
+    this.stopWriting();
+    this.lead.letGo();
+    this.heaveOnArrival = false;
+    if (new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(SCOUR_FOOT) > 0.6) {
+      this.walkTo(new THREE.Vector3(SCOUR_FOOT.x, 0, SCOUR_FOOT.y), 0);
+      this.scourOnArrival = true;
+      return;
+    }
+    this.scourOnArrival = false;
+    this.goal = null;
+    this.keys.clear();
+    this.speed = 0;
+    this.goingDown = true;
+  }
+
+  /** Back from the old floor: on the scour's clay, turning back west to the flat. */
+  fromFloor() {
+    this.goingDown = false;
+    this.scourOnArrival = false;
+    this.keys.clear();
+    this.clicked = null;
+    this.pan.set(0, 0);
+    this.pos.set(SCOUR_FOOT.x + 1.2, 0, SCOUR_FOOT.y);
+    this.heading = -Math.PI / 2;
+    this.walkTo(new THREE.Vector3(SCOUR_FOOT.x - 0.6, 0, SCOUR_FOOT.y + 0.3), 0);
+    this.frame(0);
   }
 
   /** Go into the hide: to its door, if you're not there, and in. */
@@ -1989,7 +2034,7 @@ export class LowWater {
     }
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), (this.beanOnArrival = false), (this.hideOnArrival = false), (this.baakOnArrival = false), this.letGoCanon();
+    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), (this.beanOnArrival = false), (this.hideOnArrival = false), (this.baakOnArrival = false), (this.scourOnArrival = false), this.letGoCanon();
     return true;
   }
 
@@ -2041,6 +2086,7 @@ export class LowWater {
     this.beanOnArrival = false;
     this.hideOnArrival = false;
     this.baakOnArrival = false;
+    this.scourOnArrival = false;
     this.letGoCanon();
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
@@ -2087,6 +2133,8 @@ export class LowWater {
       if (station === 'baak') return this.walkTo(this.baakFoot, 0);
       // (the hide: to its door)
       if (station === 'hide') return this.walkTo(new THREE.Vector3(HIDE_DOOR.x, 0, HIDE_DOOR.y), 0);
+      // (the scour: onto its clay, by the prints)
+      if (station === 'scour') return this.walkTo(new THREE.Vector3(SCOUR_FOOT.x, 0, SCOUR_FOOT.y), 0);
       // (the praam: to where you get in)
       if (station === 'praam') return this.walkTo(new THREE.Vector3(BOARD.x, 0, BOARD.y), 0);
       // (the canon: to the nearer end of the row, where a walk along it starts)
@@ -2318,6 +2366,7 @@ export class LowWater {
     else if (this.deck.aboard) this.deckWalk(dt);
     if (this.hideOnArrival && !this.goal) this.enterHide();
     if (this.baakOnArrival && !this.goal) this.climbBaak();
+    if (this.scourOnArrival && !this.goal) this.followPrints();
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.heaving(dt);
@@ -2620,7 +2669,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8], ['bean', this.bean.lies, 2.4], ['west', WEST[0], 2.4], ['hide', HIDE_DOOR, 2.6],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8], ['bean', this.bean.lies, 2.4], ['west', WEST[0], 2.4], ['hide', HIDE_DOOR, 2.6], ['scour', SCOUR_FOOT, 3.2],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
