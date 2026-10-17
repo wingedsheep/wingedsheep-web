@@ -33,6 +33,9 @@ const RISE = 1;
 const GAP = 2.3;
 const R = 1.1;
 const WIDE = 2 * R;
+/** Where a number's cut: just proud of the front face. */
+const FACE = R * 0.97 * Math.cos(Math.PI / 6) + 0.02;
+const CUT_AT = new THREE.Vector3();
 /** The cloud's top, under the lowest stone (1, whose top is at 0). */
 const CLOUD = -2.8;
 /** How long a stone takes to come up out of the cloud (s); and, going round at the end, to go back down into it. */
@@ -354,7 +357,7 @@ export class Ridge {
     root.add(body);
     const [geometry] = cutNumber(s.n);
     const cut = new THREE.Mesh(geometry, this.face);
-    cut.position.set(0, s.top - 0.16, R * 0.97 * Math.cos(Math.PI / 6) + 0.02);
+    cut.position.set(0, s.top - 0.16, FACE);
     root.add(cut);
     root.position.x = i * GAP;
     this.scene.add(root);
@@ -711,11 +714,17 @@ export class Ridge {
     this.skyU.uTexel.value = 1 / this.texels();
     this.skyU.uAspect.value = this.aspect;
     this.skyU.uDrift.value = (t.x / view) * 0.02;
-    // the numbers, a texel a mark, however near you've zoomed; and zoomed out, where one won't fit its face, none
+    // the numbers, a texel a mark, however near you've zoomed; a long one may run a little round the
+    // face's corners (the column's front is two radii across), and zoomed out, where one won't fit that, none
     for (const s of this.stones) {
       if (!s.root?.visible) continue;
       s.cut!.scale.set(texel, texel / cos, 1);
-      s.cut!.visible = s.wide * texel <= R * 1.02;
+      s.cut!.visible = s.wide * texel <= R * 1.5;
+      // on the texel grid, so a digit's marks don't split or run together as the stone comes and goes
+      const at = CUT_AT.set(s.root.position.x, s.root.position.y + s.top - 0.16, FACE);
+      const r = at.dot(right) / texel;
+      const u = at.dot(up) / texel;
+      s.cut!.position.set((Math.round(r) - r) * texel, s.top - 0.16 + ((Math.round(u) - u) * texel) / up.y, FACE);
     }
   }
 }

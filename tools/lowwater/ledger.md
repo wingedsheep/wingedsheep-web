@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -123,6 +123,22 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 11** (walked the whole flat at 19:00 and on a phone in fog at 23:30 with
+  loop-runs/walk-lowwater.mjs, into the hide and onto the page; then the hailstones for the first
+  time in a pass, up the baak, a few stones, the peak at three zooms, 1 and its loop, and down, at
+  desktop dusk and a phone at 23:30 (ridge-shots.mjs, whose skip now makes the stones it jumps
+  over); shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-11/: dusk/, phone/, ridge/,
+  ridgephone/, after/, sheet-*.png). The flat, the lightship, the page, the hide and the ridge
+  still read as one place; no console errors from the space. Fixed: on a desktop at normal zoom
+  the numbers over 999 weren't cut at all, so at the peak you stood on a blank stone with only
+  911 legible down the slope; a number may now run a little round its face's corners (up to 1.5
+  radii, inside the column's front), so 9,232 and its neighbours show at normal zoom. And each
+  cut is snapped to the texel grid every frame (`CUT_AT`, `FACE` in
+  src/island/lowwater/ridge.ts), so a digit no longer splits or runs into the next ("461 6").
+  Words: the hailstones' seven cards read aloud fine and their facts check (9,232 at step 77 of
+  111; 2⁶⁸ is about 295 billion billion); nothing changed. Nothing cut: the ridge is the only
+  place that's maths you walk, and each of its four steps says something the others don't.
 
 - **The hailstones, step 4: the loop at 1** (project: The hailstones): past 1 the rule says 4, so
   the ridge now goes round. Stood on 1, the 4 two stones behind you slips down into the cloud and
@@ -1128,7 +1144,8 @@ lamp close up), not explained.
   the columns' feet. Leaving Low Water from up there puts you at the baak's board for next time.
   `ridgeStep` and `ridgeRise` have never been listened to by a person. The numbers are only cut
   for 27's way and yours; a number's cut only shows where it fits its face, so seven digits only
-  zoomed in (on a phone, not at all at normal zoom; hover says it). High up on a big number
+  zoomed in (since polish 11, four fit at normal zoom on a desktop; a long one runs a little round
+  its face's corners). High up on a big number
   (837,799 climbs to 31 m) the cloud is below the picture and the columns run off its foot.
   Nothing tells you about your own number until you walk back west onto the baak's top or reach
   1. The rings (`ridgeRing`) have never been listened to by a person: pitches are checked by log
