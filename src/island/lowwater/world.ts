@@ -33,13 +33,14 @@ import { Casts } from './casts';
 import { Lantern } from './lantern';
 import { SeaHeart } from './bean';
 import { makeFigure } from './figure';
+import { Bells } from './bells';
 
 /** Her deckhouse, as tools/models/lowwater.py has it (her model's metres): its middle along her, its windows each side, its door. */
 const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -56,6 +57,8 @@ export interface Outside {
   moon?: MoonNow;
   /** How far the sky has turned for you right now: the local sidereal time, as an angle (radians). */
   turn?: number;
+  /** The island's clock (ms), for her bell. */
+  clock?: number;
 }
 
 export interface Hooks {
@@ -96,6 +99,8 @@ export interface Hooks {
   canon?(freq: number, pan: number, yours: boolean): void;
   /** The sea heart, landing in the water: which side of you (-1 … 1). */
   bean?(pan: number): void;
+  /** A stroke of her bell, struck by the watch: how near she is (1 aboard … 0) and which side. */
+  shipBell?(near: number, pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -505,6 +510,9 @@ export class LowWater {
   private seal?: Seal;
   private baak?: THREE.Object3D;
   private lightship?: Lightship;
+  /** Her bell, on the forecastle (bells.ts), and the part of her model that rocks when it's struck. */
+  private bells = new Bells();
+  private bell?: THREE.Object3D;
   private lead!: Lead;
   /** Clicked the lead line from off along the flat: heave it once you're there. */
   private heaveOnArrival = false;
@@ -1646,6 +1654,7 @@ export class LowWater {
     copy.traverse((o) => b.push(o));
     this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
     this.lightship = new Lightship(g, [lamp, halo, b[a.indexOf(lamp)], b[a.indexOf(halo)]], height);
+    this.bell = model.getObjectByName('lightship_bell');
     // (her flash, lighting the deck when you're on it; there from the start, so nothing recompiles when it's lit)
     const light = new THREE.PointLight('#fff1d6', 0, 26, 1);
     light.position.copy(lamp.position);
@@ -2161,6 +2170,14 @@ export class LowWater {
     this.lightship?.update(this.time, this.time / TIDE_PERIOD, this.outside.wind);
     // (aboard, she creaks as she comes to the end of a roll, now and then; alongside, you hear it too)
     if (this.lightship?.turned && this.praam.alongside && Math.random() < 0.6) this.hooks.creak?.(this.deck.aboard ? 1 : 0.45);
+    // her bell, on the half hours: heard from where she lies, rocking on its bar
+    this.bells.update(dt, outside.clock ?? Date.now(), this.time, () => {
+      const dx = LIGHTSHIP.x - this.pos.x;
+      const d = Math.hypot(dx, LIGHTSHIP.y - this.pos.z);
+      // (a small bell: it doesn't carry like her horn)
+      this.hooks.shipBell?.(this.deck.aboard ? 1 : 1 / (1 + (d / 45) ** 2), this.deck.aboard ? 0.15 : (dx / Math.max(d, 1)) * 0.9);
+    });
+    if (this.bell) this.bell.rotation.z = this.bells.angle;
     this.lightship?.fogSignal(this.time, outside.fog, new THREE.Vector2(this.pos.x, this.pos.z), (near, pan) => this.hooks.horn?.(near, pan));
     this.glow(dt);
     // the geul, heard from where it is: louder the harder it runs, a trickle at the turn
@@ -2408,7 +2425,7 @@ export class LowWater {
     if (this.deck.aboard) {
       // (her card on deck by the ladder, where you come up and go down, and her log's at the
       // deckhouse door; nothing on the ladder)
-      this.card = this.deck.atLadder ? 'deck' : this.deck.atDoor ? 'log' : null;
+      this.card = this.deck.atLadder ? 'deck' : this.deck.atDoor ? 'log' : this.deck.atBell ? 'bell' : null;
       return;
     }
     if (this.praam.afloat) {
@@ -2486,6 +2503,16 @@ export class LowWater {
   /** The moon as it was last given, for its card. */
   get moonNow() {
     return this.moon.now;
+  }
+
+  /** The bells her watch last struck, for a few minutes after (0 otherwise). */
+  get bellHeard() {
+    return this.bells.heard(this.time);
+  }
+
+  /** Her bell struck now, as if the half hour had come round (for checking it). */
+  strikeBell(n: number) {
+    this.bells.strike(n, this.time);
   }
 
   /** Whether the fog's thick enough for the lightship to be sounding her horn. */

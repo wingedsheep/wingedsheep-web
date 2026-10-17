@@ -292,6 +292,10 @@ LADDER_X = -1.2  # where her ladder comes down, on the side you row up to
 HOUSE_BEAM = 2.0
 HOUSE_WINDOWS = {-1: (-1.1, -0.1), 1: (-1.1, 0.0, 1.1)}
 HOUSE_DOOR = 0.9
+# her bell, hung in a little frame on the forecastle (src/island/lowwater/deck.ts and world.ts have the same)
+BELL_X = 4.2
+BELL_HANG = 1.05  # how high its pivot is over the forecastle's deck
+BELL_BRASS = "#a8894f"  # kept polished, as a ship's bell is
 
 
 def _ship_half(t: float) -> float:
@@ -432,7 +436,19 @@ def lightship():
     zx = -SHIP_LENGTH / 2 + 1.0
     m.cyl(0.1, 5.2, (zx, 0, FREEBOARD), TAR, segs=6, r_top=0.06)
     m.prism([(zx - 0.05, FREEBOARD + 1.6), (zx - 0.05, FREEBOARD + 5.0), (zx - 2.4, FREEBOARD + 1.9)], 0.04, (0, 0, 0), SAIL)
+    # her bell, forward on the forecastle, in a frame of two posts and a bar across, the clapper's
+    # lanyard hanging under it; the bell's its own part, pivoting at the bar, so it can rock when it's struck
+    foc = FREEBOARD + 0.55
+    for side in (-1, 1):
+        m.box((0.07, 0.07, BELL_HANG + 0.08), (BELL_X, side * 0.34, foc + (BELL_HANG + 0.08) / 2), TAR)
+    m.box((0.08, 0.76, 0.07), (BELL_X, 0, foc + BELL_HANG + 0.04), TAR)
     m.build(parent=root)
+    bell = Model("lightship_bell", seed=17)
+    bell.cyl(0.19, 0.06, (0, 0, -0.42), BELL_BRASS, segs=8)
+    bell.cyl(0.17, 0.3, (0, 0, -0.37), BELL_BRASS, segs=8, r_top=0.1)
+    bell.cyl(0.04, 0.07, (0, 0, -0.07), BELL_BRASS, segs=4)
+    bell.box((0.03, 0.03, 0.3), (0, 0, -0.57), SAIL)
+    bell.build(parent=root, loc=(BELL_X, 0, foc + BELL_HANG))
     name = Model("lightship_name", seed=16)
     _name(name)
     name.build(parent=root)

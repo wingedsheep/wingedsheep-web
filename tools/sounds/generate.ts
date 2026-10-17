@@ -265,6 +265,8 @@ export const SOUNDS: Sfx[] = [
   // and a flock of knots wheeling over the far flat in autumn and winter: their wings, as they turn
   { name: 'lowwater-knots', loop: true, seconds: 12, lufs: -34, prompt: 'A huge flock of several thousand small shorebirds wheeling together in the air over a wide empty tidal mudflat, heard from a little way off: a soft continuous rushing roar of thousands of wings that swells and fades as the flock turns, and faint low soft grunting calls, knut, knut, very calm evening, no wind, no waves, no gulls, no voices, no music' },
   // and the page past the flat: a pencil writing out the words that could come next, sliced a word at a time
+  // the lightship's bell, struck by whoever has the watch every half hour (one stroke; the pairs are played in code)
+  { name: 'lowwater-shipbell', seconds: 3, prompt: 'One single strike of a small polished brass ship\'s bell, struck once by its clapper pulled on a short lanyard, heard from across calm open water at a little distance: a bright clear ding with a long shimmering fade, quiet evening, no waves, no wind, no gulls, no voices, no music' },
   { name: 'lowwater-pencil', seconds: 6, prompt: 'A sharp graphite pencil writing quickly in small joined handwriting on a single sheet of thick paper on a wooden desk, very close up: continuous light dry scratching strokes and tiny ticks as the point lifts and lands, steady, a very quiet room, no voices, no paper rustling, no music' },
 ];
 

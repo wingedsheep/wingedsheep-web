@@ -18,6 +18,7 @@ import type { Page } from './lowwater/page';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
 import { CARDS, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
 
@@ -182,6 +183,7 @@ export class LowWaterRoom implements RoomInput {
           lantern: () => this.ctx.sound.lanternClink(),
           canon: (freq, pan, yours) => this.ctx.sound.pebble(freq, pan, yours),
           bean: (pan) => this.ctx.sound.beanPlop(pan),
+          shipBell: (near, pan) => this.ctx.sound.shipBell(near, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world, lowwaterPage: this.page, lowwaterSound: this.ctx.sound });
@@ -293,6 +295,7 @@ export class LowWaterRoom implements RoomInput {
       night: THREE.MathUtils.clamp((-this.ctx.sky.alt - 8) / 6, 0, 1),
       moon: this.moonNow(),
       // (the local sidereal time: how far the stars have gone round for you, as the island's clock has it)
+      clock: this.ctx.sky.time,
       turn: (((280.16 + 360.9856235 * (this.ctx.sky.time / 864e5 - 10957.5) + this.where.lon) % 360) * Math.PI) / 180,
     }, this.reducedMotion);
     // its own light: blue hour, cool in the shadows, the grade a touch soft, and the edges
@@ -382,7 +385,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : id === 'casts' && world.castWatched ? NEW_CAST : id === 'canon' && world.canonPlayed ? CRAB : id === 'bean' && world.beanSent ? NORWAY : id === 'pole' && world.poleLong ? VEGA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'bell' ? bellSaid(this.ctx.sky.time) : (id === 'lightship' || id === 'deck') && world.bellHeard ? bellHeard(world.bellHeard) : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : id === 'casts' && world.castWatched ? NEW_CAST : id === 'canon' && world.canonPlayed ? CRAB : id === 'bean' && world.beanSent ? NORWAY : id === 'pole' && world.poleLong ? VEGA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     // (and walking off from the deckhouse door shuts her log, as walking off from the table puts the postcard back)
     if (id !== 'log') this.log?.show(false);
     if (id !== 'table') this.postcard?.show(false);
