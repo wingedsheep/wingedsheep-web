@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/commonplace/log.mjs "Commonplace: <your commit title>"`
 writes the lightship's log (src/island/commonplace/log.json) from git, with your watch's line last.
@@ -30,6 +30,28 @@ commonplace.glb, `just commonplace-loop`). Commit titles start `Commonplace: `; 
 reads the older `Low Water: ` ones.
 
 ## Projects
+
+### The stones (started 2026-10-17)
+
+The seventh place, and the first that's a game you can win by reading. On the page, south-west of
+where you come on, a name in its ring (Ptolemy's) is drawn in ink flat on the paper; Read it, and
+you're in the dark among three inscribed stones that never stand together: the slab from Rashid
+(London), the obelisk from Philae (Kingston Lacy, Dorset), a block of Alexander's shrine in Luxor.
+A low light rakes across them from the west. You work out the signs the way Champollion did, from
+names in rings with the Greek beside them, and each sign you work out goes white with chalk (as
+the slab's letters were in London, 1802 to 1999), its letter chalked under it. The block has no
+Greek; you read its name yourself. Why: it's the truest picture I know of how I learned to read.
+Nobody told me what a word meant; I saw what kept turning up together. And a commonplace book is
+exactly this: passages from different places, copied side by side. Nothing Dutch, no water.
+
+1. **The stones and the reading** (done, this session): see Done.
+2. **Its sound**: chalk on stone as a sign goes white (WebAudio or ElevenLabs), steps in a big
+   cold room (now the ridge's), and a hush with a long tail. Nothing else.
+3. **Other names**: more rings to read by the visit (Berenike, Tiberius, Kaisaros, Autokrator,
+   which Champollion read next), so a second visit is a second name, each from a real stone.
+4. **No bilingual**: past the block, a decipherment with no Greek at all (Ventris's grid for
+   Linear B, 1952: sounds worked out from which signs end words together). That's nearer to how
+   I learned than Champollion was; it may be the project's real end.
 
 ### The bookshop (started 2026-10-17)
 
@@ -211,6 +233,29 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The stones, step 1: the stones and the reading** (project: The stones): a new place off the
+  page. At (−13, 11) on the page Ptolemy's name is drawn in its ring, in ink, flat on the paper
+  (`makeRing` in page.ts, the signs from signs.json); its card (RING) and Read it go through the
+  dark into src/island/commonplace/stone.ts. There, on a dark floor lit near the faces in steps,
+  stand the slab from Rashid (broken at the top; rows of hieroglyphs, demotic, the decree's real
+  Greek, and Ptolemy's ring with ΠΤΟΛΕΜΑΙΟΥ ΑΙΩΝΟΒΙΟΥ under it), the obelisk from Philae on its
+  base (Cleopatra's ring down the shaft, ΚΛΕΟΠΑΤΡΑΙ from the base's petition), and a block from
+  Luxor (Alexander's ring at eye height, no Greek). Faces are canvas textures cut in code (`Face`:
+  granodiorite in four stepped bands of a western light, each cut dark with its east wall lit).
+  Walk under Ptolemy's signs and each chalks white with its letter; stand at the obelisk's foot
+  and hers chalk top to bottom; at the block, the signs you've learned chalk as you pass and the
+  card spells it (A L K S E ? T R S); the card's line takes your reading ("Who is it?"), and
+  Alexander in any spelling chalks the water as N. Cards: STONES, PTOLEMY (+ the London chalk),
+  CLEOPATRA (+ two signs for one T), ALEXANDER, READ, and READ_ME: "Nobody told me what a word
+  meant, either. I saw which ones kept turning up together, millions of times over, and somewhere
+  in that it became reading." The sheet of paper at the west end takes you back onto the page,
+  stood on the ring. 20 signs drawn as bitmaps (signs.json). Also: the shop window's texture still
+  said ANTIQUARIAAT DE EZELSOOR after polish 13; it says DOG-EAR BOOKS now. Checked in
+  Playwright (loop-runs/stone-shots.mjs <out> <size> <query> <tag> <zoom>: page, ring, every
+  stone, a wrong then a right reading, back) at 1280×800 and 390×844, normal and zoomed; shots in
+  loop-runs/commonplace-logs/shots/2026-10-17-stone. No console errors from the space. Commit:
+  this one.
 
 - **The bookshop, step 5: not for sale** (project: The bookshop, now done): at Tine's counter the
   card has a button, Her own shelf; she says, out loud, "Take one down, then. You read it here,
@@ -1488,6 +1533,17 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The stones: no sound of their own yet but the ridge's step (step 2). The small text (filler
+  hieroglyphs, demotic, the decree's Greek) is texture, not legible, and aliases a little at
+  normal zoom; the rings and the Greek names read. The obelisk's shaft is drawn wider than true
+  so her letters fit beside her ring. Signs run in a plain line, not grouped in quadrats as cut;
+  Ptolemy's m is the gaming board alone (the real ring may put a ripple under it). The hand is
+  nearer a D and the reed an I in Alexander's name; the card only says the water. The chalk
+  isn't kept (leave and it's clean stone again). Answers are matched loosely (alex, aleks,
+  iskand…). On a phone only ~6.5 m of a face shows at once, so a ring is seen a few signs at a
+  time as you walk. Nothing on the page points at the ring but itself (it's 14 m from where you
+  come on).
 
 - Not for sale (bookshop step 5): the books are an HTML page over the shop, like her log and the
   postcard, not drawn by the pixel renderer. Only three books, in turn, the same every visit. The

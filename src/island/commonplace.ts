@@ -20,10 +20,11 @@ import type { Obscura } from './commonplace/obscura';
 import type { Page } from './commonplace/page';
 import type { Ridge } from './commonplace/ridge';
 import type { Shop } from './commonplace/shop';
+import type { Stone } from './commonplace/stone';
 import type { Postcard } from './commonplace/postcard';
 import type { Margins } from './commonplace/margins';
 import type { Commonplace as World, StationId } from './commonplace/world';
-import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, KEPT, TINE_KEPT, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './commonplace/words';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, KEPT, TINE_KEPT, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY, RING, RING_LABEL, STONES, PTOLEMY, PTOLEMY_DONE, CLEOPATRA, CLEOPATRA_DONE, ALEXANDER, alexanderSaid, READ, READ_ME, STONES_BACK, STONE_LABELS } from './commonplace/words';
 import { bellHeard, bellSaid } from './commonplace/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -65,7 +66,7 @@ export class CommonplaceRoom implements RoomInput {
   /** The page, past the withies going west (commonplace/page.ts), whether you're on it, and the iris between it and the flat. */
   private page?: Page;
   private onPage = false;
-  private crossing: 'page' | 'flat' | 'room' | 'ridge' | 'floor' | 'shop' | null = null;
+  private crossing: 'page' | 'flat' | 'room' | 'ridge' | 'floor' | 'shop' | 'stone' | null = null;
   /** Inside the hide (commonplace/obscura.ts), and whether the iris on the way is the dark rather than paper. */
   private room?: Obscura;
   private inRoom = false;
@@ -81,6 +82,9 @@ export class CommonplaceRoom implements RoomInput {
   private shop?: Shop;
   private inShop = false;
   private crossWarm = false;
+  /** Among the stones, through the ring on the page (commonplace/stone.ts). */
+  private stone?: Stone;
+  private atStone = false;
   private warm = new THREE.Color('#c9a46a');
   /** A number of your own, to walk next time the cloud opens. */
   private yours?: number;
@@ -148,6 +152,16 @@ export class CommonplaceRoom implements RoomInput {
     this.line.maxLength = LONGEST;
     this.writeForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      // (at the block in Luxor, your reading of its name)
+      if (this.atStone) {
+        if (!this.line.value.trim() || !this.stone) return;
+        this.stone.guess(this.line.value);
+        this.line.value = '';
+        this.line.blur();
+        // (said again, even if it's the same wrong card)
+        this.shownMore = '';
+        return;
+      }
       // (up on the baak, a number of your own: back through the cloud, and up on that)
       if (this.onRidge) {
         const n = Number(this.line.value.replace(/[\s,._']/g, ''));
@@ -178,8 +192,8 @@ export class CommonplaceRoom implements RoomInput {
       e.stopPropagation();
       // (the one button: sit on the bench, heave the lead, row, or climb her ladder; in the hide, the slide or out)
       if (this.onRidge) return void (this.ridge?.comeDown(), this.sitButton.blur());
-      if (this.onFloor) return;
-      if (this.onPage) return void (this.page?.card === 'door' && !this.crossing && this.page.goIn(), this.sitButton.blur());
+      if (this.onFloor || this.atStone) return;
+      if (this.onPage) return void (this.page?.card === 'door' && !this.crossing ? this.page.goIn() : this.page?.card === 'ring' && !this.crossing && this.page.readRing(), this.sitButton.blur());
       if (this.inShop) {
         // (at the counter, ask her for one off her own shelf; asked, take one down)
         if (this.shop?.card === 'tine') this.shop.askKept();
@@ -210,8 +224,8 @@ export class CommonplaceRoom implements RoomInput {
     // walking with the keys (and any key gets you up off the bench)
     window.addEventListener('keydown', (e) => {
       if (!this.inside || !this.world || this.log?.open || this.postcard?.open || this.margins?.open || (e.target as HTMLElement).closest('input, textarea, button')) return;
-      if (this.onPage || this.inRoom || this.onRidge || this.onFloor || this.inShop) {
-        if ((this.onPage ? this.page : this.inShop ? this.shop : this.onRidge ? this.ridge : this.onFloor ? this.floor : this.room)?.key(e.code, true)) e.preventDefault();
+      if (this.onPage || this.inRoom || this.onRidge || this.onFloor || this.inShop || this.atStone) {
+        if ((this.onPage ? this.page : this.atStone ? this.stone : this.inShop ? this.shop : this.onRidge ? this.ridge : this.onFloor ? this.floor : this.room)?.key(e.code, true)) e.preventDefault();
         return;
       }
       if (this.world.sitting && e.key !== 'Escape') {
@@ -221,8 +235,8 @@ export class CommonplaceRoom implements RoomInput {
       }
       if (this.world.key(e.code, true)) e.preventDefault();
     });
-    window.addEventListener('keyup', (e) => (this.world?.key(e.code, false), this.page?.key(e.code, false), this.room?.key(e.code, false), this.ridge?.key(e.code, false), this.floor?.key(e.code, false), this.shop?.key(e.code, false)));
-    window.addEventListener('blur', () => (this.world?.releaseKeys(), this.page?.releaseKeys(), this.room?.releaseKeys(), this.ridge?.releaseKeys(), this.floor?.releaseKeys(), this.shop?.releaseKeys()));
+    window.addEventListener('keyup', (e) => (this.world?.key(e.code, false), this.page?.key(e.code, false), this.room?.key(e.code, false), this.ridge?.key(e.code, false), this.floor?.key(e.code, false), this.shop?.key(e.code, false), this.stone?.key(e.code, false)));
+    window.addEventListener('blur', () => (this.world?.releaseKeys(), this.page?.releaseKeys(), this.room?.releaseKeys(), this.ridge?.releaseKeys(), this.floor?.releaseKeys(), this.shop?.releaseKeys(), this.stone?.releaseKeys()));
   }
 
   /** Whether the pointer should drive the flat rather than the island. */
@@ -231,8 +245,10 @@ export class CommonplaceRoom implements RoomInput {
   }
 
   load() {
-    this.loading ??= Promise.all([import('./commonplace/world'), import('./commonplace/log'), import('./commonplace/postcard'), import('./commonplace/page'), import('./commonplace/obscura'), import('./commonplace/ridge'), import('./commonplace/floor'), import('./commonplace/shop'), import('./commonplace/margins')])
-      .then(([{ Commonplace }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }, { Shop }, { Margins }]) => {
+    this.loading ??= Promise.all([import('./commonplace/world'), import('./commonplace/log'), import('./commonplace/postcard'), import('./commonplace/page'), import('./commonplace/obscura'), import('./commonplace/ridge'), import('./commonplace/floor'), import('./commonplace/shop'), import('./commonplace/margins'), import('./commonplace/stone')])
+      .then(([{ Commonplace }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }, { Shop }, { Margins }, { Stone }]) => {
+        this.stone = new Stone(() => this.pixels.height);
+        this.stone.onStep = () => this.ctx.sound.ridgeStep();
         this.shop = new Shop(() => this.pixels.height);
         this.shop.onStep = () => this.ctx.sound.deckStep();
         this.shop.onBell = (side) => this.ctx.sound.shopBell(side);
@@ -284,7 +300,7 @@ export class CommonplaceRoom implements RoomInput {
           shipBell: (near, pan) => this.ctx.sound.shipBell(near, pan),
         };
         this.world = world;
-        if (import.meta.env.DEV) Object.assign(window, { commonplace: world, commonplacePage: this.page, commonplaceRoom: this.room, commonplaceRidge: this.ridge, commonplaceFloor: this.floor, commonplaceShop: this.shop, commonplaceSound: this.ctx.sound });
+        if (import.meta.env.DEV) Object.assign(window, { commonplace: world, commonplacePage: this.page, commonplaceRoom: this.room, commonplaceRidge: this.ridge, commonplaceFloor: this.floor, commonplaceShop: this.shop, commonplaceStone: this.stone, commonplaceSound: this.ctx.sound });
         this.resize();
         return world;
       })
@@ -312,10 +328,12 @@ export class CommonplaceRoom implements RoomInput {
     this.ridge?.resize(this.host.clientWidth, this.host.clientHeight);
     this.floor?.resize(this.host.clientWidth, this.host.clientHeight);
     this.shop?.resize(this.host.clientWidth, this.host.clientHeight);
+    this.stone?.resize(this.host.clientWidth, this.host.clientHeight);
   }
 
   zoom(factor: number) {
     if (this.onPage) this.page?.zoom(factor);
+    else if (this.atStone) this.stone?.zoom(factor);
     else if (this.inShop) this.shop?.zoom(factor);
     else if (this.onRidge) this.ridge?.zoom(factor);
     else if (this.onFloor) this.floor?.zoom(factor);
@@ -325,6 +343,7 @@ export class CommonplaceRoom implements RoomInput {
 
   pan(dx: number, dy: number) {
     if (this.onPage) this.page?.drag(dx, dy, this.host.clientHeight);
+    else if (this.atStone) this.stone?.drag(dx, dy, this.host.clientHeight);
     else if (this.onRidge) this.ridge?.drag(dx, dy, this.host.clientHeight);
     else if (this.onFloor) this.floor?.drag(dx, dy, this.host.clientHeight);
     else if (this.inRoom || this.inShop) return;
@@ -336,7 +355,13 @@ export class CommonplaceRoom implements RoomInput {
     if (this.onPage) {
       const at = ndc && this.page?.pick(ndc);
       canvas.style.cursor = at ? 'pointer' : '';
-      this.ui.tooltip(at === 'door' ? DOOR_LABEL : at ? LABELS.page : null, client.x, client.y);
+      this.ui.tooltip(at === 'door' ? DOOR_LABEL : at === 'ring' ? RING_LABEL : at ? LABELS.page : null, client.x, client.y);
+      return;
+    }
+    if (this.atStone) {
+      const at = ndc && this.stone?.pick(ndc);
+      canvas.style.cursor = at ? 'pointer' : '';
+      this.ui.tooltip(at ? STONE_LABELS[at] : null, client.x, client.y);
       return;
     }
     if (this.inShop) {
@@ -379,9 +404,9 @@ export class CommonplaceRoom implements RoomInput {
     }
     // (a click off Tine's book puts it back)
     if (this.inShop && this.margins?.open) return this.margins.show(false);
-    if (this.inRoom || this.onRidge || this.onFloor || this.inShop) {
+    if (this.inRoom || this.onRidge || this.onFloor || this.inShop || this.atStone) {
       if (this.small.matches && !this.card.hidden) this.fold(true);
-      return void (this.crossing || (this.onRidge ? this.ridge : this.onFloor ? this.floor : this.inShop ? this.shop : this.room)?.click(ndc), this.ui.tooltip(null));
+      return void (this.crossing || (this.atStone ? this.stone : this.onRidge ? this.ridge : this.onFloor ? this.floor : this.inShop ? this.shop : this.room)?.click(ndc), this.ui.tooltip(null));
     }
     if (world.sitting) return world.stand();
     // (on a phone, walking on folds the card out of the way)
@@ -419,6 +444,7 @@ export class CommonplaceRoom implements RoomInput {
     try {
       if (this.onPage && this.page) this.runPage(this.page, dt);
       else if (this.inShop && this.shop) this.runShop(this.shop, dt);
+      else if (this.atStone && this.stone) this.runStone(this.stone, dt);
       else if (this.onRidge && this.ridge) this.runRidge(this.ridge, dt);
       else if (this.onFloor && this.floor) this.runFloor(this.floor, dt);
       else if (this.inRoom && this.room) this.runRoom(world, this.room, dt);
@@ -509,6 +535,56 @@ export class CommonplaceRoom implements RoomInput {
     if (page.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = false), (this.crossMist = false), (this.crossWarm = false);
     // (and in at the door, through its warm light)
     if (page.entering && !this.crossing) (this.crossing = 'shop'), (this.crossDark = false), (this.crossMist = false), (this.crossWarm = true);
+    // (and in by the ring, through the dark)
+    if (page.toStones && !this.crossing) (this.crossing = 'stone'), (this.crossDark = true), (this.crossMist = false), (this.crossWarm = false);
+  }
+
+  /** Among the stones: dark, a low light from the west, nothing to hear but your steps. */
+  private runStone(stone: Stone, dt: number) {
+    stone.update(dt);
+    const u = this.pixels.uniforms;
+    (u.uGrade.value as THREE.Vector3).set(1.0, 1.0, 1.0);
+    u.uShade.value.setRGB(0.9, 0.88, 0.98);
+    u.uLight.value.setRGB(1.04, 1.0, 0.94);
+    u.uTone.value = 0.4;
+    u.uVignette.value = 0.5;
+    u.uHeat.value = 0;
+    this.ctx.sound.commonplace(true, 0, 'page');
+    this.showStoneCard(stone);
+    if (stone.leaving && !this.crossing) (this.crossing = 'page'), (this.crossDark = false), (this.crossMist = false), (this.crossWarm = false);
+  }
+
+  private showStoneCard(stone: Stone) {
+    const id = stone.card;
+    const key = id && `stone:${id}`;
+    const more =
+      id === 'ptolemy' && stone.done('ptolemy') ? PTOLEMY_DONE
+      : id === 'cleopatra' && stone.done('cleopatra') ? CLEOPATRA_DONE
+      : id === 'alexander' ? alexanderSaid(stone.spelled, stone.unknown, stone.wrong)
+      : id === 'read' ? READ_ME
+      : '';
+    if (key === this.shown && more === this.shownMore && !this.shownButton) return;
+    // (under the block's ring, the card's line takes your reading of it)
+    const asks = id === 'alexander';
+    this.writeForm.hidden = !asks;
+    this.choices.hidden = true;
+    if (asks) this.lineFor('name');
+    if (key !== this.shown) {
+      this.card.hidden = !id;
+      if (id) {
+        this.text.textContent = id === 'ptolemy' ? PTOLEMY : id === 'cleopatra' ? CLEOPATRA : id === 'alexander' ? ALEXANDER : id === 'read' ? READ : id === 'back' ? STONES_BACK : STONES;
+        this.fold(this.keepFolded && this.small.matches);
+        this.card.style.animation = 'none';
+        void this.card.offsetWidth;
+        this.card.style.animation = '';
+      }
+    }
+    this.more.hidden = !more;
+    if (more) this.more.textContent = more;
+    this.sitButton.hidden = true;
+    this.shownButton = '';
+    this.shown = key;
+    this.shownMore = more;
   }
 
   /** In the bookshop: the island's own hour and weather at its window, warm light, no water to hear. */
@@ -704,25 +780,38 @@ export class CommonplaceRoom implements RoomInput {
     this.shownMore = '';
   }
 
-  /** The card's one line: words in the sand on the flat, or up on the baak, a number. */
-  private lineFor(what: 'sand' | 'number') {
+  /** The card's one line: words in the sand on the flat, up on the baak a number, or at the block in Luxor a name. */
+  private lineFor(what: 'sand' | 'number' | 'name') {
     const line = this.line;
     if (line.dataset.for === what) return;
     line.dataset.for = what;
     const number = what === 'number';
-    line.placeholder = number ? 'A number' : 'One line';
-    line.setAttribute('aria-label', number ? 'A number of your own' : 'Write in the sand');
+    const name = what === 'name';
+    line.placeholder = number ? 'A number' : name ? 'Who is it?' : 'One line';
+    line.setAttribute('aria-label', number ? 'A number of your own' : name ? 'The name in the ring' : 'Write in the sand');
     line.inputMode = number ? 'numeric' : 'text';
-    line.maxLength = number ? 10 : LONGEST;
+    line.maxLength = number ? 10 : name ? 24 : LONGEST;
     line.value = '';
-    this.writeForm.querySelector('button')!.textContent = number ? 'Walk it' : 'Write';
+    this.writeForm.querySelector('button')!.textContent = number ? 'Walk it' : name ? 'Read it' : 'Write';
   }
 
   /** The iris is shut: onto the page, or back onto the flat at the end of the withies. */
   private crossOver() {
     const to = this.crossing;
     this.crossing = null;
-    if (to === 'page' && this.page && this.inShop) {
+    if (to === 'page' && this.page && this.atStone) {
+      // (back off the stones: onto the page, stood on the ring, the page as you left it)
+      this.stone?.releaseKeys();
+      this.atStone = false;
+      this.page.fromStones();
+      this.onPage = true;
+    } else if (to === 'stone' && this.stone) {
+      this.page?.releaseKeys();
+      if (this.page) this.page.toStones = false;
+      this.stone.arrive();
+      this.onPage = false;
+      this.atStone = true;
+    } else if (to === 'page' && this.page && this.inShop) {
       // (back out of the shop's street door: onto the page in front of its door, the page as you left it)
       this.shop?.releaseKeys();
       this.ctx.sound.tine(null);
@@ -778,14 +867,14 @@ export class CommonplaceRoom implements RoomInput {
     // (the sentence you walked is its own card, so a new sentence is a new card)
     const key = id && (id === 'said' ? `page:said:${page.forks.sentence}` : `page:${id}`);
     const more = id === 'page' && page.far ? PAGE_FAR : id === 'said' ? (page.forks.done ? END : SAID) : '';
-    const button = id === 'door' && !page.entering ? 'Go in' : '';
+    const button = id === 'door' && !page.entering ? 'Go in' : id === 'ring' && !page.toStones ? 'Read it' : '';
     if (key === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = true;
     this.choices.hidden = true;
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = id === 'page' ? CARDS.page : id === 'forks' ? FORKS : id === 'lean' ? LEAN : id === 'past' ? PAST : id === 'said' ? page.forks.sentence : id === 'door' ? DOOR : PAGE_BACK;
+        this.text.textContent = id === 'page' ? CARDS.page : id === 'forks' ? FORKS : id === 'lean' ? LEAN : id === 'past' ? PAST : id === 'said' ? page.forks.sentence : id === 'door' ? DOOR : id === 'ring' ? RING : PAGE_BACK;
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
@@ -888,7 +977,7 @@ export class CommonplaceRoom implements RoomInput {
   render() {
     // (in the hide, the flat first, into the picture its hole makes)
     if (this.inRoom && this.room && this.world) this.world.picture(this.pixels.renderer, this.room.target, this.room.night);
-    const world = this.onPage && this.page ? this.page : this.inShop && this.shop ? this.shop : this.onRidge && this.ridge ? this.ridge : this.onFloor && this.floor ? this.floor : this.inRoom && this.room ? this.room : this.world!;
+    const world = this.onPage && this.page ? this.page : this.atStone && this.stone ? this.stone : this.inShop && this.shop ? this.shop : this.onRidge && this.ridge ? this.ridge : this.onFloor && this.floor ? this.floor : this.inRoom && this.room ? this.room : this.world!;
     this.pixels.render(world.scene, world.camera, world.subTexel);
   }
 
@@ -904,8 +993,10 @@ export class CommonplaceRoom implements RoomInput {
       if (this.inRoom || this.crossing === 'room') this.world?.fromHide();
       else if (this.onRidge || this.crossing === 'ridge') this.world?.fromBaak();
       else if (this.onFloor || this.crossing === 'floor') this.world?.fromFloor();
-      else if (this.onPage || this.inShop || this.crossing) this.world?.fromWest();
+      else if (this.onPage || this.inShop || this.atStone || this.crossing) this.world?.fromWest();
       this.onPage = false;
+      this.atStone = false;
+      this.stone?.releaseKeys();
       this.inShop = false;
       this.shop?.releaseKeys();
       this.crossWarm = false;

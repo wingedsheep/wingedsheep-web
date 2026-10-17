@@ -337,3 +337,26 @@ export const SHOP_CLOCK = 'The shop’s clock, keeping the island’s time. In h
 /** Someone's come in after a book they half remember (customer.ts), and asked at the counter. */
 export const YOUR_TURN = 'Tine doesn’t look up. She seems to think this one’s yours. The shelves are at the back.';
 export const SHOP_LABELS = { tine: 'Tine', kept: 'Not for sale', shelves: 'Fiction, A–Z', window: 'The window', door: 'The street door', clock: 'The clock' };
+
+/** On the page, a name in its ring, drawn in ink (page.ts), and the way in to the stones (stone.ts). */
+export const RING = 'A name in a ring, copied off a stone onto the page. For fourteen hundred years nobody alive could read one.';
+export const RING_LABEL = 'A name in a ring';
+/** The stones: coming in, and stood still anywhere. */
+export const STONES = 'Three stones that never stand together: a slab from Rashid, in London now; an obelisk from Philae, in a garden in Dorset; a block of a wall in Luxor, still there. I’ve put them side by side, the way you’d copy passages into a notebook. The light’s low on purpose: you read a cut by its shadow.';
+/** Under Ptolemy's ring on the slab, and once you've walked all of it. */
+export const PTOLEMY = 'Under this ring, in Greek: Ptolemaios, living for ever. Wherever the Greek names him, the Egyptian has this ring. So if its signs are sounds, they’re his. Walk under them.';
+export const PTOLEMY_DONE = 'In London they filled these letters with white chalk so visitors could read them, and left it in for most of two hundred years.';
+/** At the obelisk's foot, and once its ring's all chalked. */
+export const CLEOPATRA = 'The base says Kleopatra, in Greek. Her ring has his stool, his cord and his lion, each just where her name wants a P, an O and an L. So they are sounds. That was 1822.';
+export const CLEOPATRA_DONE = 'His T was a loaf; hers is a hand. Two signs for one sound, and Champollion took it as spelling, which is untidy everywhere. The loaf and the egg at the foot only say she’s a woman.';
+/** Under the block's ring: no Greek, and the name's yours to read. */
+export const ALEXANDER = 'No Greek on this one. Nobody is going to tell you who it is.';
+export function alexanderSaid(spelled: string, unknown: number, wrong: number) {
+  const tip = unknown > 1 ? 'The other two stones know more of these.' : 'One sign you’ve never seen. Say the rest out loud.';
+  return `${wrong ? 'Not that one. ' : ''}${spelled}. ${tip}`;
+}
+export const READ = 'Alexander. Nobody told you that: you read it. The water is an N.';
+export const READ_ME = 'Nobody told me what a word meant, either. I saw which ones kept turning up together, millions of times over, and somewhere in that it became reading.';
+/** At the west end, the page you came in on. */
+export const STONES_BACK = 'The page you came in on. Step onto it and the stones go.';
+export const STONE_LABELS = { slab: 'The slab from Rashid', obelisk: 'The obelisk from Philae', block: 'A block from Luxor', back: 'The page' };

@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { toon } from '../scene/toon';
 import { makeFigure, type Figure } from './figure';
 import { Forks } from './forks';
+import SIGNS from './signs.json';
 
 export const PAPER = new THREE.Color('#e4ddc8');
 const FIBRE = new THREE.Color('#d8d0b9');
@@ -24,6 +25,10 @@ const WARM_PALE = new THREE.Color('#efd09a');
 const DOOR = new THREE.Vector3(-22, 0, -17);
 const AT_DOOR = new THREE.Vector3(-20.8, 0, -15.3);
 const NEAR_DOOR = 3;
+/** A name in its ring, drawn in ink flat on the page (copied from a stone), and where you stand at it. */
+const RING = new THREE.Vector3(-13, 0, 11);
+const AT_RING = new THREE.Vector3(-13, 0, 9.4);
+const NEAR_RING = 2.6;
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
 const DISTANCE = 100;
@@ -41,7 +46,7 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type PageCard = 'page' | 'back' | 'forks' | 'said' | 'lean' | 'past' | 'door';
+export type PageCard = 'page' | 'back' | 'forks' | 'said' | 'lean' | 'past' | 'door' | 'ring';
 
 export class Page {
   readonly scene = new THREE.Scene();
@@ -55,6 +60,10 @@ export class Page {
   entering = false;
   /** Just come out of the door: its card waits till you've been a little way off it. */
   private outOfDoor = false;
+  /** Gone in by the ring: time for the stones. */
+  toStones = false;
+  /** Just come back out by it: its card waits likewise. */
+  private outOfRing = false;
   /** Each footprint, for the sound. */
   onStep?: () => void;
   private you: Figure;
@@ -106,6 +115,7 @@ export class Page {
     this.scene.add(this.prints);
     this.makeWithies(ink);
     this.makeDoor(ink);
+    this.makeRing();
     this.scene.add(this.forks.group);
     this.resize(innerWidth, innerHeight);
   }
@@ -223,6 +233,76 @@ export class Page {
     this.pickables.push(door);
   }
 
+  /**
+   * A name in a ring, drawn in ink flat on the paper, as someone copying it out would: Ptolemy's, off
+   * the stone from Rashid. (Drawn deep, so it isn't squashed by the slant you see the page at.)
+   */
+  private makeRing() {
+    const signs: (keyof typeof SIGNS)[] = ['stool', 'bread', 'lasso', 'lion', 'board', 'reeds', 'cloth'];
+    const S = 2;
+    const sizes = signs.map((g) => ({ w: Math.max(...SIGNS[g].map((r) => r.length)), h: SIGNS[g].length }));
+    const span = sizes.reduce((a, z) => a + z.w * S, 0) + (signs.length - 1) * 6;
+    const tall = Math.max(...sizes.map((z) => z.h)) * S;
+    const W = span + 34;
+    const H = tall + 24;
+    const canvas = document.createElement('canvas');
+    canvas.width = W + 8;
+    canvas.height = H;
+    const c = canvas.getContext('2d')!;
+    c.fillStyle = '#2a2b47';
+    const dot = (x: number, y: number) => c.fillRect(x, y, 1, 1);
+    // the ring: a stadium, two pixels of ink, and its bar at the end
+    const r = (H - 4) / 2;
+    for (let j = 0; j < H - 4; j++)
+      for (let i = 0; i < W - 4; i++) {
+        const d = Math.hypot(i + 0.5 - Math.min(Math.max(i, r), W - 4 - r), j + 0.5 - r);
+        if (d <= r && d > r - 2) dot(i + 2, j + 2);
+      }
+    c.fillRect(W, 0, 2, H);
+    let x = 17;
+    signs.forEach((g, k) => {
+      const { w, h } = sizes[k];
+      const y = 12 + (h <= 6 ? Math.floor((tall - h * S) / 2) : tall - h * S);
+      SIGNS[g].forEach((row, j) => {
+        for (let i = 0; i < row.length; i++) if (row[i] === '#') c.fillRect(x + i * S, y + j * S, S, S);
+      });
+      x += w * S + 6;
+    });
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    const metres = 3.4;
+    const deep = (metres * canvas.height) / canvas.width / Math.sin(ELEVATION);
+    const ring = new THREE.Mesh(new THREE.PlaneGeometry(metres, deep).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5 }));
+    ring.position.copy(RING).setY(0.006);
+    ring.renderOrder = 1;
+    ring.userData.id = 'ring';
+    this.scene.add(ring);
+    this.pickables.push(ring);
+  }
+
+  /** In by the ring: walk onto it, and the stones. */
+  readRing() {
+    this.toStones = true;
+    this.goal = RING.clone();
+  }
+
+  /** Back from the stones: stood on the ring, walking off it towards you. */
+  fromStones() {
+    this.toStones = false;
+    this.leaving = false;
+    this.clicked = false;
+    this.outOfRing = true;
+    this.keys.clear();
+    this.pan.set(0, 0);
+    this.stillFor = 0;
+    this.pos.copy(RING);
+    this.heading = 0;
+    this.speed = PACE * 0.5;
+    this.goal = AT_RING.clone().setZ(RING.z + 2.4);
+    this.frame(0);
+  }
+
   /** In at the door. */
   goIn() {
     this.entering = true;
@@ -259,6 +339,8 @@ export class Page {
     this.leaving = false;
     this.entering = false;
     this.outOfDoor = false;
+    this.toStones = false;
+    this.outOfRing = false;
     this.keys.clear();
     this.pan.set(0, 0);
     this.pos.set(WITHIES[0] - 1.4, 0, 0);
@@ -280,11 +362,11 @@ export class Page {
     this.keys.clear();
   }
 
-  pick(ndc: THREE.Vector2): 'back' | 'door' | null {
+  pick(ndc: THREE.Vector2): 'back' | 'door' | 'ring' | null {
     this.ray.setFromCamera(ndc, this.camera);
     let o: THREE.Object3D | null = this.ray.intersectObjects(this.pickables, true)[0]?.object ?? null;
     while (o && !o.userData.id) o = o.parent;
-    return (o?.userData.id as 'back' | 'door' | undefined) ?? null;
+    return (o?.userData.id as 'back' | 'door' | 'ring' | undefined) ?? null;
   }
 
   /** A click: walk there; on the withies, back along them to the flat; on the door, up to it. */
@@ -293,6 +375,11 @@ export class Page {
     if (at === 'door') {
       this.outOfDoor = false;
       this.goal = AT_DOOR.clone();
+      return;
+    }
+    if (at === 'ring') {
+      this.outOfRing = false;
+      this.goal = AT_RING.clone();
       return;
     }
     if (at) {
@@ -337,9 +424,12 @@ export class Page {
     const near = forks.distance(this.pos);
     const door = this.pos.distanceTo(AT_DOOR);
     if (door > NEAR_DOOR + 0.5) this.outOfDoor = false;
+    const ring = this.pos.distanceTo(AT_RING);
+    if (ring > NEAR_RING + 0.5) this.outOfRing = false;
     this.card =
       back || this.clicked ? 'back'
       : door < NEAR_DOOR && !this.outOfDoor && this.pos.z > DOOR.z ? 'door'
+      : ring < NEAR_RING && !this.outOfRing ? 'ring'
       : forks.past ? 'past'
       : forks.first && !forks.second && near < 9 ? 'said'
       : forks.done && near < 9 ? 'said'

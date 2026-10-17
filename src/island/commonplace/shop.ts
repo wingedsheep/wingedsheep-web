@@ -476,9 +476,9 @@ export class Shop {
     c.fillStyle = '#d6a842';
     c.textAlign = 'center';
     c.font = 'bold 15px Georgia, serif';
-    c.fillText('ANTIQUARIAAT', 80, 13);
+    c.fillText('DOG-EAR', 80, 13);
     c.font = 'bold 11px Georgia, serif';
-    c.fillText('DE EZELSOOR', 80, 26);
+    c.fillText('BOOKS', 80, 26);
     const tex = new THREE.CanvasTexture(canvas);
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.NearestFilter;
