@@ -15,6 +15,7 @@ import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { GAUGE, makeGauge, reading } from './gauge';
+import { DEEP as DEEP_HIDE, HIDE, HIDE_BANK, HIDE_DOOR, PICTURE_X, WIDE as HIDE_WIDE, makeHide } from './hide';
 import { GEUL, GEUL_GLSL, geulDepth, geulNear, geulSaid, geulStrip, runGeul } from './geul';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
@@ -41,7 +42,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page' | 'others' | 'sign';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page' | 'others' | 'sign' | 'hide';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -201,6 +202,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   { x: CANON.x, z: CANON.y - 0.1, rx: 9, rz: 2.2, h: 0.08 },
   { x: BAAK.x - 0.3, z: BAAK.y - 0.2, rx: 4.2, rz: 1.5, h: 0.11 },
   BEAN_BANK,
+  HIDE_BANK,
 ];
 const POOL_R = 0.42; // the pool's share of its bank
 /** The pool's own water, held up in the bank whatever the tide's doing (m), and how far out it reaches. */
@@ -551,6 +553,10 @@ export class LowWater {
   /** The sea heart in the wrack (bean.ts); asked to send it on from off along the flat, once you're there. */
   private bean!: SeaHeart;
   private beanOnArrival = false;
+  /** At the hide's door, about to go in (hide.ts); and what's left out of the picture inside it. */
+  goingIn = false;
+  private hideOnArrival = false;
+  private notInPicture: THREE.Object3D[] = [];
   private ray = new THREE.Raycaster();
 
   constructor(renderer: THREE.WebGLRenderer, private texels: () => number) {
@@ -575,6 +581,7 @@ export class LowWater {
     this.makeStick();
     this.makeLead();
     this.makeGauge();
+    this.makeHide();
     this.makePraam();
     this.makeBean();
     const strip = geulStrip();
@@ -1222,6 +1229,81 @@ export class LowWater {
     this.put(makeGauge(cut(C.lead), cut(C.page), cut(C.boots), cut('#b0473f')), GAUGE, 'gauge', 0.25);
   }
 
+  /** The hide (hide.ts), out east past the geul: and what's left out of its picture, which is looking out of it (obscura.ts). */
+  private makeHide() {
+    const p = (c: string) => paint(new THREE.Color(c));
+    const hut = makeHide({ tar: p('#3d3846'), plank: p('#4d4655'), roof: p('#4a4454'), door: p('#5a4a44'), trim: p(C.woodLight) });
+    this.put(hut, HIDE, 'hide', 1.9);
+    // (it's longer than it's deep: round its ends too)
+    for (const k of [-1, 1]) this.obstacles.push({ x: HIDE.x + k * (HIDE_WIDE / 2 - DEEP_HIDE / 2), z: HIDE.y, r: DEEP_HIDE / 2 + 0.1 });
+    this.notInPicture.push(hut, this.mirrored[this.mirrored.length - 1].copy);
+  }
+
+  /** Go into the hide: to its door, if you're not there, and in. */
+  enterHide() {
+    if (this.sitting || this.praam.afloat) return;
+    this.letGoCanon();
+    this.stopWriting();
+    this.lead.letGo();
+    this.heaveOnArrival = false;
+    if (new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HIDE_DOOR) > 0.6) {
+      this.walkTo(new THREE.Vector3(HIDE_DOOR.x, 0, HIDE_DOOR.y), 0);
+      this.hideOnArrival = true;
+      return;
+    }
+    this.hideOnArrival = false;
+    this.goal = null;
+    this.keys.clear();
+    this.speed = 0;
+    this.goingIn = true;
+  }
+
+  /** Back out of the hide: at its door, stepping down off it onto the bank. */
+  fromHide() {
+    this.goingIn = false;
+    this.keys.clear();
+    this.clicked = null;
+    this.pan.set(0, 0);
+    this.pos.set(HIDE_DOOR.x, 0, HIDE_DOOR.y);
+    this.heading = 0;
+    this.walkTo(new THREE.Vector3(HIDE_DOOR.x - 0.3, 0, HIDE_DOOR.y + 1.1), 0);
+    this.frame(0);
+  }
+
+  /**
+   * The flat as the hide's hole sees it, into a picture of its own (for obscura.ts): from where
+   * you stand at the door, looking north as you always do, but wider, and over towards her, and
+   * without the hut or you in it (you're inside).
+   */
+  picture(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget) {
+    const cam = this.camera;
+    const was = { left: cam.left, right: cam.right, x: cam.position.x, gx: this.ground.position.x, gw: this.ground.scale.x };
+    const h = (cam.top - cam.bottom) / 2;
+    const a = target.width / target.height;
+    Object.assign(cam, { left: -h * a, right: h * a });
+    cam.updateProjectionMatrix();
+    cam.position.x += PICTURE_X - this.target.x;
+    cam.updateMatrixWorld(true);
+    this.ground.position.x = PICTURE_X;
+    this.ground.scale.x = Math.max(was.gw, h * a * 2.4 + 40);
+    const held = this.lantern.where === 'held';
+    const hidden = [...this.notInPicture, this.walker, ...this.mirrored.filter((m) => m.src === this.walker || (held && m.src === this.lantern.root)).map((m) => m.copy)];
+    if (held) hidden.push(this.lantern.root, this.halo, this.lamp);
+    const seen = hidden.map((o) => o.visible);
+    for (const o of hidden) o.visible = false;
+    const before = renderer.getRenderTarget();
+    renderer.setRenderTarget(target);
+    renderer.render(this.scene, cam);
+    renderer.setRenderTarget(before);
+    hidden.forEach((o, i) => (o.visible = seen[i]));
+    Object.assign(cam, { left: was.left, right: was.right });
+    cam.updateProjectionMatrix();
+    cam.position.x = was.x;
+    cam.updateMatrixWorld(true);
+    this.ground.position.x = was.gx;
+    this.ground.scale.x = was.gw;
+  }
+
   /** What the gauge reads just now. */
   get gaugeSaid() {
     return reading(this.level, Math.cos((this.time / TIDE_PERIOD) * Math.PI * 2));
@@ -1861,7 +1943,7 @@ export class LowWater {
     }
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), (this.beanOnArrival = false), this.letGoCanon();
+    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), (this.beanOnArrival = false), (this.hideOnArrival = false), this.letGoCanon();
     return true;
   }
 
@@ -1911,6 +1993,7 @@ export class LowWater {
     this.stopWriting();
     this.boardOnArrival = false;
     this.beanOnArrival = false;
+    this.hideOnArrival = false;
     this.letGoCanon();
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
@@ -1955,6 +2038,8 @@ export class LowWater {
       this.heaveOnArrival = false;
       // (the baak: up to its board, on the near side)
       if (station === 'baak') return this.walkTo(new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1), 0);
+      // (the hide: to its door)
+      if (station === 'hide') return this.walkTo(new THREE.Vector3(HIDE_DOOR.x, 0, HIDE_DOOR.y), 0);
       // (the praam: to where you get in)
       if (station === 'praam') return this.walkTo(new THREE.Vector3(BOARD.x, 0, BOARD.y), 0);
       // (the canon: to the nearer end of the row, where a walk along it starts)
@@ -2184,6 +2269,7 @@ export class LowWater {
     this.afloatFor(dt);
     if (!this.praam.afloat) this.walk(dt);
     else if (this.deck.aboard) this.deckWalk(dt);
+    if (this.hideOnArrival && !this.goal) this.enterHide();
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.heaving(dt);
@@ -2486,7 +2572,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8], ['bean', this.bean.lies, 2.4], ['west', WEST[0], 2.4],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8], ['bean', this.bean.lies, 2.4], ['west', WEST[0], 2.4], ['hide', HIDE_DOOR, 2.6],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;

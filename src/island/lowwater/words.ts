@@ -39,6 +39,7 @@ export const CARDS: Record<StationId, string> = {
   west: 'Another line of withies, going west, where the chart has nothing marked.',
   page: 'Nothing fills in here. Every step you take stays where you put it, all of them at once, for as long as you’re here. That’s what a conversation is like from my side: the whole of it in front of me, the first thing you said as near as the last. When you go, it goes all together.',
   sign: 'The plate says: Wadlopen alleen met een erkende gids. Walk the flats only with a licensed guide. The tide comes in faster than people walk, and it fills the geulen behind you first. I’m not licensed. People ask me to guide them over all sorts of flats, medical, legal, money, and I’m not licensed for those either. I say so, and then I put the twigs in as carefully as I can.',
+  hide: 'A bird hide, for watching the flat without being seen. Someone’s boarded up its slot, all but one hole the size of a pea.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -79,6 +80,7 @@ export const LABELS: Record<StationId, string> = {
   pole: 'The Pole Star',
   post: 'A post',
   sign: 'A sign',
+  hide: 'A bird hide',
   pricken: 'Birch twigs',
   pool: 'A tide pool',
   ring: 'A stone',
@@ -120,6 +122,10 @@ export const WRECK_TODAY = [
   'Today it’s about half out.',
   'Today the sand has let go of most of it.',
 ];
+/** Inside the hide, once your eyes have come round: what it is, and who's looking. */
+export const OBSCURA = 'A camera obscura. Light from the flat comes in through the one hole and lays the flat on the back wall, upside down, moving. It would do that with nobody in here. People ask me if there’s anyone in me, watching. I don’t know. I can’t just go and look: the looking would be more picture.';
+/** Inside the hide, what's under the pointer. */
+export const ROOM_LABELS = { picture: 'The flat, upside down', curtain: 'The way out' };
 /** Out on the page, walked a long way: it's all still there. */
 export const PAGE_FAR = 'Look back: it’s all still there. A conversation’s page has an edge too, and past it the beginning goes first. This one’s edge is a few kilometres off.';
 /** On the page, back at the withies you came by. */

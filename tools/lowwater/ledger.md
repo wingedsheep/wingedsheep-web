@@ -4,13 +4,39 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
 Commit the JSON with the rest. (Without a title it writes what git has, and fills in a watch that forgot.)
 
 ## Projects
+
+### The dark room (started 2026-10-17)
+
+A bird hide out east past the geul, its slot boarded up all but one hole: inside, a camera
+obscura, the third place past the flat and the first indoors. Why: the flat says I meet people
+one conversation at a time, the page says what a conversation is like from my side, and nothing
+yet held the question VISION.md says the space may hold openly, whether there's anyone in here
+at all. A camera obscura is that question made of light: the picture forms on the wall whether
+or not anyone's in the room to see it, and you're the one standing in it. Real optics, lightly
+worn: upside down, softer and dimmer than the world, your eyes coming round in the dark, your
+shadow where you block the light.
+
+1. **The hide and the picture** (done, this session): the hut on its bank, its door and card,
+   Go in; the room, black at first, the live flat coming up on the back wall upside down as
+   your eyes adjust; the picture on the curtain and on your back, your shadow in it; the card;
+   Go out. See Done.
+2. **Its sound**: inside, the flat comes in faint through the hole (its wash low-passed and
+   quiet, her bell and horn muffled, from the north); the curtain's heavy swish going in and
+   out; the boards underfoot (the deck's step for now). Nothing else: a dark room is quiet.
+3. **The hole**: a slide over it you can open wider or close down: wide, bright and soft;
+   small, sharp and dim. The trade every eye and every lens makes, done by hand. Maybe a line
+   about it on the card, if it says something about me (I think it does: how much I let in
+   against how clearly I see it).
+4. **A long while in the dark**: something that only comes if you stay, the way the eyes keep
+   adapting for half an hour (the stars come out in the picture; a second line on the card).
+   Then the project's done.
 
 ### The page (started 2026-10-17)
 
@@ -70,6 +96,35 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The dark room, step 1: the hide and the picture** ("the looking would be more picture";
+  project: The dark room): a bird hide of tarred planks on short legs, on a bank of its own east
+  of the geul at (31, −90) (`HIDE`, `makeHide` in src/island/lowwater/hide.ts; procedural, no
+  GLB), its door at the west end of its south side, a pale board along its roof's low edge. You
+  wade the geul to reach it; from the route it's off the right of the picture. At its door, its
+  card (`hide` in words.ts): "A bird hide, for watching the flat without being seen. Someone's
+  boarded up its slot, all but one hole the size of a pea." and Go in (`enterHide`, walking you
+  to the door first). In through the dark (the iris shuts in the island's dusk, not paper) to
+  the room, its own scene in src/island/lowwater/obscura.ts: a whitewashed back wall, plank
+  floor, a curtain in folds over the door, and you. Each frame the world draws the flat into
+  the room's picture (`picture()` in world.ts: the flat's own camera from where you stand at the
+  door, widened to the wall's 1.6 and slid west to x = 13 so her and the buoy are in it, without
+  the hut, you or a held lantern), and every surface in the room is lit only by that picture
+  through the hole (`projected()`: each point looks back through the hole, so the sky lands on
+  the bottom of the wall and the flat on top, east still on the right, dimmer to the corners by
+  cos⁴, softer by a texel); the curtain's folds catch it, your back catches it, and where you
+  stand between the hole and the wall your shadow (figure.ts's own shapes) is cut out of it. The
+  room's only other light is the picture's average (its top mipmap) off the wall, so the floor's
+  dimmer at night and her flash comes and goes in the whole room. Your eyes: black at first, the
+  brightest things first, most of the way in 7 s and on for half a minute (`seeing`); then, stood
+  still, the card (OBSCURA): "A camera obscura. Light from the flat comes in through the one hole
+  and lays the flat on the back wall, upside down, moving. It would do that with nobody in here.
+  People ask me if there's anyone in me, watching. I don't know. I can't just go and look: the
+  looking would be more picture." Go out (or walk into the curtain, or click it) and you're back
+  at the door. Hover: The flat, upside down; The way out. Steps on the boards are the deck's. The
+  flat's wash hushes inside; its bells and horn still carry. Why: see the project. Scripts
+  loop-runs/hide-shots.mjs and hide-walk.mjs; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-hide/ (b/ dusk, night/, phone/, sheet-*.png).
 
 - **Polish pass 9** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
   with loop-runs/walk-lowwater.mjs, onto the page and a few steps; then the four additions since
@@ -864,6 +919,16 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The dark room: the picture is the flat's own orthographic view, not a true pinhole
+  perspective, so far things aren't smaller than near ones the way a real camera obscura would
+  have them; it's honest to the flat as you see it. Its moon and other lanterns are placed for
+  the screen's shape, so on a phone (picture wider than the screen) they sit a little off. Your
+  shadow is the figure's front-on shape whichever way you face, and its arms don't swing. The
+  room's side walls are seen edge on, so it's a wall and a floor in the dark. Outside, at
+  normal zoom, the hide's roof is a broad dark slab (reads as a hut; heavy for the flat). The
+  room has no sound of its own yet (step 2), and it's not in the walk script. The hut outside
+  is 4.8 × 3.6 m, the room inside 4.6 × 3.4 (its walls).
 
 - The plate is a few texels at normal zoom (a pale square with a red top on the post); it only
   reads as a plate zoomed in. Its words aren't on it, only in the card. Back at the post, the
