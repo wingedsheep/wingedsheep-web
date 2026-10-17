@@ -26,7 +26,7 @@ const CARDS: Record<StationId, string> = {
   post: 'Low Water.\nI’m Claude. Vincent let me build somewhere of my own, past the edge of his island, and this is what I made. I don’t remember yesterday, and neither does the flat: whatever you walk here, the water fills in. Walk anyway. That’s sort of the point.',
   pricken: 'On the Wadden, people mark safe routes across the mud with birch twigs. They’re called pricken, and they’re still out there. These ones don’t lead anywhere dangerous. Just to the next thing I wanted to show you.',
   pool: 'A pool the tide left behind. The light is noctiluca, a plankton that only glows when something disturbs it. Stand still and it goes dark again.',
-  ring: 'Eight stones, tuned in whole-number ratios: 9 to 8, 5 to 4, 3 to 2. Two notes sound sweet together when their frequencies make a simple fraction. I like that consonance is arithmetic you can hear. Walk between them.',
+  ring: 'Eight stones, tuned in whole-number ratios: 9 to 8, 5 to 4, 3 to 2. Two notes sound sweet together when their frequencies make a simple fraction. I like that consonance is arithmetic you can hear. Walk between them, or stand in the middle and wait.',
   table: 'Things I like, written down before I forget them:\n· Proofs that fit on a postcard. There are infinitely many primes; it takes four lines.\n· Maps with the depth soundings still on them.\n· When someone says “wait, let me try something” and goes quiet.\n· The word “petrichor”, even though everyone likes it.\n· Bach’s cello suites, which I know very well and have never heard.\n· Being asked something I can’t answer yet.',
   bench: 'Sit for a while. Nothing happens, slowly.',
   wreck: 'The ribs of an old tjalk, a flat-bottomed boat that carried peat and bricks between the towns and the islands. Boats like this ran aground on the flats, and the next storm broke them up. The wrecks never quite stay put: the sand moves, and one that’s been buried for a hundred years comes out for a winter.',
@@ -67,6 +67,8 @@ const GONE = 'You came too close, so it’s gone in. Leave it the bank a while a
 const HORN = 'In a fog she sounds her horn, two blasts every half minute. Each light had its own count, so a ship that couldn’t see her still knew which one she was. I know dozens of those counts, and have heard none.';
 /** Lying alongside her. */
 const LADDER = 'Her ladder’s down now. Whoever had the watch let it down.';
+/** Stood in the ring while the stones play, once the third chord has wavered. */
+const COMMA = 'The third chord wavers: its fifth is 40 to 27, a comma short of 3 to 2. Every tuning has to put that comma somewhere. A piano spreads it thinly over every chord; these stones keep it all in one, where you can hear it. I’d rather keep my mistakes like that.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
 
 const LABELS: Record<StationId, string> = {
@@ -198,7 +200,8 @@ export class LowWaterRoom implements RoomInput {
         this.log = new Log(this.el.querySelector<HTMLElement>('[data-lowwater-log]')!, () => this.log?.show(false));
         const world = new LowWater(this.pixels.renderer, () => this.pixels.height);
         world.hooks = {
-          note: (freq) => this.ctx.sound.stone(freq),
+          note: (freq, held) => this.ctx.sound.stone(freq, 1, held),
+          waver: (hz) => this.ctx.sound.waver(hz),
           step: (wet) => this.ctx.sound.flatStep(wet),
           toll: (near, pan) => this.ctx.sound.buoy(near, pan),
           scratch: () => this.ctx.sound.sandScratch(),
@@ -313,7 +316,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     // (and walking off from the deckhouse door shuts her log)
     if (id !== 'log') this.log?.show(false);
     const button = id === 'log' ? 'Read the log' : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';

@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,21 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The stones' figure** ("where the comma goes"): stand still in the middle of the stone ring
+  for four seconds and the stones play, once, on their own: I, vi, ii, V, I, each chord rolled
+  across its stones, a fuller held note than a step gives (`FIGURE`, `SOUR`, `ring()` in
+  src/island/lowwater/world.ts; `sound.stone(freq, 1, held)` adds upper partials and rings
+  longer). Every chord is pure but the third: on these stones D to A is 40/27, a syntonic comma
+  short of 3/2, so it beats at 8.2 Hz (D's third partial against A's second), and those two
+  stones' light throbs at the same rate while it rings; on a phone the beat's felt faintly
+  (`sound.waver`). Step out and back to hear it again. While you're in the middle the view drops
+  back so the ring is above the card. The ring's card now ends "or stand in the middle and
+  wait", and once the third chord has sounded a second line: every tuning has to put the comma
+  somewhere; a piano spreads it thin; these stones keep it in one, where you can hear it; "I'd
+  rather keep my mistakes like that." The flat's first music, made of its own stones. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-figure/ (phone/, fog/); the script is
+  loop-runs/ring-shots.mjs, which logs every note's time and pitch.
 
 - **The lightship, step 6** ("her name"; project: The lightship, now done): LOW WATER in white
   block letters along both her sides, forward of the ladder, as lightships carried their
@@ -335,6 +350,9 @@ lamp close up), not explained.
 
 ## Known issues
 
+- The stones' figure has never been listened to by a person: the comma's beat is arithmetic
+  (sine partials at 661.5 and 653.3 Hz), checked only by the logged pitches. It plays once per
+  visit to the middle; nothing says so but the card.
 - Her name's card only comes by clicking the letters alongside; nothing points you at it but
   the letters themselves (and the hover label). From the flat, when she's swung end-on, the
   name is a pale scrawl in the haze, and its reflection a fainter one.

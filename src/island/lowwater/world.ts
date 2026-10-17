@@ -42,8 +42,10 @@ export interface Outside {
 }
 
 export interface Hooks {
-  /** A stone in the ring, sounded (its frequency, Hz). */
-  note?(freq: number): void;
+  /** A stone in the ring, sounded (its frequency, Hz); held, it's the stones playing on their own, a fuller note that rings on. */
+  note?(freq: number, held?: boolean): void;
+  /** The stones' figure, on its sour chord: how fast its fifth beats (Hz). */
+  waver?(hz: number): void;
   step?(wet: boolean): void;
   /** The bell buoy, tolling: how near it is (1 beside it … 0 out of earshot) and which side (-1 … 1). */
   toll?(near: number, pan: number): void;
@@ -84,6 +86,16 @@ const BASE_NOTE = 196;
 /** How far short of the horizon things go under the haze for good (m). */
 const SINK = 2.5;
 const RATIOS = [1, 9 / 8, 5 / 4, 4 / 3, 3 / 2, 5 / 3, 15 / 8, 2];
+/**
+ * What the stones play if you stand in the middle of the ring and wait: I, vi, ii, V, I, each
+ * chord rolled across its stones (when it starts, s, and which stones). Every chord is pure but
+ * the third: D to A on these stones is 40/27, a comma short of 3/2, and it beats.
+ */
+const FIGURE: [number, number[]][] = [[0, [0, 2, 4]], [3.6, [2, 5, 7]], [7.2, [1, 3, 5]], [12.4, [1, 4, 6]], [16, [0, 2, 4, 7]]];
+const SOUR = 2;
+const ROLL = 0.22;
+/** Stood still in the middle this long (s), they start. */
+const FIGURE_WAIT = 4;
 
 // where everything is (x east, z south: the way out is -z, away from the camera)
 const POST = new THREE.Vector2(-1.1, 0);
@@ -355,7 +367,11 @@ export class LowWater {
   private pickables: THREE.Object3D[] = [];
   private obstacles: { x: number; z: number; r: number }[] = [];
   private twigs: THREE.Vector2[] = [];
-  private stones: { at: THREE.Vector2; mesh: THREE.Mesh; mat: THREE.MeshToonMaterial; lit: number; armed: boolean; freq: number }[] = [];
+  private stones: { at: THREE.Vector2; mesh: THREE.Mesh; mat: THREE.MeshToonMaterial; lit: number; armed: boolean; freq: number; fade: number }[] = [];
+  /** How far into the stones' figure you are (s), or -1; whether they've played it since you stepped in; whether you've heard the sour chord. */
+  private figureAt = -1;
+  private figurePlayed = false;
+  private sour = false;
   private specks: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>;
   private speckHome: Float32Array;
   private stir = 0;
@@ -855,7 +871,7 @@ export class LowWater {
       const g = new THREE.Group();
       g.add(stone);
       this.put(g, at, 'ring', 0.4, `stone:${i}`);
-      this.stones.push({ at, mesh: stone, mat, lit: 0, armed: true, freq: BASE_NOTE * RATIOS[i] });
+      this.stones.push({ at, mesh: stone, mat, lit: 0, armed: true, freq: BASE_NOTE * RATIOS[i], fade: 1.4 });
     }
 
     // the table, standing in the water, a page held down by a stone
@@ -1577,6 +1593,11 @@ export class LowWater {
     this.goalStop = stop;
   }
 
+  /** Whether you've stood in the ring long enough to hear its third chord waver (until you walk off). */
+  get wavered() {
+    return this.sour;
+  }
+
   /** Which of the shells' Ls you're stood in, or -1. */
   get onShells() {
     return this.shells.which(this.pos.x, this.pos.z);
@@ -1964,16 +1985,45 @@ export class LowWater {
     for (const mat of this.waters) mat.uniforms.uSouthShow.value = this.southShow * this.clear();
   }
 
-  /** The stones: step up beside one and it sounds; it'll sound again once you've stepped away. */
+  /**
+   * The stones: step up beside one and it sounds; it'll sound again once you've stepped away.
+   * Stand still in the middle and they play their figure, once, until you step out and back.
+   */
   private ring(dt: number) {
     const at = new THREE.Vector2(this.pos.x, this.pos.z);
+    const fromMiddle = at.distanceTo(RING);
+    if (fromMiddle > RING_R - 1.1) (this.figureAt = -1), (this.figurePlayed = false);
+    else if (this.figureAt < 0 && !this.figurePlayed && this.stillFor > FIGURE_WAIT) (this.figureAt = 0), (this.figurePlayed = true);
+    if (fromMiddle > RING_R + 1.8) this.sour = false;
+    let beat = 0;
+    if (this.figureAt >= 0) {
+      const was = this.figureAt;
+      this.figureAt += dt;
+      for (const [c, [start, stones]] of FIGURE.entries()) {
+        stones.forEach((k, j) => {
+          const t = start + j * ROLL;
+          if (was <= t && t < this.figureAt) this.sound(k, true);
+        });
+        const struck = start + (stones.length - 1) * ROLL;
+        if (c === SOUR && was <= struck && struck < this.figureAt) {
+          this.sour = true;
+          this.hooks.waver?.(this.sourBeat());
+        }
+      }
+      const [sourAt] = FIGURE[SOUR];
+      if (this.figureAt > sourAt && this.figureAt < FIGURE[SOUR + 1][0]) beat = this.sourBeat();
+      if (this.figureAt > FIGURE[FIGURE.length - 1][0] + 6) this.figureAt = -1;
+    }
+    const [, sourStones] = FIGURE[SOUR];
     this.stones.forEach((s, i) => {
       const d = s.at.distanceTo(at);
       if (d < 0.95 && s.armed && !this.sitting) this.sound(i);
       if (d > 1.35) s.armed = true;
-      s.lit = Math.max(0, s.lit - dt / 1.4);
-      // lit up when it sounds, in two steps back down
-      const step = s.lit > 0.55 ? 0.55 : s.lit > 0.15 ? 0.25 : 0;
+      s.lit = Math.max(0, s.lit - dt / s.fade);
+      // lit up when it sounds, in two steps back down; the sour chord's fifth throbs as it beats
+      const throb = beat && (i === sourStones[0] || i === sourStones[2]) ? 0.5 + 0.5 * Math.cos(this.figureAt * beat * Math.PI * 2) : 1;
+      const lit = s.lit * (0.45 + 0.55 * throb);
+      const step = lit > 0.55 ? 0.55 : lit > 0.15 ? 0.25 : 0;
       s.mat.emissive.setRGB(step * 0.8, step * 0.85, step);
     });
   }
@@ -2011,11 +2061,18 @@ export class LowWater {
     for (const l of b.lamps) if (l) l.visible = on;
   }
 
-  private sound(i: number) {
+  /** How fast the sour chord's fifth beats: its lower note's third partial against its upper's second (Hz). */
+  private sourBeat() {
+    const [, [lo, , hi]] = FIGURE[SOUR];
+    return Math.abs(3 * this.stones[lo].freq - 2 * this.stones[hi].freq);
+  }
+
+  private sound(i: number, held = false) {
     const s = this.stones[i];
     s.armed = false;
     s.lit = 1;
-    this.hooks.note?.(s.freq);
+    s.fade = held ? 4 : 1.4;
+    this.hooks.note?.(s.freq, held);
     // and a ring goes out across the water from it
     this.ripple(s.at.x, s.at.y, 1.6, 2.2);
   }
@@ -2171,6 +2228,8 @@ export class LowWater {
     const want = new THREE.Vector3(this.pos.x + this.pan.x, 0, this.pos.z - lead + this.pan.y);
     // stood on the shells, the view settles on the whole square, above the card
     if (this.onShells >= 0 && !this.sitting) want.set(SHELLS.x, 0, SHELLS.y + 2.5);
+    // stood in the middle of the ring, the view drops back so the stones are above the card while they play
+    if (this.card === 'ring' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(RING) < RING_R - 1.1) want.set(RING.x, 0, RING.y - lead + (this.aspect < 0.8 ? 17 : 9));
     // at the lead line, the view drops back so you and the water you heave into are both above the card
     if (this.card === 'lead' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HEAVE_AT) < 2) want.set(this.pos.x + 1, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11)); // (more on a phone, where the card's taller)
     // in the boat, back a little, so you're above the card, and she's ahead of you

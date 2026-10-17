@@ -1345,25 +1345,37 @@ export class Sound {
     this.flat.filter.frequency.setTargetAtTime(480 + wind * 900, t, 1);
   }
 
-  /** One of the stones in the ring out on the flat: a sine and a soft overtone, ringing on a long while. */
-  stone(freq: number, volume = 1) {
+  /**
+   * One of the stones in the ring out on the flat: a sine and a soft overtone, ringing on a long
+   * while. Held (the stones playing their figure), fuller and longer, with enough of the upper
+   * partials that a fifth a comma out of true beats where they meet.
+   */
+  stone(freq: number, volume = 1, held = false) {
     if (!this.enabled || !this.ctx || !this.master) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.11 * volume, t + 0.03);
-    env.gain.setTargetAtTime(0, t + 0.08, 1.6);
+    env.gain.linearRampToValueAtTime((held ? 0.075 : 0.11) * volume, t + 0.03);
+    env.gain.setTargetAtTime(0, t + 0.08, held ? 2.8 : 1.6);
     env.connect(this.master);
-    for (const [k, level] of [[1, 1], [2, 0.16], [3, 0.04]] as const) {
+    const partials = held ? [[1, 1], [2, 0.5], [3, 0.34], [4, 0.12]] : [[1, 1], [2, 0.16], [3, 0.04]];
+    for (const [k, level] of partials) {
       const osc = ctx.createOscillator();
       osc.frequency.value = freq * k;
       const g = ctx.createGain();
       g.gain.value = level;
       osc.connect(g).connect(env);
       osc.start(t);
-      osc.stop(t + 9);
+      osc.stop(t + (held ? 13 : 9));
     }
+  }
+
+  /** The stones' sour chord, on a phone: its beat, felt faintly for a second or so. */
+  waver(hz: number) {
+    if (!this.enabled) return;
+    const beat = Math.round(1000 / hz);
+    navigator.vibrate?.(Array.from({ length: 16 }, (_, i) => (i % 2 ? beat - 8 : 8)));
   }
 
   /**
