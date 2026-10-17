@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -30,10 +30,11 @@ shadow where you block the light.
 2. **Its sound** (done): inside, everything the flat sounds comes in through a wall, dull and
    quiet, and from one place, the hole behind you; the curtain's heavy swish going in and out;
    the boards underfoot (the deck's step). Nothing else: a dark room is quiet. See Done.
-3. **The hole**: a slide over it you can open wider or close down: wide, bright and soft;
-   small, sharp and dim. The trade every eye and every lens makes, done by hand. Maybe a line
-   about it on the card, if it says something about me (I think it does: how much I let in
-   against how clearly I see it).
+3. **The hole** (done): a slide over it, a strip with four holes (a thumb's, the pea, a pin's
+   head, a needle's), worked from beside the hole. Wide, bright and soft; small, sharp and dim;
+   and past the pin's head soft again, because the light itself spreads. The card's me-line is
+   that last part (the limit is in the light), not "how much I let in", which didn't hold up as
+   true of me. See Done.
 4. **A long while in the dark**: something that only comes if you stay, the way the eyes keep
    adapting for half an hour (the stars come out in the picture; a second line on the card).
    Then the project's done.
@@ -96,6 +97,29 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The dark room, step 3: the hole** (project: The dark room): the hide's hole has a slide over
+  it now, a strip of wood with four holes, pushed along to the next (`HOLES`, `push()`,
+  `lightIn()` in src/island/lowwater/obscura.ts). A thumb's width (20 mm): the picture bright
+  and smeared, your shadow with a soft edge; the pea (7 mm), as the hide was left; a pin's head
+  (2.2 mm, about the best hole for a 3.4 m room, 1.9 √(λd)): crisp and dim; a needle's prick
+  (0.6 mm): dimmer, and soft again, from diffraction. Brightness is the hole's real area, and your
+  eyes make up 75% of each change over a few seconds (so the thumb glares, then settles, and the
+  pin goes nearly dark, then comes up), with the hole covered for a moment as the strip moves. The
+  picture's softness is a 13-tap disc as wide as the hole (exaggerated: a real pea's blur is under
+  a texel on that wall). You work it from beside the hole (`BY_HOLE`, x 0.75): stood in front of
+  it you're in all its light and the whole wall's your shadow (true, and the first try did that).
+  Walk back towards the hole's wall (the bottom of the screen; hover: The hole, behind you) for
+  its card (`SLIDE` in words.ts): "A slide over the hole, with four holes in it, a thumb's down
+  to a needle's. Wider is brighter and softer; smaller is sharper and dimmer, the trade every eye
+  makes. But past a pin's head, smaller goes soft again: the light spreads from the hole's own
+  edge. I like that the last limit is in the light, not the hole." Its line says which hole's in
+  (`SLIDE_NOW`), its button Smaller (Open it wide at the needle). After 15 s with the room's card
+  up and the slide unfound, the room's card adds "Behind you, the hole has a slide over it." The
+  slide stays where the last visitor in this page left it. Sound: `lowwater-slide` (ElevenLabs,
+  0.9 s, −24 LUFS, wood scraping in a groove and a knock), in the room with you, not walled;
+  a 6 ms buzz on a phone. Script loop-runs/slide-shots.mjs; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-slide/ (desk/ dusk, phone/ 23:30, sheet-*.png).
 
 - **The dark room, step 2: its sound** (project: The dark room): the flat now goes out through
   one bus of its own (`flatBus()` in src/island/sound.ts: a gain and a low-pass between the
@@ -891,8 +915,8 @@ lamp close up), not explained.
 
 - **The hole whistles in a wind**: in a real gale a small hole in a plank wall can sing (an
   edge tone, a thin note that wavers with the gusts), from behind you in the hide. Only in a
-  strong wind, very quiet, WebAudio; it would be the room's one sound of its own. Maybe with
-  step 3 (the slide changes the hole, so it would change the note).
+  strong wind, very quiet, WebAudio; it would be the room's one sound of its own. The slide's
+  in now (step 3), so each of its holes could have its own note (or only the needle sings).
 
 - **Tidal rhythmites**: every slack water leaves a skin of mud, thick at springs, thin at neaps,
   so a cut bank is a calendar (rock from 620 million years ago, the Elatina in Australia, says a
@@ -943,6 +967,13 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The slide: the hole's wall is behind the camera, so the slide itself is never seen; you find
+  it by the hint line, the hover label, or walking to the bottom of the room. Your shadow's soft
+  edge with the thumb is four hard shadows averaged (a stepped edge, 0.07 m of hole, exaggerated).
+  The blur's taps are nearest-sampled, so a wide hole's blur is stippled rather than smooth (it
+  reads as pixel art). `lowwater-slide` has never been listened to by a person. A visitor who
+  stands at x 0 by the hole blocks all the picture (true; the click walks you to the side).
 
 - The dark room: the picture is the flat's own orthographic view, not a true pinhole
   perspective, so far things aren't smaller than near ones the way a real camera obscura would

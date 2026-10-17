@@ -270,6 +270,8 @@ export const SOUNDS: Sfx[] = [
   { name: 'lowwater-pencil', seconds: 6, prompt: 'A sharp graphite pencil writing quickly in small joined handwriting on a single sheet of thick paper on a wooden desk, very close up: continuous light dry scratching strokes and tiny ticks as the point lifts and lands, steady, a very quiet room, no voices, no paper rustling, no music' },
   // the bird hide's blackout curtain, pushed aside going in or out of the dark room (one pass; played both ways)
   { name: 'lowwater-curtain', seconds: 2, prompt: 'A heavy old wool blackout curtain hanging over a doorway in a small wooden hut, pushed aside by one person walking through it: one soft heavy swish and drag of thick cloth, its curtain rings sliding a little along a wooden pole, then the folds falling back into place with a dull muffled flop, close up, very quiet small room, no footsteps, no door, no voices, no music' },
+  // the hide's hole: a strip of wood with holes of four sizes, slid along its groove to the next one (behind you in the dark room)
+  { name: 'lowwater-slide', seconds: 1, prompt: 'A small strip of old dry wood pushed a few centimetres along a wooden groove in a plank wall, one short dry scrape of wood on wood, then a soft little knock as it stops against a peg, close up, in a very quiet small dark wooden room, no voices, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root

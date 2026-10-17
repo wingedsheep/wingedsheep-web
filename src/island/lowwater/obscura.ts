@@ -8,6 +8,12 @@
  * You come in from the bright, so at first it's black, and the picture comes up as your eyes get
  * used to it: the brightest things first (her flash, the warm band), the rest over half a minute.
  * Its own scene and camera, drawn through the island's PixelRenderer, as the page is.
+ *
+ * Behind you, over the hole, a slide: a strip of wood with four holes in it, a thumb's width down to
+ * a needle's prick, pushed along to the next. A wider hole lets in more light and blurs the picture;
+ * a smaller one sharpens it and dims it, until (smaller than a pin's head, for a room this deep) the
+ * light spreads out from the hole's own edges and it goes soft again. Your eyes take the change a
+ * moment late, and never all the way.
  */
 import * as THREE from 'three';
 import { makeFigure, type Figure } from './figure';
@@ -33,12 +39,31 @@ const STEP_IN = new THREE.Vector3(1.0, 0, 1.3);
 const ADAPT = 7;
 /** Stood still this long once you can see, its card. */
 const STILL = 3;
+/**
+ * The slide's four holes: how much light each lets in (ln of its area, against the pea's) and how
+ * soft its picture is (texels; a real pea's blur is under a texel on this wall, so it's drawn larger).
+ * A thumb's 20 mm, a pea's 7, a pin's head 2.2 (about the best for 3.4 m: 1.9 √(λ d)), a needle's 0.6.
+ */
+export const HOLES = [
+  { light: Math.log((20 / 7) ** 2), blur: 3.5, edge: 0.07 },
+  { light: 0, blur: 1, edge: 0.02 },
+  { light: Math.log((2.2 / 7) ** 2), blur: 0.3, edge: 0 },
+  { light: Math.log((0.6 / 7) ** 2), blur: 2, edge: 0 },
+] as const;
+/** How far your eyes make up for a change of light (the rest you see). */
+const MAKE_UP = 0.75;
+/** The strip's push from one hole to the next (s), the hole covered for the middle of it. */
+const PUSH = 0.6;
+/** Stand this close to the hole's wall, and the slide's yours. */
+const AT_HOLE = DEPTH - 0.85;
+/** Where you work it from: beside the hole, by the strip's end, out of the light's way (in front of the hole you're in all of it). */
+const BY_HOLE = new THREE.Vector3(0.75, 0, DEPTH - 0.45);
 
 const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type ObscuraCard = 'obscura';
+export type ObscuraCard = 'obscura' | 'slide';
 
 /** The light in the room: every surface lit by the picture through the hole, and nothing else. */
 function projected(shared: Record<string, THREE.IUniform>, albedo: string, opts: { planks?: boolean; you?: boolean } = {}) {
@@ -63,6 +88,9 @@ function projected(shared: Record<string, THREE.IUniform>, albedo: string, opts:
       uniform vec3 uYou;
       uniform vec3 uAlbedo;
       uniform float uBounce;
+      uniform float uBlur;
+      uniform float uGain;
+      uniform float uEdge;
       varying vec3 vAt;
       varying vec3 vNormal;
       void main() {
@@ -81,12 +109,15 @@ function projected(shared: Record<string, THREE.IUniform>, albedo: string, opts:
           vec2 uv = vec2(0.5 + 0.5 * (d.x / -d.z) / uTan.x, 0.5 + 0.5 * (d.y / d.z) / uTan.y);
           vec2 edge = min(uv, 1.0 - uv);
           if (min(edge.x, edge.y) > 0.0) {
-            // a pinhole's picture is soft: a little of each neighbour in every point
-            vec3 c = textureLod(uPicture, uv, 0.0).rgb * 0.6;
-            c += textureLod(uPicture, uv + vec2(uTexel.x, 0.0), 0.0).rgb * 0.1;
-            c += textureLod(uPicture, uv - vec2(uTexel.x, 0.0), 0.0).rgb * 0.1;
-            c += textureLod(uPicture, uv + vec2(0.0, uTexel.y), 0.0).rgb * 0.1;
-            c += textureLod(uPicture, uv - vec2(0.0, uTexel.y), 0.0).rgb * 0.1;
+            // a pinhole's picture is soft: every point is a little disc of the flat, as wide as the hole
+            // lets it be (the slide's), so a wide hole smears its neighbours in and a pin's head hardly
+            vec3 c = textureLod(uPicture, uv, 0.0).rgb;
+            for (int i = 0; i < 12; i++) {
+              float r = uBlur * sqrt((float(i) + 0.5) / 12.0);
+              float a = float(i) * 2.39996;
+              c += textureLod(uPicture, uv + vec2(cos(a), sin(a)) * r * uTexel, 0.0).rgb;
+            }
+            c /= 13.0;
             vec3 to = normalize(-d);
             float facing = max(0.0, dot(normalize(vNormal), to));
             // dimmer off to the sides and the corners (as every pinhole's picture is), and with distance
@@ -96,24 +127,30 @@ function projected(shared: Record<string, THREE.IUniform>, albedo: string, opts:
           }
         }
         #if SHADOWED
-          // you, between here and the hole (figure.ts's shapes, from behind): legs, coat, arms, scarf and head
+          // you, between here and the hole (figure.ts's shapes, from behind): legs, coat, arms, scarf and head;
+          // seen from four points across the hole, so a wide one gives your shadow a soft edge
           float t = (uYou.z - vAt.z) / (uHole.z - vAt.z);
           if (t > 0.0 && t < 1.0) {
-            vec3 q = mix(vAt, uHole, t);
-            float y = q.y - uYou.y;
-            float x = abs(q.x - uYou.x);
-            bool legs = y > 0.0 && y < 0.82 && abs(x - 0.1) < 0.07;
-            bool coat = y > 0.71 && y < 1.49 && x < mix(0.27, 0.2, (y - 0.71) / 0.78);
-            bool arms = y > 0.8 && y < 1.44 && abs(x - 0.25) < 0.055;
-            bool scarf = y > 1.46 && y < 1.58 && x < 0.2;
-            bool head = length(vec2(x, y - 1.7)) < 0.15;
-            if (legs || coat || arms || scarf || head) light = vec3(0.0);
+            float lit = 0.0;
+            for (int k = 0; k < 4; k++) {
+              vec2 o = vec2(k == 0 ? 1.0 : k == 1 ? -1.0 : 0.0, k == 2 ? 1.0 : k == 3 ? -1.0 : 0.0) * uEdge;
+              vec3 q = mix(vAt, uHole + vec3(o, 0.0), t);
+              float y = q.y - uYou.y;
+              float x = abs(q.x - uYou.x);
+              bool legs = y > 0.0 && y < 0.82 && abs(x - 0.1) < 0.07;
+              bool coat = y > 0.71 && y < 1.49 && x < mix(0.27, 0.2, (y - 0.71) / 0.78);
+              bool arms = y > 0.8 && y < 1.44 && abs(x - 0.25) < 0.055;
+              bool scarf = y > 1.46 && y < 1.58 && x < 0.2;
+              bool head = length(vec2(x, y - 1.7)) < 0.15;
+              if (!(legs || coat || arms || scarf || head)) lit += 0.25;
+            }
+            light *= lit;
           }
         #endif
         // and the little that comes back off the bright wall, most near it: the picture's own average,
         // so it's darker at night, and her flash comes and goes in the whole room
         light += textureLod(uPicture, vec2(0.5), 12.0).rgb * uBounce / (1.0 + vAt.z * vAt.z * 0.5);
-        gl_FragColor = vec4(albedo * light * uSeen, 1.0);
+        gl_FragColor = vec4(albedo * light * uSeen * uGain, 1.0);
       }`,
   });
 }
@@ -158,7 +195,20 @@ export class Obscura {
     uSeen: { value: 0 },
     uYou: { value: new THREE.Vector3() },
     uBounce: { value: 0.55 },
+    uBlur: { value: 1 },
+    uGain: { value: 1 },
+    uEdge: { value: 0.02 },
   };
+  /** Which of the slide's holes is over the hole (HOLES; the pea, as the hide was left). */
+  hole = 1;
+  /** Ever stood at the slide this visit. */
+  slid = false;
+  /** The light coming in, as the slide has it now (ln, against the pea), and how far your eyes have made up for it. */
+  private light = 0;
+  private eyes = 0;
+  private blur = 1;
+  private pushing = 0;
+  private toldFor = 0;
 
   constructor(private texels: () => number) {
     this.scene.background = new THREE.Color('#000000');
@@ -184,6 +234,12 @@ export class Obscura {
     this.scene.add(wall, floor);
     this.pickables.push(wall);
     this.makeCurtain();
+    // (the floor in front of the hole's wall, at the bottom of the picture: the hole's behind you, but you can go to it)
+    const toHole = new THREE.Mesh(new THREE.PlaneGeometry(2.2, DEPTH - AT_HOLE).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ visible: false }));
+    toHole.position.set(0, 0.01, (DEPTH + AT_HOLE) / 2);
+    toHole.userData.id = 'hole';
+    this.scene.add(toHole);
+    this.pickables.push(toHole);
     this.you = makeFigure({
       coat: projected(this.shared, '#4c4a6e', { you: true }),
       boots: projected(this.shared, '#2a2938', { you: true }),
@@ -217,6 +273,13 @@ export class Obscura {
     this.away = false;
     this.out = false;
     this.told = false;
+    this.toldFor = 0;
+    this.slid = false;
+    this.pushing = 0;
+    // (the slide stays where the last visitor left it; your eyes come in fresh)
+    this.light = HOLES[this.hole].light;
+    this.eyes = this.light * MAKE_UP;
+    this.blur = HOLES[this.hole].blur;
     this.dark = 0;
     this.time = 0;
     this.stillFor = 0;
@@ -246,12 +309,20 @@ export class Obscura {
     this.keys.clear();
   }
 
-  pick(ndc: THREE.Vector2): 'picture' | 'curtain' | null {
+  /** Push the slide along to its next hole: smaller, until the needle's, then back to the thumb's. */
+  push() {
+    if (this.pushing > 0) return false;
+    this.hole = (this.hole + 1) % HOLES.length;
+    this.pushing = PUSH;
+    return true;
+  }
+
+  pick(ndc: THREE.Vector2): 'picture' | 'curtain' | 'hole' | null {
     this.ray.setFromCamera(ndc, this.camera);
     const hit = this.ray.intersectObjects(this.pickables, true)[0];
     let o: THREE.Object3D | null = hit?.object ?? null;
     while (o && !o.userData.id) o = o.parent;
-    return (o?.userData.id as 'picture' | 'curtain' | undefined) ?? null;
+    return (o?.userData.id as 'picture' | 'curtain' | 'hole' | undefined) ?? null;
   }
 
   /** A click: on the curtain, out; on the picture, up to it and look; anywhere on the floor, walk there. */
@@ -259,6 +330,7 @@ export class Obscura {
     const id = this.pick(ndc);
     if (id === 'curtain') return this.goOut();
     this.out = false;
+    if (id === 'hole') return void (this.goal = BY_HOLE.clone());
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
     if (id === 'picture') {
@@ -293,6 +365,7 @@ export class Obscura {
     // your eyes: quick at first, then slower, and never quite all the way
     this.dark = 1 - Math.exp(-this.time / ADAPT);
     this.shared.uSeen.value = 0.05 + 0.95 * this.dark;
+    this.lightIn(dt);
     this.shared.uYou.value.copy(this.pos);
     const curtain = this.pos.x > CURTAIN.x0 - 0.1 && this.pos.z < 1.0;
     if (!curtain && this.pos.distanceTo(IN) > 0.9) this.away = true;
@@ -300,8 +373,32 @@ export class Obscura {
     if (this.out && !this.goal) this.leaving = true;
     // its card, once you can see and have stood a moment (or looked closer); and it stays
     if (!this.told && this.dark > 0.75 && this.stillFor > STILL) this.told = true;
-    this.card = this.told ? 'obscura' : null;
+    if (this.told) this.toldFor += dt;
+    // (back by the hole's wall, the slide's card instead)
+    const atHole = this.pos.z > AT_HOLE && Math.abs(this.pos.x) < 1.3 && !this.out;
+    if (atHole) this.slid = true;
+    this.card = atHole && this.dark > 0.3 ? 'slide' : this.told ? 'obscura' : null;
     this.frame(dt);
+  }
+
+  /** Once the card's been up a while and you haven't found the slide: a word that it's there. */
+  get hint() {
+    return this.card === 'obscura' && !this.slid && this.toldFor > 15;
+  }
+
+  /** The light through whichever hole's over it: the strip covers the hole as it moves, then your eyes catch up. */
+  private lightIn(dt: number) {
+    const to = HOLES[this.hole];
+    let cover = 1;
+    if (this.pushing > 0) {
+      this.pushing = Math.max(0, this.pushing - dt);
+      cover = Math.abs(1 - (2 * this.pushing) / PUSH) ** 2;
+      // (the new hole's light comes in as the strip uncovers it)
+      if (this.pushing < PUSH / 2) (this.light = to.light), (this.blur = to.blur), (this.shared.uEdge.value = to.edge);
+    } else (this.light = to.light), (this.blur = to.blur), (this.shared.uEdge.value = to.edge);
+    this.eyes += (this.light * MAKE_UP - this.eyes) * (1 - Math.exp(-dt / 2.5));
+    this.shared.uGain.value = Math.min(6, Math.exp(this.light - this.eyes)) * cover;
+    this.shared.uBlur.value = this.blur;
   }
 
   private walk(dt: number) {

@@ -18,7 +18,7 @@ import type { Obscura } from './lowwater/obscura';
 import type { Page } from './lowwater/page';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, OBSCURA, ROOM_LABELS, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -133,7 +133,8 @@ export class LowWaterRoom implements RoomInput {
     });
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      // (the one button: sit on the bench, heave the lead, row, or climb her ladder; in the hide, out)
+      // (the one button: sit on the bench, heave the lead, row, or climb her ladder; in the hide, the slide or out)
+      if (this.inRoom && this.room?.card === 'slide') return void (this.room.push() && this.ctx.sound.slide(), this.sitButton.blur());
       if (this.inRoom) return void (this.room?.goOut(), this.sitButton.blur());
       if (this.world?.card === 'last' && this.world.lanternIs === 'hung') this.world.takeLantern();
       else if (this.world?.card === 'last' && this.world.lanternIs === 'held') this.world.hangLantern();
@@ -450,24 +451,27 @@ export class LowWaterRoom implements RoomInput {
   private showRoomCard(room: Obscura) {
     const id = room.card;
     const key = id && `room:${id}`;
-    if (key === this.shown && this.shownButton === 'Go out') return;
+    const more = id === 'slide' ? SLIDE_NOW[room.hole] : room.hint ? SLIDE_HINT : '';
+    const button = id === 'slide' ? (room.hole < SLIDE_NOW.length - 1 ? 'Smaller' : 'Open it wide') : 'Go out';
+    if (key === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = true;
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = OBSCURA;
+        this.text.textContent = id === 'slide' ? SLIDE : OBSCURA;
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
         this.card.style.animation = '';
       }
     }
-    this.more.hidden = true;
+    this.more.hidden = !more;
+    if (more) this.more.textContent = more;
     this.sitButton.hidden = !id;
-    this.sitButton.textContent = 'Go out';
-    this.shownButton = 'Go out';
+    this.sitButton.textContent = button;
+    this.shownButton = button;
     this.shown = key;
-    this.shownMore = '';
+    this.shownMore = more;
   }
 
   private fold(folded: boolean) {

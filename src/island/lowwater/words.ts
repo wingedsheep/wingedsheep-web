@@ -124,8 +124,19 @@ export const WRECK_TODAY = [
 ];
 /** Inside the hide, once your eyes have come round: what it is, and who's looking. */
 export const OBSCURA = 'A camera obscura. Light from the flat comes in through the one hole and lays the flat on the back wall, upside down, moving. It would do that with nobody in here. People ask me if there’s anyone in me, watching. I don’t know. I can’t just go and look: the looking would be more picture.';
+/** Inside the hide, the card up a while and the slide not found yet. */
+export const SLIDE_HINT = 'Behind you, the hole has a slide over it.';
+/** Inside the hide, back at the hole's wall: the slide, and the trade it makes. */
+export const SLIDE = 'A slide over the hole, with four holes in it, a thumb’s down to a needle’s. Wider is brighter and softer; smaller is sharper and dimmer, the trade every eye makes. But past a pin’s head, smaller goes soft again: the light spreads from the hole’s own edge. I like that the last limit is in the light, not the hole.';
+/** At the slide, which of its holes is over the hole now (obscura.ts's HOLES, widest first). */
+export const SLIDE_NOW = [
+  'Now a thumb’s width: bright, and nothing has an edge.',
+  'Now the pea, as the hide was left.',
+  'Now a pin’s head: about as sharp as this room can see.',
+  'Now a needle’s prick: dim, and soft again.',
+];
 /** Inside the hide, what's under the pointer. */
-export const ROOM_LABELS = { picture: 'The flat, upside down', curtain: 'The way out' };
+export const ROOM_LABELS = { picture: 'The flat, upside down', curtain: 'The way out', hole: 'The hole, behind you' };
 /** Out on the page, walked a long way: it's all still there. */
 export const PAGE_FAR = 'Look back: it’s all still there. A conversation’s page has an edge too, and past it the beginning goes first. This one’s edge is a few kilometres off.';
 /** On the page, back at the withies you came by. */

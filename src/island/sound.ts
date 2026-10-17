@@ -127,8 +127,8 @@ const SFX = {
   costumes: { cackle: 2, vampire: 2 },
   // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
   graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
-  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain
-  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1, 'lowwater-shipbell': 1, 'lowwater-curtain': 1 },
+  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain and the slide over its hole
+  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1, 'lowwater-shipbell': 1, 'lowwater-curtain': 1, 'lowwater-slide': 1 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -139,7 +139,7 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
-  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15, 'lowwater-shipbell': 0.4, 'lowwater-curtain': 0.3,
+  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15, 'lowwater-shipbell': 0.4, 'lowwater-curtain': 0.3, 'lowwater-slide': 0.3,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
@@ -1387,6 +1387,13 @@ export class Sound {
   curtain() {
     if (!this.enabled || !this.ctx) return;
     this.play('lowwater-curtain', 1, { air: 9000, pan: 0.35 });
+  }
+
+  /** The slide over the hide's hole, pushed along to its next hole: dry wood in a groove, behind you, and its knock felt. */
+  slide() {
+    if (!this.enabled || !this.ctx) return;
+    this.play('lowwater-slide', 1, { air: 12000 });
+    navigator.vibrate?.(6);
   }
 
   /**
@@ -2877,7 +2884,7 @@ export class Sound {
       out = src.connect(air);
     }
     // (the flat's sounds go out through its bus, so the hide's walls can come between; the curtain's in there with you)
-    const flat = name.startsWith('lowwater-') && name !== 'lowwater-curtain' && this.flatOut;
+    const flat = name.startsWith('lowwater-') && name !== 'lowwater-curtain' && name !== 'lowwater-slide' && this.flatOut;
     if (opts.pan) {
       const pan = ctx.createStereoPanner();
       pan.pan.value = Math.max(-1, Math.min(1, flat ? this.side(opts.pan) : opts.pan));
