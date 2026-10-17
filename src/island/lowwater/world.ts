@@ -16,7 +16,7 @@ import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
-import { LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
+import { HORN_FOG, LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
@@ -50,6 +50,8 @@ export interface Hooks {
   lead?(kind: 'plunk' | 'bottom', near: number, pan: number): void;
   /** The curlew calling, out on a far bank: how near, which side, and whether it was heard. */
   curlew?(near: number, pan: number): boolean;
+  /** The lightship's horn, one blast in a fog: how near she is (1 … 0) and which side. */
+  horn?(near: number, pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -1514,6 +1516,7 @@ export class LowWater {
     this.ring(dt);
     this.rock(dt);
     this.lightship?.update(this.time, this.time / TIDE_PERIOD, this.outside.wind);
+    this.lightship?.fogSignal(this.time, outside.fog, new THREE.Vector2(this.pos.x, this.pos.z), (near, pan) => this.hooks.horn?.(near, pan));
     this.glow(dt);
     this.footprints(dt);
     this.sand.update(dt, this.level);
@@ -1663,6 +1666,11 @@ export class LowWater {
     // nothing to be at, stood a long while, the sky clear: a line about the stars in the water
     const south = !best && !this.sitting && this.stillFor > SOUTH_LINE && this.clear() > 0.6;
     this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : null));
+  }
+
+  /** Whether the fog's thick enough for the lightship to be sounding her horn. */
+  get foghorn() {
+    return this.outside.fog > HORN_FOG;
   }
 
   /** How clear the sky is: 1 a clear evening … 0 behind rain or fog. */

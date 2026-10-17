@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 ## Projects
 
@@ -20,8 +20,9 @@ lamp close up), not explained.
 1. **Seen** (done, this session): she lies out past the buoy, comes up over the horizon as you
    walk the last metres, swings to the tide, rolls on the swell, two short flashes every 15 s.
    Her card says what she's for and how the flat was made.
-2. **Heard**: in a fog she sounds her horn, placed (`lowwater-horn`, ElevenLabs); her bell at
-   anchor maybe. Felt faintly on a phone.
+2. **Heard** (done): in a fog she sounds her horn, two blasts every half minute, placed
+   (`lowwater-horn`), felt faintly on a phone; her card says so in a fog. (Her anchor bell: not
+   done; one fog sound from her is enough beside the buoy's bell.)
 3. **A way out**: a praam (a flat dinghy) at the last twig, or the lead post; click it and you row
    out over the deep water, the flat drawing away behind. The deep water stays unwalkable.
 4. **Aboard**: a walkable deck that rolls a little; the lamp up close (the flash fills the
@@ -32,6 +33,18 @@ lamp close up), not explained.
 6. Maybe: her name on the hull (big enough for the pixels, ~0.9 m letters), once aboard decides it.
 
 ## Done
+
+- **The lightship, step 2** ("her count"; project: The lightship): in a fog (fog > 0.5, the
+  island lighthouse's own threshold, `HORN_FOG`) she sounds her horn, two blasts every half minute
+  (`fogSignal` in src/island/lowwater/lightship.ts, on the flat's clock: blasts at 0 and 4.2 s of
+  each 30), heard from anywhere on the flat, from her side and duller the further off
+  (`sound.lightshipHorn`; near 0.36 from the start, 0.97 at the deep edge). One ElevenLabs take,
+  `lowwater-horn` (the first prompt gave a 0.7 s honk; the second a steady low drone of 2.7 s
+  under 300 Hz and an echo). Close to, on a phone, a faint triple buzz. In a fog her card gets a
+  second line: each light had its own count, so a ship that couldn't see her knew which she was,
+  and I know dozens of those counts and have heard none. Shots and spectrograms in
+  loop-runs/lowwater-logs/shots/2026-10-17-horn/ (phone/ too); the script is
+  loop-runs/horn-shots.mjs, which listens in on the hook.
 
 - **The lightship, step 1** ("a lighthouse that floats"; project: The lightship): a red lightship
   anchored in the deep water past the buoy (`LIGHTSHIP` (-5, -130) in
@@ -223,6 +236,9 @@ lamp close up), not explained.
   her lantern mast and sail show, standing in the water.
 - In a fog the lightship goes half pale, more at her far end; she still reads as a ship in mist.
 - Not yet in loop-runs/walk-lowwater.mjs's stops.
+- Her horn (`lowwater-horn`) has never been listened to by a person (by spectrogram: a steady
+  drone under 300 Hz for 2.7 s, then an echo). play() varies the rate ±6%, so her two blasts
+  aren't quite the same pitch; a real horn's are.
 
 - In a fog the bell buoy, far off, still goes pale against the mist (as everything far does);
   its reflection no longer does.

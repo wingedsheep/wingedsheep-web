@@ -59,6 +59,7 @@ const OPEN = [
 ];
 /** And if you came too close. */
 const GONE = 'You came too close, so it’s gone in. Leave it the bank a while and it’ll haul out again.';
+const HORN = 'In a fog she sounds her horn, two blasts every half minute. Each light had its own count, so a ship that couldn’t see her still knew which one she was. I know dozens of those counts, and have heard none.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
 
 const LABELS: Record<StationId, string> = {
@@ -187,6 +188,7 @@ export class LowWaterRoom implements RoomInput {
           seal: (kind, near, pan) => this.ctx.sound.sealSound(kind, near, pan),
           lead: (kind, near, pan) => this.ctx.sound.leadSound(kind, near, pan),
           curlew: (near, pan) => this.ctx.sound.curlew(near, pan),
+          horn: (near, pan) => this.ctx.sound.lightshipHorn(near, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -288,7 +290,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';

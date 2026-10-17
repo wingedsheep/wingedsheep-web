@@ -3,7 +3,8 @@
  * could stand. She rides to her anchor, so she swings slowly as the tide turns, and rolls a little
  * on the swell, less than the buoy. Her lamp gives two short flashes every fifteen seconds, her own
  * character, so nobody takes her for the buoy. Far enough out that she comes up over the horizon
- * as you walk out to the deep water: the lamp first.
+ * as you walk out to the deep water: the lamp first. In a fog she sounds her horn, two blasts
+ * every half minute (her count, as the flashes are), heard from where she lies all over the flat.
  */
 import * as THREE from 'three';
 
@@ -22,10 +23,17 @@ const SWING = 0.4;
 const PERIOD = 15;
 const FLASHES = [0, 1.5];
 const FLASH_ON = 0.5;
+/** Her fog signal: two blasts, the second a little after the first one's done, every half minute. */
+const HORN_PERIOD = 30;
+const BLASTS = [0, 4.2];
+/** How thick the fog has to be before she sounds it (the island's lighthouse waits for the same). */
+export const HORN_FOG = 0.5;
 
 export class Lightship {
   private bob = 0;
   private sunk = 0;
+  /** Where her fog signal's count was last frame (s into its period), or -1 when it's not sounding. */
+  private horn = -1;
 
   /** `lamps` are her lamp and its halo, and their reflections: lit together. */
   constructor(
@@ -48,6 +56,21 @@ export class Lightship {
     // (and not while she's still under the horizon: the halo would show on the water)
     const up = this.lampHeight - this.sunk > 0.3;
     for (const l of this.lamps) l.visible = on && up;
+  }
+
+  /**
+   * Her horn, while the fog's thick enough: `blast` is given how near she is (1 alongside … 0 out
+   * of earshot) and which side (-1 … 1). A foghorn carries: she's heard from anywhere on the flat.
+   */
+  fogSignal(t: number, fog: number, you: THREE.Vector2, blast: (near: number, pan: number) => void) {
+    const was = this.horn;
+    this.horn = fog > HORN_FOG ? t % HORN_PERIOD : -1;
+    // (fog coming in starts her count where it is, rather than with a blast mid-way)
+    if (was < 0 || this.horn < 0) return;
+    if (!BLASTS.some((b) => (was < b || was > this.horn) && this.horn >= b)) return;
+    const dx = LIGHTSHIP.x - you.x;
+    const d = Math.hypot(dx, LIGHTSHIP.y - you.y);
+    blast(1 / (1 + (d / 100) ** 2), (dx / Math.max(d, 1)) * 0.9);
   }
 
   /** Up over the horizon as you come out, top first. `far` is where the flat runs out (z). */
