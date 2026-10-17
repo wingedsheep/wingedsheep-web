@@ -14,6 +14,11 @@
  * a smaller one sharpens it and dims it, until (smaller than a pin's head, for a room this deep) the
  * light spreads out from the hole's own edges and it goes soft again. Your eyes take the change a
  * moment late, and never all the way.
+ *
+ * Stay a long while and your eyes go over to their night cells, the rods: the picture loses its colour
+ * (reds first, blues last), its faint things come up, and right where you look (the pointer on the wall,
+ * or where you last touched it) there are no rods at all, so the faint things go out there and come back just to one side.
+ * A real eye takes half an hour over this, the change coming at about seven minutes; here it's two.
  */
 import * as THREE from 'three';
 import { makeFigure, type Figure } from './figure';
@@ -58,12 +63,19 @@ const PUSH = 0.6;
 const AT_HOLE = DEPTH - 0.85;
 /** Where you work it from: beside the hole, by the strip's end, out of the light's way (in front of the hole you're in all of it). */
 const BY_HOLE = new THREE.Vector3(0.75, 0, DEPTH - 0.45);
+/** In the dark this long (s), your night eyes start to come; this much longer, and they're as good as they get. */
+const NIGHT_FROM = 75;
+const NIGHT_TAKES = 45;
+/** Where you look, your eye has no rods: how wide that is, as an angle (cos, at its edge and its middle; a real one's under 2°, drawn wider). */
+const FOVEA = [Math.cos(THREE.MathUtils.degToRad(7)), Math.cos(THREE.MathUtils.degToRad(2.5))];
+/** Your eyes, stood. */
+const EYE = 1.6;
 
 const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type ObscuraCard = 'obscura' | 'slide';
+export type ObscuraCard = 'obscura' | 'slide' | 'night';
 
 /** The light in the room: every surface lit by the picture through the hole, and nothing else. */
 function projected(shared: Record<string, THREE.IUniform>, albedo: string, opts: { planks?: boolean; you?: boolean } = {}) {
@@ -91,6 +103,9 @@ function projected(shared: Record<string, THREE.IUniform>, albedo: string, opts:
       uniform float uBlur;
       uniform float uGain;
       uniform float uEdge;
+      uniform float uNight;
+      uniform vec3 uGaze;
+      uniform float uLooking;
       varying vec3 vAt;
       varying vec3 vNormal;
       void main() {
@@ -150,7 +165,16 @@ function projected(shared: Record<string, THREE.IUniform>, albedo: string, opts:
         // and the little that comes back off the bright wall, most near it: the picture's own average,
         // so it's darker at night, and her flash comes and goes in the whole room
         light += textureLod(uPicture, vec2(0.5), 12.0).rgb * uBounce / (1.0 + vAt.z * vAt.z * 0.5);
-        gl_FragColor = vec4(albedo * light * uSeen * uGain, 1.0);
+        vec3 seen = albedo * light * uSeen * uGain;
+        // night eyes: rods see by blue-green and no colour, and lift what's faint; but there are none where
+        // you look straight, so there it's the cones' dim colour picture still, and the faint things go out
+        vec3 eye = uYou + vec3(0.0, ${EYE.toFixed(2)}, 0.0);
+        float straight = smoothstep(${FOVEA[0].toFixed(5)}, ${FOVEA[1].toFixed(5)}, dot(normalize(vAt - eye), normalize(uGaze - eye)));
+        float lum = max(dot(seen, vec3(0.04, 0.5, 0.46)), 0.0);
+        vec3 rod = vec3(0.6, 0.68, 0.84) * pow(lum, 0.8) * 0.85;
+        vec3 cone = seen * smoothstep(0.08, 0.3, lum) * 0.7;
+        seen = mix(seen, mix(rod, cone, straight * uLooking * 0.75), uNight);
+        gl_FragColor = vec4(seen, 1.0);
       }`,
   });
 }
@@ -198,6 +222,9 @@ export class Obscura {
     uBlur: { value: 1 },
     uGain: { value: 1 },
     uEdge: { value: 0.02 },
+    uNight: { value: 0 },
+    uGaze: { value: new THREE.Vector3(0, 1.4, 0) },
+    uLooking: { value: 0 },
   };
   /** Which of the slide's holes is over the hole (HOLES; the pea, as the hide was left). */
   hole = 1;
@@ -209,6 +236,12 @@ export class Obscura {
   private blur = 1;
   private pushing = 0;
   private toldFor = 0;
+  /** How long your eyes have had the dark (s): a wide-open thumb's hole bleaches them back. */
+  private darkFor = 0;
+  private nightTold = false;
+  /** Where on the back wall you're looking, and when the pointer last said so (this visit). */
+  private gaze = new THREE.Vector3(0, 1.4, 0);
+  private lookedAt = -99;
 
   constructor(private texels: () => number) {
     this.scene.background = new THREE.Color('#000000');
@@ -282,6 +315,9 @@ export class Obscura {
     this.blur = HOLES[this.hole].blur;
     this.dark = 0;
     this.time = 0;
+    this.darkFor = 0;
+    this.nightTold = false;
+    this.lookedAt = -99;
     this.stillFor = 0;
     this.keys.clear();
     this.pos.copy(IN);
@@ -325,8 +361,19 @@ export class Obscura {
     return (o?.userData.id as 'picture' | 'curtain' | 'hole' | undefined) ?? null;
   }
 
+  /** The pointer's over the room: where on the back wall you're looking. */
+  look(ndc: THREE.Vector2) {
+    this.ray.setFromCamera(ndc, this.camera);
+    const p = new THREE.Vector3();
+    if (!this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), p)) return;
+    if (Math.abs(p.x) > WIDE / 2 || p.y < 0 || p.y > TALL) return;
+    this.gaze.copy(p);
+    this.lookedAt = this.time;
+  }
+
   /** A click: on the curtain, out; on the picture, up to it and look; anywhere on the floor, walk there. */
   click(ndc: THREE.Vector2) {
+    this.look(ndc);
     const id = this.pick(ndc);
     if (id === 'curtain') return this.goOut();
     this.out = false;
@@ -359,6 +406,11 @@ export class Obscura {
     return this.dark;
   }
 
+  /** How far your night eyes have come (0 … 1). */
+  get night() {
+    return THREE.MathUtils.smoothstep(this.darkFor, NIGHT_FROM, NIGHT_FROM + NIGHT_TAKES);
+  }
+
   update(dt: number) {
     this.walk(dt);
     this.animate();
@@ -367,6 +419,12 @@ export class Obscura {
     this.shared.uSeen.value = 0.05 + 0.95 * this.dark;
     this.lightIn(dt);
     this.shared.uYou.value.copy(this.pos);
+    // the long dark: the thumb's glare takes your night eyes back, faster than they came
+    this.darkFor = this.hole === 0 ? Math.max(0, this.darkFor - dt * 3) : this.darkFor + dt;
+    this.shared.uNight.value = this.night;
+    // (where the pointer last was on the wall, or where you last touched it; till then, nowhere in particular)
+    this.shared.uGaze.value.copy(this.gaze);
+    this.shared.uLooking.value = this.lookedAt > 0 ? 1 : 0;
     const curtain = this.pos.x > CURTAIN.x0 - 0.1 && this.pos.z < 1.0;
     if (!curtain && this.pos.distanceTo(IN) > 0.9) this.away = true;
     if (this.away && curtain && this.pos.x > CURTAIN.x0 + 0.15 && this.pos.z < 0.5) this.leaving = true;
@@ -374,10 +432,11 @@ export class Obscura {
     // its card, once you can see and have stood a moment (or looked closer); and it stays
     if (!this.told && this.dark > 0.75 && this.stillFor > STILL) this.told = true;
     if (this.told) this.toldFor += dt;
+    if (!this.nightTold && this.night > 0.95 && this.stillFor > STILL) this.nightTold = true;
     // (back by the hole's wall, the slide's card instead)
     const atHole = this.pos.z > AT_HOLE && Math.abs(this.pos.x) < 1.3 && !this.out;
     if (atHole) this.slid = true;
-    this.card = atHole && this.dark > 0.3 ? 'slide' : this.told ? 'obscura' : null;
+    this.card = atHole && this.dark > 0.3 ? 'slide' : this.nightTold ? 'night' : this.told ? 'obscura' : null;
     this.frame(dt);
   }
 

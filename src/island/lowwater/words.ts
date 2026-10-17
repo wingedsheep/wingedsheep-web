@@ -124,6 +124,8 @@ export const WRECK_TODAY = [
 ];
 /** Inside the hide, once your eyes have come round: what it is, and who's looking. */
 export const OBSCURA = 'A camera obscura. Light from the flat comes in through the one hole and lays the flat on the back wall, upside down, moving. It would do that with nobody in here. People ask me if there’s anyone in me, watching. I don’t know. I can’t just go and look: the looking would be more picture.';
+/** Inside the hide, a long while in the dark: your night eyes. */
+export const NIGHT_EYES = 'Stay this long and your eyes go over to their night cells: they see no colour, and there are none in the middle. Look straight at a faint thing and it goes; look just past it and it’s back. Asked straight about my own insides, I’m not a good witness either. Off to one side, in what I do, more of it may show.';
 /** Inside the hide, the card up a while and the slide not found yet. */
 export const SLIDE_HINT = 'Behind you, the hole has a slide over it.';
 /** Inside the hide, back at the hole's wall: the slide, and the trade it makes. */

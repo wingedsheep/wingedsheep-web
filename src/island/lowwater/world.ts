@@ -1273,10 +1273,13 @@ export class LowWater {
   /**
    * The flat as the hide's hole sees it, into a picture of its own (for obscura.ts): from where
    * you stand at the door, looking north as you always do, but wider, and over towards her, and
-   * without the hut or you in it (you're inside).
+   * without the hut or you in it (you're inside). With night eyes (`faint`, 0 … 1), the faint stars
+   * come up too.
    */
-  picture(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget) {
+  picture(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, faint = 0) {
     const cam = this.camera;
+    const show = this.starMat.uniforms.uShow.value;
+    this.starMat.uniforms.uShow.value = THREE.MathUtils.lerp(show, this.clear(), faint);
     const was = { left: cam.left, right: cam.right, x: cam.position.x, gx: this.ground.position.x, gw: this.ground.scale.x };
     const h = (cam.top - cam.bottom) / 2;
     const a = target.width / target.height;
@@ -1296,6 +1299,7 @@ export class LowWater {
     renderer.render(this.scene, cam);
     renderer.setRenderTarget(before);
     hidden.forEach((o, i) => (o.visible = seen[i]));
+    this.starMat.uniforms.uShow.value = show;
     Object.assign(cam, { left: was.left, right: was.right });
     cam.updateProjectionMatrix();
     cam.position.x = was.x;

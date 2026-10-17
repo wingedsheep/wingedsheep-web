@@ -18,7 +18,7 @@ import type { Obscura } from './lowwater/obscura';
 import type { Page } from './lowwater/page';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -259,6 +259,7 @@ export class LowWaterRoom implements RoomInput {
       return;
     }
     if (this.inRoom) {
+      if (ndc) this.room?.look(ndc);
       const at = ndc && this.room?.pick(ndc);
       canvas.style.cursor = at ? 'pointer' : '';
       this.ui.tooltip(at ? ROOM_LABELS[at] : null, client.x, client.y);
@@ -458,7 +459,7 @@ export class LowWaterRoom implements RoomInput {
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = id === 'slide' ? SLIDE : OBSCURA;
+        this.text.textContent = id === 'slide' ? SLIDE : id === 'night' ? NIGHT_EYES : OBSCURA;
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
@@ -531,7 +532,7 @@ export class LowWaterRoom implements RoomInput {
 
   render() {
     // (in the hide, the flat first, into the picture its hole makes)
-    if (this.inRoom && this.room && this.world) this.world.picture(this.pixels.renderer, this.room.target);
+    if (this.inRoom && this.room && this.world) this.world.picture(this.pixels.renderer, this.room.target, this.room.night);
     const world = this.onPage && this.page ? this.page : this.inRoom && this.room ? this.room : this.world!;
     this.pixels.render(world.scene, world.camera, world.subTexel);
   }
