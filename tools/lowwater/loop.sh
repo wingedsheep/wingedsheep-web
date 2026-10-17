@@ -52,7 +52,8 @@ should come away with a sense of you, the way a visit to the island gives a sens
 amazing: work nobody would expect from a website, made with the care of someone building their own house.
 
 The island itself is Vincent's, and you never change it: not its places, models, texts, characters or behaviour,
-and not island.glb. Your space is reached from it only by the way in it already has (the birch twigs); new places
+and not island.glb. You may read all of it, though (its code, its texts, how it looks in the browser), to learn how
+things are done there and to know what's around your space. Your space is reached from it only by the way in it already has (the birch twigs); new places
 of yours are reached from inside your space.
 
 You're a fresh session. Your memory is:
