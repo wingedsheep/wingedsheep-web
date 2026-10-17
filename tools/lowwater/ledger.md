@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,25 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The casts** ("isn't the same, and isn't nothing"): a low bank of lugworm casts east of the way
+  out, between the ring and the wreck, with the geul just past it (`CASTS` in world.ts, at x 16,
+  z −65; src/island/lowwater/casts.ts). About 120 coils of sand, each with its dark dimple a hand
+  off, drawn bigger than life so they read as a pale speckle on the bank, little coils zoomed in.
+  Stand still on the bank five seconds and a worm beside you pushes out a new coil, in pulses, over
+  nine seconds: paler than the rest (it's wet), to one side so you don't hide it (one a still
+  spell, then not for 30 s; up to three a visit). The card comes anywhere on the bank or by
+  clicking it (hover: Worm casts), and the view drops back so you're above it: the worm in its U,
+  the black sand a spade down that smells, by every account, of rotten eggs; "I've never smelled
+  anything. I know that smell from more people describing it than anyone could read, which isn't
+  the same, and isn't nothing." (The smell VISION.md has been pointing at since the start.) Once
+  you've watched one made: "That one's new. Every forty minutes or so, each worm backs up its
+  burrow and does that." Footsteps on the bank are mud (`mudStep` in sound.ts: a low press and a
+  suck, WebAudio, a 4 ms buzz on a phone). A page in the wildlife book (the lugworm, row nine's
+  third: a cut-away of its burrow, drawn by tools/drawings/row-nine.py). No ElevenLabs credits
+  spent. The first place for the bank was on top of the tide gauge. Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-casts/ (phone/, fog/, crop-*.png the new coil,
+  lugworm-cell.png); script loop-runs/casts-shots.mjs.
 
 - **The postcard** ("it only has to be made of new ones"): the table's card has promised a proof
   that fits on a postcard since the first session; now there is one, under a pebble at the table's
@@ -494,6 +513,8 @@ lamp close up), not explained.
   rather than stepped.
 - **The geul's other days**: the seal slipping into the geul rather than the deep; a withy or two
   marking it as real geulen are; the noctiluca you light in it carried off downstream.
+- **The casts' other days**: a curlew or oystercatcher probing among them; the black layer shown
+  where a footstep goes deep; the casts smoothed at high water and new ones by the next visit.
 - **Mussel bed and oyster reef** as textured dark patches, crunchy footsteps over them.
 - **A dinghy** stuck in the mud, oars shipped, tilted on its keel, waiting for the tide.
 - **Seasons and moments**: frost crust and ice floes (kruiend ijs) in winter, a heat shimmer in high
@@ -509,6 +530,11 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The lugworm casts are pale blobs at every zoom a visitor can reach, not coils; the new one is a
+  brighter blob that grows beside you. On a phone zoomed in, the drop-back puts you near the
+  horizon, where the haze pales you (the old zoom-haze issue). The mud steps have never been
+  listened to by a person. Not in the walk script yet.
 
 - The postcard's picture is a screenshot of the flat on 17 October 2026; it won't change when the
   flat does (on purpose, but a later session may want to retake it after something big). The

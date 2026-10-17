@@ -1571,6 +1571,40 @@ export class Sound {
     }
   }
 
+  /** A footstep on the lugworms' mud: a soft low press, then the suck as the foot comes up (and, on a phone, felt faintly). */
+  mudStep() {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    navigator.vibrate?.(4);
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const press = ctx.createBufferSource();
+    press.buffer = this.noise;
+    const low = ctx.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.value = 380 * (0.85 + Math.random() * 0.3);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.09, t + 0.02);
+    env.gain.setTargetAtTime(0, t + 0.04, 0.05);
+    press.connect(low).connect(env).connect(this.master);
+    press.start(t, Math.random() * 1.5, 0.25);
+    // the suck: a narrow band of noise sliding up as the mud lets go
+    const s = t + 0.2 + Math.random() * 0.06;
+    const suck = ctx.createBufferSource();
+    suck.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 7;
+    band.frequency.setValueAtTime(420, s);
+    band.frequency.exponentialRampToValueAtTime(1100 + Math.random() * 300, s + 0.07);
+    const env2 = ctx.createGain();
+    env2.gain.setValueAtTime(0, s);
+    env2.gain.linearRampToValueAtTime(0.05, s + 0.025);
+    env2.gain.linearRampToValueAtTime(0, s + 0.08);
+    suck.connect(band).connect(env2).connect(this.master);
+    suck.start(s, Math.random() * 1.5, 0.1);
+  }
+
   /** A stick drawn through damp sand: a short dry scrape, two strokes to a letter. */
   sandScratch() {
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;

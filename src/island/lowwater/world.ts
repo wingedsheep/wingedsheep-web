@@ -28,13 +28,14 @@ import { Deck } from './deck';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
+import { Casts } from './casts';
 
 /** Her deckhouse, as tools/models/lowwater.py has it (her model's metres): its middle along her, its windows each side, its door. */
 const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -63,6 +64,8 @@ export interface Hooks {
   scratch?(): void;
   /** A footstep onto the shells. */
   shell?(): void;
+  /** A footstep on the casts' bank, which is muddier than the rest. */
+  mud?(): void;
   /** The seal going into the water, or breathing as its head comes up: how near (1 … 0) and which side. */
   seal?(kind: 'slip' | 'breath', near: number, pan: number): void;
   /** The lead going in (how near, which side), or touching the bottom, felt through the line. */
@@ -141,6 +144,8 @@ const LINE = new THREE.Vector2(-9.75, -51.77);
 const STICK = new THREE.Vector2(-2.6, -50.4);
 /** The shells' square, out west past the table on a broad bank of its own. */
 const SHELLS = new THREE.Vector2(-19, -79);
+/** The lugworms' bank, low and broad, east of the way out between the ring and the wreck, by the geul (casts.ts). */
+const CASTS = { x: 16, z: -65, rx: 5, rz: 2.0, h: 0.085 };
 /**
  * The baak, a tall beacon on a high bank out west by the deep water, and how tall it is (m). It's
  * the one thing out here tall enough to come up over the horizon as you walk out: top first, as
@@ -166,6 +171,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   SAND,
   { x: SHELLS.x, z: SHELLS.y, rx: 5, rz: 6, h: 0.1 },
   SEAL_BANK,
+  CASTS,
   { x: BAAK.x - 0.3, z: BAAK.y - 0.2, rx: 4.2, rz: 1.5, h: 0.11 },
 ];
 const POOL_R = 0.42; // the pool's share of its bank
@@ -433,6 +439,7 @@ export class LowWater {
   private shipHaze = { value: 0.25 };
   // (hazed as their bank is, so they never go paler than the sand they're on)
   private shells = new Shells(SHELLS, (x, z) => Math.max(0, bankAt(x, z)), steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(23));
+  private casts = new Casts(CASTS, bankAt, () => steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(41));
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private seal?: Seal;
   private baak?: THREE.Object3D;
@@ -493,6 +500,11 @@ export class LowWater {
     this.shells.mesh.userData.id = 'shells';
     this.scene.add(this.shells.mesh);
     this.pickables.push(this.shells.mesh);
+    for (const mesh of this.casts.meshes) {
+      (mesh.material as THREE.Material).clippingPlanes = [this.farEdge];
+      this.scene.add(mesh);
+    }
+    this.pickables.push(this.casts.casts, this.casts.dimples);
     this.specks = this.makePool();
     this.scene.add(this.wake.points);
     this.speckHome = (this.specks.geometry.attributes.position.array as Float32Array).slice();
@@ -1688,7 +1700,7 @@ export class LowWater {
     if (id) {
       const obj = this.pickables.find((o) => o.userData.id === id)!;
       // (the shells: to the one in the corner, where the proof starts)
-      const at = id === 'shells' ? new THREE.Vector3(this.shells.corner.x, 0, this.shells.corner.y) : obj.getWorldPosition(new THREE.Vector3());
+      const at = id === 'shells' ? new THREE.Vector3(this.shells.corner.x, 0, this.shells.corner.y) : id === 'casts' ? new THREE.Vector3(CASTS.x - 2, 0, CASTS.z + 0.6) : obj.getWorldPosition(new THREE.Vector3());
       const station = (id.startsWith('stone:') ? 'ring' : id) as StationId;
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
@@ -1701,7 +1713,7 @@ export class LowWater {
       if (station === 'baak') return this.walkTo(new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1), 0);
       // (the praam: to where you get in)
       if (station === 'praam') return this.walkTo(new THREE.Vector3(BOARD.x, 0, BOARD.y), 0);
-      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
+      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' || station === 'casts' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
     this.lead.letGo();
@@ -1723,6 +1735,11 @@ export class LowWater {
   /** Whether you've stood in the ring long enough to hear its third chord waver (until you walk off). */
   get wavered() {
     return this.sour;
+  }
+
+  /** Whether you've stood on the casts' bank and watched a worm make a new one. */
+  get castWatched() {
+    return this.casts.watched;
   }
 
   /** Which of the shells' Ls you're stood in, or -1. */
@@ -1852,6 +1869,7 @@ export class LowWater {
     this.wake.update(dt);
     this.curlew.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), outside, (near, pan) => this.hooks.curlew?.(near, pan) ?? false);
     this.settle(dt);
+    this.casts.update(dt, this.pos.x, this.pos.z, this.stillFor);
     this.near();
     this.ring(dt);
     this.rock(dt);
@@ -2096,6 +2114,8 @@ export class LowWater {
     // (the geul: anywhere along its banks, or in it)
     const geul = geulNear(at.x, at.y);
     if (geul.d < 2.2) places.push(['geul', new THREE.Vector2(at.x - geul.d, at.y), 2.2]); // (a point as far off as its bank is)
+    // (the casts: anywhere on their bank)
+    if (this.casts.on(at.x, at.y)) places.push(['casts', new THREE.Vector2(at.x + 1, at.y), 1.5]);
     for (const [id, p, r] of places) {
       if (id === 'stick' && this.justWrote) continue;
       const d = at.distanceTo(p);
@@ -2292,6 +2312,7 @@ export class LowWater {
     // at night, a step in the water lights it
     if (bankAt(x, z) < this.level - 0.01 && this.outside.night > 0.4) this.wake.light(x, this.level + 0.006, z, 6 + Math.round(this.outside.night * 4), 0.4);
     if (this.shells.which(x, z) >= 0) this.hooks.shell?.();
+    else if (this.casts.on(x, z) && bankAt(x, z) >= this.level) this.hooks.mud?.();
     else this.hooks.step?.(bankAt(x, z) < this.level);
   }
 
@@ -2409,6 +2430,8 @@ export class LowWater {
     if (this.card === 'ring' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(RING) < RING_R - 1.1) want.set(RING.x, 0, RING.y - lead + (this.aspect < 0.8 ? 17 : 9));
     // at the lead line, the view drops back so you and the water you heave into are both above the card
     if (this.card === 'lead' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HEAVE_AT) < 2) want.set(this.pos.x + 1, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11)); // (more on a phone, where the card's taller)
+    // on the casts' bank, back so you and the sand ahead of you are above the card
+    if (this.card === 'casts' && this.casts.on(this.pos.x, this.pos.z)) want.set(this.pos.x, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11));
     // at the table, back so it (and the postcard on it) is above its long card
     if (this.card === 'table' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(TABLE) < 3) want.set(TABLE.x - 0.5, 0, TABLE.y - lead + (this.aspect < 0.8 ? 19 : 11));
     // at the tide gauge, back so the board and the water at its foot are above the card

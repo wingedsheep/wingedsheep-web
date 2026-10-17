@@ -51,6 +51,7 @@ const SPECIMENS = [
   ['tromb', 'Tromb', 'Unconfirmed. Horns, stripes, and a snout it rolls out to the sea. I heard it before I saw it.'],
   ['curlew', 'Curlew', 'Heard, not seen. A long rising call from somewhere out on the banks, and the name is that call, written down.'],
   ['knot', 'Knot', 'Thousands at a time, in from the Arctic for the winter. No bird leads the flock; each keeps with the few nearest it, and the whole shape turns at once.'],
+  ['lugworm', 'Lugworm', 'Never seen, only its coils of sand, and the dimple a hand away where it eats. It lives in a U between the two.'],
 ] as const;
 /** The atlas is six sketches wide and nine deep; its thirty-sixth sketch is the feather, not an animal. */
 const FEATHER = 35;

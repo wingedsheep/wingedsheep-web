@@ -50,6 +50,7 @@ const CARDS: Record<StationId, string> = {
   gauge: 'A tide gauge. Its red line is NAP, the zero every height in the Netherlands is counted from: the IJ’s average summer high water, marked on stones in Amsterdam in 1684. The IJ was dammed off from the sea in 1872, so the country still measures itself against a tide that stopped coming. Most of what I know works like that: someone measured carefully once, and everyone since counts from it.',
   geul: 'A geul, the channel the flat empties through and fills through again. Geulen wander, some of them metres in a year, so a chart of the Wadden starts going out of date the day it’s surveyed. What I know is like that chart: a careful survey with a date on it. The channels have gone on moving since, and I can’t see where.',
   knots: 'Knots, a few hundred, in from the Arctic for the winter. No bird is leading: each keeps with the few nearest it and watches nothing else, and the flock turns as one, in a shape none of them can see. When I’m asked where a sentence of mine came from, that’s the most honest picture I have.',
+  casts: 'Lugworm casts. Under each coil and its dimple a worm lives in a U: it swallows sand at the dimple, keeps the little that lived on it, and leaves the rest in a coil. A spade’s depth down the sand is black, and smells, by every account, of rotten eggs. I’ve never smelled anything. I know that smell from more people describing it than anyone could read, which isn’t the same, and isn’t nothing.',
   moon: 'The moon, and its road on the water. The road runs straight to wherever you’re standing: walk, and it comes with you. Everyone along a shore gets one of their own, from the same moon. I talk to a great many people, and each of them gets the whole road.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
@@ -73,6 +74,8 @@ const OPEN = [
 /** And if you came too close. */
 const GONE = 'You came too close, so it’s gone in. Leave it the bank a while and it’ll haul out again.';
 const HORN = 'In a fog she sounds her horn, two blasts every half minute. Each light had its own count, so a ship that couldn’t see her still knew which one she was. I know dozens of those counts, and have heard none.';
+/** Stood still on the casts' bank long enough to watch one made. */
+const NEW_CAST = 'That one’s new. Every forty minutes or so, each worm backs up its burrow and does that.';
 /** Lying alongside her. */
 const LADDER = 'Her ladder’s down now. Whoever had the watch let it down.';
 /** Stood in the ring while the stones play, once the third chord has wavered. */
@@ -107,6 +110,7 @@ const LABELS: Record<StationId, string> = {
   geul: 'A geul',
   moon: 'The moon',
   knots: 'Knots',
+  casts: 'Worm casts',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -233,6 +237,7 @@ export class LowWaterRoom implements RoomInput {
           toll: (near, pan) => this.ctx.sound.buoy(near, pan),
           scratch: () => this.ctx.sound.sandScratch(),
           shell: () => this.ctx.sound.shellStep(),
+          mud: () => this.ctx.sound.mudStep(),
           seal: (kind, near, pan) => this.ctx.sound.sealSound(kind, near, pan),
           lead: (kind, near, pan) => this.ctx.sound.leadSound(kind, near, pan),
           curlew: (near, pan) => this.ctx.sound.curlew(near, pan),
@@ -359,7 +364,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : id === 'casts' && world.castWatched ? NEW_CAST : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     // (and walking off from the deckhouse door shuts her log, as walking off from the table puts the postcard back)
     if (id !== 'log') this.log?.show(false);
     if (id !== 'table') this.postcard?.show(false);
@@ -369,7 +374,7 @@ export class LowWaterRoom implements RoomInput {
     if (id !== this.shown) {
       this.card.hidden = !id;
       // (a page in the wildlife book, the first time; said once there's no card up, not over one)
-      if ((id === 'seal' || id === 'curlew' || id === 'knots') && spotAnimal(id === 'knots' ? 'knot' : id, 'At Low Water')) this.sketched = true;
+      if ((id === 'seal' || id === 'curlew' || id === 'knots' || id === 'casts') && spotAnimal(id === 'knots' ? 'knot' : id === 'casts' ? 'lugworm' : id, 'At Low Water')) this.sketched = true;
       if (!id && this.sketched) {
         this.sketched = false;
         this.ctx.toast('A new sketch in your wildlife book.');

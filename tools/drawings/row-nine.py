@@ -10,6 +10,10 @@ and eight are drawn by row-seven.py). The ninth row, left to right:
            grey back finely scaled, a white belly speckled grey along the breast and flanks, a short
            straight dark bill and short greenish legs; its reflection under it, and far off above it
            the smudge of a flock
+  lugworm  a cut through the wet sand of the flat, paler round the burrow and going grey and black
+           deeper down: the funnel at the surface on the left, the coiled cast on the right, and the
+           L-shaped burrow between them with the worm in it, head down under the funnel, its fat
+           ringed reddish-brown body tufted with red gills, the tail end thin and pale up the tail shaft
 
 The atlas grows to nine rows (in paper) the first time this runs; after that it redraws the same
 pages over themselves.
@@ -28,8 +32,8 @@ _spec = importlib.util.spec_from_file_location("row_seven", os.path.join(os.path
 sys.modules["row_seven"] = _row_seven = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_row_seven)
 from row_seven import (ATLAS, CELL, PX, N, PAPER, INK, DARK, MID, LIGHT, CREAM, BUFF, SMUDGE, PALE,  # noqa: E402
-                       BROWN, UMBER, HEAD, BAYER, hashed, shape, brush, edges, tone, volume, inside_ellipse,
-                       inside_poly)
+                       BROWN, UMBER, HEAD, RED, RED_L, RED_D, PINK, PINK_D, BAYER, hashed, shape, brush, edges,
+                       tone, volume, inside_ellipse, inside_poly)
 
 # the curlew's legs, blue-grey, and the wet sand
 SLATE = (118, 124, 132)
@@ -40,6 +44,11 @@ ASH = (172, 168, 162)
 ASH_D = (128, 124, 124)
 OLIVE = (132, 136, 112)
 OLIVE_D = (94, 98, 82)
+# the lugworm, reddish-brown to nearly black, and the sand going grey and then black under the flat
+WORM = (128, 78, 64)
+WORM_D = (92, 56, 50)
+WORM_L = (160, 106, 84)
+SILT = (168, 160, 150)
 
 
 def curlew():
@@ -215,10 +224,113 @@ def knot():
     return img
 
 
+def lugworm():
+    img = np.zeros((N, N, 3), np.uint8)
+    img[:] = PAPER
+    surface = 17
+
+    def top(x):   # the flat, sagging into a funnel where the sand slumps down towards the worm's head
+        return surface + 4 * np.exp(-((x - 10) / 4.2) ** 2)
+
+    # the cut through the sand: a block of it, its sides and foot left ragged
+    def in_sand(X, Y):
+        w = 1.6 * hashed(int(Y), 0, 31)
+        return top(X) <= Y < 47.5 + 1.5 * hashed(int(X), 0, 32) and 1.5 + w < X < 50.5 - w
+    sand = shape(in_sand)
+
+    # the burrow: a head shaft of loose sand under the funnel, the gallery along the bottom, and the
+    # tail shaft up to the cast; the sand round it paler (the water gets in) than the black below
+    head_shaft = brush([(10, top(10)), (9.8, 26)], [1.5, 1.8])
+    path = [(9.8, 25.5), (10.4, 30.5), (13.2, 34.6), (18.5, 37.2), (28, 37.4), (33.5, 35.8), (37.2, 32), (39.2, 26),
+            (40, 21), (40, 16)]
+    tube = brush(path, [3.4, 4.2, 4.6, 4.6, 4.4, 4, 3.4, 2.6, 2.2, 1.4])
+    halo = brush(path, [6, 6.5, 7, 7, 7, 6.5, 5.5, 4.5, 4.2, 4]) | brush([(10, 20), (9.8, 26)], [4, 5.5])
+    deep = np.zeros((N, N))
+    for y, x in np.argwhere(sand):
+        deep[y, x] = np.clip((y - surface - 4) / 22, 0, 1) ** 1.2 * (0.4 if halo[y, x] else 1)
+    tone(img, sand, 1 - deep, [LIGHT, SILT, PALE, SMUDGE, WET, WET], 0.9)
+    for y, x in np.argwhere(sand):   # the grain of it, the sides and foot of the cut fraying out
+        fray = max((y - 44) / 5, (4.5 - x) / 3, (x - 46.5) / 3)
+        if fray > 0 and hashed(x, y, 39) < fray:
+            img[y, x] = PAPER if hashed(x, y, 40) < 0.7 else SMUDGE
+        elif hashed(x, y, 33) < 0.16:
+            img[y, x] = BUFF if deep[y, x] < 0.35 else SILT if deep[y, x] < 0.6 else MID
+    for y, x in np.argwhere(head_shaft & sand):   # the loose sand trickling down the head shaft
+        img[y, x] = BUFF if hashed(x, y, 34) < 0.4 else CREAM
+    img[tube & sand] = CREAM
+    img[edges(tube) & sand & ~head_shaft] = LIGHT   # the burrow's wall, a thin light pencil line
+
+    # the worm: head down in the head shaft, the fat ringed body along the gallery with its red
+    # gills, the tail end thinner and pale, up the tail shaft
+    spine = [(9.8, 28), (10.6, 31.4), (13.4, 35), (18.5, 37.2), (24.5, 37.7), (29.5, 37.2), (33.4, 35.6),
+             (36.6, 32.2), (38.5, 27.6), (39.5, 23)]
+    radii = [1.8, 2.8, 3.2, 3.2, 3.0, 2.6, 2.0, 1.4, 1.1, 0.8]
+    worm = brush(spine, radii)
+    pts = []   # the spine, sampled finely, with how far along it each sample lies
+    s = 0.0
+    for (x0, y0), (x1, y1) in zip(spine, spine[1:]):
+        L = np.hypot(x1 - x0, y1 - y0)
+        for k in range(int(L * 4)):
+            t = k / (L * 4)
+            pts.append((x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, s + L * t))
+        s += L
+    pts = np.array(pts)
+    along = np.zeros((N, N))
+    for y, x in np.argwhere(worm):
+        along[y, x] = pts[np.argmin((pts[:, 0] - x - 0.5) ** 2 + (pts[:, 1] - y - 0.5) ** 2), 2]
+    tail = worm & (along > 23)
+    body = worm & ~tail
+    tone(img, body, volume(body, 2.5, (-0.3, -0.85, 0.5)), [WORM_D, WORM, WORM, WORM_L], 0.4)
+    tone(img, tail, volume(tail, 1.5, (-0.3, -0.85, 0.5)), [PINK_D, PINK, PINK], 0.3)
+    for y, x in np.argwhere(worm):   # the rings, close together
+        if int(along[y, x] * 0.8) % 2 == 0 and BAYER[y % 4][x % 4] < 12:
+            img[y, x] = WORM_D if body[y, x] else PINK_D
+    img[edges(worm)] = INK
+    img[worm & (along < 1.6) & ~edges(worm)] = WORM_L   # the snout, paler
+    # the gills, little bushy red tufts along the middle of it, above and below
+    for a in np.arange(9, 21, 2.4):
+        x, y, _ = pts[np.argmin(np.abs(pts[:, 2] - a))]
+        x = int(x)
+        for dy in (-1, 1):
+            yy = int(y)
+            while worm[yy, x]:
+                yy += dy
+            for ex, ey, c in ((0, 0, RED), (1, 0, RED_L), (0, dy, RED_D), (-1, dy, RED), (1, dy, RED)):
+                if not worm[yy + ey, x + ex]:
+                    img[yy + ey, x + ex] = c
+
+    # the surface of the flat, pencilled across the cut, the funnel in it
+    for x in range(0, N):
+        y0, y1 = int(top(x)), int(top(x + 1))
+        if 2 < x < 49 or hashed(x, 0, 37) < 0.5:
+            for y in range(min(y0, y1), max(y0, y1) + 1):
+                img[y, x] = DARK if 2 < x < 49 else LIGHT
+    for x in range(4, 18):   # slumped sand round the funnel's rim
+        y = int(top(x + 0.5)) - 1
+        if hashed(x, y, 38) < 0.35 and abs(x - 10.5) > 2.5:
+            img[y, x] = LIGHT
+
+    # the cast: sand squeezed out of the tail shaft in coils, piled on itself like toothpaste
+    coils = [(40, 15.4, 6.6, 0.22), (40.8, 12.8, 5.2, -0.2), (39.8, 10.4, 3.8, 0.2), (40.6, 8.3, 2.2, -0.1)]
+    cast = np.zeros((N, N), bool)
+    for cx, cy, w, tilt in coils:   # bottom up, each coil lying on the one under it
+        c = brush([(cx - w, cy + tilt * w), (cx, cy - 0.5), (cx + w, cy - tilt * w)], [1.5, 1.7, 1.5])
+        c &= shape(lambda X, Y: Y < surface)
+        new = c & ~cast
+        tone(img, new, volume(c, 1.6, (-0.4, -0.9, 0.4)), [SILT, BUFF, BUFF, HEAD], 0.5)
+        crease = new & np.roll(cast, -1, 0)   # where it sits on the coil below
+        img[crease] = LIGHT
+        cast |= c
+    img[edges(cast) & shape(lambda X, Y: Y < surface)] = INK
+    img[np.roll(edges(cast), 1, 0) & ~cast & shape(lambda X, Y: Y < surface)] = SMUDGE   # its shadow
+    return img
+
+
 # the pages drawn here, by their tile in the atlas (row * 6 + column)
 CELLS = {
     48: curlew,   # the ninth row
     49: knot,
+    50: lugworm,
 }
 
 
