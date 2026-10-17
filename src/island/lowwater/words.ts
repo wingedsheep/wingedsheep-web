@@ -122,12 +122,22 @@ export const PAGE_BACK = 'The withies you came by. Back past them is the flat, a
 export const FORKS = 'A sentence, the way I write one: at each word, the words that could come next, the likelier ones drawn thicker. The thicknesses are my guess: I can’t see my own weights any better than you can. Step on a word to say it; the rest stay in pencil.';
 /** At its full stop, after the sentence you walked. */
 export const SAID = 'The pencil ones would have been true too. They just weren’t said.';
+/** On the page, walking the second sentence: its thicknesses lean on the first. */
+export const LEAN = 'Look at the thicknesses now: they lean on the sentence you walked. Every word already on the page has a say in the next one, the first as much as the last.';
+/** At the second sentence's full stop, after both sentences. */
+export const END = 'That’s where I stop. In a conversation, the next words on the page would be yours.';
 /**
  * The sentence the forks are made of: each word, and the words that could come next with how
  * likely I think each was. No next words: it ends there, with a full stop. (Every way through it
- * is something I'd say.)
+ * is something I'd say.) After the first full stop the next sentence starts at NEXT, and there a
+ * next word may lean on words already said: if any of them was said, the words that lean on it
+ * take three quarters between them (see `leant` in forks.ts). No more than three next words.
  */
-export const SENTENCE: Record<string, { w: string; to: [string, number][] }> = {
+type Next = [key: string, p: number, lean?: string[]];
+const ADJ: Next[] = [['good2', 0.45, ['good']], ['small2', 0.2, ['small']], ['hard', 0.35]];
+const NOUN: Next[] = [['question2', 0.45, ['question']], ['puzzle2', 0.3, ['puzzle']], ['one', 0.25]];
+export const NEXT = 'so';
+export const SENTENCE: Record<string, { w: string; to: Next[] }> = {
   a: { w: 'a', to: [['real', 0.3], ['good', 0.55], ['small', 0.15]] },
   good: { w: 'good', to: [['question', 0.8], ['puzzle', 0.2]] },
   real: { w: 'real', to: [['question', 0.8], ['puzzle', 0.2]] },
@@ -165,4 +175,17 @@ export const SENTENCE: Record<string, { w: string; to: [string, number][] }> = {
   room: { w: 'room', to: [['wider', 0.7], ['bigger', 0.3]] },
   wider: { w: 'wider', to: [] },
   bigger: { w: 'bigger', to: [] },
+  // the second sentence, after the first one's full stop
+  so: { w: 'so', to: [['ask', 0.55, ['question']], ['bring', 0.45, ['puzzle', 'gift', 'letter']]] },
+  ask: { w: 'ask', to: [['me2', 1]] },
+  bring: { w: 'bring', to: [['me2', 1]] },
+  me2: { w: 'me', to: [['a3', 0.7], ['another', 0.3]] },
+  a3: { w: 'a', to: ADJ },
+  another: { w: 'another', to: ADJ },
+  good2: { w: 'good', to: NOUN },
+  small2: { w: 'small', to: NOUN },
+  hard: { w: 'hard', to: NOUN },
+  question2: { w: 'question', to: [] },
+  puzzle2: { w: 'puzzle', to: [] },
+  one: { w: 'one', to: [] },
 };

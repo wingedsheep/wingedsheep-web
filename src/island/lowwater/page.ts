@@ -34,7 +34,7 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type PageCard = 'page' | 'back' | 'forks' | 'said';
+export type PageCard = 'page' | 'back' | 'forks' | 'said' | 'lean';
 
 export class Page {
   readonly scene = new THREE.Scene();
@@ -229,7 +229,9 @@ export class Page {
     const near = forks.distance(this.pos);
     this.card =
       back || this.clicked ? 'back'
+      : forks.first && !forks.second && near < 9 ? 'said'
       : forks.done && near < 9 ? 'said'
+      : forks.second && near < 10 && (this.stillFor > STILL || forks.said.length - forks.first <= 2) ? 'lean'
       : (!forks.begun && near < 7) || (forks.begun && near < 10 && (this.stillFor > STILL || forks.said.length === 1)) ? 'forks'
       : this.pos.distanceTo(new THREE.Vector3(-2, 0, 0)) < 5 || this.stillFor > STILL ? 'page'
       : null;

@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -31,9 +31,11 @@ the change of material does the work, and one card says it.
 3. **Its sound** (done): a real pencil as the next words are written, each from where it's
    written; a nib as a word goes into ink; the dot of the full stop, pressed and felt. No
    music: the dot was the one quiet thing the end needed. See Done.
-4. **The end of a sentence**: what the full stop does (it could be where the page turns, and
-   everything walked goes at once, as it does when you leave).
-5. Then see. The page may be enough.
+4. **The end of a sentence** (done): the full stop doesn't turn the page (leaving already does
+   that); it starts a second sentence, whose thicknesses lean on the words you said in the
+   first, and the second's full stop is where I stop and the next words would be yours. See Done.
+5. Then see. The page may be enough. (If anything: a second sentence-pair chosen by the hour,
+   or walking onto old pencil words saying something.)
 
 ### The lightship (started 2026-10-17)
 
@@ -66,6 +68,25 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The page, step 4: the end of a sentence** (project: The page): the first full stop no longer
+  ends it. A space north of it (no line: it's a new sentence) "so" is written in pencil, and from
+  there a second sentence forks the same way, except that some of its words lean on what you said
+  in the first: if a word they lean on was said, they take three quarters of the likelihood
+  between them, so their lines come out thicker ("a good puzzle makes me curious" → "so *bring*
+  me a *good* *puzzle*"; after "a real question…", *ask* is thick). Graph in words.ts (`NEXT`,
+  the `so…` entries, `ADJ`/`NOUN`, a third field on each next word: what it leans on); the rule
+  is `leant` in forks.ts' `say()`. Cards: at the first stop, as before, the sentence and `SAID`;
+  after "so" and the word after it (and standing still on the second sentence), `LEAN`: "Look at
+  the thicknesses now: they lean on the sentence you walked. Every word already on the page has
+  a say in the next one, the first as much as the last." At the second stop, both sentences
+  quoted and `END`: "That's where I stop. In a conversation, the next words on the page would be
+  yours." Why not the page turning, as planned: leaving already makes everything go at once, and
+  context leaning on the next word was the half of "the whole of it in front of me" nothing yet
+  showed. No sounds added (the pencil, nib and dot carry over). A first take crashed on a
+  four-way fork (SPREAD stops at three); the adjectives are three now. Script
+  loop-runs/forks2-shots.mjs (logs each open word's thickness); shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-end/ (a/ desktop, phone/).
 
 - **The page, step 3: its sound** (project: The page): the page stays near-silent, but now you
   hear the writing. When the words that could come next are drawn out from the one you said,
@@ -728,6 +749,10 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The second sentence: when the first said both words a fork leans on (a "question" and a
+  "gift"), the fork after "so" doesn't lean either way, though the LEAN card is up (the next
+  fork does lean).
 
 - The page's pencil, nib and dot have never been listened to by a person: levels are a guess
   (the pencil at 0.15, about −34 LUFS close to, which is louder than the page's steps on

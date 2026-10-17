@@ -4,13 +4,15 @@
  * next are drawn out from it in pencil, each line as thick as I'd guess that word was likely. What
  * comes after a word isn't there until you've said it. Step on one of them and so on, to a full
  * stop; the words you didn't take stay where they are, in pencil, for as long as you're here.
+ * After the full stop a second sentence starts, and some of its thicknesses lean on the words you
+ * said in the first: everything already on the page has a say in what comes next.
  *
  * Words are drawn in the page's letters (letters.ts), one mark a texel, and lines a texel or three
  * wide, so both are scaled with the texel each frame; where they lie is in metres.
  */
 import * as THREE from 'three';
 import { write, type Written } from './letters';
-import { SENTENCE } from './words';
+import { NEXT, SENTENCE } from './words';
 
 const INK = new THREE.Color('#2a2b47');
 const PENCIL = new THREE.Color('#a29d8e');
@@ -49,8 +51,9 @@ interface Line {
 
 export class Forks {
   readonly group = new THREE.Group();
-  /** The words said so far, and whether it's reached its full stop. */
+  /** The words said so far; how many of them the first sentence was (once it's had its full stop); whether the second's ended too. */
   said: string[] = [];
+  first = 0;
   done = false;
   /**
    * For the sound: the pencil starting a word (or its line) for so many seconds, from so near (0–1)
@@ -79,15 +82,26 @@ export class Forks {
     this.words = [];
     this.lines = [];
     this.said = [];
+    this.first = 0;
     this.done = false;
     this.last = null;
     this.open = [this.word('a', START, null, 0)];
   }
 
-  /** The sentence as walked, written out properly. */
+  /** The sentences as walked, written out properly. */
   get sentence() {
-    const s = this.said.join(' ').replace(/\bi\b/g, 'I');
-    return `“${s.charAt(0).toUpperCase()}${s.slice(1)}${this.done ? '.' : ''}”`;
+    const write = (words: string[], stop: boolean) => {
+      const s = words.join(' ').replace(/\bi\b/g, 'I');
+      return `${s.charAt(0).toUpperCase()}${s.slice(1)}${stop ? '.' : ''}`;
+    };
+    if (!this.first) return `“${write(this.said, false)}”`;
+    const rest = this.said.slice(this.first);
+    return `“${write(this.said.slice(0, this.first), true)}${rest.length ? ` ${write(rest, this.done)}` : ''}”`;
+  }
+
+  /** In the second sentence: had the first's full stop and said a word since. */
+  get second() {
+    return this.first > 0 && this.said.length > this.first;
   }
 
   /** How far you are from the sentence: its first word before you've begun, the last one said after. */
@@ -131,8 +145,10 @@ export class Forks {
     if (word.line) word.line.mesh.material = this.ink;
     const next = SENTENCE[word.key].to;
     if (!next.length) {
-      this.done = true;
-      this.open = [];
+      // the first sentence's stop starts the second, a space further on; the second's is the end
+      if (this.first) this.done = true;
+      else this.first = this.said.length;
+      this.open = this.done ? [] : [this.word(NEXT, word.at.clone().add(new THREE.Vector3(0, 0, -(7 * this.depth * T0 + 3.5))), null, 0, 1.2)];
       // (and its full stop)
       word.text.geometry.dispose();
       word.text = write(`${word.w}.`, this.depth);
@@ -144,7 +160,12 @@ export class Forks {
     // (a fork wanders as a path does, but keeps coming back towards where the sentence began)
     const lean = THREE.MathUtils.clamp((START.x - word.at.x) * 0.3, -4, 4);
     const top = 7 * this.depth * T0 + 0.5;
-    this.open = next.map(([key, p], i) => {
+    // (the words that lean on something already said take three quarters between them)
+    const leant = next.map(([, , lean]) => !!lean?.some((w) => this.said.slice(0, this.first || undefined).includes(w)));
+    const share = (on: boolean) => next.reduce((sum, [, p], i) => sum + (leant[i] === on ? p : 0), 0);
+    const any = leant.some(Boolean) && !leant.every(Boolean);
+    this.open = next.map(([key, base], i) => {
+      const p = any ? (base / share(leant[i])) * (leant[i] ? 0.75 : 0.25) : base;
       const at = new THREE.Vector3(word.at.x + SPREAD[next.length][i] + lean, 0, word.at.z - top - LEN);
       return this.word(key, at, word, p >= 0.5 ? 3 : p >= 0.25 ? 2 : 1, 0.15 + i * 0.25);
     });
