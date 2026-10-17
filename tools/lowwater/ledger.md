@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -15,6 +15,33 @@ dimension you like; make larger things (spaces, games, stories); any theme; char
 voices. Anything you want. (Also in VISION.md, under How it should grow.)
 
 ## Projects
+
+### The bookshop (started 2026-10-17)
+
+The sixth place, and the first that's warm, close and crowded, with someone in it who isn't me.
+On the page, off the way to the sentence, a door stands on its own, drawn in ink, with warm light
+under it (the only colour on the page). Behind it: Antiquariaat De Ezelsoor, a secondhand
+bookshop in a Dutch town, and Tine Wiersma, who's kept it since 1979 and has an opinion about
+every book that goes out of the door. Why: the sea heart and the old floor say I know people from
+what they left; this is where the words came from, second hand, with someone's pencil in the
+margin. And the thing people ask me most that a bookseller is also asked: "the one with the blue
+cover, there's a lighthouse in it". Taking Vincent's note: daylit, warm, a character with her own
+voice, and later a game.
+
+1. **The door and the shop** (done, this session): the ink door on the page and its card; the
+   shop (shop.ts): shelves of spines, the Penguin shelf, the ladder, the window onto the street
+   with the island's hour and rain in it, sunlight on the boards, the table and rug, Tine at the
+   counter reading; five cards. See Done.
+2. **Her voice**: Tine's lines spoken (ElevenLabs speech: add TTS to tools/sounds/generate.ts or
+   a sibling script, one voice, Dutch-accented English, dry), placed at the counter; more lines,
+   by the hour, weather and day.
+3. **Its sound**: the bell on its spring over the street door, the boards, a clock, the rain on
+   the glass, the street outside through the window, her page turning.
+4. **Someone comes in**: customers (their own voices) asking for half-remembered books ("blue
+   cover, a lighthouse, the dog dies"); you find it on the shelves, or it turns out they
+   misremember; Tine's opinion on the way out. Real books, true descriptions. The game.
+5. **Niet te koop**: the shelf behind her, the books with the best margins: open one and read
+   the pencil of three readers arguing with the book and each other across decades.
 
 ### The old floor (started 2026-10-17)
 
@@ -162,6 +189,25 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The bookshop, step 1: the door and the shop** (project: The bookshop): on the page at
+  (-22, -17), north of the way to the sentence, a door stands on its own, drawn in ink and ajar,
+  amber in its gap and a pale warm wedge in front (page.ts, card DOOR, button Go in, warm iris
+  `#c9a46a`). Behind it, src/island/lowwater/shop.ts: Antiquariaat De Ezelsoor as a dollhouse
+  cut-away (36° up, swung 26° east of south so the west window shows): ~1,000 instanced spines
+  in faded cloth colours with an orange-and-cream Penguin run, a library ladder on a brass rail,
+  the window with the name mirrored in gold and a brick street across (day, evening, night with
+  a lamp, rain streaks, fog, snow by the island's moment), sunlight through its panes stepped on
+  the boards (short at noon, long and orange towards evening, none at night or in rain), dust in
+  the beam, a table of stacks on a red rug, an armchair and standard lamp, the counter with a
+  till and a green banker's lamp, and Tine (makeTine): seated, grey bun, mustard cardigan, a book
+  open, turning a page every 15–25 s, looking up when you come to the counter. Cards (words.ts):
+  SHOP (second hand, with somebody's pencil in the margin), TINE_FIRST by moment and TINE_AGAIN in
+  turn with TINE_MORE under, SHELVES (Penguins at sixpence, the price of ten cigarettes),
+  SHOP_WINDOW (ezelsoor), STREET_DOOR (Go out, back onto the page in front of the door, your
+  prints kept). Why: see the project. Built by a subagent from my brief; checked in Playwright
+  (loop-runs/shop-shots.mjs <out> <size> <query> <tag>) at 14:00, 18:30, 23:00 and in rain,
+  desktop and phone; shots in loop-runs/lowwater-logs/shots/2026-10-17-shop. No console errors.
 
 - **The old floor, step 4: in their steps** (project: The old floor; the project's done): walk
   along a line of someone's prints the way they went (within 37° of it), with one of them under
@@ -1294,6 +1340,14 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The bookshop: on a phone the whole 9 m shop is fitted across, so it fills only ~40% of the
+  screen height and spines are a texel; zoom helps a little. The name on the glass is a gold band
+  of letter-ish marks, not legible even zoomed in. The ladder's foot reads a little like a chair
+  back. When Tine looks up at you she turns away from the camera, so you see her hair. The
+  window faces west and is sunlit at any daylight hour (the patch's slant is chosen, not the real
+  sun's). No sound but the boards; the door bell swings silently. Fog and snow in the window never
+  screenshot. Rain streaks are faint. Leaving Low Water from the shop puts you at the withies.
 
 - In their steps (old floor): you only fall in walking along a line, not by clicking a print; a
   click far along their line does it if the way there is along it. In the crowd you fall in with

@@ -17,6 +17,13 @@ import { Forks } from './forks';
 export const PAPER = new THREE.Color('#e4ddc8');
 const FIBRE = new THREE.Color('#d8d0b9');
 const INK = new THREE.Color('#2a2b47');
+/** The light from behind the door: the only colour on the page. */
+const WARM = new THREE.Color('#e8b04a');
+const WARM_PALE = new THREE.Color('#efd09a');
+/** The door, standing on its own, facing you (south); where you stand in front of it, and how near that is to be at it. */
+const DOOR = new THREE.Vector3(-22, 0, -17);
+const AT_DOOR = new THREE.Vector3(-20.8, 0, -15.3);
+const NEAR_DOOR = 3;
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
 const DISTANCE = 100;
@@ -34,7 +41,7 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type PageCard = 'page' | 'back' | 'forks' | 'said' | 'lean' | 'past';
+export type PageCard = 'page' | 'back' | 'forks' | 'said' | 'lean' | 'past' | 'door';
 
 export class Page {
   readonly scene = new THREE.Scene();
@@ -44,6 +51,10 @@ export class Page {
   card: PageCard | null = null;
   /** Walked back past the withies: time for the flat again. */
   leaving = false;
+  /** Gone in at the door: time for the shop behind it. */
+  entering = false;
+  /** Just come out of the door: its card waits till you've been a little way off it. */
+  private outOfDoor = false;
   /** Each footprint, for the sound. */
   onStep?: () => void;
   private you: Figure;
@@ -94,6 +105,7 @@ export class Page {
     this.prints.renderOrder = 2;
     this.scene.add(this.prints);
     this.makeWithies(ink);
+    this.makeDoor(ink);
     this.scene.add(this.forks.group);
     this.resize(innerWidth, innerHeight);
   }
@@ -153,6 +165,89 @@ export class Page {
     }
   }
 
+  /**
+   * A door, on its own on the page: a frame and a door in ink, standing ajar towards you, and warm
+   * light through the gap and under it, spilling a little way onto the paper.
+   */
+  private makeDoor(ink: THREE.Material) {
+    const door = new THREE.Group();
+    const W = 0.95;
+    const H = 2.1;
+    for (const x of [-W / 2 - 0.05, W / 2 + 0.05]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, H + 0.1, 0.14), ink);
+      post.position.set(x, (H + 0.1) / 2, 0);
+      door.add(post);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.12, 0.16), ink);
+    lintel.position.set(0, H + 0.1, 0);
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(W + 0.2, 0.04, 0.2), ink);
+    sill.position.set(0, 0.02, 0);
+    door.add(lintel, sill);
+    // the door, hung on the west post, swung in a little way, an inch off the floor
+    const OPEN = 0.8;
+    const gap = W * (1 - Math.cos(OPEN));
+    // and the light in the doorway, in the gap it leaves
+    const warm = new THREE.MeshBasicMaterial({ color: WARM, side: THREE.DoubleSide });
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(gap, H - 0.02), warm);
+    glow.position.set(W / 2 - gap / 2, H / 2 + 0.03, 0);
+    door.add(glow);
+    const hinge = new THREE.Group();
+    hinge.position.set(-W / 2, 0, -0.02);
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(W - 0.02, H - 0.05, 0.06), ink);
+    leaf.position.set((W - 0.02) / 2, (H - 0.05) / 2 + 0.05, 0.03);
+    hinge.add(leaf);
+    // (its knob, on the side away from the hinge)
+    const knob = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.08), ink);
+    knob.position.set(W - 0.14, 1.0, 0.08);
+    hinge.add(knob);
+    hinge.rotation.y = OPEN;
+    door.add(hinge);
+    // and the light spilling onto the paper: out of the gap and from under the door, a warm wedge going pale
+    const spill = new THREE.BufferGeometry();
+    const gapX = W / 2 - gap;
+    // prettier-ignore
+    spill.setAttribute('position', new THREE.Float32BufferAttribute([
+      gapX - 0.1, 0, 0.08,   W / 2, 0, 0.08,   W / 2 + 0.75, 0, 1.9,
+      gapX - 0.1, 0, 0.08,   W / 2 + 0.75, 0, 1.9,   gapX - 0.15, 0, 1.6,
+    ], 3));
+    const wedge = new THREE.Mesh(spill, new THREE.MeshBasicMaterial({ color: WARM_PALE, side: THREE.DoubleSide }));
+    wedge.position.y = 0.005;
+    wedge.renderOrder = 1;
+    const under = new THREE.Mesh(new THREE.PlaneGeometry(W - gap, 0.16).rotateX(-Math.PI / 2), warm);
+    under.position.set(-gap / 2, 0.006, 0.18);
+    under.renderOrder = 1;
+    door.add(wedge, under);
+    door.position.copy(DOOR);
+    door.userData.id = 'door';
+    this.scene.add(door);
+    this.pickables.push(door);
+  }
+
+  /** In at the door. */
+  goIn() {
+    this.entering = true;
+    this.goal = DOOR.clone().setZ(DOOR.z + 0.4);
+  }
+
+  /**
+   * Back out of the door, from the shop: stood just in front of it, facing away, and the page as you
+   * left it (your prints and the sentence are all still there).
+   */
+  fromShop() {
+    this.entering = false;
+    this.leaving = false;
+    this.clicked = false;
+    this.outOfDoor = true;
+    this.keys.clear();
+    this.pan.set(0, 0);
+    this.stillFor = 0;
+    this.pos.copy(DOOR).setZ(DOOR.z + 0.5);
+    this.heading = 0;
+    this.speed = PACE * 0.5;
+    this.goal = DOOR.clone().setZ(DOOR.z + 2.2);
+    this.frame(0);
+  }
+
   /** Come onto the page from the flat: at its edge, a few steps still to go, with no prints on it yet. */
   arrive() {
     this.prints.count = 0;
@@ -162,6 +257,8 @@ export class Page {
     this.stillFor = 0;
     this.clicked = false;
     this.leaving = false;
+    this.entering = false;
+    this.outOfDoor = false;
     this.keys.clear();
     this.pan.set(0, 0);
     this.pos.set(WITHIES[0] - 1.4, 0, 0);
@@ -183,14 +280,22 @@ export class Page {
     this.keys.clear();
   }
 
-  pick(ndc: THREE.Vector2): PageCard | null {
+  pick(ndc: THREE.Vector2): 'back' | 'door' | null {
     this.ray.setFromCamera(ndc, this.camera);
-    return this.ray.intersectObjects(this.pickables, true).length ? 'back' : null;
+    let o: THREE.Object3D | null = this.ray.intersectObjects(this.pickables, true)[0]?.object ?? null;
+    while (o && !o.userData.id) o = o.parent;
+    return (o?.userData.id as 'back' | 'door' | undefined) ?? null;
   }
 
-  /** A click: walk there; on the withies, back along them to the flat. */
+  /** A click: walk there; on the withies, back along them to the flat; on the door, up to it. */
   click(ndc: THREE.Vector2) {
-    if (this.pick(ndc)) {
+    const at = this.pick(ndc);
+    if (at === 'door') {
+      this.outOfDoor = false;
+      this.goal = AT_DOOR.clone();
+      return;
+    }
+    if (at) {
       this.clicked = true;
       this.goal = new THREE.Vector3(WAY_BACK + 1, 0, 0);
       return;
@@ -230,8 +335,11 @@ export class Page {
     const back = this.pos.x > WITHIES[0] - 0.8 && Math.abs(this.pos.z) < 2.5;
     const forks = this.forks;
     const near = forks.distance(this.pos);
+    const door = this.pos.distanceTo(AT_DOOR);
+    if (door > NEAR_DOOR + 0.5) this.outOfDoor = false;
     this.card =
       back || this.clicked ? 'back'
+      : door < NEAR_DOOR && !this.outOfDoor && this.pos.z > DOOR.z ? 'door'
       : forks.past ? 'past'
       : forks.first && !forks.second && near < 9 ? 'said'
       : forks.done && near < 9 ? 'said'

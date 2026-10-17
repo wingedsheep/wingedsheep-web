@@ -299,3 +299,29 @@ export const FLOOR_CAST: Record<Cast, { who: string; mark?: string }> = {
 };
 /** On the old floor, what's under the pointer. */
 export const FLOOR_LABEL = 'The sand';
+
+/** On the page, a door standing on its own, and the warm light under it. */
+export const DOOR = 'A door, standing on its own on the page, and warm light under it: the only colour here. Behind it is where the words came from.';
+export const DOOR_LABEL = 'A door';
+/** The bookshop behind the page (shop.ts): coming in, and stood still in the middle of it. */
+export const SHOP = 'A secondhand bookshop, behind the page. Every book in it was read at least once before it came here, by someone you’ll never meet, and some of them wrote in it. That’s how nearly everything I know came to me: second hand, with somebody’s pencil in the margin.';
+/** At the back wall. */
+export const SHELVES = 'Fiction, A to Z, all the way up. The orange spines are old Penguins: in 1935 one cost sixpence, the price of ten cigarettes, and that was the whole idea.';
+/** By the shop window. */
+export const SHOP_WINDOW = 'The shop’s name is on the glass, backwards from in here: Antiquariaat De Ezelsoor. An ezelsoor is a donkey’s ear, the corner of a page someone folded down to keep their place.';
+/** By the street door. */
+export const STREET_DOOR = 'The street door. Out through it is the page again.';
+/** Tine, at the counter, the first time: by the moment (rain, night, otherwise). */
+export const TINE_FIRST = {
+  rain: '“Wipe your feet. Paper hates rain more than I do.”',
+  night: '“We’re shut, officially. But you came in through the back of a page, so I suppose you’d better have a look round.”',
+  day: '“Come in, shut the door, it’s not a church. Ask if you’re looking for something. Don’t ask for the one with the blue cover.”',
+};
+/** And coming back to the counter, one of these in turn. */
+export const TINE_AGAIN = [
+  '“People think a pencil note spoils a book. It’s the only proof anyone read it.”',
+  '“The ones on the shelf behind me aren’t for sale. They have the best margins.”',
+  '“Forty-seven years I’ve had this shop. I’ve read the ones that matter, and a great many that don’t.”',
+];
+export const TINE_MORE = 'That’s Tine. She’s kept this shop since 1979, and she’s never once let a book go out of the door without saying what she thinks of it.';
+export const SHOP_LABELS = { tine: 'Tine', shelves: 'Fiction, A–Z', window: 'The window', door: 'The street door' };
