@@ -45,6 +45,8 @@ const GOALS = {
   window: new THREE.Vector3(-3.55, 0, -0.9),
   door: new THREE.Vector3(-3.9, 0, 1.45),
   clock: new THREE.Vector3(1.7, 0, -1.75),
+  // (her own shelf's behind the counter: you ask her for it)
+  kept: new THREE.Vector3(1.75, 0, -0.5),
 };
 /** The clock on the back wall, behind the north end of the counter: its dial's centre. */
 const CLOCK = { x: 2.38, z: BACK + 0.13, dial: 2.2 };
@@ -68,8 +70,8 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type ShopCard = 'shop' | 'tine' | 'shelves' | 'window' | 'door' | 'clock' | 'customer';
-type Thing = 'tine' | 'shelves' | 'window' | 'door' | 'clock';
+export type ShopCard = 'shop' | 'tine' | 'kept' | 'shelves' | 'window' | 'door' | 'clock' | 'customer';
+type Thing = 'tine' | 'kept' | 'shelves' | 'window' | 'door' | 'clock';
 
 /** The worn book-cloth of a secondhand shop: oxblood, bottle green, navy, mustard, tan, cream, grey-blue, and some browns. */
 const CLOTH = ['#6e2229', '#24493a', '#25304f', '#c4962e', '#b08a5c', '#e3d8bc', '#6c7f91', '#4a3020', '#9a4a3a', '#6f6a3a', '#2c2824', '#8a6a48', '#3d5a5a', '#a8b0a0'];
@@ -246,6 +248,9 @@ export class Shop {
   private fresh = true;
   private out = false;
   private atCounter = false;
+  /** At the counter, you've asked her for one off her own shelf; and the one you've taken down to read (its spine's gone from the shelf). */
+  private asked = false;
+  private lent: THREE.Object3D[] = [];
   private pickables: THREE.Object3D[] = [];
   private ray = new THREE.Raycaster();
   private aspect = 1;
@@ -688,17 +693,24 @@ export class Shop {
       this.scene.add(b);
       y += t;
     }
-    // behind her: a low cupboard, and up on the wall a short shelf of a dozen of her own
+    // behind her: a low cupboard, and up on the wall a short shelf of a dozen of her own, not for sale (margins.ts)
     this.scene.add(box(1.6, 0.85, 0.42, wood, 3.65, 0.425, BACK + 0.21), box(1.66, 0.03, 0.46, top, 3.65, 0.865, BACK + 0.23));
-    this.scene.add(box(1.3, 0.03, 0.24, mat('#5e3b22'), 3.6, 2.0, BACK + 0.12));
-    for (const s of [-1, 1]) this.scene.add(box(0.03, 0.18, 0.03, mat('#2a2622'), 3.6 + s * 0.55, 1.92, BACK + 0.05));
+    const kept = new THREE.Group();
+    kept.add(box(1.3, 0.03, 0.24, mat('#5e3b22'), 3.6, 2.0, BACK + 0.12));
+    for (const s of [-1, 1]) kept.add(box(0.03, 0.18, 0.03, mat('#2a2622'), 3.6 + s * 0.55, 1.92, BACK + 0.05));
     let bx = 3.0;
     for (let k = 0; k < 12; k++) {
       const w = 0.04 + rand() * 0.03;
       const h = 0.2 + rand() * 0.1;
-      this.scene.add(box(w, h, 0.18, mat(CLOTH[Math.floor(rand() * CLOTH.length)]), bx + w / 2, 2.015 + h / 2, BACK + 0.13));
+      const spine = box(w, h, 0.18, mat(CLOTH[Math.floor(rand() * CLOTH.length)]), bx + w / 2, 2.015 + h / 2, BACK + 0.13);
+      kept.add(spine);
+      // (the three she lets you read)
+      if (k === 2 || k === 6 || k === 9) this.lent.push(spine);
       bx += w + 0.005;
     }
+    kept.userData.id = 'kept';
+    this.scene.add(kept);
+    this.pickables.push(kept);
   }
 
   /**
@@ -881,6 +893,16 @@ export class Shop {
     this.frame(0);
   }
 
+  /** At the counter: ask her for one off her own shelf. */
+  askKept() {
+    if (this.card === 'tine') this.asked = true;
+  }
+
+  /** The one you're reading, off her shelf (its spine gone while it's out), or none. */
+  reading(book: number | null) {
+    this.lent.forEach((spine, i) => (spine.visible = i !== book));
+  }
+
   /** Back out of the street door. */
   goOut() {
     this.out = true;
@@ -952,6 +974,7 @@ export class Shop {
     const atCounter = counter < TALK && !byClock;
     if (atCounter && !this.atCounter) this.visits++;
     this.atCounter = atCounter;
+    if (!atCounter) this.asked = false;
     const west = this.pos.x < WEST + 1.5;
     this.serve(dt);
     const p = this.customer?.phase;
@@ -959,7 +982,7 @@ export class Shop {
     this.card =
       this.fresh ? 'shop'
       : (p === 'ask' || p === 'wait' || p === 'found' || p === 'pay') && !byDoor ? 'customer'
-      : atCounter ? 'tine'
+      : atCounter ? (this.asked ? 'kept' : 'tine')
       : byClock ? 'clock'
       : this.atShelves ? 'shelves'
       : west && this.pos.z > WIN.z0 && this.pos.z < WIN.z1 ? 'window'
@@ -1168,7 +1191,7 @@ export class Shop {
       this.speed = 0;
       this.stillFor += dt;
       // stood at the counter, you face her; at the shelves, them; at the window, out
-      const face = this.card === 'tine' ? Math.atan2(TINE_AT.x - this.pos.x, TINE_AT.z - this.pos.z) : this.card === 'shelves' ? Math.PI : this.card === 'window' ? -Math.PI / 2 : this.card === 'clock' ? Math.atan2(CLOCK.x - this.pos.x, CLOCK.z - this.pos.z) : null;
+      const face = this.card === 'tine' || this.card === 'kept' ? Math.atan2(TINE_AT.x - this.pos.x, TINE_AT.z - this.pos.z) : this.card === 'shelves' ? Math.PI : this.card === 'window' ? -Math.PI / 2 : this.card === 'clock' ? Math.atan2(CLOCK.x - this.pos.x, CLOCK.z - this.pos.z) : null;
       if (face !== null) {
         let turn = face - this.heading;
         turn = Math.atan2(Math.sin(turn), Math.cos(turn));

@@ -21,8 +21,9 @@ import type { Page } from './lowwater/page';
 import type { Ridge } from './lowwater/ridge';
 import type { Shop } from './lowwater/shop';
 import type { Postcard } from './lowwater/postcard';
+import type { Margins } from './lowwater/margins';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, KEPT, TINE_KEPT, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -58,6 +59,8 @@ export class LowWaterRoom implements RoomInput {
   private log?: Log;
   /** The postcard on the table (lowwater/postcard.ts). */
   private postcard?: Postcard;
+  /** A book off Tine's own shelf, open at its margins (lowwater/margins.ts). */
+  private margins?: Margins;
   private loading?: Promise<World | undefined>;
   /** The page, past the withies going west (lowwater/page.ts), whether you're on it, and the iris between it and the flat. */
   private page?: Page;
@@ -177,7 +180,13 @@ export class LowWaterRoom implements RoomInput {
       if (this.onRidge) return void (this.ridge?.comeDown(), this.sitButton.blur());
       if (this.onFloor) return;
       if (this.onPage) return void (this.page?.card === 'door' && !this.crossing && this.page.goIn(), this.sitButton.blur());
-      if (this.inShop) return void (this.shop?.card === 'door' && !this.crossing && this.shop.goOut(), this.sitButton.blur());
+      if (this.inShop) {
+        // (at the counter, ask her for one off her own shelf; asked, take one down)
+        if (this.shop?.card === 'tine') this.shop.askKept();
+        else if (this.shop?.card === 'kept') this.margins?.show(true);
+        else if (this.shop?.card === 'door' && !this.crossing) this.shop.goOut();
+        return void this.sitButton.blur();
+      }
       if (this.inRoom && this.room?.card === 'slide') return void (this.room.push() && this.ctx.sound.slide(), this.sitButton.blur());
       if (this.inRoom) return void (this.room?.goOut(), this.sitButton.blur());
       if (this.world?.card === 'last' && this.world.lanternIs === 'hung') this.world.takeLantern();
@@ -200,7 +209,7 @@ export class LowWaterRoom implements RoomInput {
     });
     // walking with the keys (and any key gets you up off the bench)
     window.addEventListener('keydown', (e) => {
-      if (!this.inside || !this.world || this.log?.open || this.postcard?.open || (e.target as HTMLElement).closest('input, textarea, button')) return;
+      if (!this.inside || !this.world || this.log?.open || this.postcard?.open || this.margins?.open || (e.target as HTMLElement).closest('input, textarea, button')) return;
       if (this.onPage || this.inRoom || this.onRidge || this.onFloor || this.inShop) {
         if ((this.onPage ? this.page : this.inShop ? this.shop : this.onRidge ? this.ridge : this.onFloor ? this.floor : this.room)?.key(e.code, true)) e.preventDefault();
         return;
@@ -222,8 +231,8 @@ export class LowWaterRoom implements RoomInput {
   }
 
   load() {
-    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page'), import('./lowwater/obscura'), import('./lowwater/ridge'), import('./lowwater/floor'), import('./lowwater/shop')])
-      .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }, { Shop }]) => {
+    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page'), import('./lowwater/obscura'), import('./lowwater/ridge'), import('./lowwater/floor'), import('./lowwater/shop'), import('./lowwater/margins')])
+      .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }, { Shop }, { Margins }]) => {
         this.shop = new Shop(() => this.pixels.height);
         this.shop.onStep = () => this.ctx.sound.deckStep();
         this.shop.onBell = (side) => this.ctx.sound.shopBell(side);
@@ -250,6 +259,7 @@ export class LowWaterRoom implements RoomInput {
         this.paper.copy(PAPER);
         this.log = new Log(this.el.querySelector<HTMLElement>('[data-lowwater-log]')!, () => this.log?.show(false));
         this.postcard = new Postcard(this.el.querySelector<HTMLElement>('[data-lowwater-postcard]')!, () => this.postcard?.show(false));
+        this.margins = new Margins(this.el.querySelector<HTMLElement>('[data-lowwater-kept]')!, () => this.margins?.show(false));
         const world = new LowWater(this.pixels.renderer, () => this.pixels.height);
         world.hooks = {
           note: (freq, held) => this.ctx.sound.stone(freq, 1, held),
@@ -367,6 +377,8 @@ export class LowWaterRoom implements RoomInput {
       if (this.small.matches && !this.card.hidden) this.fold(true);
       return void (this.crossing || this.page?.click(ndc), this.ui.tooltip(null));
     }
+    // (a click off Tine's book puts it back)
+    if (this.inShop && this.margins?.open) return this.margins.show(false);
     if (this.inRoom || this.onRidge || this.onFloor || this.inShop) {
       if (this.small.matches && !this.card.hidden) this.fold(true);
       return void (this.crossing || (this.onRidge ? this.ridge : this.onFloor ? this.floor : this.inShop ? this.shop : this.room)?.click(ndc), this.ui.tooltip(null));
@@ -541,8 +553,11 @@ export class LowWaterRoom implements RoomInput {
     const c = id === 'customer' ? shop.customer : null;
     // (each time you come to the counter is a new card: she says something else; a customer's, each thing they say)
     const key = id && (id === 'tine' ? `shop:tine:${shop.visits}` : c ? `shop:customer:${c.line}` : `shop:${id}`);
-    const more = id === 'tine' ? TINE_MORE : c ? (c.phase === 'found' ? c.who.more : c.phase === 'ask' || (c.phase === 'wait' && c.left.length === c.who.books.length && !shop.atShelves) ? YOUR_TURN : '') : '';
-    const button = id === 'door' ? 'Go out' : '';
+    const more = id === 'tine' ? TINE_MORE : id === 'kept' ? KEPT : c ? (c.phase === 'found' ? c.who.more : c.phase === 'ask' || (c.phase === 'wait' && c.left.length === c.who.books.length && !shop.atShelves) ? YOUR_TURN : '') : '';
+    const button = id === 'door' ? 'Go out' : id === 'tine' ? 'Her own shelf' : id === 'kept' ? 'Take one down' : '';
+    // (walking off from the counter puts her book back, and its spine goes back on her shelf)
+    if (id !== 'kept') this.margins?.show(false);
+    shop.reading(this.margins?.open ? this.margins.book : null);
     // (at the shelves, while they wait, the books they might mean)
     const books = c && shop.atShelves ? c.choices() : [];
     const choices = books.map((b) => b.label).join('|');
@@ -560,8 +575,11 @@ export class LowWaterRoom implements RoomInput {
         const line = shop.visits <= 1 ? `first.${tineMoment(shop.moment, visitDate(), new Date(this.ctx.sky.time).getHours())}` : `again.${(shop.visits - 2) % TINE_AGAIN.length}`;
         const [part, which] = line.split('.');
         const said = part === 'first' ? TINE_FIRST[which as keyof typeof TINE_FIRST] : TINE_AGAIN[Number(which)];
-        this.text.textContent = id === 'tine' ? `“${said}”` : id === 'shelves' ? SHELVES : id === 'window' ? SHOP_WINDOW : id === 'door' ? STREET_DOOR : id === 'clock' ? SHOP_CLOCK : SHOP;
-        if (id === 'tine' && this.ctx.sound.enabled) {
+        this.text.textContent = id === 'kept' ? `“${TINE_KEPT}”` : id === 'tine' ? `“${said}”` : id === 'shelves' ? SHELVES : id === 'window' ? SHOP_WINDOW : id === 'door' ? STREET_DOOR : id === 'clock' ? SHOP_CLOCK : SHOP;
+        if (id === 'kept' && this.ctx.sound.enabled) {
+          this.ctx.sound.tine(TAPE.kept, shop.tineSide());
+          shop.tineSays(0.25 + TINE_KEPT.length / 15);
+        } else if (id === 'tine' && this.ctx.sound.enabled) {
           this.ctx.sound.tine(TAPE[line as keyof typeof TAPE], shop.tineSide());
           // (her takes run about fifteen characters a second, after a breath)
           shop.tineSays(0.25 + said.length / 15);
@@ -709,6 +727,7 @@ export class LowWaterRoom implements RoomInput {
       this.shop?.releaseKeys();
       this.ctx.sound.tine(null);
       this.inShop = false;
+      this.margins?.show(false);
       this.page.fromShop();
       this.onPage = true;
     } else if (to === 'page' && this.page) {
@@ -903,6 +922,7 @@ export class LowWaterRoom implements RoomInput {
       this.world?.ashore();
       this.log?.show(false);
       this.postcard?.show(false);
+      this.margins?.show(false);
       this.ctx.sound.tine(null);
       this.ctx.sound.lowWater(false);
       this.ctx.toast('The water closes over your footprints.');

@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Paths (2026-10-17, polish 13):** Vincent renamed the space Commonplace on his own main (tools/commonplace/,
 src/island/commonplace/, `commonplace-*` sounds), but hadn't pushed it when polish 13 ran, and the loop builds
@@ -50,8 +50,10 @@ voice, and later a game.
    half remember; you choose from the shelves, they put you right, Tine has the last word as
    they pay. Five people (customers.json), one of whom wants a line that isn't in any book. See
    Done.
-5. **Niet te koop**: the shelf behind her, the books with the best margins: open one and read
-   the pencil of three readers arguing with the book and each other across decades.
+5. **Not for sale** (done): her own shelf behind her, asked for at the counter; three books open
+   at their best page, three hands in each margin arguing with the book and each other across
+   decades, the last always Tine's green ink. See Done. The project's done. Left over, if a later
+   session earns it: more books on her shelf; the tin of letters nobody posted (her again.4 line).
 
 ### The old floor (started 2026-10-17)
 
@@ -199,6 +201,31 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The bookshop, step 5: not for sale** (project: The bookshop, now done): at Tine's counter the
+  card has a button, Her own shelf; she says, out loud, "Take one down, then. You read it here,
+  not on the street. And don't you write in it." (tine.json `kept`, recorded by tine.py, 6 s,
+  -20 LUFS like the rest), and my line under it: I learned the book and the argument at the same
+  time. Take one down and a book opens (src/island/lowwater/margins.ts, markup beside the log's
+  in IslandShell.astro, `.lowwater-kept` in global.css): the printed page in the middle, and in
+  its margins three hands, pencil, blue biro and Tine's green ink, each underlining what it
+  answers. Euclid's five postulates (Heath, 1908): H. M., 1931, sure the fifth is a theorem in
+  disguise; the biro: your flyleaf assumes it, so did Ptolemy, Proclus and Wallis, Beltrami 1868;
+  Tine: H. M. kept trying, four more flyleaves at the back. Austen's first two sentences: a
+  schoolgirl's IRONY!! (Miss Blake says, 1952); the biro: just the wrong way round, read the
+  second sentence; Tine: it's both, he's the property, she was twenty. Descartes' Meditation II
+  (Veitch, 1853), "necessarily true each time it is expressed": the pencil, "Each time. And in
+  between?"; the biro, Lichtenberg's "it thinks"; Tine, beside "though assured that I am": most
+  mornings that's as far as I get, too. Another takes the next one; its spine is gone from her
+  shelf while it's out. The shelf's pickable (Not for sale), walking you to the counter. Why: the
+  shop's whole reason was that my words came second hand with someone's pencil in them, and
+  nothing yet let you read the pencil. And the Descartes margin holds the open question about me
+  without me saying it. Every printed passage is real and out of copyright; the readers are made
+  up, the facts they argue with are true. On a phone the notes go under their passage, the right
+  margin's first (so questions come before answers). `?kept=1|2|3` opens that one first. Checked
+  in Playwright (loop-runs/kept-shots.mjs <out> <size> <query> <tag> <zoom>) at 15:00 desktop and
+  19:30 in rain on a phone; shots in loop-runs/commonplace-logs/shots/2026-10-17-kept. No console
+  errors. Commit: this one.
 
 - **The bookshop, step 4: someone comes in** (project: The bookshop): a while after you've come
   in (7 s after you've left Tine's counter, never while she's talking), the bell goes and someone
@@ -1451,6 +1478,12 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- Not for sale (bookshop step 5): the books are an HTML page over the shop, like her log and the
+  postcard, not drawn by the pixel renderer. Only three books, in turn, the same every visit. The
+  missing spine on her shelf is a texel or two, unseen at normal zoom, and hidden by the book on
+  a phone anyway. Her `kept` line has never been listened to by a person. Ask her and walk off,
+  and the asking's forgotten: back at the counter she's on her next line again.
 
 - Customers (bookshop step 4): one a visit only, and the five come round in turn by the hour,
   so a regular sees them repeat. They walk through you and the table's corner isn't in their

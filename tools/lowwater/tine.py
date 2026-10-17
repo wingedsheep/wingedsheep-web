@@ -40,13 +40,14 @@ def key() -> str:
 
 
 def lines():
-    """(id, text, voice) for every line: Tine's first.<moment> and again.<n>, then each customer's
+    """(id, text, voice) for every line: Tine's first.<moment>, again.<n> and kept (her own shelf), then each customer's
     ask, wrong.<n> and found in their own voice, and what Tine says to them as they pay."""
     t = json.loads(LINES.read_text())
     for moment, text in t["first"].items():
         yield f"first.{moment}", text, VOICE
     for i, text in enumerate(t["again"]):
         yield f"again.{i}", text, VOICE
+    yield "kept", t["kept"], VOICE
     for c in json.loads(CUSTOMERS.read_text()):
         yield f"{c['id']}.ask", c["ask"], c["voice"]
         for i, text in enumerate(c["wrong"]):
