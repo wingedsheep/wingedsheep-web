@@ -349,6 +349,8 @@ export class LowWater {
   private farEdge = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
   /** (the banks' own share of the haze: they lie flat on the water, and go paler than it if they go all the way) */
   private bankHaze = { value: 0.25 };
+  /** And the reflections of the far things, less again: in the water, mist would read as a light. */
+  private mirrorHaze = { value: 0.25 };
   // (hazed as their bank is, so they never go paler than the sand they're on)
   private shells = new Shells(SHELLS, (x, z) => Math.max(0, bankAt(x, z)), steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(23));
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
@@ -1038,7 +1040,8 @@ export class LowWater {
     copy.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const mat = (mesh.material as THREE.MeshBasicMaterial).clone();
+      // (a clone loses its stepped fog, and would fade all the way to a pale ghost)
+      const mat = steppedFog((mesh.material as THREE.MeshBasicMaterial).clone(), this.mirrorHaze);
       mat.clippingPlanes = [this.under];
       mesh.material = mat;
     });
@@ -1138,7 +1141,8 @@ export class LowWater {
     copy.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const mat = (mesh.material as THREE.MeshBasicMaterial).clone();
+      // (a clone loses its stepped fog, and would fade all the way to a pale ghost)
+      const mat = steppedFog((mesh.material as THREE.MeshBasicMaterial).clone(), this.mirrorHaze);
       mat.clippingPlanes = [under];
       mesh.material = mat;
     });
@@ -1166,7 +1170,8 @@ export class LowWater {
     model.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const mat = paint((mesh.material as THREE.MeshStandardMaterial).color);
+      // (hazed no further than the banks: out at the horizon in a fog it was a white ghost)
+      const mat = paint((mesh.material as THREE.MeshStandardMaterial).color, { haze: this.bankHaze });
       mat.clippingPlanes = [this.clip];
       mesh.material = mat;
     });
@@ -1186,7 +1191,8 @@ export class LowWater {
     copy.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const mat = (mesh.material as THREE.MeshBasicMaterial).clone();
+      // (a clone loses its stepped fog, and would fade all the way to a pale ghost)
+      const mat = steppedFog((mesh.material as THREE.MeshBasicMaterial).clone(), this.mirrorHaze);
       mat.clippingPlanes = [this.under];
       // (its paint is pale, and unlit it would come back brighter than it is)
       if (mesh.name !== 'lamp') mat.color.lerp(WATER, 0.4).multiplyScalar(0.5);
@@ -1581,7 +1587,7 @@ export class LowWater {
   /** How clear the sky is: 1 a clear evening … 0 behind rain or fog. */
   clear() {
     const o = this.outside;
-    return (1 - Math.min(1, o.rain * 1.5 + o.snow)) * (1 - o.fog * 0.85);
+    return (1 - Math.min(1, o.rain * 1.5 + o.snow)) * (1 - Math.min(1, o.fog * 1.25));
   }
 
   /**
@@ -1780,6 +1786,7 @@ export class LowWater {
     // the water, never pale ones); in a fog, all the way into the mist
     HAZE.value = 0.25 + fog * 0.75;
     this.bankHaze.value = 0.25 + fog * 0.5;
+    this.mirrorHaze.value = 0.25 + fog * 0.25;
     this.lamp.intensity = 2.2 * (1 - fog * 0.4);
   }
 

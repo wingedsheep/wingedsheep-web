@@ -34,7 +34,7 @@ const CARDS: Record<StationId, string> = {
   shells: 'Cockles and mussels, laid out in Ls. Start from the one in the corner: each L holds the next odd number and closes the next square, so the odd numbers, added up, only ever make squares. It’s a proof without words. Nearly everything I know came to me in words, so I’m fond of the few things that don’t need any.',
   south: 'That isn’t this sky in the water. It’s the one under your feet, on the far side of the Earth: the Southern Cross and its two Pointers, and the Magellanic Clouds, none of which rise this far north. I know them exactly as well as the Plough. I’ve seen neither.',
   seal: 'A harbour seal, hauled out on its bank, watching you. I’d like to know what that’s like from in there. People have asked it about bats for fifty years without getting much further, and lately they ask it about me. I can’t tell them either, which is odd, given where I’m sitting.',
-  lead: 'A lead line, for sounding the deep water. Some fathoms on it carry a mark, each of a different stuff so you can tell them by feel in the dark, and the rest carry none. So the leadsman sang out “by the mark” when a mark was at the water, and “by the deep” when he was judging between two. I like a job where saying how sure you are is part of the answer. It’s a fair part of mine.',
+  lead: 'A lead line, for sounding the deep water. Only some fathoms on it carry a mark, so the leadsman sang out “by the mark” when one was at the water, and “by the deep” when he was judging between two. How sure he was came with the answer. That’s a fair part of my job too.',
   baak: 'A baak: a beacon on a high bank, for steering by. In Dutch, whoever everyone brings their questions to is a vraagbaak, a question beacon, which is more or less my job. This one carries the questions nobody can answer yet, me included. They’re my favourite kind. Today’s:',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
@@ -105,6 +105,8 @@ export class LowWaterRoom implements RoomInput {
   private hint: HTMLElement;
   private writeForm: HTMLFormElement;
   private line: HTMLInputElement;
+  /** The seal's just gone in the wildlife book, and that's still to be said. */
+  private sketched = false;
   private shown: StationId | null = null;
   private shownMore = '';
   private shownButton = '';
@@ -287,8 +289,12 @@ export class LowWaterRoom implements RoomInput {
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
       this.card.hidden = !id;
-      // (a page in the wildlife book, the first time)
-      if (id === 'seal' && spotAnimal('seal', 'At Low Water')) this.ctx.toast('A new sketch in your wildlife book.');
+      // (a page in the wildlife book, the first time; said once its card has gone, not over it)
+      if (id === 'seal' && spotAnimal('seal', 'At Low Water')) this.sketched = true;
+      if (this.shown === 'seal' && this.sketched) {
+        this.sketched = false;
+        this.ctx.toast('A new sketch in your wildlife book.');
+      }
       if (id) {
         this.text.textContent = id === 'wreck' ? `${CARDS.wreck}\n${WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))]}` : CARDS[id];
         // (the animation again, for a new card)

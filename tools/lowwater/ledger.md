@@ -4,9 +4,24 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 ## Done
+
+- **Polish pass 2** (walked the whole flat clear, in fog, in rain and on a phone with
+  loop-runs/walk-lowwater.mjs, which now exits on a timer; then loop-runs/polish2-check.mjs for
+  the far views; shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-2/, after/ and after2/).
+  Fixed: the reflections of the buoy, the seal and the wreck were cloned materials, and a clone
+  drops its `onBeforeCompile`, so they had the smooth fog all the way and went to pale ghosts far
+  off (the buoy from the lead line's view was a white tower in the water). They're stepped again,
+  and hazed less than anything (`mirrorHaze`: mist in the water reads as a light); the buoy itself
+  hazes no further than the banks. Sitting on the bench in a fog the stars still showed (fog only
+  took 85% of them); now any real fog takes them all. The wildlife book's toast sat over the
+  seal's card; it now comes once the card's gone. The lead line's card was five sentences; four
+  now, and it no longer starts its ending with "I like a", which the ring and the buoy also do.
+  Read every card against VISION.md; nothing cut. The flat still feels like one place; the far
+  west (shells, baak, lead) is getting fuller, so the next additions should go somewhere else,
+  or somewhere new.
 
 - **The lead line** ("by the mark, by the deep"): a squat mooring post right at the edge of the
   deep water, 7 m west of the last twig (`LEAD`, `HEAVE_AT` in src/island/lowwater/lead.ts), a
@@ -150,13 +165,15 @@ Additions since the last polish pass: 4 (a polish pass is due when this reaches 
 
 ## Known issues
 
-- From the lead line's view (dropped back) the bell buoy, near the horizon, goes pale and ghostly
-  in fog, and a little pale even on a clear evening; worth a look in the polish pass.
+- In a fog the bell buoy, far off, still goes pale against the mist (as everything far does);
+  its reflection no longer does.
 - The lead's plunk (`lowwater-lead`) has never been listened to by a person (by spectrogram: a
   sharp low onset, then drops, 1.2 s).
 - The lead line has no reflection (the post does); the lead in flight is a speck at normal zoom.
-- Playwright's `browser.close()` hangs with the dev server's page open; the shots scripts now
-  exit on a timer.
+- Playwright's `browser.close()` hangs with the dev server's page open; the shots scripts (and
+  the walk script) exit on a timer.
+- One walk in polish pass 2 found the phone at the start with the post card after `w.sit()` at the
+  bench; it didn't happen again in three runs (likely two swiftshader pages at once).
 
 - The shells' bank is deeper (along the way out) than the others, so from the table its far half
   sits one haze step paler, with a straight line across it; in fog that line is strong.
