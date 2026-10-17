@@ -25,7 +25,7 @@ import { makeFigure, type Figure } from './figure';
 
 const ELEVATION = THREE.MathUtils.degToRad(15);
 const DISTANCE = 30;
-const PACE = 1.1;
+const PACE = 1.4;
 /** The room (m): the back wall at z = 0, the hole's wall at DEPTH; WIDE across, TALL to the ceiling. */
 const WIDE = 4.6;
 const DEPTH = 3.4;

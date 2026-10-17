@@ -27,7 +27,7 @@ const NEAR_DOOR = 3;
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
 const DISTANCE = 100;
-const PACE = 1.7;
+const PACE = 2.2;
 /** The withies that came with you, drawn in ink (x along the page; you arrive at 0, walking west), and past which you're back on the flat. */
 const WITHIES = [2.2, 6.4, 10.6];
 const WAY_BACK = 12.4;

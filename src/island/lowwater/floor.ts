@@ -21,7 +21,7 @@ import { Curlew } from './curlew';
 
 const ELEVATION = THREE.MathUtils.degToRad(48);
 const DISTANCE = 90;
-const PACE = 1.6;
+const PACE = 2.1;
 /** How far the floor goes east and west (m). */
 const SPAN = 44;
 /** Steps a second, in someone's prints: so your pace is their step's length (a long step, a quick walk). */

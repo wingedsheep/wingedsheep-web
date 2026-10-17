@@ -51,7 +51,7 @@ const YAW = THREE.MathUtils.degToRad(26);
 const DISTANCE = 40;
 /** The sun's way in through the window: how far south it carries the patch for each metre it comes in (the sun's not seen, so it's chosen to keep the patch on open boards). */
 const SUN_ALONG = -0.3;
-const PACE = 1.25;
+const PACE = 1.6;
 /** Stood still this long in the open middle, the shop's card again (s). */
 const STILL = 8;
 /** Near the counter, Tine looks up (m); nearer, she talks. */

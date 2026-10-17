@@ -109,7 +109,7 @@ export interface Hooks {
 const ELEVATION = THREE.MathUtils.degToRad(24);
 const DISTANCE = 100;
 /** Walking pace (m/s). */
-const PACE = 1.7;
+const PACE = 2.2;
 /** And while writing in the sand, stepping along beside the line. */
 const WRITING_PACE = 1.0;
 /** Where the horizon sits, up from the middle of the picture (a share of its height). */

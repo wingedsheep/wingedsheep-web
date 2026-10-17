@@ -22,7 +22,7 @@ import { Squall } from './squall';
 
 const ELEVATION = THREE.MathUtils.degToRad(16);
 const DISTANCE = 120;
-const PACE = 1.8;
+const PACE = 2.3;
 /** Where it starts. 27 is the famous one: small, and a hundred and eleven steps to 1. */
 export const FROM = 27;
 /**
