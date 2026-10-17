@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
 import { makeFigure, type Figure } from './figure';
+import { Curlew } from './curlew';
 
 const ELEVATION = THREE.MathUtils.degToRad(48);
 const DISTANCE = 90;
@@ -237,8 +238,18 @@ export class Floor {
   card: FloorCard | null = null;
   /** Walked back up onto the sand: time for the flat again. */
   leaving = false;
-  /** Each step, for the sound. */
-  onStep?: () => void;
+  /** Each step, for the sound, and what it's on. */
+  onStep?: (on: 'clay' | 'sand' | 'wash') => void;
+  /** The sea in front, every frame: how loud (near the edge, and as the wash comes in), and from which side. */
+  onSea?: (level: number, pan: number) => void;
+  /** Water ticking in a print by you: how near, which side. */
+  onTick?: (near: number, pan: number) => void;
+  /** A curlew, far off over the marsh (as there'd have been then too): says whether it was heard. */
+  onCurlew?: (near: number, pan: number) => boolean;
+  /** The island's weather, for the curlew (it keeps quieter in a wind or rain). */
+  readonly weather = { wind: 0, rain: 0 };
+  private curlew = new Curlew();
+  private tickIn = 1;
   private you: Figure;
   private pos = new THREE.Vector3();
   private heading = Math.PI;
@@ -614,6 +625,7 @@ export class Floor {
     this.groundU.uTime.value = this.time;
     this.walk(dt);
     this.animate();
+    this.listen(dt);
     const at = new THREE.Vector2(this.pos.x, this.pos.z);
     const near = (list: Print[]) => list.reduce((m, p) => Math.min(m, Math.hypot(p.x - at.x, p.z - at.y)), Infinity);
     const people = near(this.people);
@@ -668,7 +680,8 @@ export class Floor {
     const x = THREE.MathUtils.clamp(this.pos.x + Math.sin(this.heading) * step, -SPAN, SPAN);
     // (into the sea only to your boots' depth: it's deep past the wash)
     const z = Math.max(seaZ(x) + 0.2, this.pos.z + Math.cos(this.heading) * step);
-    if (z <= seaZ(x) + 0.21 && this.goal) this.goal = null;
+    // (stopped at the edge only if it's the sea you were walking to, not when you're turning away from it)
+    if (z <= seaZ(x) + 0.21 && this.goal && this.goal.z < seaZ(this.goal.x) + 0.21) this.goal = null;
     this.pos.x = x;
     this.pos.z = Math.min(z, sandZ(x) + 2);
     this.walked += step;
@@ -676,8 +689,37 @@ export class Floor {
     this.stride += step;
     if (this.stride - this.lastStep > 0.72) {
       this.lastStep = this.stride;
-      this.onStep?.();
+      this.onStep?.(this.pos.z > sandZ(this.pos.x) ? 'sand' : this.pos.z < this.washZ(this.pos.x) + 0.4 ? 'wash' : 'clay');
     }
+  }
+
+  /** How far the wash has come in over the floor at `x`, now (as the ground's shader draws it). */
+  private washZ(x: number) {
+    return seaZ(x) + 0.35 * Math.sin(this.time * 0.5 + x * 0.15);
+  }
+
+  /**
+   * What you hear down here: the sea in front, louder the nearer its edge and as its wash comes in
+   * (from the side it's nearer); now and then water ticking in one of the prints by you, more
+   * often the more of them there are; and a curlew, far off.
+   */
+  private listen(dt: number) {
+    const x = this.pos.x;
+    const off = Math.max(0, this.pos.z - this.washZ(x));
+    const coming = 0.5 + 0.5 * Math.sin(this.time * 0.5 + x * 0.15);
+    const lean = THREE.MathUtils.clamp((seaZ(x + 6) - seaZ(x - 6)) / 4, -0.5, 0.5);
+    this.onSea?.((0.6 + 0.4 * coming) / (1 + (off / 9) ** 2), lean / (1 + off / 6));
+    this.curlew.update(dt, new THREE.Vector2(x, this.pos.z), this.weather, (near, pan) => this.onCurlew?.(near * 0.6, pan) ?? false);
+    this.tickIn -= dt;
+    if (this.tickIn > 0) return;
+    const by = [...this.people, ...this.crane].filter((p) => Math.abs(p.x - x) < 6 && Math.abs(p.z - this.pos.z) < 6);
+    this.tickIn = 0.4 + Math.random() * (by.length ? 14 / Math.min(by.length, 20) : 3);
+    // (the nearer of two, so it's mostly the prints round your feet)
+    const [a, b] = [0, 1].map(() => by[Math.floor(Math.random() * by.length)]);
+    if (!a) return;
+    const p = Math.hypot(a.x - x, a.z - this.pos.z) < Math.hypot(b.x - x, b.z - this.pos.z) ? a : b;
+    const d = Math.hypot(p.x - x, p.z - this.pos.z);
+    this.onTick?.(1 / (1 + (d / 2.5) ** 2), THREE.MathUtils.clamp((p.x - x) / 5, -0.8, 0.8));
   }
 
   private animate() {

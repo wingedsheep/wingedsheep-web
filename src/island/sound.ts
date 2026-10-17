@@ -127,8 +127,8 @@ const SFX = {
   costumes: { cackle: 2, vampire: 2 },
   // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
   graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
-  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain and the slide over its hole
-  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1, 'lowwater-shipbell': 1, 'lowwater-curtain': 1, 'lowwater-slide': 1 },
+  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain and the slide over its hole, the sea's wash in front of the old floor
+  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1, 'lowwater-shipbell': 1, 'lowwater-curtain': 1, 'lowwater-slide': 1, 'lowwater-wash': 1 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -139,7 +139,7 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
-  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15, 'lowwater-shipbell': 0.4, 'lowwater-curtain': 0.3, 'lowwater-slide': 0.3,
+  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15, 'lowwater-shipbell': 0.4, 'lowwater-curtain': 0.3, 'lowwater-slide': 0.3, 'lowwater-wash': 0.55,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
@@ -226,6 +226,8 @@ export class Sound {
   private geulRun?: { gain: GainNode; side: StereoPannerNode };
   /** The knots over the far flat, flying (knots()). */
   private knotsUp?: { gain: GainNode; side: StereoPannerNode };
+  /** The sea's wash in front of the old floor, looped while you're down there. */
+  private washIn?: { gain: GainNode; side: StereoPannerNode };
   /** How rough the river is where you are: birdsong along the banks drowns in the rapids. */
   private riverRough = 0;
   /** Set every frame by the weather, 0..1 each. */
@@ -1319,9 +1321,10 @@ export class Sound {
    * left is a hush of air over very shallow water, a little brighter and louder in a wind. The
    * weather still comes along. On the page (`inside` 'page') there's no water at all; in the
    * hide's dark room ('room') the flat's still all there, through a wall: dull, quiet, and every
-   * sound of it from behind you, where the hole is.
+   * sound of it from behind you, where the hole is. Down on the old floor ('floor') it's the
+   * flat's air still, and the sea in front (`floorSea`).
    */
-  lowWater(on: boolean, wind = 0, inside: '' | 'page' | 'room' = '') {
+  lowWater(on: boolean, wind = 0, inside: '' | 'page' | 'room' | 'floor' = '') {
     this.atFlat = on;
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
     const ctx = this.ctx;
@@ -1362,6 +1365,7 @@ export class Sound {
     this.flat.gain.gain.setTargetAtTime(on && !hushed ? 0.09 + wind * 0.1 : 0, t, on && !hushed ? 1.5 : 0.3);
     if (!on || hushed) this.geulRun?.gain.gain.setTargetAtTime(0, t, 0.3);
     if (!on || hushed) this.knotsUp?.gain.gain.setTargetAtTime(0, t, 0.3);
+    if (inside !== 'floor') this.washIn?.gain.gain.setTargetAtTime(0, t, 0.6);
     this.flat.filter.frequency.setTargetAtTime(480 + wind * 900, t, 1);
   }
 
@@ -1489,6 +1493,86 @@ export class Sound {
     const t = this.ctx.currentTime;
     k.gain.gain.setTargetAtTime(this.enabled && this.atFlat ? level : 0, t, 0.8);
     k.side.pan.setTargetAtTime(this.side(pan), t, 0.8);
+  }
+
+  /**
+   * The sea in front of the old floor: its wash on a loop, as loud as `level` says (set every
+   * frame: how near the edge you are, and whether the wash is coming in or drawing back as you
+   * see it), from the side the water's nearest.
+   */
+  floorSea(level: number, pan: number) {
+    if (!this.ctx || !this.master) return;
+    let w = this.washIn;
+    if (!w) {
+      if (!level || !this.sfx.has('lowwater-wash')) return;
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0;
+      const side = this.ctx.createStereoPanner();
+      gain.connect(side).connect(this.flatBus().gain);
+      this.bed('lowwater-wash', gain, LEVEL['lowwater-wash']);
+      w = this.washIn = { gain, side };
+    }
+    const t = this.ctx.currentTime;
+    w.gain.gain.setTargetAtTime(this.enabled && this.atFlat ? level : 0, t, 0.5);
+    w.side.pan.setTargetAtTime(pan, t, 0.5);
+  }
+
+  /**
+   * A step on the old floor's clay: firm and wet, a short low press and a small flat slap of the
+   * water on it, and nothing after (it's too firm to suck at you).
+   */
+  clayStep() {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const press = ctx.createBufferSource();
+    press.buffer = this.noise;
+    const low = ctx.createBiquadFilter();
+    low.type = 'bandpass';
+    low.frequency.value = 260 * (0.9 + Math.random() * 0.2);
+    low.Q.value = 1.4;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.1, t + 0.008);
+    env.gain.setTargetAtTime(0, t + 0.018, 0.025);
+    press.connect(low).connect(env).connect(this.master);
+    press.start(t, Math.random() * 1.5, 0.2);
+    const slap = ctx.createBufferSource();
+    slap.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 2100 * (0.85 + Math.random() * 0.3);
+    band.Q.value = 1.6;
+    const env2 = ctx.createGain();
+    const s = t + 0.012;
+    env2.gain.setValueAtTime(0, s);
+    env2.gain.linearRampToValueAtTime(0.03, s + 0.004);
+    env2.gain.setTargetAtTime(0, s + 0.01, 0.018);
+    slap.connect(band).connect(env2).connect(this.master);
+    slap.start(s, Math.random() * 1.5, 0.12);
+  }
+
+  /**
+   * Water ticking in a print on the old floor, as it settles: one tiny drop's note, a sine
+   * that jumps up as the bubble it makes closes, from where the print is, fainter further off.
+   */
+  printTick(near: number, pan: number) {
+    if (!this.enabled || !this.ctx || !this.master || near < 0.04) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const f = 1300 + Math.random() * 1500;
+    const osc = ctx.createOscillator();
+    osc.frequency.setValueAtTime(f, t);
+    osc.frequency.exponentialRampToValueAtTime(f * (1.6 + Math.random() * 0.5), t + 0.025);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.022 * near, t + 0.002);
+    env.gain.setTargetAtTime(0, t + 0.006, 0.012);
+    const side = ctx.createStereoPanner();
+    side.pan.value = pan;
+    osc.connect(env).connect(side).connect(this.flatBus().gain);
+    osc.start(t);
+    osc.stop(t + 0.12);
   }
 
   /** The stones' sour chord, on a phone: its beat, felt faintly for a second or so. */

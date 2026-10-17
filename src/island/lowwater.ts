@@ -207,7 +207,10 @@ export class LowWaterRoom implements RoomInput {
     this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page'), import('./lowwater/obscura'), import('./lowwater/ridge'), import('./lowwater/floor')])
       .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }]) => {
         this.floor = new Floor(() => this.pixels.height);
-        this.floor.onStep = () => this.ctx.sound.flatStep(true);
+        this.floor.onStep = (on) => (on === 'clay' ? this.ctx.sound.clayStep() : this.ctx.sound.flatStep(on === 'wash'));
+        this.floor.onSea = (level, pan) => this.ctx.sound.floorSea(level, pan);
+        this.floor.onTick = (near, pan) => this.ctx.sound.printTick(near, pan);
+        this.floor.onCurlew = (near, pan) => this.ctx.sound.curlew(near, pan);
         this.ridge = new Ridge(() => this.pixels.height);
         this.ridge.onStep = () => this.ctx.sound.ridgeStep();
         this.ridge.onRise = (pan) => this.ctx.sound.ridgeRise(pan);
@@ -481,6 +484,9 @@ export class LowWaterRoom implements RoomInput {
 
   /** On the old floor: the flat's blue hour, low and from the west, and the sea close in front. */
   private runFloor(floor: Floor, dt: number) {
+    const w = this.ctx.weather;
+    Object.assign(floor.weather, { wind: THREE.MathUtils.clamp(w.windiness, 0, 1), rain: Math.min(1, w.now.rain + w.now.hail) });
+    this.ctx.sound.lowWater(true, this.ctx.weather.windiness, 'floor');
     floor.update(dt);
     const u = this.pixels.uniforms;
     (u.uGrade.value as THREE.Vector3).set(0.95, 1.02, 1.0);
@@ -489,7 +495,6 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0.6;
     u.uVignette.value = 0.5;
     u.uHeat.value = 0;
-    this.ctx.sound.lowWater(true, this.ctx.weather.windiness);
     this.showFloorCard(floor);
     if (floor.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = true), (this.crossMist = false);
   }

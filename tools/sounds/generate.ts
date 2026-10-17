@@ -272,6 +272,8 @@ export const SOUNDS: Sfx[] = [
   { name: 'lowwater-curtain', seconds: 2, prompt: 'A heavy old wool blackout curtain hanging over a doorway in a small wooden hut, pushed aside by one person walking through it: one soft heavy swish and drag of thick cloth, its curtain rings sliding a little along a wooden pole, then the folds falling back into place with a dull muffled flop, close up, very quiet small room, no footsteps, no door, no voices, no music' },
   // the hide's hole: a strip of wood with holes of four sizes, slid along its groove to the next one (behind you in the dark room)
   { name: 'lowwater-slide', seconds: 1, prompt: 'A small strip of old dry wood pushed a few centimetres along a wooden groove in a plank wall, one short dry scrape of wood on wood, then a soft little knock as it stops against a peg, close up, in a very quiet small dark wooden room, no voices, no music' },
+  // the old floor past the scour: the sea's wash coming in over the clay in front of you, and drawing back (looped; its swell is played in code)
+  { name: 'lowwater-wash', loop: true, seconds: 12, lufs: -34, prompt: 'Very small slow ripples of calm sea water washing in a few centimetres deep over a flat bare clay shore at low tide and drawing back again, close in front: a soft continuous lapping and fizzing of thin water spreading over smooth wet clay, tiny bubbles, a very calm still evening, no breaking waves, no surf, no wind, no birds, no voices, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root

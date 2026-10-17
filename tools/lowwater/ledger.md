@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -35,8 +35,9 @@ and reading order from overlap is how trackers and archaeologists do it.
    by its tide's seed: the two (and the deer), one alone who stopped, a grown one and a dog, a
    crowd of seven, five aurochs and a person following. The floor card says they weren't here
    last tide; the back card names Formby. `?floor=` shows one. See Done.
-3. **Its sound**: the sea close in front, panned; the clay's own step (firm and wet, no suck);
-   water ticking in the prints. Maybe a far curlew, as it'd have been then too.
+3. **Its sound** (done): the sea's wash in front (`lowwater-wash`), swelling as you see it come
+   in and nearer the edge; the clay's own step (firm and wet, no suck); water ticking in the
+   prints round your feet; a far curlew, as there'd have been then too. See Done.
 4. **In their steps**: walk in the grown one's prints, step for step, and your stride matches
    theirs (your figure's steps snap into the prints, the sound on time): a payoff for
    attention, and a card about walking a way someone else made. Only if it says something true.
@@ -156,6 +157,25 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The old floor, step 3: its sound** (project: The old floor): the sea in front is a recording
+  now (`lowwater-wash`, generated: thin water lapping and fizzing over flat clay, a 12 s loop,
+  -34 LUFS), played by `floorSea` in src/island/sound.ts through the flat's bus: quiet where you
+  come down (27 m off), full at the edge, and swelling on the same 12.6 s as the wash the ground
+  shader draws at your x (`washZ` in floor.ts), so you hear it come in as you see it; a little
+  to the side the water's nearer. `lowWater(..., 'floor')` keeps it, anything else fades it.
+  Steps say what they're on: the clay's own (`clayStep`: a short low press and a small flat slap,
+  nothing after), the sand's dry step behind you, the wet one in the wash. Water ticks in the
+  prints round your feet (`printTick`: a tiny sine that jumps up as a drop's bubble closes, from
+  the print's side, fainter further off), more often the more prints there are, the nearer of
+  two picked. A far curlew (the flat's `Curlew`, quieter) calls over the marsh now and then.
+  Also fixed: at the sea's edge, clicking to walk away was cancelled on the first frame (the
+  goal was dropped whenever you touched the edge); now only if the sea's where you were going.
+  Why: the floor's about knowing someone from what they left; a place you only see is half
+  there, and the wash in front is what's taking the floor away a layer a tide. Checked by
+  instrumented calls in Playwright (sound on, desktop and phone): levels 0.11 arriving, ~1 at
+  the edge, 0 back on the flat; no console errors. Never listened to by a person. Shots and the
+  wash's spectrogram in loop-runs/lowwater-logs/shots/2026-10-17-floor-sound (floor3-sound.mjs).
 
 - **The old floor, step 2: a different floor each tide** (project: The old floor): the sea
   takes a layer a tide, so who walked the floor changes with the real tide (`tideOf`, 12.42 h;
@@ -1235,14 +1255,14 @@ lamp close up), not explained.
 - The old floor: five floors only, so a regular visitor sees them come round (one a tide; the
   shuffle's fixed by the tide's number, not random). The dog's prints are a few texels each and
   read as a dotted line out wide at normal zoom; the stood and crouched pairs are under your
-  figure when their card comes, so you see them walking up, not on the card. Nothing on the
-  floor makes sound yet but your steps (step 3). The prints are drawn
+  figure when their card comes, so you see them walking up, not on the card. The prints are drawn
   half as big again as life (the scour's three times), and at normal zoom read as dashes with a
   pale middle; zoomed in they're feet with toes, slots and crane prints. The deer's slot in the
   child's print is hard to pick out even zoomed in; only its card says so. The camera's steeper
   there than anywhere else, so your figure's bigger. Nothing on the floor is in the walk script.
-  The floor's steps are only the flat's wet step; the sea in front only the flat's water sound
-  (step 3). Leaving Low Water from the floor puts you back on the scour.
+  Its sound has never been listened to by a person: the wash's level, the clay step and the
+  ticks (`printTick`) were checked only by logged calls; the wash's sway is one sine at your x,
+  so it comes and goes like a clock. The curlew down there is the flat's recording. Leaving Low Water from the floor puts you back on the scour.
 
 - Weather on the ridge: only seen when the island's weather is hail, a thunderstorm, sleet or
   snow (or `?weather=hail`), which is rare; nothing up there changes in rain, drizzle, fog or
