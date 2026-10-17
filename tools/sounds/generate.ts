@@ -260,6 +260,8 @@ export const SOUNDS: Sfx[] = [
   { name: 'lowwater-oar', seconds: 3, prompt: 'One slow stroke of a pair of wooden oars on a small flat-bottomed wooden rowing boat on dead calm water, close up: the oars creak once in their wooden thole pins, both blades dip in together with a soft clean plunge, a long quiet pull through the water, then the blades lift out and drip, quiet evening, no wind, no waves, no voices, no music' },
   // and aboard her: the ship creaking as she rolls at her anchor
   { name: 'lowwater-creak', seconds: 4, prompt: 'A single slow deep creak of an old steel-and-timber lightship rolling at anchor on a gentle swell, heard standing on her deck: the hull and deck planks groaning once as she leans over, a faint clink of anchor chain, one soft slap of water against the hull below, very quiet evening, no wind, no voices, no gulls, no music' },
+  // and the geul east of the flat, the channel it drains through, running with the tide
+  { name: 'lowwater-geul', loop: true, seconds: 12, lufs: -36, prompt: 'A small shallow tidal creek on an open mudflat running steadily over sand, a quiet continuous trickle and soft lapping where the current curls along a low muddy bank, close up, very calm evening, no wind, no waves, no birds, no voices, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root

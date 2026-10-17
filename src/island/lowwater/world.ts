@@ -15,6 +15,7 @@ import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { GAUGE, makeGauge, reading } from './gauge';
+import { GEUL, GEUL_GLSL, geulDepth, geulNear, geulSaid, geulStrip, runGeul } from './geul';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
 import { Glow } from './glow';
@@ -32,7 +33,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -75,6 +76,8 @@ export interface Hooks {
   creak?(near: number): void;
   /** A footstep on her deck. */
   deckStep?(): void;
+  /** The geul running, set every frame: how loud (0 … 1, by how near and how hard it's running) and which side. */
+  geul?(level: number, pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -472,6 +475,9 @@ export class LowWater {
     this.makeLead();
     this.makeGauge();
     this.makePraam();
+    const strip = geulStrip();
+    this.scene.add(strip);
+    this.pickables.push(strip);
     (this.shells.mesh.material as THREE.Material).clippingPlanes = [this.farEdge];
     this.shells.mesh.userData.id = 'shells';
     this.scene.add(this.shells.mesh);
@@ -518,6 +524,8 @@ export class LowWater {
         uMoonLit: MOON.lit,
         uMoonYou: MOON.you,
         uNight: NIGHT,
+        uFlow: GEUL.flow,
+        uCurrent: GEUL.current,
         uHorizon: { value: 0 },
         uView: { value: 30 },
         uAspect: { value: 1 },
@@ -571,6 +579,7 @@ export class LowWater {
         varying vec3 vWorld;
         varying vec2 vView;
         ${MOON_GLSL}
+        ${GEUL_GLSL}
         float bank(vec2 p) {
           float h = -1.0;
           for (int i = 0; i < ${BANKS.length}; i++) {
@@ -617,6 +626,9 @@ export class LowWater {
           float calm = 1.0 - uWind;
           a -= step(0.9 + calm * 0.08, r) * 0.025;
           a += step(r, -0.93 - calm * 0.06) * 0.04;
+          // the geul, east of the way out: where its current runs, the mirror breaks
+          float gn = geulN(p);
+          a -= geulBreak(gn, p);
           vec3 col = skyAt(max(a, 0.0) * 0.8, x) * 0.86 + vec3(0.0, 0.004, 0.012);
           // a few centimetres over the sand: the sand shows through, wetter and darker
           float over = uLevel - bank(p);
@@ -625,6 +637,7 @@ export class LowWater {
           // past the last twig the bottom drops away: dark, cold water
           float deep = step(p.y, uDeep + sin(p.x * 0.7) * 0.6 + (d - 0.5) * 0.5);
           col = mix(col, col * vec3(0.48, 0.52, 0.66), deep);
+          col = geulTint(col, gn, p, d);
           // the moon's road, if it's up, coming down the water to you
           col = moonRoad(col, (uHorizon - vView.y) / uView, x, r, uWind, d);
           if (uSouthShow > 0.0) {
@@ -1017,6 +1030,11 @@ export class LowWater {
   /** What the gauge reads just now. */
   get gaugeSaid() {
     return reading(this.level, Math.cos((this.time / TIDE_PERIOD) * Math.PI * 2));
+  }
+
+  /** What the geul's doing just now. */
+  get geulSaid() {
+    return geulSaid(Math.cos((this.time / TIDE_PERIOD) * Math.PI * 2));
   }
 
   /** Heave the lead, if you're stood at it. */
@@ -1638,6 +1656,16 @@ export class LowWater {
       this.clicked = { id, at: new THREE.Vector2(this.pos.x, this.pos.z) };
       return;
     }
+    // (the geul: to its bank, the nearer side, by where you clicked)
+    if (id === 'geul' && this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.level), p)) {
+      const side = this.pos.x < geulNear(p.x, p.z).mid.x ? -1 : 1;
+      const edge = geulNear(side * 99, p.z).edge;
+      const out = side * 0.5;
+      this.clicked = { id: 'geul', at: new THREE.Vector2(edge.x + out, edge.y) };
+      this.lead.letGo();
+      this.heaveOnArrival = false;
+      return this.walkTo(new THREE.Vector3(edge.x + out, 0, edge.y), 0);
+    }
     if (id) {
       const obj = this.pickables.find((o) => o.userData.id === id)!;
       // (the shells: to the one in the corner, where the proof starts)
@@ -1794,6 +1822,8 @@ export class LowWater {
     this.level = Math.sin((this.time / TIDE_PERIOD) * Math.PI * 2) * TIDE;
     this.clip.constant = -this.level;
     this.under.constant = this.level;
+    const going = Math.cos((this.time / TIDE_PERIOD) * Math.PI * 2);
+    runGeul(dt, going);
     this.afloatFor(dt);
     if (!this.praam.afloat) this.walk(dt);
     else if (this.deck.aboard) this.deckWalk(dt);
@@ -1811,6 +1841,10 @@ export class LowWater {
     if (this.lightship?.turned && this.praam.alongside && Math.random() < 0.6) this.hooks.creak?.(this.deck.aboard ? 1 : 0.45);
     this.lightship?.fogSignal(this.time, outside.fog, new THREE.Vector2(this.pos.x, this.pos.z), (near, pan) => this.hooks.horn?.(near, pan));
     this.glow(dt);
+    // the geul, heard from where it is: louder the harder it runs, a trickle at the turn
+    const g = geulNear(this.pos.x, this.pos.z);
+    const near = THREE.MathUtils.clamp(1 - g.d / 16, 0, 1) ** 2;
+    this.hooks.geul?.(this.deck.aboard ? 0 : near * (0.3 + 0.7 * Math.abs(going)), THREE.MathUtils.clamp((g.mid.x - this.pos.x) / 8, -0.9, 0.9));
     this.footprints(dt);
     this.sand.update(dt, this.level);
     this.rain(dt, still);
@@ -1852,6 +1886,8 @@ export class LowWater {
         want = this.pace * Math.min(1, (d - this.goalStop) / 0.4 + 0.3);
       }
     }
+    // (wading the geul, slower the deeper it is)
+    want *= 1 - Math.min(0.45, geulDepth(this.pos.x, this.pos.z) * 1.1);
     this.speed += (want - this.speed) * (1 - Math.exp(-dt * 8));
     if (this.speed < 0.02 && !want) {
       this.speed = 0;
@@ -1939,7 +1975,7 @@ export class LowWater {
 
   private animateWalker(still: boolean) {
     const w = this.walker;
-    const ground = Math.max(this.level, bankAt(this.pos.x, this.pos.z));
+    const ground = Math.max(this.level - Math.min(0.3, geulDepth(this.pos.x, this.pos.z) * 0.65), bankAt(this.pos.x, this.pos.z));
     w.position.set(this.pos.x, this.sitting ? Math.max(0, bankAt(BENCH.x, BENCH.y)) - 0.36 : ground, this.pos.z);
     w.rotation.set(0, this.heading, 0);
     if (this.deck.aboard) {
@@ -2031,6 +2067,9 @@ export class LowWater {
     let best: StationId | null = null;
     let bestD = Infinity;
     if (this.justWrote && at.distanceTo(this.stick.at) > 3.5) this.justWrote = false;
+    // (the geul: anywhere along its banks, or in it)
+    const geul = geulNear(at.x, at.y);
+    if (geul.d < 2.2) places.push(['geul', new THREE.Vector2(at.x - geul.d, at.y), 2.2]); // (a point as far off as its bank is)
     for (const [id, p, r] of places) {
       if (id === 'stick' && this.justWrote) continue;
       const d = at.distanceTo(p);
@@ -2213,6 +2252,11 @@ export class LowWater {
     const sz = -Math.sin(this.heading) * 0.1 * this.footSide;
     const x = this.pos.x + sx;
     const z = this.pos.z + sz;
+    // (in the geul, the current takes the print before it's made)
+    if (geulDepth(x, z) > 0.04) {
+      if (this.outside.night > 0.4) this.wake.light(x, this.level + 0.006, z, 6 + Math.round(this.outside.night * 4), 0.4);
+      return void this.hooks.step?.(true);
+    }
     p.mesh.position.set(x, Math.max(this.level, bankAt(x, z)) + 0.004, z);
     p.mesh.rotation.y = this.heading;
     p.mesh.visible = true;

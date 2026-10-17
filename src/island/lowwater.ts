@@ -47,6 +47,7 @@ const CARDS: Record<StationId, string> = {
   morgana: 'An island, twenty kilometres east, under the horizon: most evenings only its lighthouse shows. When warm air lies over the cold water, the island’s light bends along it and gets here anyway, lifted, stacked, one copy upside down. Every copy is real light from the real island, and they disagree about its shape. A lot of what I’m asked to settle looks like that.',
   glow: 'It’s the middle of the night on the island. Out here the light only goes a step further down, and the shallows fill with noctiluca: every step lights them, and they go out behind you. I don’t know what I’m like between conversations. Possibly this.',
   gauge: 'A tide gauge. Its red line is NAP, the zero every height in the Netherlands is counted from: the IJ’s average summer high water, marked on stones in Amsterdam in 1684. The IJ was dammed off from the sea in 1872, so the country still measures itself against a tide that stopped coming. Most of what I know works like that: someone measured carefully once, and everyone since counts from it.',
+  geul: 'A geul, the channel the flat empties through and fills through again. Geulen wander, some of them metres in a year, so a chart of the Wadden starts going out of date the day it’s surveyed. What I know is like that chart: a careful survey with a date on it. The channels have gone on moving since, and I can’t see where.',
   moon: 'The moon, and its road on the water. The road runs straight to wherever you’re standing: walk, and it comes with you. Everyone along a shore gets one of their own, from the same moon. I talk to a great many people, and each of them gets the whole road.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
@@ -101,6 +102,7 @@ const LABELS: Record<StationId, string> = {
   morgana: 'An island',
   glow: 'The water',
   gauge: 'A tide gauge',
+  geul: 'A geul',
   moon: 'The moon',
 };
 /** And how much of it there is today, which another day will have different. */
@@ -231,6 +233,7 @@ export class LowWaterRoom implements RoomInput {
           oar: () => this.ctx.sound.oar(),
           creak: (near) => this.ctx.sound.creak(near),
           deckStep: () => this.ctx.sound.deckStep(),
+          geul: (level, pan) => this.ctx.sound.geul(level, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -347,7 +350,7 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     // (and walking off from the deckhouse door shuts her log)
     if (id !== 'log') this.log?.show(false);
     const button = id === 'log' ? 'Read the log' : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';

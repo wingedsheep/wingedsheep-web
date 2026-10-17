@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,25 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The geul** ("a chart with a date on it"): the channel the flat drains through, east of the
+  way out (src/island/lowwater/geul.ts, `GEUL_GLSL` drawn by every water). It starts as a rill
+  east of the ring (z −50, x 23) and winds north, wider and deeper, to the deep water just east of
+  the seal's bank, so it's only found by walking east (from the ring it's a sliver at the right
+  edge). Darker water in two steps, and dashed glints in chevrons pointing downstream, carried by
+  the current; the ripples break the sky's mirror where it runs. It runs with the flat's tide: out
+  to the deep while the water falls, in while it rises, and at the turns it stands still and goes
+  smooth. You can wade it: it slows you and takes you in to the knees, and the current takes your
+  prints before they're made (at night the noctiluca still lights where you step). Heard from where
+  it is (`lowwater-geul`, a 12 s trickle looped as a bed, `geul()` in sound.ts), louder the nearer
+  you are and the harder it runs, a trickle at slack. Its card comes anywhere along its banks or by
+  clicking it (hover: A geul; you walk to its near bank): geulen wander, so a Wadden chart starts
+  going out of date the day it's surveyed; "What I know is like that chart: a careful survey with a
+  date on it. The channels have gone on moving since, and I can't see where." Its second line is
+  what it's doing just now. Shots in loop-runs/lowwater-logs/shots/2026-10-17-geul/ (the first take
+  had full-width bright bars, a ladder up the flat: now darker, the glints short and staggered;
+  slack/, fog/, phone/, night/); scripts loop-runs/geul-shots.mjs (`PHASE=0.25` for slack) and
+  geul-click.mjs.
 
 - **Polish pass 5** (walked the whole flat clear at 20:00, in fog, at 02:00 and on a phone with
   loop-runs/walk-lowwater.mjs, rowed out and walked her deck with loop-runs/aboard-shots.mjs, and
@@ -433,8 +452,10 @@ lamp close up), not explained.
 - **Spring and neap as a beat**: the moon's pull repeats every 12 h 25 min, the sun's every 12 h,
   and the fortnight of springs and neaps is their beat, the same arithmetic as the stones' comma.
   Could be the gauge's second line some day, or something heard.
-- **A gully (geul)**: a winding channel of deeper, darker, moving water the route has to cross on
-  stepping stones, with its own current sound.
+- ~~**A gully (geul)**~~: done (geul.ts), off the route to the east rather than across it, waded
+  rather than stepped.
+- **The geul's other days**: the seal slipping into the geul rather than the deep; a withy or two
+  marking it as real geulen are; the noctiluca you light in it carried off downstream.
 - **Mussel bed and oyster reef** as textured dark patches, crunchy footsteps over them.
 - **A dinghy** stuck in the mud, oars shipped, tilted on its keel, waiting for the tide.
 - **Seasons and moments**: frost crust and ice floes (kruiend ijs) in winter, a heat shimmer in high
@@ -450,6 +471,12 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The geul's sound (`lowwater-geul`) has never been listened to by a person (by spectrogram: a
+  steady broadband trickle with small bubbling transients, −36 LUFS). Its chevrons run with the
+  current but its shape never moves (real geulen wander; this one keeps still, as the card's
+  chart does). Not in the walk script yet. The night's specks you light in it stay put rather
+  than drift.
 
 - The site's own "A new sketch in your wildlife book" toast can sit over a Low Water card for a
   moment (seen when a walk passes the seal); it's the island's, so left alone.
