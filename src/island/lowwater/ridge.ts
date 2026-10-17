@@ -1,0 +1,589 @@
+/**
+ * The hailstones: up the baak, and out above a sea of cloud at the same blue hour, one of the
+ * baak's open questions laid out as stones you walk. Take a whole number; halve it if it's even,
+ * treble it and add one if it's odd; again. These are 27's: a stone for each number, its top as
+ * high as the number is big (a doubling a metre, so halving is always the same step down and
+ * trebling a step and a half up), running east. The next stone isn't there until you stand on
+ * this one, then it comes up out of the cloud: nobody knows a shortcut, so to find out where a
+ * number goes you walk it. Behind you the ones you've walked stay up, a range of your own. It
+ * climbs to 9,232 and comes down to 1, where it would only go round.
+ *
+ * Its own scene and camera, drawn through the island's PixelRenderer like the page. Looking north
+ * at a low slant, so the stones stand against the sky, with the cloud's far edge cut where the
+ * horizon is (an orthographic camera has none of its own). Walk back west off 27 onto the baak's
+ * top for the flat; or come down off 1.
+ */
+import * as THREE from 'three';
+import { toon } from '../scene/toon';
+import { makeFigure, type Figure } from './figure';
+
+const ELEVATION = THREE.MathUtils.degToRad(16);
+const DISTANCE = 120;
+const PACE = 1.8;
+/** Where it starts. 27 is the famous one: small, and a hundred and eleven steps to 1. */
+export const FROM = 27;
+/**
+ * A doubling, in metres of height; a stone's spacing, and its radius (m). The stones are basalt,
+ * which cools in six-sided columns, set with a face to you: so each face is a radius wide, and the
+ * columns all but touch, corner to corner, like a causeway.
+ */
+const RISE = 1;
+const GAP = 2.3;
+const R = 1.1;
+const WIDE = 2 * R;
+/** The cloud's top, under the lowest stone (1, whose top is at 0). */
+const CLOUD = -2.8;
+/** How long a stone takes to come up out of the cloud (s). */
+const RISING = 0.9;
+/** Off 27 to the west, the baak's top, and past it the way down. */
+const BAAK_X = -2.4;
+const WAY_DOWN = -1.5;
+/** Stood this long anywhere (s), the card for that stretch comes back. */
+const STILL = 7;
+
+const STONES = ['#5d5f7c', '#666884', '#5a5873', '#636379'].map((c) => new THREE.Color(c));
+const CUT = new THREE.Color('#d6cbb4');
+const CLOUDS = { lit: new THREE.Color('#c2a9ae'), pale: new THREE.Color('#9893b2'), mid: new THREE.Color('#7a7aa0'), deep: new THREE.Color('#5d6189') };
+
+const KEYS: Record<string, 'east' | 'west'> = {
+  KeyD: 'east', ArrowRight: 'east', KeyW: 'east', ArrowUp: 'east', KeyA: 'west', ArrowLeft: 'west', KeyS: 'west', ArrowDown: 'west',
+};
+
+export type RidgeCard = 'hail' | 'peak' | 'one' | 'down';
+export type RidgePick = { stone: number } | 'down';
+
+/** A number's way to 1. */
+export function hailstones(n: number) {
+  const out = [n];
+  while (n !== 1) out.push((n = n % 2 ? 3 * n + 1 : n / 2));
+  return out;
+}
+
+// prettier-ignore
+const DIGITS: string[][] = [
+  ['###', '#.#', '#.#', '#.#', '###'], ['.#.', '##.', '.#.', '.#.', '###'], ['###', '..#', '###', '#..', '###'], ['###', '..#', '.##', '..#', '###'], ['#.#', '#.#', '###', '..#', '..#'],
+  ['###', '#..', '###', '..#', '###'], ['###', '#..', '###', '#.#', '###'], ['###', '..#', '.#.', '.#.', '.#.'], ['###', '#.#', '###', '#.#', '###'], ['###', '#.#', '###', '..#', '###'],
+];
+
+/** A number cut in a stone's face: one mark a texel, centred across, hanging down from 0, in texels. */
+function cutNumber(n: number): [THREE.BufferGeometry, number] {
+  const pos: number[] = [];
+  const idx: number[] = [];
+  const digits = String(n).split('').map(Number);
+  let x = -Math.round((digits.length * 4 - 1) / 2);
+  for (const d of digits) {
+    DIGITS[d].forEach((row, r) => {
+      for (let c = 0; c < 3; c++) {
+        if (row[c] !== '#') continue;
+        const k = pos.length / 3;
+        pos.push(x + c, -r, 0, x + c + 1, -r, 0, x + c + 1, -r - 1, 0, x + c, -r - 1, 0);
+        idx.push(k, k + 2, k + 1, k, k + 3, k + 2);
+      }
+    });
+    x += 4;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geometry.setIndex(idx);
+  return [geometry, String(n).length * 4 - 1];
+}
+
+/** A basalt column, a face to you, a little narrower at the top: faceted, so each face takes the light as one. */
+function column(tall: number) {
+  const g = new THREE.CylinderGeometry(R * 0.97, R, tall, 6, 1).toNonIndexed();
+  g.rotateY(Math.PI / 6);
+  g.computeVertexNormals();
+  return g;
+}
+
+interface Stone {
+  n: number;
+  top: number;
+  root: THREE.Group;
+  cut: THREE.Mesh;
+  /** Its number's width, in texels. */
+  wide: number;
+  /** 0 under the cloud … 1 up; −1 not yet called up. */
+  up: number;
+}
+
+export class Ridge {
+  readonly scene = new THREE.Scene();
+  readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, DISTANCE * 2.5);
+  readonly subTexel = new THREE.Vector2();
+  card: RidgeCard | null = null;
+  /** Walked back onto the baak, or come down off 1: time for the flat again. */
+  leaving = false;
+  /** Each footstep on stone; and a stone coming up out of the cloud, from so far across the picture (−1 … 1). */
+  onStep?: () => void;
+  onRise?: (pan: number) => void;
+  readonly numbers = hailstones(FROM);
+  /** Where it's highest: 9,232, seventy-seven steps along. */
+  readonly peak = this.numbers.indexOf(Math.max(...this.numbers));
+  private stones: Stone[] = [];
+  private you: Figure;
+  private pos = new THREE.Vector3();
+  private heading = Math.PI / 2;
+  private speed = 0;
+  private goal: number | null = null;
+  private keys = new Set<string>();
+  private stride = 0;
+  private lastStep = 0;
+  private stillFor = 0;
+  /** The furthest stone you've stood on. */
+  private furthest = 0;
+  private downClicked = false;
+  private target = new THREE.Vector3();
+  private pan = new THREE.Vector2();
+  private view = 28;
+  private aspect = 1;
+  private zoomed = 1;
+  private time = 0;
+  private ray = new THREE.Raycaster();
+  private cloud: THREE.Mesh;
+  private cloudU: Record<string, THREE.IUniform>;
+  private skyU: Record<string, THREE.IUniform>;
+  private baak = new THREE.Group();
+  private pickables: THREE.Object3D[] = [];
+
+  constructor(private texels: () => number) {
+    this.scene.background = new THREE.Color('#0f1233');
+    // the warm band's light, low from the west, on the stones' near sides; the sky's blue on the rest
+    this.scene.add(new THREE.HemisphereLight('#8f95c8', '#3e3655', 1.3), this.camera);
+    const sun = new THREE.DirectionalLight('#ffbf92', 2.4);
+    sun.position.set(-40, 12, 16);
+    this.scene.add(sun, sun.target);
+    const skin = toon(new THREE.Color('#3a3348'), { own: true, bare: true });
+    this.you = makeFigure({ coat: toon(new THREE.Color('#353352'), { own: true, bare: true }), boots: toon(new THREE.Color('#1b1a2a'), { own: true, bare: true }), scarf: toon(new THREE.Color('#efe2c6'), { own: true, bare: true }), skin });
+    this.scene.add(this.you.root);
+    const sky = this.makeSky();
+    this.skyU = sky;
+    const cloud = this.makeCloud();
+    this.cloud = cloud.mesh;
+    this.cloudU = cloud.uniforms;
+    this.makeStones();
+    this.makeBaak();
+    this.resize(innerWidth, innerHeight);
+  }
+
+  /** The sky, behind everything: the flat's own bands, the warm one at the horizon broad on the left, and a few stars. */
+  private makeSky() {
+    const uniforms = { uHorizon: { value: 0 }, uTexel: { value: 0.003 }, uAspect: { value: 1 }, uDrift: { value: 0 } };
+    const mat = new THREE.ShaderMaterial({
+      uniforms,
+      depthWrite: false,
+      depthTest: false,
+      vertexShader: /* glsl */ `
+        varying vec2 vAt;
+        void main() {
+          vAt = position.xy;
+          gl_Position = vec4(position.xy * 2.0, 0.9999, 1.0);
+        }`,
+      fragmentShader: /* glsl */ `
+        const float BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
+        uniform float uHorizon; // the horizon's height on screen (view heights, from the middle)
+        uniform float uTexel;
+        uniform float uAspect;
+        uniform float uDrift;
+        varying vec2 vAt;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        void main() {
+          ivec2 p = ivec2(gl_FragCoord.xy);
+          float d = (BAYER[(p.x & 3) + (p.y & 3) * 4] + 0.5) / 16.0;
+          float a = vAt.y - uHorizon;
+          float x = vAt.x;
+          float j = (d - 0.5) * uTexel * 5.0;
+          float warm = 1.0 - smoothstep(-0.45, 0.45, x);
+          float w1 = 0.008 + 0.02 * warm;
+          float w2 = w1 + 0.016 + 0.024 * warm;
+          vec3 col = vec3(0.60, 0.52, 0.58);
+          if (a + j > 0.004) col = mix(vec3(0.46, 0.37, 0.48), vec3(0.95, 0.55, 0.32), step(d * 0.5 + 0.1, warm));
+          if (a + j > w1) col = mix(vec3(0.31, 0.29, 0.47), vec3(0.50, 0.34, 0.45), step(d * 0.5 + 0.2, warm));
+          if (a + j > w2) col = vec3(0.22, 0.23, 0.43);
+          if (a + j > 0.1) col = vec3(0.14, 0.155, 0.34);
+          if (a + j > 0.19) col = vec3(0.085, 0.098, 0.25);
+          if (a + j > 0.32) col = vec3(0.053, 0.062, 0.18);
+          if (a + j > 0.52) col = vec3(0.034, 0.04, 0.135);
+          // a few stars, high up, where the sky's dark enough: fixed in the sky, so they don't walk with you
+          vec2 cell = floor(vec2((x * uAspect + uDrift) / uTexel, a / uTexel));
+          float s = hash(cell);
+          if (a > 0.26 && s > 0.9993) col = mix(col, vec3(0.78, 0.8, 0.95), 0.35 + 0.65 * step(0.99985, s));
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+    });
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+    quad.frustumCulled = false;
+    quad.renderOrder = -20;
+    this.scene.add(quad);
+    return uniforms;
+  }
+
+  /**
+   * The cloud, a floor of it, in stepped and dithered tones: lit warm on its tops towards the west,
+   * deep in its hollows, drifting east very slowly, and going to the horizon's colour at its far
+   * edge, which is cut where the horizon is.
+   */
+  private makeCloud() {
+    const uniforms = {
+      uTime: { value: 0 },
+      uNear: { value: 0 },
+      uFar: { value: -100 },
+      uHaze: { value: new THREE.Color(0.6, 0.52, 0.58) },
+      uLit: { value: CLOUDS.lit },
+      uPale: { value: CLOUDS.pale },
+      uMid: { value: CLOUDS.mid },
+      uDeep: { value: CLOUDS.deep },
+    };
+    const mat = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: /* glsl */ `
+        varying vec3 vAt;
+        void main() {
+          vec4 w = modelMatrix * vec4(position, 1.0);
+          vAt = w.xyz;
+          gl_Position = projectionMatrix * viewMatrix * w;
+        }`,
+      fragmentShader: /* glsl */ `
+        const float BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
+        uniform float uTime;
+        uniform float uNear;
+        uniform float uFar;
+        uniform vec3 uHaze;
+        uniform vec3 uLit;
+        uniform vec3 uPale;
+        uniform vec3 uMid;
+        uniform vec3 uDeep;
+        varying vec3 vAt;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+        }
+        float billow(vec2 p) {
+          float v = 0.0;
+          float a = 0.55;
+          for (int k = 0; k < 4; k++) {
+            v += a * abs(noise(p) * 2.0 - 1.0);
+            p = p * 2.03 + vec2(13.1, 7.7);
+            a *= 0.5;
+          }
+          return 1.0 - v;
+        }
+        void main() {
+          ivec2 q = ivec2(gl_FragCoord.xy);
+          float d = (BAYER[(q.x & 3) + (q.y & 3) * 4] + 0.5) / 16.0;
+          // squashed across, as cloud seen this low is: long rolls
+          vec2 p = vec2(vAt.x * 0.05 + uTime * 0.004, vAt.z * 0.11);
+          float b = billow(p);
+          // and its tops catch the west's warm light
+          float west = billow(p + vec2(0.04, 0.0)) - b;
+          float v = b + d * 0.12 - 0.06;
+          vec3 col = v > 0.72 ? (west < -0.004 ? uLit : uPale) : v > 0.55 ? uPale : v > 0.38 ? uMid : uDeep;
+          float far = clamp((uNear - vAt.z) / (uNear - uFar), 0.0, 1.0);
+          float haze = floor(smoothstep(0.25, 0.95, far) * 4.0 + d) / 4.0;
+          gl_FragColor = vec4(mix(col, uHaze, haze), 1.0);
+        }`,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, -0.5), mat);
+    mesh.frustumCulled = false;
+    mesh.position.y = CLOUD;
+    mesh.renderOrder = -10;
+    this.scene.add(mesh);
+    return { mesh, uniforms };
+  }
+
+  /** A stone for every number on 27's way down, each called up only when you reach the one before. */
+  private makeStones() {
+    const face = new THREE.MeshBasicMaterial({ color: CUT });
+    this.numbers.forEach((n, i) => {
+      const top = Math.log2(n) * RISE;
+      const tall = top - CLOUD + 6;
+      const root = new THREE.Group();
+      const body = new THREE.Mesh(column(tall), toon(STONES[(i * 7 + (n % 5)) % STONES.length], { bare: true }));
+      body.position.y = top - tall / 2;
+      body.userData.stone = i;
+      root.add(body);
+      const [geometry, wide] = cutNumber(n);
+      const cut = new THREE.Mesh(geometry, face);
+      cut.position.set(0, top - 0.16, R * 0.97 * Math.cos(Math.PI / 6) + 0.02);
+      root.add(cut);
+      root.position.x = i * GAP;
+      root.visible = false;
+      this.scene.add(root);
+      this.pickables.push(body);
+      this.stones.push({ n, top, root, cut, wide, up: -1 });
+    });
+  }
+
+  /** The baak's top, just west of 27: its mast and black ball, up out of the cloud, the way you came. */
+  private makeBaak() {
+    const tar = toon(new THREE.Color('#2f2a35'), { own: true, bare: true });
+    const top = this.stones[0].top;
+    const tall = top + 1.2 - CLOUD;
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.22, tall, 0.22), tar);
+    mast.position.y = CLOUD + tall / 2;
+    this.baak.add(mast);
+    for (const s of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 4, 0.16), tar);
+      leg.position.set(s * 0.55, top - 2.2, 0);
+      leg.rotation.z = s * 0.14;
+      this.baak.add(leg);
+      const brace = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 0.12), tar);
+      brace.position.set(0, top - 1.6 - (s + 1) * 0.9, 0);
+      brace.rotation.z = s * 0.5;
+      this.baak.add(brace);
+    }
+    const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 1), toon(new THREE.Color('#2a2530'), { glow: true, own: true }));
+    (ball.material as THREE.MeshToonMaterial).emissive.set('#d0805a');
+    (ball.material as THREE.MeshToonMaterial).emissiveIntensity = 0.3;
+    ball.position.y = top + 1.5;
+    this.baak.add(ball);
+    // what you click is the whole of it
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(1.6, tall + 1, 1.2), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = CLOUD + tall / 2;
+    hit.userData.down = true;
+    this.baak.add(hit);
+    this.baak.position.set(BAAK_X, 0, -0.2);
+    this.scene.add(this.baak);
+    this.pickables.push(hit);
+  }
+
+  /** Up off the baak: onto 27, with 82 coming up out of the cloud beside you. */
+  arrive() {
+    this.leaving = false;
+    this.downClicked = false;
+    this.keys.clear();
+    this.pan.set(0, 0);
+    this.furthest = 0;
+    this.stillFor = 0;
+    for (const s of this.stones) (s.up = -1), (s.root.visible = false);
+    this.stones[0].up = 1;
+    this.stones[0].root.visible = true;
+    this.pos.set(-0.5, this.stones[0].top, 0);
+    this.heading = Math.PI / 2;
+    this.speed = 0;
+    this.goal = 0;
+    this.call(1);
+    this.frame(0);
+  }
+
+  /** Call a stone up out of the cloud. */
+  private call(i: number) {
+    const s = this.stones[i];
+    if (!s || s.up >= 0) return;
+    s.up = 0;
+    s.root.visible = true;
+    this.onRise?.(THREE.MathUtils.clamp((i * GAP - this.target.x) / (this.view * this.aspect * 0.5), -1, 1));
+  }
+
+  key(code: string, down: boolean) {
+    const k = KEYS[code];
+    if (!k) return false;
+    if (down) (this.keys.add(k), (this.goal = null), (this.downClicked = false));
+    else this.keys.delete(k);
+    return true;
+  }
+
+  releaseKeys() {
+    this.keys.clear();
+  }
+
+  pick(ndc: THREE.Vector2): RidgePick | null {
+    this.ray.setFromCamera(ndc, this.camera);
+    const hit = this.ray.intersectObjects(this.pickables.filter((o) => o.userData.down || this.stones[o.userData.stone].up >= 0.95), false)[0];
+    if (!hit) return null;
+    return hit.object.userData.down ? 'down' : { stone: hit.object.userData.stone as number };
+  }
+
+  /** The number a stone has cut in it, and how far it is along. */
+  stoneAt(i: number) {
+    return this.numbers[i];
+  }
+
+  /** A click: along the ridge to that stone (or as near it as the stones go); on the baak, back down. */
+  click(ndc: THREE.Vector2) {
+    const at = this.pick(ndc);
+    if (at === 'down') return void ((this.goal = WAY_DOWN - 1), (this.downClicked = true));
+    this.downClicked = false;
+    if (at) return void (this.goal = at.stone * GAP);
+    this.ray.setFromCamera(ndc, this.camera);
+    const p = new THREE.Vector3();
+    if (this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), p)) this.goal = THREE.MathUtils.clamp(p.x, -0.5, this.reach);
+  }
+
+  /** Come down off 1, as hail does. */
+  comeDown() {
+    this.leaving = true;
+  }
+
+  zoom(factor: number) {
+    this.zoomed = THREE.MathUtils.clamp(this.zoomed * factor, 0.6, 1.5);
+  }
+
+  drag(dx: number, dy: number, height: number) {
+    const per = this.seen / height;
+    this.pan.x = THREE.MathUtils.clamp(this.pan.x - dx * per, -24, 24);
+    this.pan.y = THREE.MathUtils.clamp(this.pan.y + dy * per, -10, 10);
+  }
+
+  resize(width: number, height: number) {
+    this.aspect = width / height;
+    this.view = Math.max(22, Math.min(30, 20 / this.aspect + 10));
+  }
+
+  /** The stone you're on (or nearest). */
+  get on() {
+    return THREE.MathUtils.clamp(Math.round(this.pos.x / GAP), 0, this.stones.length - 1);
+  }
+
+  /** How far east you can go: onto the last stone that's all the way up. */
+  private get reach() {
+    let i = 0;
+    while (i + 1 < this.stones.length && this.stones[i + 1].up >= 0.85) i++;
+    return i * GAP + 0.3;
+  }
+
+  update(dt: number) {
+    this.time += dt;
+    for (const s of this.stones) if (s.up >= 0 && s.up < 1) s.up = Math.min(1, s.up + dt / RISING);
+    this.walk(dt);
+    // a stone you're stood on calls up the next
+    const on = this.on;
+    if (Math.abs(this.pos.x - on * GAP) < WIDE / 2) {
+      if (on > this.furthest) this.furthest = on;
+      this.call(on + 1);
+    }
+    this.animate(dt);
+    const peak = this.peak;
+    const last = this.stones.length - 1;
+    this.card =
+      this.pos.x < -0.2 || this.downClicked ? 'down'
+      : on === last ? 'one'
+      : Math.abs(on - peak) <= 2 ? 'peak'
+      : on <= 2 ? 'hail'
+      : this.stillFor > STILL ? (on > peak ? 'peak' : 'hail')
+      : null;
+    if (this.pos.x < WAY_DOWN) this.leaving = true;
+    this.frame(dt);
+  }
+
+  private walk(dt: number) {
+    let dir = 0;
+    if (this.keys.has('east')) dir += 1;
+    if (this.keys.has('west')) dir -= 1;
+    let want = 0;
+    if (dir) want = PACE;
+    else if (this.goal !== null) {
+      const dx = this.goal - this.pos.x;
+      if (Math.abs(dx) <= 0.06) this.goal = null;
+      else (dir = Math.sign(dx)), (want = PACE * Math.min(1, Math.abs(dx) / 0.4 + 0.3));
+    }
+    // (going up a step and a half is a scramble: slower, for a moment)
+    const climbing = this.ground(this.pos.x + dir * 0.5) - this.pos.y;
+    if (climbing > 0.3) want *= 0.55;
+    this.speed += (want - this.speed) * (1 - Math.exp(-dt * 8));
+    if (this.speed < 0.02 && !want) {
+      this.speed = 0;
+      this.stillFor += dt;
+      this.pos.y += (this.ground(this.pos.x) - this.pos.y) * (1 - Math.exp(-dt * 12));
+      return;
+    }
+    this.stillFor = 0;
+    if (dir) this.heading += ((dir > 0 ? Math.PI / 2 : -Math.PI / 2) - this.heading) * (1 - Math.exp(-dt * 10));
+    const facing = Math.sign(Math.sin(this.heading)) || 1;
+    const step = this.speed * dt;
+    // (not past the last stone that's up, and back west only as far as the baak)
+    const x = THREE.MathUtils.clamp(this.pos.x + (dir || facing) * step, WAY_DOWN - 1.2, Math.max(this.reach, this.pos.x));
+    this.stride += Math.abs(x - this.pos.x);
+    this.pos.x = x;
+    this.pos.y += (this.ground(this.pos.x) - this.pos.y) * (1 - Math.exp(-dt * 12));
+    if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
+    if (this.stride - this.lastStep > 0.5) {
+      this.lastStep = this.stride;
+      if (this.pos.x > -0.6) this.onStep?.();
+    }
+  }
+
+  /** The height underfoot: the nearest stone's top (and over the gap, the one you're stepping to); west of 27, the baak's. */
+  private ground(x: number) {
+    if (x < -0.6) return this.stones[0].top;
+    const i = THREE.MathUtils.clamp(Math.round(x / GAP), 0, this.stones.length - 1);
+    return this.stones[i].up >= 0.85 ? this.stones[i].top : this.stones[Math.max(0, i - 1)].top;
+  }
+
+  private animate(dt: number) {
+    const w = this.you;
+    w.root.position.copy(this.pos);
+    w.root.rotation.set(0, this.heading, 0);
+    const swing = Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
+    w.legs[0].rotation.x = swing;
+    w.legs[1].rotation.x = -swing;
+    w.arms[0].rotation.x = -swing * 0.8;
+    w.arms[1].rotation.x = swing * 0.8;
+    // (a little wind up here, from the west)
+    w.scarfTail.rotation.x = 0.35 + Math.sin(this.time * 2.3) * 0.12;
+    // the stones coming up out of the cloud
+    for (const s of this.stones) {
+      if (s.up < 0) continue;
+      const e = 1 - Math.pow(1 - s.up, 3);
+      s.root.position.y = (1 - e) * (CLOUD - s.top - 0.4);
+    }
+    this.cloudU.uTime.value += dt;
+  }
+
+  /** The view's height (m), zoom and all. */
+  private get seen() {
+    return this.view * this.zoomed;
+  }
+
+  private frame(dt: number) {
+    const view = this.seen;
+    const h = view / 2;
+    const w = h * this.aspect;
+    const cam = this.camera;
+    Object.assign(cam, { left: -w, right: w, top: h, bottom: -h });
+    cam.updateProjectionMatrix();
+    const want = new THREE.Vector3(this.pos.x + this.pan.x, this.pos.y + 0.6 + this.pan.y, 0);
+    if (dt) this.target.lerp(want, 1 - Math.exp(-dt * 2.2));
+    else this.target.copy(want);
+    const t = this.target;
+    cam.position.set(t.x, t.y + Math.sin(ELEVATION) * DISTANCE, t.z + Math.cos(ELEVATION) * DISTANCE);
+    cam.lookAt(t);
+    cam.updateMatrixWorld();
+    // snap to the texel grid, and hand the remainder to the renderer
+    const texel = view / this.texels();
+    const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+    const r = cam.position.dot(right) / texel;
+    const u = cam.position.dot(up) / texel;
+    const dr = Math.round(r) - r;
+    const du = Math.round(u) - u;
+    cam.position.addScaledVector(right, dr * texel).addScaledVector(up, du * texel);
+    cam.updateMatrixWorld();
+    cam.matrixWorldInverse.copy(cam.matrixWorld).invert();
+    this.subTexel.set(-dr, -du);
+    // the horizon's at eye level, so in the same place on screen however high you climb: a little under the middle
+    const horizon = -0.06;
+    // the cloud runs out to wherever its far edge meets that line on screen
+    const sin = Math.sin(ELEVATION);
+    const cos = Math.cos(ELEVATION);
+    const far = t.z - (horizon * view - (CLOUD - t.y) * cos) / sin;
+    const near = t.z + 60;
+    this.cloud.position.set(t.x, CLOUD, near);
+    this.cloud.scale.set(view * this.aspect * 1.2 + 40, 1, near - far);
+    this.cloudU.uNear.value = t.z + 10;
+    this.cloudU.uFar.value = far;
+    this.skyU.uHorizon.value = horizon;
+    this.skyU.uTexel.value = 1 / this.texels();
+    this.skyU.uAspect.value = this.aspect;
+    this.skyU.uDrift.value = (t.x / view) * 0.02;
+    // the numbers, a texel a mark, however near you've zoomed; and zoomed out, where one won't fit its face, none
+    for (const s of this.stones) {
+      if (!s.root.visible) continue;
+      s.cut.scale.set(texel, texel / cos, 1);
+      s.cut.visible = s.wide * texel <= R * 1.02;
+    }
+  }
+}

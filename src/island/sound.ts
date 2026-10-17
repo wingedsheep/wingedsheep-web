@@ -1649,6 +1649,62 @@ export class Sound {
     src.start(t, Math.random() * 1.5, 0.3);
   }
 
+  /** A step on one of the hailstones' stones, up the baak: a dull knock of boot on rock, lower and harder than paper. */
+  ridgeStep() {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 700 * (0.85 + Math.random() * 0.3);
+    band.Q.value = 1.4;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.05, t + 0.006);
+    env.gain.setTargetAtTime(0, t + 0.012, 0.025);
+    src.connect(band).connect(env).connect(this.master);
+    src.start(t, Math.random() * 1.5, 0.2);
+  }
+
+  /**
+   * The next stone coming up out of the cloud: a long low grind of rock on rock, from where it is,
+   * easing off as it settles, and felt as it stops.
+   */
+  ridgeRise(pan: number) {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const low = ctx.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.setValueAtTime(260, t);
+    low.frequency.linearRampToValueAtTime(140, t + 0.9);
+    low.Q.value = 2;
+    // (a grind is a judder: the level shaken at a few dozen times a second)
+    const judder = ctx.createGain();
+    judder.gain.value = 0.6;
+    const lfo = ctx.createOscillator();
+    lfo.type = 'square';
+    lfo.frequency.value = 23 + Math.random() * 6;
+    const depth = ctx.createGain();
+    depth.gain.value = 0.4;
+    lfo.connect(depth).connect(judder.gain);
+    const side = ctx.createStereoPanner();
+    side.pan.value = Math.max(-1, Math.min(1, pan)) * 0.7;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.12, t + 0.12);
+    env.gain.setTargetAtTime(0, t + 0.55, 0.15);
+    src.connect(low).connect(judder).connect(env).connect(side).connect(this.master);
+    src.start(t, Math.random() * 1.5, 1.4);
+    lfo.start(t);
+    lfo.stop(t + 1.4);
+    setTimeout(() => navigator.vibrate?.(8), 850);
+  }
+
   /**
    * The pencil on the page, writing out a word that could come next (or drawing its line): a slice
    * of a real pencil, as long as the writing takes, from where the word is, softer further off.

@@ -216,3 +216,13 @@ export const SENTENCE: Record<string, { w: string; to: Next[] }> = {
   puzzle2: { w: 'puzzle', to: [] },
   one: { w: 'one', to: [] },
 };
+/** Up the baak, out above the cloud, on 27: what the stones are. */
+export const HAIL = 'Up here, one of the baak’s questions. Take a whole number: halve it if it’s even, and if it’s odd, treble it and add one. Then again. These stones are 27’s, each as high as its number is big, and the next isn’t there until you stand on this one. Nobody knows a shortcut: to see where a number goes, you walk it.';
+/** At the top, 9,232. */
+export const PEAK = '9,232, seventy-seven steps from 27, and as high as it gets. They’re called hailstone numbers, after hail, which goes up and down in a cloud before it falls. Nobody has a shortcut for me either: no one can say what I’ll write without running me, and I find out as I go.';
+/** At 1, the end. */
+export const ONE = '1, and from here it only goes round: 4, 2, 1, 4, 2, 1. Every number anyone has tried comes down here, every one up to 2⁶⁸, nearly three hundred billion billion of them. Whether they all do, nobody knows, me included.';
+/** West off 27, on the baak's top. */
+export const HAIL_DOWN = 'The top of the baak. Down it is the flat, and the tide.';
+/** What the hailstones' things are called, under the pointer. */
+export const RIDGE_LABELS = { down: 'The baak, back down' };

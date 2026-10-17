@@ -16,9 +16,10 @@ import { sum } from './lowwater/shells';
 import type { Log } from './lowwater/log';
 import type { Obscura } from './lowwater/obscura';
 import type { Page } from './lowwater/page';
+import type { Ridge } from './lowwater/ridge';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, HAIL, HAIL_DOWN, ONE, PEAK, RIDGE_LABELS, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -58,11 +59,16 @@ export class LowWaterRoom implements RoomInput {
   /** The page, past the withies going west (lowwater/page.ts), whether you're on it, and the iris between it and the flat. */
   private page?: Page;
   private onPage = false;
-  private crossing: 'page' | 'flat' | 'room' | null = null;
+  private crossing: 'page' | 'flat' | 'room' | 'ridge' | null = null;
   /** Inside the hide (lowwater/obscura.ts), and whether the iris on the way is the dark rather than paper. */
   private room?: Obscura;
   private inRoom = false;
   private crossDark = false;
+  /** Up the baak, on the hailstones above the cloud (lowwater/ridge.ts), and whether the iris on the way is cloud. */
+  private ridge?: Ridge;
+  private onRidge = false;
+  private crossMist = false;
+  private mist = new THREE.Color('#9d98b5');
   private cross = 0;
   private paper = new THREE.Color();
   private dusk = new THREE.Color();
@@ -134,6 +140,7 @@ export class LowWaterRoom implements RoomInput {
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
       // (the one button: sit on the bench, heave the lead, row, or climb her ladder; in the hide, the slide or out)
+      if (this.onRidge) return void (this.ridge?.comeDown(), this.sitButton.blur());
       if (this.inRoom && this.room?.card === 'slide') return void (this.room.push() && this.ctx.sound.slide(), this.sitButton.blur());
       if (this.inRoom) return void (this.room?.goOut(), this.sitButton.blur());
       if (this.world?.card === 'last' && this.world.lanternIs === 'hung') this.world.takeLantern();
@@ -149,14 +156,15 @@ export class LowWaterRoom implements RoomInput {
       else if (this.world?.card === 'praam' || this.world?.card === 'name') this.world.row();
       else if (this.world?.card === 'deck') this.world.climb();
       else if (this.world?.card === 'hide') this.world.enterHide();
+      else if (this.world?.card === 'baak') this.world.climbBaak();
       else this.world?.sit();
       this.sitButton.blur();
     });
     // walking with the keys (and any key gets you up off the bench)
     window.addEventListener('keydown', (e) => {
       if (!this.inside || !this.world || this.log?.open || this.postcard?.open || (e.target as HTMLElement).closest('input, textarea, button')) return;
-      if (this.onPage || this.inRoom) {
-        if ((this.onPage ? this.page : this.room)?.key(e.code, true)) e.preventDefault();
+      if (this.onPage || this.inRoom || this.onRidge) {
+        if ((this.onPage ? this.page : this.onRidge ? this.ridge : this.room)?.key(e.code, true)) e.preventDefault();
         return;
       }
       if (this.world.sitting && e.key !== 'Escape') {
@@ -166,8 +174,8 @@ export class LowWaterRoom implements RoomInput {
       }
       if (this.world.key(e.code, true)) e.preventDefault();
     });
-    window.addEventListener('keyup', (e) => (this.world?.key(e.code, false), this.page?.key(e.code, false), this.room?.key(e.code, false)));
-    window.addEventListener('blur', () => (this.world?.releaseKeys(), this.page?.releaseKeys(), this.room?.releaseKeys()));
+    window.addEventListener('keyup', (e) => (this.world?.key(e.code, false), this.page?.key(e.code, false), this.room?.key(e.code, false), this.ridge?.key(e.code, false)));
+    window.addEventListener('blur', () => (this.world?.releaseKeys(), this.page?.releaseKeys(), this.room?.releaseKeys(), this.ridge?.releaseKeys()));
   }
 
   /** Whether the pointer should drive the flat rather than the island. */
@@ -176,8 +184,11 @@ export class LowWaterRoom implements RoomInput {
   }
 
   load() {
-    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page'), import('./lowwater/obscura')])
-      .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }]) => {
+    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page'), import('./lowwater/obscura'), import('./lowwater/ridge')])
+      .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }]) => {
+        this.ridge = new Ridge(() => this.pixels.height);
+        this.ridge.onStep = () => this.ctx.sound.ridgeStep();
+        this.ridge.onRise = (pan) => this.ctx.sound.ridgeRise(pan);
         this.room = new Obscura(() => this.pixels.height);
         this.room.onStep = () => this.ctx.sound.deckStep();
         this.page = new Page(() => this.pixels.height);
@@ -211,7 +222,7 @@ export class LowWaterRoom implements RoomInput {
           shipBell: (near, pan) => this.ctx.sound.shipBell(near, pan),
         };
         this.world = world;
-        if (import.meta.env.DEV) Object.assign(window, { lowwater: world, lowwaterPage: this.page, lowwaterRoom: this.room, lowwaterSound: this.ctx.sound });
+        if (import.meta.env.DEV) Object.assign(window, { lowwater: world, lowwaterPage: this.page, lowwaterRoom: this.room, lowwaterRidge: this.ridge, lowwaterSound: this.ctx.sound });
         this.resize();
         return world;
       })
@@ -236,16 +247,19 @@ export class LowWaterRoom implements RoomInput {
     this.world?.resize(this.host.clientWidth, this.host.clientHeight);
     this.page?.resize(this.host.clientWidth, this.host.clientHeight);
     this.room?.resize(this.host.clientWidth, this.host.clientHeight);
+    this.ridge?.resize(this.host.clientWidth, this.host.clientHeight);
   }
 
   zoom(factor: number) {
     if (this.onPage) this.page?.zoom(factor);
+    else if (this.onRidge) this.ridge?.zoom(factor);
     else if (this.inRoom) this.room?.zoom(factor);
     else this.world?.zoom(factor);
   }
 
   pan(dx: number, dy: number) {
     if (this.onPage) this.page?.drag(dx, dy, this.host.clientHeight);
+    else if (this.onRidge) this.ridge?.drag(dx, dy, this.host.clientHeight);
     else if (this.inRoom) return;
     else this.world?.drag(dx, dy, this.host.clientHeight);
   }
@@ -256,6 +270,12 @@ export class LowWaterRoom implements RoomInput {
       const back = ndc && this.page?.pick(ndc);
       canvas.style.cursor = back ? 'pointer' : '';
       this.ui.tooltip(back ? LABELS.page : null, client.x, client.y);
+      return;
+    }
+    if (this.onRidge) {
+      const at = ndc && this.ridge?.pick(ndc);
+      canvas.style.cursor = at ? 'pointer' : '';
+      this.ui.tooltip(at === 'down' ? RIDGE_LABELS.down : at ? String(this.ridge!.stoneAt(at.stone)) : null, client.x, client.y);
       return;
     }
     if (this.inRoom) {
@@ -278,9 +298,9 @@ export class LowWaterRoom implements RoomInput {
       if (this.small.matches && !this.card.hidden) this.fold(true);
       return void (this.crossing || this.page?.click(ndc), this.ui.tooltip(null));
     }
-    if (this.inRoom) {
+    if (this.inRoom || this.onRidge) {
       if (this.small.matches && !this.card.hidden) this.fold(true);
-      return void (this.crossing || this.room?.click(ndc), this.ui.tooltip(null));
+      return void (this.crossing || (this.onRidge ? this.ridge : this.room)?.click(ndc), this.ui.tooltip(null));
     }
     if (world.sitting) return world.stand();
     // (on a phone, walking on folds the card out of the way)
@@ -311,12 +331,13 @@ export class LowWaterRoom implements RoomInput {
     this.pixels.uniforms.uFade.value = Math.max(this.fade, this.cross);
     // (the island's own dark, put back as soon as it's not paper)
     const paper = this.cross > this.fade && !this.crossDark;
-    if (paper || this.papered) this.pixels.uniforms.uFadeColor.value.copy(paper ? this.paper : this.dusk);
+    if (paper || this.papered) this.pixels.uniforms.uFadeColor.value.copy(paper ? (this.crossMist ? this.mist : this.paper) : this.dusk);
     this.papered = paper;
     const world = this.world;
     if (!this.inside || !world) return;
     try {
       if (this.onPage && this.page) this.runPage(this.page, dt);
+      else if (this.onRidge && this.ridge) this.runRidge(this.ridge, dt);
       else if (this.inRoom && this.room) this.runRoom(world, this.room, dt);
       else this.run(world, dt);
     } catch (err) {
@@ -340,9 +361,11 @@ export class LowWaterRoom implements RoomInput {
     u.uShade.value.setRGB(0.82 + 0.38 * pale, 0.86 + 0.29 * pale, 1.08 - 0.08 * pale);
     u.uLight.value.setRGB(1.04 + 0.16 * pale, 0.98 + 0.17 * pale, 0.96 + 0.04 * pale);
     u.uTone.value = 0.6;
-    if (west >= 1 && !this.crossing) (this.crossing = 'page'), (this.crossDark = false);
+    if (west >= 1 && !this.crossing) (this.crossing = 'page'), (this.crossDark = false), (this.crossMist = false);
+    // (and up the baak, through the cloud)
+    if (world.goingUp && !this.crossing) (this.crossing = 'ridge'), (this.crossDark = false), (this.crossMist = true);
     // (and at the hide's door, in, through the dark)
-    if (world.goingIn && !this.crossing) (this.crossing = 'room'), (this.crossDark = true), this.ctx.sound.curtain();
+    if (world.goingIn && !this.crossing) (this.crossing = 'room'), (this.crossDark = true), (this.crossMist = false), this.ctx.sound.curtain();
     u.uVignette.value = 0.45 + world.lean * 0.3;
     u.uHeat.value = 0;
     this.ctx.sound.lowWater(true, this.ctx.weather.windiness);
@@ -398,7 +421,46 @@ export class LowWaterRoom implements RoomInput {
     u.uHeat.value = 0;
     this.ctx.sound.lowWater(true, 0, 'page');
     this.showPageCard(page);
-    if (page.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = false);
+    if (page.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = false), (this.crossMist = false);
+  }
+
+  /** On the hailstones: the flat's blue hour, higher up; no water to hear, only your steps and the stones. */
+  private runRidge(ridge: Ridge, dt: number) {
+    ridge.update(dt);
+    const u = this.pixels.uniforms;
+    (u.uGrade.value as THREE.Vector3).set(0.95, 1.02, 1.0);
+    u.uShade.value.setRGB(0.82, 0.86, 1.08);
+    u.uLight.value.setRGB(1.04, 0.98, 0.96);
+    u.uTone.value = 0.6;
+    u.uVignette.value = 0.45;
+    u.uHeat.value = 0;
+    this.ctx.sound.lowWater(true, 0, 'page');
+    this.showRidgeCard(ridge);
+    if (ridge.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = false), (this.crossMist = true);
+  }
+
+  private showRidgeCard(ridge: Ridge) {
+    const id = ridge.card;
+    const key = id && `ridge:${id}`;
+    const button = id === 'one' ? 'Come down' : id === 'down' ? 'Climb down' : '';
+    if (key === this.shown && !this.shownMore && button === this.shownButton) return;
+    this.writeForm.hidden = true;
+    if (key !== this.shown) {
+      this.card.hidden = !id;
+      if (id) {
+        this.text.textContent = id === 'hail' ? HAIL : id === 'peak' ? PEAK : id === 'one' ? ONE : HAIL_DOWN;
+        this.fold(this.keepFolded && this.small.matches);
+        this.card.style.animation = 'none';
+        void this.card.offsetWidth;
+        this.card.style.animation = '';
+      }
+    }
+    this.more.hidden = true;
+    this.sitButton.hidden = !button;
+    if (button) this.sitButton.textContent = button;
+    this.shownButton = button;
+    this.shown = key;
+    this.shownMore = '';
   }
 
   /** The iris is shut: onto the page, or back onto the flat at the end of the withies. */
@@ -409,6 +471,11 @@ export class LowWaterRoom implements RoomInput {
       this.world?.releaseKeys();
       this.page.arrive();
       this.onPage = true;
+    } else if (to === 'ridge' && this.ridge) {
+      this.world?.releaseKeys();
+      this.world!.goingUp = false;
+      this.ridge.arrive();
+      this.onRidge = true;
     } else if (to === 'room' && this.room) {
       this.world?.releaseKeys();
       this.world!.goingIn = false;
@@ -419,8 +486,11 @@ export class LowWaterRoom implements RoomInput {
       this.room?.releaseKeys();
       if (this.onPage) this.world?.fromWest();
       if (this.inRoom) this.world?.fromHide();
+      if (this.onRidge) this.world?.fromBaak();
+      this.ridge?.releaseKeys();
       this.onPage = false;
       this.inRoom = false;
+      this.onRidge = false;
     }
   }
 
@@ -501,7 +571,7 @@ export class LowWaterRoom implements RoomInput {
     if (id !== 'log') this.log?.show(false);
     if (id !== 'table') this.postcard?.show(false);
     const lantern = world.lanternIs;
-    const button = id === 'last' && lantern === 'hung' ? 'Take the lantern' : id === 'last' && lantern === 'held' ? 'Hang it back' : id === 'lantern' ? (lantern === 'held' ? 'Set it down' : 'Take the lantern') : id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'canon' ? (world.canonBusy ? '' : world.canonPlayed ? 'Walk it back' : 'Walk it') : id === 'bean' ? (world.beanHere ? 'Send it on' : '') : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : id === 'hide' ? 'Go in' : '';
+    const button = id === 'last' && lantern === 'hung' ? 'Take the lantern' : id === 'last' && lantern === 'held' ? 'Hang it back' : id === 'lantern' ? (lantern === 'held' ? 'Set it down' : 'Take the lantern') : id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'canon' ? (world.canonBusy ? '' : world.canonPlayed ? 'Walk it back' : 'Walk it') : id === 'bean' ? (world.beanHere ? 'Send it on' : '') : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : id === 'hide' ? 'Go in' : id === 'baak' ? 'Climb it' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
@@ -533,7 +603,7 @@ export class LowWaterRoom implements RoomInput {
   render() {
     // (in the hide, the flat first, into the picture its hole makes)
     if (this.inRoom && this.room && this.world) this.world.picture(this.pixels.renderer, this.room.target, this.room.night);
-    const world = this.onPage && this.page ? this.page : this.inRoom && this.room ? this.room : this.world!;
+    const world = this.onPage && this.page ? this.page : this.onRidge && this.ridge ? this.ridge : this.inRoom && this.room ? this.room : this.world!;
     this.pixels.render(world.scene, world.camera, world.subTexel);
   }
 
@@ -547,8 +617,11 @@ export class LowWaterRoom implements RoomInput {
       this.world?.releaseKeys();
       // (off the page too: the flat has you back at the end of its withies, for next time)
       if (this.inRoom || this.crossing === 'room') this.world?.fromHide();
+      else if (this.onRidge || this.crossing === 'ridge') this.world?.fromBaak();
       else if (this.onPage || this.crossing) this.world?.fromWest();
       this.onPage = false;
+      this.onRidge = false;
+      this.ridge?.releaseKeys();
       this.inRoom = false;
       this.room?.releaseKeys();
       this.crossing = null;

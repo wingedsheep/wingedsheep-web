@@ -555,6 +555,9 @@ export class LowWater {
   private beanOnArrival = false;
   /** At the hide's door, about to go in (hide.ts); and what's left out of the picture inside it. */
   goingIn = false;
+  /** Climbing the baak, up to the hailstones (ridge.ts); and on your way to its board to do that. */
+  goingUp = false;
+  private baakOnArrival = false;
   private hideOnArrival = false;
   private notInPicture: THREE.Object3D[] = [];
   private ray = new THREE.Raycaster();
@@ -1258,6 +1261,45 @@ export class LowWater {
     this.goingIn = true;
   }
 
+  /** Where you stand to read the baak's board, and climb it. */
+  private get baakFoot() {
+    return new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1);
+  }
+
+  /** Climb the baak: to its board, if you're not there, and up. */
+  climbBaak() {
+    if (this.sitting || this.praam.afloat) return;
+    this.letGoCanon();
+    this.stopWriting();
+    this.lead.letGo();
+    this.heaveOnArrival = false;
+    const foot = this.baakFoot;
+    if (new THREE.Vector2(this.pos.x - foot.x, this.pos.z - foot.z).length() > 0.6) {
+      this.walkTo(foot, 0);
+      this.baakOnArrival = true;
+      return;
+    }
+    this.baakOnArrival = false;
+    this.goal = null;
+    this.keys.clear();
+    this.speed = 0;
+    this.goingUp = true;
+  }
+
+  /** Back down the baak: at its foot by the board, stepping off towards you. */
+  fromBaak() {
+    this.goingUp = false;
+    this.baakOnArrival = false;
+    this.keys.clear();
+    this.clicked = null;
+    this.pan.set(0, 0);
+    const foot = this.baakFoot;
+    this.pos.copy(foot);
+    this.heading = 0;
+    this.walkTo(foot.clone().add(new THREE.Vector3(0.2, 0, 1.2)), 0);
+    this.frame(0);
+  }
+
   /** Back out of the hide: at its door, stepping down off it onto the bank. */
   fromHide() {
     this.goingIn = false;
@@ -1947,7 +1989,7 @@ export class LowWater {
     }
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), (this.beanOnArrival = false), (this.hideOnArrival = false), this.letGoCanon();
+    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), (this.beanOnArrival = false), (this.hideOnArrival = false), (this.baakOnArrival = false), this.letGoCanon();
     return true;
   }
 
@@ -1998,6 +2040,7 @@ export class LowWater {
     this.boardOnArrival = false;
     this.beanOnArrival = false;
     this.hideOnArrival = false;
+    this.baakOnArrival = false;
     this.letGoCanon();
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
@@ -2041,7 +2084,7 @@ export class LowWater {
       this.lead.letGo();
       this.heaveOnArrival = false;
       // (the baak: up to its board, on the near side)
-      if (station === 'baak') return this.walkTo(new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1), 0);
+      if (station === 'baak') return this.walkTo(this.baakFoot, 0);
       // (the hide: to its door)
       if (station === 'hide') return this.walkTo(new THREE.Vector3(HIDE_DOOR.x, 0, HIDE_DOOR.y), 0);
       // (the praam: to where you get in)
@@ -2274,6 +2317,7 @@ export class LowWater {
     if (!this.praam.afloat) this.walk(dt);
     else if (this.deck.aboard) this.deckWalk(dt);
     if (this.hideOnArrival && !this.goal) this.enterHide();
+    if (this.baakOnArrival && !this.goal) this.climbBaak();
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.heaving(dt);
