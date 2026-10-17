@@ -1669,6 +1669,45 @@ export class Sound {
   }
 
   /**
+   * A hailstone ringing its number: a stone bar's note, struck as it lands (its fundamental, and
+   * the bar's fourth partial and tenth dying fast, as a tuned bar's do), from where it is. The last
+   * one, 1, rings on a long while. Felt only through the rise's own buzz.
+   */
+  ridgeRing(freq: number, pan: number, loud: boolean, held: boolean) {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const side = ctx.createStereoPanner();
+    side.pan.value = Math.max(-1, Math.min(1, pan)) * 0.7;
+    side.connect(this.master);
+    const level = loud ? 0.1 : 0.06;
+    for (const [k, part, ring] of [[1, 1, held ? 3.2 : 1.1], [4, 0.16, 0.3], [10, 0.045, 0.09]]) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = freq * k;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(level * part, t + 0.004);
+      env.gain.setTargetAtTime(0, t + 0.01, ring);
+      osc.connect(env).connect(side);
+      osc.start(t);
+      osc.stop(t + ring * 7);
+    }
+    // (and the knock of it, rock on rock)
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 1800;
+    band.Q.value = 1.2;
+    const knock = ctx.createGain();
+    knock.gain.setValueAtTime(0, t);
+    knock.gain.linearRampToValueAtTime(level * 0.35, t + 0.003);
+    knock.gain.setTargetAtTime(0, t + 0.006, 0.012);
+    src.connect(band).connect(knock).connect(side);
+    src.start(t, Math.random() * 1.5, 0.1);
+  }
+
+  /**
    * The next stone coming up out of the cloud: a long low grind of rock on rock, from where it is,
    * easing off as it settles, and felt as it stops.
    */

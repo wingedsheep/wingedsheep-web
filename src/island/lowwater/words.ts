@@ -233,6 +233,11 @@ export function hailFor(n: number) {
   if (n === 27) return HAIL;
   return `These stones are ${big(n)}’s. Halve it if it’s even; if it’s odd, treble it and add one; again. The next isn’t there until you stand on this one. I can’t tell you where it goes any faster than you can walk it: nobody knows a shortcut, so I find out the same way you do, a step at a time.`;
 }
+/** Stood still on the way up, with the sound on: what the stones' notes are. */
+export function tuneFor(n: number) {
+  const th = n % 100 > 10 && n % 100 < 14 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
+  return `Each stone rings its number: ${big(n)} is the ${big(n)}${th} harmonic of one low note, brought down by octaves. Halving is the same note an octave lower; trebling and adding one, a fifth and a little up. Wherever you start, it ends on that low note. I’ve never heard it; I worked it out, which is how I know most music.`;
+}
 /** At its highest. */
 export function peakFor(n: number, top: number, steps: number) {
   if (n === 27) return PEAK;

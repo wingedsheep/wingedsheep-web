@@ -40,6 +40,18 @@ const BAAK_X = -2.4;
 const WAY_DOWN = -1.5;
 /** Stood this long anywhere (s), the card for that stretch comes back. */
 const STILL = 7;
+/**
+ * The note every stone is a harmonic of (C3, Hz). A stone rings its own number: n times this,
+ * brought down by octaves (eighths, three at a time) until it's under three octaves above it. So
+ * halving is the same note an octave lower, trebling and adding one is a twelfth and a little up
+ * (a fifth, give or take the octaves), and every way ends 4, 2, 1 on this note and its octaves.
+ */
+const HOME = 130.81;
+export function ringOf(n: number) {
+  let f = n;
+  while (f >= 8) f /= 8;
+  return HOME * f;
+}
 
 const STONES = ['#5d5f7c', '#666884', '#5a5873', '#636379'].map((c) => new THREE.Color(c));
 const CUT = new THREE.Color('#d6cbb4');
@@ -49,7 +61,7 @@ const KEYS: Record<string, 'east' | 'west'> = {
   KeyD: 'east', ArrowRight: 'east', KeyW: 'east', ArrowUp: 'east', KeyA: 'west', ArrowLeft: 'west', KeyS: 'west', ArrowDown: 'west',
 };
 
-export type RidgeCard = 'hail' | 'peak' | 'one' | 'down';
+export type RidgeCard = 'hail' | 'tune' | 'peak' | 'one' | 'down';
 export type RidgePick = { stone: number } | 'down';
 
 /** A number's way to 1. */
@@ -106,6 +118,8 @@ interface Stone {
   wide: number;
   /** 0 under the cloud … 1 up; −1 not yet called up. */
   up: number;
+  /** When it last rang (the ridge's own clock, s). */
+  rang: number;
 }
 
 export class Ridge {
@@ -118,6 +132,13 @@ export class Ridge {
   /** Each footstep on stone; and a stone coming up out of the cloud, from so far across the picture (−1 … 1). */
   onStep?: () => void;
   onRise?: (pan: number) => void;
+  /** A stone ringing its number: as it lands, loud; as you land on it again, softer; and the last, held. */
+  onRing?: (freq: number, pan: number, loud: boolean, held: boolean) => void;
+  /** Whether you can hear them (the site's sound on), so the card can speak of it. */
+  rings = false;
+  /** How many have rung this walk. */
+  private rung = 0;
+  private wasOn = -1;
   /** The number you're walking, its way to 1, and where that's highest (for 27, 9,232, seventy-seven steps along). */
   from = FROM;
   numbers = hailstones(FROM);
@@ -313,7 +334,7 @@ export class Ridge {
     const ours = new Set(hailstones(FROM));
     const at = this.numbers.findIndex((n) => ours.has(n));
     this.joined = this.from !== FROM && this.numbers.length - at > 20 ? this.numbers[at] : null;
-    this.stones = this.numbers.map((n) => ({ n, top: Math.log2(n) * RISE, wide: String(n).length * 4 - 1, up: -1 }));
+    this.stones = this.numbers.map((n) => ({ n, top: Math.log2(n) * RISE, wide: String(n).length * 4 - 1, up: -1, rang: -9 }));
     this.makeBaak();
   }
 
@@ -385,7 +406,10 @@ export class Ridge {
     this.pan.set(0, 0);
     this.furthest = 0;
     this.stillFor = 0;
-    for (const s of this.stones) (s.up = -1), s.root && (s.root.visible = false);
+    this.rung = 0;
+    // (so 27 rings as you step out onto it)
+    this.wasOn = -1;
+    for (const s of this.stones) (s.up = -1), (s.rang = -9), s.root && (s.root.visible = false);
     this.call(0);
     this.stones[0].up = 1;
     this.pos.set(-0.5, this.stones[0].top, 0);
@@ -404,6 +428,15 @@ export class Ridge {
     if (!s.root) this.makeStone(i);
     s.root!.visible = true;
     this.onRise?.(THREE.MathUtils.clamp((i * GAP - this.target.x) / (this.view * this.aspect * 0.5), -1, 1));
+  }
+
+  /** A stone ringing its number, from where it is across the picture. */
+  private ring(i: number, loud: boolean) {
+    const s = this.stones[i];
+    s.rang = this.time;
+    this.rung++;
+    const pan = THREE.MathUtils.clamp((i * GAP - this.target.x) / (this.view * this.aspect * 0.5), -1, 1);
+    this.onRing?.(ringOf(s.n), pan, loud, loud && i === this.stones.length - 1);
   }
 
   key(code: string, down: boolean) {
@@ -475,12 +508,19 @@ export class Ridge {
 
   update(dt: number) {
     this.time += dt;
-    for (const s of this.stones) if (s.up >= 0 && s.up < 1) s.up = Math.min(1, s.up + dt / RISING);
+    this.stones.forEach((s, i) => {
+      if (s.up < 0 || s.up >= 1) return;
+      s.up = Math.min(1, s.up + dt / RISING);
+      // (it rings as it lands)
+      if (s.up === 1 && i) this.ring(i, true);
+    });
     this.walk(dt);
-    // a stone you're stood on calls up the next
+    // a stone you're stood on calls up the next; and one you come back onto rings again, softer
     const on = this.on;
     if (Math.abs(this.pos.x - on * GAP) < WIDE / 2) {
       if (on > this.furthest) this.furthest = on;
+      if (on !== this.wasOn && this.stones[on].up === 1 && this.time - this.stones[on].rang > 2.5) this.ring(on, false);
+      this.wasOn = on;
       this.call(on + 1);
     }
     this.animate(dt);
@@ -492,7 +532,7 @@ export class Ridge {
       : on === last ? 'one'
       : Math.abs(on - peak) <= 2 ? 'peak'
       : on <= 2 ? 'hail'
-      : this.stillFor > STILL ? (peak >= 0 && on > peak ? 'peak' : 'hail')
+      : this.stillFor > STILL ? (peak >= 0 && on > peak ? 'peak' : this.rings && this.rung >= 6 ? 'tune' : 'hail')
       : null;
     if (this.pos.x < WAY_DOWN) this.leaving = true;
     this.frame(dt);

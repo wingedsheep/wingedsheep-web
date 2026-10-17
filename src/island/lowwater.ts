@@ -19,7 +19,7 @@ import type { Page } from './lowwater/page';
 import type { Ridge } from './lowwater/ridge';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, HAIL_DOWN, hailFor, oneFor, peakFor, RIDGE_LABELS, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, HAIL_DOWN, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -203,6 +203,7 @@ export class LowWaterRoom implements RoomInput {
         this.ridge = new Ridge(() => this.pixels.height);
         this.ridge.onStep = () => this.ctx.sound.ridgeStep();
         this.ridge.onRise = (pan) => this.ctx.sound.ridgeRise(pan);
+        this.ridge.onRing = (freq, pan, loud, held) => this.ctx.sound.ridgeRing(freq, pan, loud, held);
         this.room = new Obscura(() => this.pixels.height);
         this.room.onStep = () => this.ctx.sound.deckStep();
         this.page = new Page(() => this.pixels.height);
@@ -440,6 +441,7 @@ export class LowWaterRoom implements RoomInput {
 
   /** On the hailstones: the flat's blue hour, higher up; no water to hear, only your steps and the stones. */
   private runRidge(ridge: Ridge, dt: number) {
+    ridge.rings = this.ctx.sound.enabled;
     ridge.update(dt);
     const u = this.pixels.uniforms;
     (u.uGrade.value as THREE.Vector3).set(0.95, 1.02, 1.0);
@@ -467,7 +469,7 @@ export class LowWaterRoom implements RoomInput {
       this.card.hidden = !id;
       if (id) {
         const n = ridge.numbers;
-        this.text.textContent = id === 'hail' ? hailFor(ridge.from) : id === 'peak' ? peakFor(ridge.from, n[ridge.peak], ridge.peak) : id === 'one' ? oneFor(ridge.from, n.length - 1, ridge.joined) : HAIL_DOWN;
+        this.text.textContent = id === 'hail' ? hailFor(ridge.from) : id === 'tune' ? tuneFor(ridge.from) : id === 'peak' ? peakFor(ridge.from, n[ridge.peak], ridge.peak) : id === 'one' ? oneFor(ridge.from, n.length - 1, ridge.joined) : HAIL_DOWN;
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;

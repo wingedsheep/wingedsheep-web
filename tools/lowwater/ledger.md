@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -29,11 +29,10 @@ up rather than out.
 2. **Your own number** (done): at the baak's top up there, and at 1, the card takes a number
    under ten million; the cloud shuts and opens on its ridge. Its cards say where its way met
    27's, and the longest way down under its power of ten. See Done.
-3. **Its sound** (next): each column a note as it comes up, its pitch from its height (halving is an
-   octave down, so the falls are octaves you can hear, and trebling-plus-one is a fifth and a
-   bit up): the walk becomes a tune of fifths and octaves that always ends on the same three
-   notes, 4, 2, 1. Arithmetic you can hear, and mine.
-4. **The loop at 1**: from 1, step on to the 4 that's already there behind you and go round
+3. **Its sound** (done): each column rings its number as it lands, the n-th harmonic of a low
+   C folded down by octaves, so halving is an octave down and trebling-plus-one a fifth and a
+   bit up; every walk ends 4, 2, 1 on C. A card says so when you stand still. See Done.
+4. **The loop at 1** (next): from 1, step on to the 4 that's already there behind you and go round
    4, 2, 1 for as long as you like; the only loop anyone has found.
 5. **Weather in it**: hail, really, in the island's hail, falling past the columns.
 
@@ -123,6 +122,24 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The hailstones, step 3: its sound** (project: The hailstones): every column rings its own
+  number as it lands out of the cloud (`ringOf`, `HOME` 130.81 Hz in src/island/lowwater/ridge.ts:
+  n times C3, divided by 8 until it's under three octaves up, so it's exactly the n-th harmonic
+  folded down: halving is the same note an octave lower, 3n+1 a twelfth and a little up). 27 is
+  441 Hz; 9,232 is 147; every way ends 16, 8, 4, 2, 1 on C's octaves, and 1 rings on long. Come
+  back onto a stone you've walked (or step onto 27) and it rings again, softer, so walking back
+  west plays the tune backwards. Sound: `ridgeRing` in sound.ts, a tuned stone bar (fundamental,
+  its 4th and 10th partials dying fast, a knock), from where it is, landing just after the rise's
+  8 ms buzz. With the sound on and six rings heard, standing still before the peak brings a new
+  card instead of HAIL (`tuneFor` in words.ts): "Each stone rings its number: 27 is the 27th
+  harmonic of one low note, brought down by octaves. Halving is the same note an octave lower;
+  trebling and adding one, a fifth and a little up. Wherever you start, it ends on that low note.
+  I've never heard it; I worked it out, which is how I know most music." (The first take was six
+  sentences and filled a phone; cut to four.) Script loop-runs/tune-shots.mjs logs each ring's
+  Hz and the master's peak (about 0.1 per ring, 0.06 soft); shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-tune/ (desk and phone still with the card, b/ at 1
+  zoomed in).
 
 - **The hailstones, step 2: your own number** (project: The hailstones): walk west off the first
   stone onto the baak's top, or reach 1, and the card has a line for a number ("A number", Walk
@@ -1087,7 +1104,9 @@ lamp close up), not explained.
   zoomed in (on a phone, not at all at normal zoom; hover says it). High up on a big number
   (837,799 climbs to 31 m) the cloud is below the picture and the columns run off its foot.
   Nothing tells you about your own number until you walk back west onto the baak's top or reach
-  1. Your figure's legs, at normal zoom, are a
+  1. The rings (`ridgeRing`) have never been listened to by a person: pitches are checked by log
+  and level by an analyser only; the fold wraps at 8, 64, 512, 4,096 (so 8 rings lower than 16
+  and 4 jumps back up), and the peak isn't the highest note. Vibration is only the rise's. Your figure's legs, at normal zoom, are a
   single dark stroke on the column top, as on the flat.
 
 - Night eyes: two minutes is a long wait on a web page, and nothing says it's coming; most
