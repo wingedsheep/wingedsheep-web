@@ -4,9 +4,23 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 ## Done
+
+- **The curlew** ("a bird you only hear"): somewhere out on the far banks, well off the route,
+  a curlew calls now and then (src/island/lowwater/curlew.ts: six far banks, first call 18–34 s
+  after you come out, then every 45–110 s, sometimes twice in a row, sometimes from another bank
+  next time; two to five times rarer in a wind or rain). It's never seen. It's heard from where
+  it is, panned and duller with distance (`lowwater-curlew`, two ElevenLabs takes: a rising
+  whistle that falls away, and a bubbling trill; `sound.curlew`). The first time you hear it
+  with nothing else to be at, a card: English calls it a curlew, Dutch a wulp, Scots a whaup, each
+  name someone copying the call; I know nearly everything from what people wrote down about it,
+  and with this bird what they wrote down was the call. The card only comes if the call was
+  actually heard (the hook says so), so with the sound off you never meet it. It also gives the
+  wildlife book its first heard-not-seen page ("Heard, not seen..."): the atlas grew a ninth row,
+  drawn by tools/drawings/row-nine.py. Shots and spectrograms in
+  loop-runs/lowwater-logs/shots/2026-10-17-curlew/; the test script is loop-runs/curlew-shots.mjs.
 
 - **Polish pass 2** (walked the whole flat clear, in fog, in rain and on a phone with
   loop-runs/walk-lowwater.mjs, which now exits on a timer; then loop-runs/polish2-check.mjs for
@@ -159,7 +173,7 @@ Additions since the last polish pass: 0 (a polish pass is due when this reaches 
   bottles (scene/bottle.ts), so the questions went on the baak instead.
 - **The baak's other days**: in a gale it could creak; a bird (a cormorant drying its wings) on
   the ball now and then. Only if it stays quiet.
-- **Distant birds**: oystercatchers' piping and curlews, far off, never seen (sound only).
+- **Distant birds**: oystercatchers' piping, far off, never seen (the curlew is in; oystercatchers only if they'd say something the curlew doesn't).
 - **The walk out at night**: when the island is in deep night, the flat's blue hour gets darker and the
   noctiluca brightens along the waterline wherever you step.
 
@@ -190,6 +204,7 @@ Additions since the last polish pass: 0 (a polish pass is due when this reaches 
   "seeping in" is what smooths the middle.
 - The seal is small at normal zoom (a pale few texels on its bank from the route); it reads as a
   seal zoomed in or from close. Its head in the water past the horizon at high zoom is hidden.
+- The curlew's calls (`lowwater-curlew`) have never been listened to by a person (by spectrogram: tonal, 0.8–2 kHz, a rising whistle; a trill). Visitors with the sound off never meet it.
 - The seal's two sounds (`lowwater-seal`, `lowwater-slip`) have never been listened to by a person
   (checked by spectrogram: a breathy burst; a slither, then a splash).
 - The bell buoy's toll has never been listened to by a person (two ElevenLabs takes, checked only

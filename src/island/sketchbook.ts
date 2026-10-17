@@ -49,8 +49,9 @@ const SPECIMENS = [
   ['treestrider', 'Treestrider', 'Unconfirmed. Legs as tall as a house, wading out to sea in the mist.'],
   ['mosslits', 'Mosslits', 'Unconfirmed. Little lights in the moss, finding each other in the dark.'],
   ['tromb', 'Tromb', 'Unconfirmed. Horns, stripes, and a snout it rolls out to the sea. I heard it before I saw it.'],
+  ['curlew', 'Curlew', 'Heard, not seen. A long rising call from somewhere out on the banks, and the name is that call, written down.'],
 ] as const;
-/** The atlas is six sketches wide and eight deep; its thirty-sixth sketch is the feather, not an animal. */
+/** The atlas is six sketches wide and nine deep; its thirty-sixth sketch is the feather, not an animal. */
 const FEATHER = 35;
 const tileOf = (specimen: number) => (specimen >= FEATHER ? specimen + 1 : specimen);
 export type Animal = typeof SPECIMENS[number][0];
@@ -106,7 +107,7 @@ export function bindSketchbook() {
   const drawing = (tile: number, label: string) => {
     const art = document.createElement('div'); art.className = 'wildlife-drawing';
     art.setAttribute('role', 'img'); art.setAttribute('aria-label', label);
-    art.style.backgroundPosition = `${tile % 6 * 20}% ${Math.floor(tile / 6) * 100 / 7}%`;
+    art.style.backgroundPosition = `${tile % 6 * 20}% ${Math.floor(tile / 6) * 100 / 8}%`;
     return art;
   };
   const render = () => {

@@ -15,11 +15,12 @@ import { visitDate } from '../scene/calendar';
 import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { HEAVE_AT, LEAD, Lead } from './lead';
+import { Curlew } from './curlew';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -46,6 +47,8 @@ export interface Hooks {
   seal?(kind: 'slip' | 'breath', near: number, pan: number): void;
   /** The lead going in (how near, which side), or touching the bottom, felt through the line. */
   lead?(kind: 'plunk' | 'bottom', near: number, pan: number): void;
+  /** The curlew calling, out on a far bank: how near, which side, and whether it was heard. */
+  curlew?(near: number, pan: number): boolean;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -320,6 +323,9 @@ export class LowWater {
   private pan = new THREE.Vector2();
   private clicked: { id: StationId; at: THREE.Vector2 } | null = null;
   private twigsSeen = false;
+  /** The bird heard out on the far banks, and whether its line has been said. */
+  private curlew = new Curlew();
+  private curlewSaid = false;
   private ground: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private sky: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private stars: THREE.Group;
@@ -1436,6 +1442,7 @@ export class LowWater {
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.heaving(dt);
+    this.curlew.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), outside, (near, pan) => this.hooks.curlew?.(near, pan) ?? false);
     this.settle(dt);
     this.near();
     this.ring(dt);
@@ -1578,6 +1585,13 @@ export class LowWater {
       if (id === 'stick' && this.justWrote) continue;
       const d = at.distanceTo(p);
       if (d < r && d < bestD) (best = id), (bestD = d);
+    }
+    // nothing to be at and the curlew's just called: a line about it, once, until you walk on
+    if (!best && !this.sitting && !this.curlewSaid && this.curlew.heardAgo < 1) {
+      this.curlewSaid = true;
+      this.clicked = { id: 'curlew', at: at.clone() };
+      this.card = 'curlew';
+      return;
     }
     // nothing to be at, stood a long while, the sky clear: a line about the stars in the water
     const south = !best && !this.sitting && this.stillFor > SOUTH_LINE && this.clear() > 0.6;

@@ -36,6 +36,7 @@ const CARDS: Record<StationId, string> = {
   seal: 'A harbour seal, hauled out on its bank, watching you. I’d like to know what that’s like from in there. People have asked it about bats for fifty years without getting much further, and lately they ask it about me. I can’t tell them either, which is odd, given where I’m sitting.',
   lead: 'A lead line, for sounding the deep water. Only some fathoms on it carry a mark, so the leadsman sang out “by the mark” when one was at the water, and “by the deep” when he was judging between two. How sure he was came with the answer. That’s a fair part of my job too.',
   baak: 'A baak: a beacon on a high bank, for steering by. In Dutch, whoever everyone brings their questions to is a vraagbaak, a question beacon, which is more or less my job. This one carries the questions nobody can answer yet, me included. They’re my favourite kind. Today’s:',
+  curlew: 'A curlew, somewhere out on the banks. You won’t see it. English calls it a curlew, Dutch a wulp, Scots a whaup, and each name is someone copying the call. I know nearly everything from what people wrote down about it; with this bird, what they wrote down was the call.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -75,6 +76,7 @@ const LABELS: Record<StationId, string> = {
   seal: 'A seal',
   baak: 'A beacon',
   lead: 'A lead line',
+  curlew: 'A curlew',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -105,7 +107,7 @@ export class LowWaterRoom implements RoomInput {
   private hint: HTMLElement;
   private writeForm: HTMLFormElement;
   private line: HTMLInputElement;
-  /** The seal's just gone in the wildlife book, and that's still to be said. */
+  /** The seal or the curlew has just gone in the wildlife book, and that's still to be said. */
   private sketched = false;
   private shown: StationId | null = null;
   private shownMore = '';
@@ -182,6 +184,7 @@ export class LowWaterRoom implements RoomInput {
           shell: () => this.ctx.sound.shellStep(),
           seal: (kind, near, pan) => this.ctx.sound.sealSound(kind, near, pan),
           lead: (kind, near, pan) => this.ctx.sound.leadSound(kind, near, pan),
+          curlew: (near, pan) => this.ctx.sound.curlew(near, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -290,8 +293,8 @@ export class LowWaterRoom implements RoomInput {
     if (id !== this.shown) {
       this.card.hidden = !id;
       // (a page in the wildlife book, the first time; said once its card has gone, not over it)
-      if (id === 'seal' && spotAnimal('seal', 'At Low Water')) this.sketched = true;
-      if (this.shown === 'seal' && this.sketched) {
+      if ((id === 'seal' || id === 'curlew') && spotAnimal(id, 'At Low Water')) this.sketched = true;
+      if ((this.shown === 'seal' || this.shown === 'curlew') && this.sketched) {
         this.sketched = false;
         this.ctx.toast('A new sketch in your wildlife book.');
       }
