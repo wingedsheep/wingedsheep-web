@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,27 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The moon** ("everyone gets the whole road"): the real moon, when it's really up over the
+  visitor (`moonPosition` from scene/sun.ts, on the island's clock, so `?time=` moves it), as lit
+  as it really is, with its lit side towards the sun (src/island/lowwater/moon.ts, `MOON_GLSL`
+  drawn by the sky shader and every water). The flat faces north and keeps its own hour, so it
+  can't be where the moon really is: it rises on the right, sets on the left, sits higher the
+  higher it is but squeezed to stay in the picture (lower on a phone, under the buttons); its
+  face is the other way up, as it would be looking north. A disc of 11 texels, its seas a step
+  darker, a dithered ring of the next sky step round it, no stars in front of it. Its light on
+  the water is a road of glints that runs from under it on the horizon down to your feet,
+  broadest in between, moving with the water's own ripple, more broken in a wind, brighter at
+  night; walk and it comes with you, from the praam and her deck too. Gone in fog and rain.
+  Click it (hover: The moon) for its card: the road comes to wherever you stand, everyone along
+  a shore gets their own from the same moon, "I talk to a great many people, and each of them
+  gets the whole road." Its second line is live: "It's the real one: 7 days old, half lit and
+  filling, and only here while it's up over the island. I worked that out. I've never seen it."
+  Silent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-moon/ (the first takes had the road
+  as a straight column under the moon, which passed you by when it was off to the side: c/ and
+  after converge on you; full/, c-full/ a fake full moon at night, thin/, wind/, fog/, phone/,
+  c-phone/, boat/); the scripts are loop-runs/moon-shots.mjs (`FAKE='{"alt":…,"az":…,"lit":…,
+  "waxing":…,"age":…}'` stands in another moon) and moon-boat.mjs.
 
 - **The tide gauge** ("counted from a tide that stopped coming"): a peilschaal out in the
   shallows east of the ring, away from the twigs (`GAUGE` in src/island/lowwater/gauge.ts): a
@@ -410,8 +431,17 @@ lamp close up), not explained.
   the ball now and then. Only if it stays quiet.
 - **Distant birds**: oystercatchers' piping, far off, never seen (the curlew is in; oystercatchers only if they'd say something the curlew doesn't).
 - ~~**The walk out at night**~~: done (glow.ts).
+- **The moon and the tide**: now the moon's in (moon.ts), the gauge's line or the moon's card could
+  say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The moon's only there about half the time (when the real one's up, and not in fog or rain),
+  and nothing says so but its card. Its position is the flat's own (it can't face south); a
+  visitor who knows the moon may notice its face is upside down and its lit side mirrored,
+  which is what you'd see looking north. The road's glints are in world space, so zoomed in
+  they're sparser. From the praam and her deck the road runs in behind her hull. Not in the walk
+  script yet.
 
 - The gauge's marks are under a texel each at normal zoom, so its board reads as a dithered ladder
   and its red zero as a dot or two; zoomed in it reads as a gauge. The flat's tide (±3.5 cm) is too

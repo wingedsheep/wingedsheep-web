@@ -19,6 +19,7 @@ import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
 import { Glow } from './glow';
 import { MIRAGE, MIRAGE_GLSL, Mirage } from './mirage';
+import { MOON, MOON_GLSL, Moon, type MoonNow } from './moon';
 import { HORN_FOG, LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
 import { BOARD, PRAAM, Praam } from './praam';
 import { Deck } from './deck';
@@ -31,7 +32,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -44,6 +45,8 @@ export interface Outside {
   winter: boolean;
   /** How deep into the night it is on the island, 0 (not yet) … 1: out here the light goes a step further down, and the shallows glow where you walk. */
   night: number;
+  /** The real moon over the island, if it's up (moon.ts). */
+  moon?: MoonNow;
 }
 
 export interface Hooks {
@@ -374,6 +377,8 @@ export class LowWater {
   private curlew = new Curlew();
   private curlewSaid = false;
   private mirage = new Mirage();
+  /** The real moon, when it's up (moon.ts). */
+  private moon = new Moon();
   /** Where the horizon is, up from the middle of the picture (view heights). */
   private horizonA = 0;
   private ground: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
@@ -509,6 +514,9 @@ export class LowWater {
         uMist: { value: MIST.clone() },
         uMir: MIRAGE.rows,
         uMirage: MIRAGE.at,
+        uMoon: MOON.at,
+        uMoonLit: MOON.lit,
+        uMoonYou: MOON.you,
         uNight: NIGHT,
         uHorizon: { value: 0 },
         uView: { value: 30 },
@@ -562,6 +570,7 @@ export class LowWater {
         uniform float uSouthShow; // (0 walking … 1 stood still a while: the bright ones first)
         varying vec3 vWorld;
         varying vec2 vView;
+        ${MOON_GLSL}
         float bank(vec2 p) {
           float h = -1.0;
           for (int i = 0; i < ${BANKS.length}; i++) {
@@ -616,6 +625,8 @@ export class LowWater {
           // past the last twig the bottom drops away: dark, cold water
           float deep = step(p.y, uDeep + sin(p.x * 0.7) * 0.6 + (d - 0.5) * 0.5);
           col = mix(col, col * vec3(0.48, 0.52, 0.66), deep);
+          // the moon's road, if it's up, coming down the water to you
+          col = moonRoad(col, (uHorizon - vView.y) / uView, x, r, uWind, d);
           if (uSouthShow > 0.0) {
             // (narrow screens get the whole of it smaller, so the Cross still fits)
             vec2 s = (vec2(vView.x / uView, a) - uSouthPole) / min(1.0, uAspect / 1.35);
@@ -647,6 +658,9 @@ export class LowWater {
         uMist: { value: MIST.clone() },
         uMir: MIRAGE.rows,
         uMirage: MIRAGE.at,
+        uMoon: MOON.at,
+        uMoonLit: MOON.lit,
+        uMoonYou: MOON.you,
         uNight: NIGHT,
         uHorizon: { value: 0 },
         uView: { value: 30 },
@@ -667,8 +681,11 @@ export class LowWater {
         uniform float uView;
         uniform float uAspect;
         varying vec2 vView;
+        ${MOON_GLSL}
         void main() {
-          gl_FragColor = vec4(skyAt((vView.y - uHorizon) / uView, vView.x / (uView * uAspect)), 1.0);
+          float a = (vView.y - uHorizon) / uView;
+          float x = vView.x / (uView * uAspect);
+          gl_FragColor = vec4(moonSky(skyAt(a, x), a, x, bayer()), 1.0);
         }
       `,
       fog: false,
@@ -704,17 +721,22 @@ export class LowWater {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('bright', new THREE.Float32BufferAttribute(bright, 1));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uShow: { value: 0 }, uTime: { value: 0 } },
+      uniforms: { uShow: { value: 0 }, uTime: { value: 0 }, uMoon: MOON.at, uMoonLit: MOON.lit, uSqueeze: { value: 1 } },
       vertexShader: /* glsl */ `
         attribute float bright;
         uniform float uShow;
         uniform float uTime;
+        uniform vec4 uMoon;
+        uniform vec3 uMoonLit;
+        uniform float uSqueeze;
         varying float vLevel;
         void main() {
           vec4 v = modelViewMatrix * vec4(position, 1.0);
+          // (none in front of the moon)
+          float behind = uMoon.w > 0.0 && length(vec2(position.x * uSqueeze - uMoon.x * uMoonLit.z, position.y - uMoon.y)) < uMoon.z * 1.3 ? 0.0 : 1.0;
           // a slow, stepped twinkle
           float tw = step(0.93, fract(sin(dot(position.xy, vec2(91.7, 37.3)) + floor(uTime * 1.5 + position.x * 9.0)) * 4375.85));
-          vLevel = bright * uShow * clamp(position.y * 3.0 - 0.3, 0.0, 1.0) * (1.0 - tw * 0.5);
+          vLevel = bright * uShow * behind * clamp(position.y * 3.0 - 0.3, 0.0, 1.0) * (1.0 - tw * 0.5);
           gl_PointSize = bright > 0.9 ? 2.0 : 1.0;
           gl_Position = projectionMatrix * v;
         }
@@ -1582,6 +1604,8 @@ export class LowWater {
     }
     // (and out in the sky, the island, if it's showing there)
     if (this.clear() > 0.6 && this.mirage.at(ndc.y / 2 - this.horizonA, ndc.x / 2)) return 'morgana';
+    // (and the moon, if it's up)
+    if (this.moon.at(ndc.y / 2 - this.horizonA, ndc.x / 2)) return 'moon';
     return null;
   }
 
@@ -1609,7 +1633,7 @@ export class LowWater {
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
     // (the island: twenty kilometres off, so you stay where you are and look)
-    if (id === 'morgana') {
+    if (id === 'morgana' || id === 'moon') {
       this.goal = null;
       this.clicked = { id, at: new THREE.Vector2(this.pos.x, this.pos.z) };
       return;
@@ -1795,6 +1819,8 @@ export class LowWater {
     const calm = (1 - THREE.MathUtils.smoothstep(outside.wind, 0.15, 0.45)) * this.clear();
     this.mirage.update(this.time, dt, calm, this.deck.aboard ? 4.5 : this.praam.afloat ? 1.2 : 2, this.aspect);
     this.frame(dt);
+    // (after the camera's placed: its road comes to where you are in the picture)
+    this.moon.update(dt, outside.moon, this.clear(), outside.night, this.aspect, 1 / this.texels(), this.youInPicture());
   }
 
   private walk(dt: number) {
@@ -2024,6 +2050,18 @@ export class LowWater {
     // or, at night, a few seconds after the water you lit has gone out again
     const lit = !best && !this.sitting && this.outside.night > 0.4 && this.stillFor > GLOW_LINE && this.wake.litAgo < this.stillFor + 3 && !this.wake.points.visible;
     this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
+  }
+
+  /** Where you are in the picture, for the moon's road: across (a share of the width) and down from the horizon (view heights). */
+  private youInPicture() {
+    const v = new THREE.Vector3(this.pos.x, this.level, this.pos.z).applyMatrix4(this.camera.matrixWorldInverse);
+    const view = this.view * this.zoomed;
+    return new THREE.Vector2(v.x / (view * this.aspect), this.horizonA - v.y / view);
+  }
+
+  /** The moon as it was last given, for its card. */
+  get moonNow() {
+    return this.moon.now;
   }
 
   /** Whether the fog's thick enough for the lightship to be sounding her horn. */
@@ -2340,6 +2378,7 @@ export class LowWater {
     // (narrow screens get the constellations squeezed in a little, so both still fit)
     const squeeze = Math.min(1, this.aspect / 0.8);
     this.stars.scale.set(view * squeeze, view, 1);
+    this.starMat.uniforms.uSqueeze.value = squeeze;
     for (const mat of [...this.waters, this.sky.material]) {
       const uni = mat.uniforms;
       uni.uHorizon.value = horizon.y;

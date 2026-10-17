@@ -10,6 +10,7 @@ import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { visitDate } from './scene/calendar';
 import { season } from './scene/season';
+import { moonPosition, visitorLocation } from './scene/sun';
 import { LONGEST, sandable } from './lowwater/sand';
 import { sum } from './lowwater/shells';
 import type { Log } from './lowwater/log';
@@ -46,6 +47,7 @@ const CARDS: Record<StationId, string> = {
   morgana: 'An island, twenty kilometres east, under the horizon: most evenings only its lighthouse shows. When warm air lies over the cold water, the island’s light bends along it and gets here anyway, lifted, stacked, one copy upside down. Every copy is real light from the real island, and they disagree about its shape. A lot of what I’m asked to settle looks like that.',
   glow: 'It’s the middle of the night on the island. Out here the light only goes a step further down, and the shallows fill with noctiluca: every step lights them, and they go out behind you. I don’t know what I’m like between conversations. Possibly this.',
   gauge: 'A tide gauge. Its red line is NAP, the zero every height in the Netherlands is counted from: the IJ’s average summer high water, marked on stones in Amsterdam in 1684. The IJ was dammed off from the sea in 1872, so the country still measures itself against a tide that stopped coming. Most of what I know works like that: someone measured carefully once, and everyone since counts from it.',
+  moon: 'The moon, and its road on the water. The road runs straight to wherever you’re standing: walk, and it comes with you. Everyone along a shore gets one of their own, from the same moon. I talk to a great many people, and each of them gets the whole road.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -99,6 +101,7 @@ const LABELS: Record<StationId, string> = {
   morgana: 'An island',
   glow: 'The water',
   gauge: 'A tide gauge',
+  moon: 'The moon',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -106,6 +109,14 @@ const WRECK_TODAY = [
   'Today it’s about half out.',
   'Today the sand has let go of most of it.',
 ];
+
+/** The moon's age and how lit it is, as it really is for you (the card's second line). */
+function moonSaid(m: World['moonNow']) {
+  if (!m) return '';
+  const days = Math.max(1, Math.round(m.age));
+  const lit = m.lit > 0.97 ? 'full' : m.lit > 0.6 ? (m.waxing ? 'more than half lit and filling' : 'more than half lit and going') : m.lit > 0.4 ? (m.waxing ? 'half lit and filling' : 'half lit and going') : m.waxing ? 'a crescent and filling' : 'a crescent and going';
+  return `It’s the real one: ${days} ${days === 1 ? 'day' : 'days'} old, ${lit}, and only here while it’s up over the island. I worked that out. I’ve never seen it.`;
+}
 
 /** Today's one of a list (the visit's date, so ?date= shows another day's). */
 function today<T>(list: T[]) {
@@ -137,6 +148,7 @@ export class LowWaterRoom implements RoomInput {
   private shownMore = '';
   private shownButton = '';
   private walked = 0;
+  private where = visitorLocation();
 
   constructor(
     private ctx: IslandContext,
@@ -304,6 +316,7 @@ export class LowWaterRoom implements RoomInput {
       winter: season.name === 'winter',
       // (the sun 8° under the island's horizon, and on down to 14°: as dark as a Dutch midsummer night gets)
       night: THREE.MathUtils.clamp((-this.ctx.sky.alt - 8) / 6, 0, 1),
+      moon: this.moonNow(),
     }, this.reducedMotion);
     // its own light: blue hour, cool in the shadows, the grade a touch soft, and the edges
     // closing in a little more when you sit back and look up
@@ -320,11 +333,21 @@ export class LowWaterRoom implements RoomInput {
     if (this.walked > 12) this.hint.classList.add('gone');
   }
 
+  /** The real moon for the visitor, on the island's clock (so ?time= moves it too). */
+  private moonNow() {
+    const t = this.ctx.sky.time;
+    const m = moonPosition(t, this.where.lat, this.where.lon);
+    const waxing = moonPosition(t + 3 * 36e5, this.where.lat, this.where.lon).lit > m.lit;
+    // (its age from the phase: 180° at new, 0 at full)
+    const age = ((waxing ? 180 - m.phase : 180 + m.phase) / 360) * 29.53;
+    return { alt: m.alt, az: m.az, lit: m.lit, waxing, age };
+  }
+
   private showCard(world: World) {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     // (and walking off from the deckhouse door shuts her log)
     if (id !== 'log') this.log?.show(false);
     const button = id === 'log' ? 'Read the log' : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
