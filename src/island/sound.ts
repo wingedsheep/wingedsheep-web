@@ -1654,6 +1654,43 @@ export class Sound {
     }
   }
 
+  /**
+   * The sea heart going into the water: a short splash of filtered noise over a low sine that
+   * drops as it goes under, quiet, from the side it lands on (and, on a phone, felt).
+   */
+  beanPlop(pan: number) {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    navigator.vibrate?.(5);
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const side = ctx.createStereoPanner();
+    side.pan.value = pan;
+    side.connect(this.master);
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 1300 * (0.9 + Math.random() * 0.2);
+    band.Q.value = 1.4;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.045, t + 0.006);
+    env.gain.setTargetAtTime(0, t + 0.02, 0.035);
+    src.connect(band).connect(env).connect(side);
+    src.start(t, Math.random() * 1.5, 0.2);
+    // the plop itself: a little sine, falling
+    const osc = ctx.createOscillator();
+    osc.frequency.setValueAtTime(520, t);
+    osc.frequency.exponentialRampToValueAtTime(160, t + 0.09);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.07, t + 0.004);
+    g.gain.setTargetAtTime(0, t + 0.03, 0.03);
+    osc.connect(g).connect(side);
+    osc.start(t);
+    osc.stop(t + 0.3);
+  }
+
   /** A stick drawn through damp sand: a short dry scrape, two strokes to a letter. */
   sandScratch() {
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;

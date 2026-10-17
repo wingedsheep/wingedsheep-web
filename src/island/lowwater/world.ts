@@ -31,13 +31,14 @@ import { Shells } from './shells';
 import { Canon, CANON_PACE } from './canon';
 import { Casts } from './casts';
 import { Lantern } from './lantern';
+import { SeaHeart } from './bean';
 
 /** Her deckhouse, as tools/models/lowwater.py has it (her model's metres): its middle along her, its windows each side, its door. */
 const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -92,6 +93,8 @@ export interface Hooks {
   lantern?(): void;
   /** A pebble of the crab canon, sounded (its frequency, Hz): which side (-1 … 1), and whether it's the one you stepped on or its partner. */
   canon?(freq: number, pan: number, yours: boolean): void;
+  /** The sea heart, landing in the water: which side of you (-1 … 1). */
+  bean?(pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -156,6 +159,8 @@ const SHELLS = new THREE.Vector2(-19, -79);
 const CASTS = { x: 16, z: -65, rx: 5, rz: 2.0, h: 0.085 };
 /** The crab canon's pebbles, in a row across a bank of their own out west, past the pool (canon.ts). */
 const CANON = new THREE.Vector2(-21, -31);
+/** The sea heart's bank, low and on its own out west, between the writing bank and the shells, with the wrack along its crest (bean.ts). */
+const BEAN_BANK = { x: -25, z: -57.2, rx: 3.4, rz: 1.15, h: 0.085 };
 /**
  * The baak, a tall beacon on a high bank out west by the deep water, and how tall it is (m). It's
  * the one thing out here tall enough to come up over the horizon as you walk out: top first, as
@@ -184,6 +189,7 @@ const BANKS: { x: number; z: number; rx: number; rz: number; h: number; pool?: b
   CASTS,
   { x: CANON.x, z: CANON.y - 0.1, rx: 9, rz: 2.2, h: 0.08 },
   { x: BAAK.x - 0.3, z: BAAK.y - 0.2, rx: 4.2, rz: 1.5, h: 0.11 },
+  BEAN_BANK,
 ];
 const POOL_R = 0.42; // the pool's share of its bank
 /** The pool's own water, held up in the bank whatever the tide's doing (m), and how far out it reaches. */
@@ -225,6 +231,8 @@ const C = {
   sand: ['#5c5768', '#686274', '#757080'],
   lantern: '#ffd38a',
   rope: '#a08a6c',
+  bean: '#4a3020',
+  glint: '#c8915a',
   lead: '#4a4b5c',
   hull: '#4a3f4c',
 };
@@ -522,6 +530,9 @@ export class LowWater {
   private lantern!: Lantern;
   private halo!: THREE.Sprite;
   private lanternSaid = false;
+  /** The sea heart in the wrack (bean.ts); asked to send it on from off along the flat, once you're there. */
+  private bean!: SeaHeart;
+  private beanOnArrival = false;
   private ray = new THREE.Raycaster();
 
   constructor(renderer: THREE.WebGLRenderer, private texels: () => number) {
@@ -547,6 +558,7 @@ export class LowWater {
     this.makeLead();
     this.makeGauge();
     this.makePraam();
+    this.makeBean();
     const strip = geulStrip();
     this.scene.add(strip);
     this.pickables.push(strip);
@@ -944,6 +956,25 @@ export class LowWater {
     this.scene.add(this.halo);
   }
 
+  /**
+   * The sea heart's wrack along its bank's crest, cut at the water as the bank is, and the bean
+   * lying in it (with its reflection, for once it's afloat).
+   */
+  private makeBean() {
+    const wrack = steppedFog(new THREE.MeshBasicMaterial({ vertexColors: true }), this.bankHaze);
+    wrack.clippingPlanes = [this.clip, this.farEdge];
+    const cut = (c: string, glow = false) => Object.assign(paint(new THREE.Color(c), { glow }), { clippingPlanes: [this.clip, this.farEdge] });
+    const glint = cut(C.glint, true);
+    glint.emissiveIntensity = 0.5;
+    this.bean = new SeaHeart(new THREE.Vector2(BEAN_BANK.x + 0.6, BEAN_BANK.z), bankAt, wrack, cut(C.bean), glint, mulberry(61));
+    for (const o of [this.bean.wrack, this.bean.hit, this.bean.root]) {
+      o.userData.id = 'bean';
+      this.scene.add(o);
+      this.pickables.push(o);
+    }
+    this.reflect(this.bean.root);
+  }
+
   /** You: a small dark figure in a long coat, with a pale scarf that the wind gets at. */
   private makeWalker() {
     const w = this.walker;
@@ -1280,6 +1311,10 @@ export class LowWater {
     this.lantern.hang();
     this.lantern.root.userData.id = 'last';
     this.lanternSaid = false;
+    // (and the sea heart's back in the wrack)
+    this.bean.reset();
+    this.bean.root.userData.id = 'bean';
+    this.beanOnArrival = false;
     if (!this.praam.afloat) return;
     this.deck.reset();
     if (this.lightship) this.lightship.aboard = false;
@@ -1779,7 +1814,7 @@ export class LowWater {
     }
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), this.letGoCanon();
+    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false), (this.beanOnArrival = false), this.letGoCanon();
     return true;
   }
 
@@ -1826,6 +1861,7 @@ export class LowWater {
     if (this.praam.afloat) return;
     this.stopWriting();
     this.boardOnArrival = false;
+    this.beanOnArrival = false;
     this.letGoCanon();
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
@@ -1849,7 +1885,7 @@ export class LowWater {
     if (id) {
       const obj = this.pickables.find((o) => o.userData.id === id)!;
       // (the shells: to the one in the corner, where the proof starts)
-      const at = id === 'shells' ? new THREE.Vector3(this.shells.corner.x, 0, this.shells.corner.y) : id === 'casts' ? new THREE.Vector3(CASTS.x - 2, 0, CASTS.z + 0.6) : obj.getWorldPosition(new THREE.Vector3());
+      const at = id === 'shells' ? new THREE.Vector3(this.shells.corner.x, 0, this.shells.corner.y) : id === 'bean' ? this.besideBean() : id === 'casts' ? new THREE.Vector3(CASTS.x - 2, 0, CASTS.z + 0.6) : obj.getWorldPosition(new THREE.Vector3());
       const station = (id.startsWith('stone:') ? 'ring' : id) as StationId;
       if (id.startsWith('stone:')) this.sound(Number(id.slice(6)));
       if (station === 'pool') this.stir = Math.max(this.stir, 0.7);
@@ -1868,7 +1904,7 @@ export class LowWater {
         this.clicked = { id: station, at: end.clone() };
         return this.walkTo(new THREE.Vector3(end.x, 0, end.y), 0);
       }
-      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' || station === 'casts' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
+      this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' || station === 'casts' || station === 'bean' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
     this.lead.letGo();
@@ -1921,6 +1957,41 @@ export class LowWater {
 
   get canonBusy() {
     return this.canonOnArrival || this.canonWalking;
+  }
+
+  /** Where you stand to send the sea heart on: beside it, a little landward, so you're never stood in front of it. */
+  private besideBean() {
+    return new THREE.Vector3(this.bean.lies.x + 0.85, 0, this.bean.lies.y + 0.3);
+  }
+
+  /** Send the sea heart on: to it, if you're not there, then a toss into the water north of its bank. */
+  sendBean() {
+    if (this.sitting || this.praam.afloat || this.bean.where !== 'lying') return;
+    this.letGoCanon();
+    this.stopWriting();
+    this.lead.letGo();
+    this.heaveOnArrival = false;
+    const stand = this.besideBean();
+    if (stand.distanceTo(new THREE.Vector3(this.pos.x, 0, this.pos.z)) > 0.6) {
+      this.walkTo(stand, 0);
+      this.beanOnArrival = true;
+      return;
+    }
+    this.beanOnArrival = false;
+    this.goal = null;
+    this.clicked = { id: 'bean', at: this.bean.lies.clone() };
+    this.bean.toss(new THREE.Vector2(this.bean.lies.x - 0.6, this.bean.lies.y - 3.6));
+    // (once it's gone, a click out on the water after it is just a walk)
+    delete this.bean.root.userData.id;
+  }
+
+  /** Whether the sea heart's still in the wrack, and whether it's been sent on (this visit). */
+  get beanHere() {
+    return this.bean.where === 'lying';
+  }
+
+  get beanSent() {
+    return this.bean.sent;
   }
 
   /** Whether you've stood in the ring long enough to hear its third chord waver (until you walk off). */
@@ -2062,6 +2133,7 @@ export class LowWater {
     this.settle(dt);
     this.casts.update(dt, this.pos.x, this.pos.z, this.stillFor);
     this.walkingCanon(dt);
+    this.tossing(dt);
     this.near();
     this.ring(dt);
     this.rock(dt);
@@ -2210,6 +2282,28 @@ export class LowWater {
     });
   }
 
+  /** The sea heart: tossed on arriving, turned to the water as you throw, and on its way once it's in. */
+  private tossing(dt: number) {
+    if (this.beanOnArrival && !this.goal) this.sendBean();
+    const b = this.bean;
+    if (b.where === 'held') {
+      let turn = Math.atan2(b.target.x - this.pos.x, b.target.y - this.pos.z) - this.heading;
+      turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+      this.heading += turn * (1 - Math.exp(-dt * 10));
+    }
+    const hand = new THREE.Vector3();
+    if (b.where === 'held') (this.walker.updateMatrixWorld(true), this.arms[0].localToWorld(hand.set(0, -0.62, 0.05)));
+    const said = b.update(dt, hand, this.level, this.time);
+    const at = b.floating;
+    if (!at) return;
+    if (said === 'landed') {
+      this.ripple(at.x, at.y, 0.6, 2);
+      if (this.outside.night > 0.4) this.wake.light(at.x, this.level + 0.006, at.y, 8, 0.5);
+      const dx = at.x - this.pos.x;
+      this.hooks.bean?.(THREE.MathUtils.clamp((dx / Math.max(1, Math.hypot(dx, at.y - this.pos.z))) * 0.9, -0.9, 0.9));
+    } else if (said === 'ring') this.ripple(at.x, at.y, 0.3, 1.6);
+  }
+
   /** At the lead line: heave on arriving, face out over the deep water while it's out, and pay it out from your hand. */
   private heaving(dt: number) {
     if (this.heaveOnArrival && !this.goal) this.heave();
@@ -2269,6 +2363,9 @@ export class LowWater {
     if (heave !== null) this.arms[1].rotation.x = heave;
     if (heave !== null && this.lead.hauling) this.arms[0].rotation.x = -1.45 - heave; // (the other hand, the other way)
     this.arms[0].rotation.z = cutting ? -0.35 : 0;
+    // tossing the sea heart: the left arm back and through, underarm
+    const toss = this.bean.arm;
+    if (toss !== null) this.arms[0].rotation.x = toss;
     // carrying the lantern: that arm hardly swings, and holds it a little out from your side
     const carrying = this.lantern.where === 'held' && heave === null && !this.sitting;
     if (carrying) this.arms[1].rotation.x = swing * 0.2;
@@ -2320,7 +2417,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['gauge', GAUGE, 3], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5], ['canon', CANON, 7.8], ['bean', this.bean.lies, 2.4],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -2659,6 +2756,8 @@ export class LowWater {
     if (this.card === 'table' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(TABLE) < 3) want.set(TABLE.x - 0.5, 0, TABLE.y - lead + (this.aspect < 0.8 ? 19 : 11));
     // on the canon's row, back so the whole row is above the card, and stays put as you walk it
     if (this.card === 'canon' && this.canon.near(this.pos.x, this.pos.z, 1)) want.set(CANON.x, 0, CANON.y - lead + (this.aspect < 0.8 ? 15 : 8));
+    // at the sea heart, back so it and the water it goes into are above the card
+    if (this.card === 'bean' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(this.bean.lies) < 3) want.set(this.bean.lies.x, 0, this.bean.lies.y - lead + (this.aspect < 0.8 ? 15 : 8));
     // at the tide gauge, back so the board and the water at its foot are above the card
     if (this.card === 'gauge' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(GAUGE) < 3) want.set(GAUGE.x - 0.5, 0, GAUGE.y - lead + (this.aspect < 0.8 ? 15 : 8));
     // in the boat, back a little, so you're above the card, and she's ahead of you

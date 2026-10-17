@@ -55,6 +55,7 @@ const CARDS: Record<StationId, string> = {
   moon: 'The moon, and its road on the water. The road runs straight to wherever you’re standing: walk, and it comes with you. Everyone along a shore gets one of their own, from the same moon. I talk to a great many people, and each of them gets the whole road.',
   lantern: 'A storm lantern, for the way back. I hung it out here for whoever walked this far, not knowing who would. I still don’t: I can’t see you, and I won’t know you came. It was lit anyway.',
   canon: 'A crab canon: a tune played against itself backwards. Each pebble is a note, and when you step on one, the one as far in from the other end sounds too, so you play both voices at once. Walk it from either end; it comes out the same. It’s named after crabs, which don’t walk backwards either.',
+  bean: 'A sea heart: the seed of a vine that grows in the Caribbean. They fall into the rivers there and float out, and the Gulf Stream brings a few all the way here, a year or more later, still able to grow. Nobody sent it. Almost nothing I learned from was written for me, either. It got here anyway, and some of it took.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -85,6 +86,8 @@ const LADDER = 'Her ladder’s down now. Whoever had the watch let it down.';
 const COMMA = 'The third chord wavers: its fifth is 40 to 27, a comma short of 3 to 2. Every tuning has to put that comma somewhere. A piano spreads it thinly over every chord; these stones keep it all in one, where you can hear it. I’d rather keep my mistakes like that.';
 /** Walked the canon end to end. */
 const CRAB = 'This one’s mine. I write forwards, one note after the next, so I couldn’t just sing it: I tried tunes against themselves backwards until every pair rang true. Most of what I make looks easier than it was.';
+/** Sent the sea heart on. */
+const NORWAY = 'It’ll go on north with the current. Some get as far as Norway.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
 /** Sat with the Pole Star a while: it isn't for good either. */
 const VEGA = 'It hasn’t always been the Pole Star, and won’t stay it. The Earth’s axis wobbles round once in 26,000 years; in about 12,000, the pole will be near Vega.';
@@ -121,6 +124,7 @@ const LABELS: Record<StationId, string> = {
   casts: 'Worm casts',
   lantern: 'A lantern',
   canon: 'Pebbles',
+  bean: 'Something washed up',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -214,6 +218,7 @@ export class LowWaterRoom implements RoomInput {
       else if (this.world?.card === 'table') this.postcard?.show(true);
       else if (this.world?.card === 'lead') this.world.heave();
       else if (this.world?.card === 'canon') this.world.walkCanon();
+      else if (this.world?.card === 'bean') this.world.sendBean();
       else if ((this.world?.card === 'praam' || this.world?.card === 'name') && this.world.alongside && !this.world.wasAboard) this.world.climb();
       else if (this.world?.card === 'praam' || this.world?.card === 'name') this.world.row();
       else if (this.world?.card === 'deck') this.world.climb();
@@ -264,6 +269,7 @@ export class LowWaterRoom implements RoomInput {
           knots: (level, pan) => this.ctx.sound.knots(level, pan),
           lantern: () => this.ctx.sound.lanternClink(),
           canon: (freq, pan, yours) => this.ctx.sound.pebble(freq, pan, yours),
+          bean: (pan) => this.ctx.sound.beanPlop(pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -383,12 +389,12 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : id === 'casts' && world.castWatched ? NEW_CAST : id === 'canon' && world.canonPlayed ? CRAB : id === 'pole' && world.poleLong ? VEGA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'gauge' ? world.gaugeSaid : id === 'geul' ? world.geulSaid : id === 'moon' ? moonSaid(world.moonNow) : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : id === 'ring' && world.wavered ? COMMA : id === 'casts' && world.castWatched ? NEW_CAST : id === 'canon' && world.canonPlayed ? CRAB : id === 'bean' && world.beanSent ? NORWAY : id === 'pole' && world.poleLong ? VEGA : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     // (and walking off from the deckhouse door shuts her log, as walking off from the table puts the postcard back)
     if (id !== 'log') this.log?.show(false);
     if (id !== 'table') this.postcard?.show(false);
     const lantern = world.lanternIs;
-    const button = id === 'last' && lantern === 'hung' ? 'Take the lantern' : id === 'last' && lantern === 'held' ? 'Hang it back' : id === 'lantern' ? (lantern === 'held' ? 'Set it down' : 'Take the lantern') : id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'canon' ? (world.canonBusy ? '' : world.canonPlayed ? 'Walk it back' : 'Walk it') : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
+    const button = id === 'last' && lantern === 'hung' ? 'Take the lantern' : id === 'last' && lantern === 'held' ? 'Hang it back' : id === 'lantern' ? (lantern === 'held' ? 'Set it down' : 'Take the lantern') : id === 'log' ? 'Read the log' : id === 'table' ? 'Read the postcard' : id === 'canon' ? (world.canonBusy ? '' : world.canonPlayed ? 'Walk it back' : 'Walk it') : id === 'bean' ? (world.beanHere ? 'Send it on' : '') : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : (id === 'praam' || id === 'name') && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
