@@ -19,8 +19,10 @@ const FOC_UP = 0.55;
 const LADDER_X = -1.2;
 /** Things on deck to walk round: round ones (x, y, r) and the deckhouse and windlass (x0, x1, y0, y1). */
 const ROUND: [number, number, number][] = [[0.4, 0, 0.62], [1.9, 1.1, 0.38], [1.9, -1.1, 0.38], [-6.5, 0, 0.3]];
-const BOXES: [number, number, number, number][] = [[-5.9, -2.3, -1.2, 1.2], [5.05, 5.55, -0.55, 0.55]];
+const BOXES: [number, number, number, number][] = [[-5.9, -2.3, -1.0, 1.0], [5.05, 5.55, -0.55, 0.55]];
 const PAD = 0.28;
+/** Stood at the deckhouse door (on the near side, forward of its windows), where her log's kept (her metres). */
+const DOOR = new THREE.Vector2(-3.2, -1.0 - PAD - 0.14);
 /** How long each leg of the climb takes (s): to the ladder, up it, and in over the rail. */
 const LEGS = [0.9, 2.8, 0.9];
 
@@ -72,6 +74,11 @@ export class Deck {
   /** By the head of the ladder, where you came up. */
   get atLadder() {
     return this.state === 'on' && Math.hypot(this.at.x - LADDER_X, this.at.y - this.head().y) < 1.7;
+  }
+
+  /** At the deckhouse door, where you can read her log. */
+  get atDoor() {
+    return this.state === 'on' && Math.hypot(this.at.x - DOOR.x, this.at.y - DOOR.y) < 0.9;
   }
 
   /** Up you go, from the seat (given in her frame, her metres). */
@@ -163,6 +170,9 @@ export class Deck {
   /** A point on deck (her frame, three's axes) to her metres, kept to where you can stand. */
   toDeck(p: THREE.Vector3) {
     const k = LIGHTSHIP_SCALE;
+    // (a click on the deckhouse, or the deck just round it, is for its door)
+    const [x0, x1, y0, y1] = BOXES[0];
+    if (p.x / k > x0 - 0.4 && p.x / k < x1 + 0.5 && -p.z / k > y0 - 0.5 && -p.z / k < y1 + 0.5) return DOOR.clone();
     const save = this.at.clone();
     this.at.set(p.x / k, -p.z / k, 0);
     this.keepOn();

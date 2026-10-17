@@ -23,7 +23,12 @@ import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck';
+/** Her deckhouse, as tools/models/lowwater.py has it (her model's metres): its middle along her, its windows each side, its door. */
+const SHIP_HOUSE = -4.1;
+const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
+const HOUSE_DOOR = 0.9;
+
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -1267,6 +1272,21 @@ export class LowWater {
     lamp.material.clippingPlanes = [this.clip];
     lamp.name = 'lamp';
     lamp.position.set(0.4 * k, height, 0);
+    // (and a lamp lit in the deckhouse, for whoever's writing up the log: its windows warm, and
+    // a line of it down the edge of the door, which is never quite shut; in the model's metres)
+    const warm = paint(new THREE.Color('#f2b878'), { glow: true, haze: this.shipHaze });
+    warm.clippingPlanes = [this.clip];
+    const panes: [number, number, number, number][] = [
+      ...HOUSE_WINDOWS[-1].map((wx): [number, number, number, number] => [wx, -1, 0.4, 0.34]),
+      ...HOUSE_WINDOWS[1].map((wx): [number, number, number, number] => [wx, 1, 0.4, 0.34]),
+      [HOUSE_DOOR - 0.42, -1, 0.07, 1.15],
+    ];
+    for (const [wx, side, w, h] of panes) {
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), warm);
+      pane.name = 'window';
+      pane.position.set(SHIP_HOUSE + wx, h > 1 ? 1.9 : 2.25, -side * 1.035);
+      model.add(pane);
+    }
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(), color: '#ffe9c8', blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
     halo.scale.setScalar(2.6);
     halo.position.copy(lamp.position);
@@ -1857,8 +1877,9 @@ export class LowWater {
       return;
     }
     if (this.deck.aboard) {
-      // (her card on deck by the ladder, where you come up and go down; nothing on the ladder)
-      this.card = this.deck.atLadder ? 'deck' : null;
+      // (her card on deck by the ladder, where you come up and go down, and her log's at the
+      // deckhouse door; nothing on the ladder)
+      this.card = this.deck.atLadder ? 'deck' : this.deck.atDoor ? 'log' : null;
       return;
     }
     if (this.praam.afloat) {

@@ -286,6 +286,11 @@ SHIP_BEAM = 4.4
 FREEBOARD = 1.3
 LANTERN_Z = 9.0  # the middle of the lantern's glass, over the waterline
 LADDER_X = -1.2  # where her ladder comes down, on the side you row up to
+# her deckhouse: how wide, where its windows are along it each side (from its middle), and its door
+# (src/island/lowwater/deck.ts and world.ts have the same, for walking round it and lighting it)
+HOUSE_BEAM = 2.0
+HOUSE_WINDOWS = {-1: (-1.1, -0.1), 1: (-1.1, 0.0, 1.1)}
+HOUSE_DOOR = 0.9
 
 
 def _ship_half(t: float) -> float:
@@ -322,14 +327,15 @@ def lightship():
     m.plank_line((SHIP_LENGTH / 2 - 0.2, 0.15, FREEBOARD + 0.3), (SHIP_LENGTH / 2 + 2.6, 0.15, -1.2), 0.09, 0.09, IRON)
     # the deckhouse aft, white, its windows dark, and a stovepipe
     hx = -SHIP_LENGTH / 2 + 3.4
-    # (tall enough to stand in, once you're aboard and she's as big as she is)
-    m.box((3.6, 2.4, 1.7), (hx, 0, FREEBOARD + 0.7), SHIP_WHITE)
-    m.box((3.8, 2.6, 0.12), (hx, 0, FREEBOARD + 1.6), DECK)
-    for wx in (-1.1, 0.0, 1.1):
-        for side in (-1, 1):
-            m.box((0.45, 0.05, 0.4), (hx + wx, side * 1.21, FREEBOARD + 0.95), GLASS)
-    # its door, forward, onto the deck
-    m.box((0.05, 0.75, 1.3), (hx + 1.81, 0.4, FREEBOARD + 0.6), TAR)
+    # (tall enough to stand in, once you're aboard and she's as big as she is; narrow enough to
+    # walk past on the near side, where its door is)
+    m.box((3.6, HOUSE_BEAM, 1.7), (hx, 0, FREEBOARD + 0.7), SHIP_WHITE)
+    m.box((3.8, HOUSE_BEAM + 0.2, 0.12), (hx, 0, FREEBOARD + 1.6), DECK)
+    for side in (-1, 1):
+        for wx in HOUSE_WINDOWS[side]:
+            m.box((0.45, 0.05, 0.4), (hx + wx, side * (HOUSE_BEAM / 2 + 0.01), FREEBOARD + 0.95), GLASS)
+    # its door, on the near side (port), forward of the windows, where she's seen from the boat
+    m.box((0.75, 0.05, 1.3), (hx + HOUSE_DOOR, -(HOUSE_BEAM / 2 + 0.01), FREEBOARD + 0.6), TAR)
     m.cyl(0.12, 0.8, (hx + 1.2, 0.6, FREEBOARD + 1.6), IRON, segs=6)
     # a rail round her waist, on stanchions, open where the ladder comes up on the near side
     rail = FREEBOARD + 0.6

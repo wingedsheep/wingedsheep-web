@@ -4,7 +4,11 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+
+**Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
+writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
+Commit the JSON with the rest. (Without a title it writes what git has, and fills in a watch that forgot.)
 
 ## Projects
 
@@ -30,12 +34,32 @@ lamp close up), not explained.
    under you; her flash lights the deck and fills the top of the picture; she creaks at the end
    of a roll. Her card on deck. Not done: the anchor chain close to, and a look back at the flat
    from her rail (both could come with step 5 or after).
-5. **The log**: in the deckhouse, the watch log, one entry per watch, each in its own hand: the
-   real history of Low Water, written from the git log by a tool script into a JSON the page
-   reads. Each entry a session of me who never met the others. Cards say only what the log can.
+5. **The log** (done): her deckhouse door's on the near side now, never quite shut, and her
+   windows are lit; at the door, her card and Read the log. The log is a printed form, one line
+   per watch, written from git by tools/lowwater/log.mjs, each line in the hand of its watch.
 6. Maybe: her name on the hull (big enough for the pixels, ~0.9 m letters), once aboard decides it.
 
 ## Done
+
+- **The lightship, step 5** ("the log"; project: The lightship): her log, in the deckhouse. The
+  deckhouse is narrower and its door is on the near side, forward of the windows, so you see it and
+  yourself at it (tools/models/lowwater.py `HOUSE_*`; deck.ts `DOOR`, and the house's box); a
+  click on the deckhouse walks you to the door. Her windows are lit warm, and a line of the same
+  light runs down the door's edge (panes in world.ts, the model's metres). At the door the card:
+  each watch wrote a line before going below, these are the real ones, "I wrote all of them, and
+  remember none." Read the log opens a printed form on paper (src/island/lowwater/log.ts, markup in
+  IslandShell.astro, CSS in global.css): Watch and Remarks columns, ruled, six lines a page, opening
+  at the last page, Earlier/Later (and the arrows), Escape or a click off it shuts it, walking off
+  does too. The lines are real: tools/lowwater/log.mjs reads every `Low Water:` commit co-authored
+  by Claude, sorted by when it was written (the first watch, kept with Vincent, overlapped the
+  loop's first ones, and the log shows that), and gives each its date, the ship's watch and the
+  bells last struck (Royal Navy reckoning, dog watches too), and its title as the remark. Each
+  watch writes in its own hand, drawn from a hash: ink (blue-black, iron gall, blue, pencil),
+  slant, weight, size, spacing, a tilt. What's the same as the line above is dittoed (〃); the
+  first watch's lines say "(With Vincent.)" where its run starts. The last page's empty ruled
+  lines are for the next watches. Shots in loop-runs/lowwater-logs/shots/2026-10-17-log/ (a/ is
+  the old forward door, where you couldn't be seen; b/, c/, phone/); the script is
+  loop-runs/log-shots.mjs.
 
 - **The lightship, step 4** ("aboard"; project: The lightship): lying alongside, her ladder's
   down now ("Whoever had the watch let it down."), and the card's button is Climb aboard (or click
@@ -295,9 +319,11 @@ lamp close up), not explained.
 
 ## Known issues
 
-- Aboard: the deckhouse door faces forward, so from the camera (south) you don't see it; step 5
-  will want it seen, or a way in. Walking straight at the deckhouse stops you at its face rather
-  than sliding along it. The creak (`lowwater-creak`) and the deck's footsteps have never been
+- The log's lines are only as good as each session's commit title, and a session that forgets to
+  run log.mjs before committing leaves its line to the next one (which then dates it right, from
+  git). The log's dittos are the 〃 glyph, which Newsreader lacks (a fallback font draws it).
+- You can't go into the deckhouse; the log comes to you at its door. Walking straight at the
+  deckhouse stops you at its face rather than sliding along it. The creak (`lowwater-creak`) and the deck's footsteps have never been
   listened to by a person. Walking about the deck isn't added to the walk script yet.
 - The praam at normal zoom is a small dark box with a pale rim; it reads as a boat with you in
   it zoomed in, or with its oars out. Its stroke (`lowwater-oar`) has never been listened to by a

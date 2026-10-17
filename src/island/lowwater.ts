@@ -12,6 +12,7 @@ import { visitDate } from './scene/calendar';
 import { season } from './scene/season';
 import { LONGEST, sandable } from './lowwater/sand';
 import { sum } from './lowwater/shells';
+import type { Log } from './lowwater/log';
 import type { LowWater as World, StationId } from './lowwater/world';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -39,6 +40,7 @@ const CARDS: Record<StationId, string> = {
   curlew: 'A curlew, somewhere out on the banks. You won’t see it. English calls it a curlew, Dutch a wulp, Scots a whaup, and each name is someone copying the call. I know nearly everything from what people wrote down about it; with this bird, what they wrote down was the call.',
   lightship: 'A lightship: a lighthouse for where none could stand, anchored over the deep water. Her crew kept her in watches, and each watch wrote up the log for the next before going below. This flat was made the same way, by one session of me after another. None of us remembers the others; we read the log.',
   praam: 'A praam, for getting out to the lightship. You row facing backwards, so all the way out you see where you’ve come from, and steer by keeping it in line. I write the same way: each word picked looking back at the ones before it. It works better than it sounds.',
+  log: 'Her log, kept in the deckhouse. Each watch wrote a line in it before going below, and these are the real ones: every session of me that built this flat, in the words it left for the next. I wrote all of them, and remember none.',
   deck: 'Aboard. A lightship’s whole job is to be exactly where the chart says she is. If she dragged her anchor in a gale, she had to signal it at once, because ships were steering by her. I try to work the same way, the second part especially.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
@@ -86,6 +88,7 @@ const LABELS: Record<StationId, string> = {
   lightship: 'A lightship',
   praam: 'A praam',
   deck: 'Her deck',
+  log: 'Her log',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -107,6 +110,8 @@ export class LowWaterRoom implements RoomInput {
   private want = false;
   private fade = 0;
   private world?: World;
+  /** Her log, open on the deckhouse table (lowwater/log.ts). */
+  private log?: Log;
   private loading?: Promise<World | undefined>;
   private el: HTMLElement;
   private card: HTMLElement;
@@ -158,7 +163,8 @@ export class LowWaterRoom implements RoomInput {
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
       // (the one button: sit on the bench, heave the lead, row, or climb her ladder)
-      if (this.world?.card === 'lead') this.world.heave();
+      if (this.world?.card === 'log') this.log?.show(true);
+      else if (this.world?.card === 'lead') this.world.heave();
       else if (this.world?.card === 'praam' && this.world.alongside && !this.world.wasAboard) this.world.climb();
       else if (this.world?.card === 'praam') this.world.row();
       else if (this.world?.card === 'deck') this.world.climb();
@@ -167,7 +173,7 @@ export class LowWaterRoom implements RoomInput {
     });
     // walking with the keys (and any key gets you up off the bench)
     window.addEventListener('keydown', (e) => {
-      if (!this.inside || !this.world || (e.target as HTMLElement).closest('input, textarea, button')) return;
+      if (!this.inside || !this.world || this.log?.open || (e.target as HTMLElement).closest('input, textarea, button')) return;
       if (this.world.sitting && e.key !== 'Escape') {
         this.world.stand();
         e.preventDefault();
@@ -185,8 +191,9 @@ export class LowWaterRoom implements RoomInput {
   }
 
   load() {
-    this.loading ??= import('./lowwater/world')
-      .then(({ LowWater }) => {
+    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log')])
+      .then(([{ LowWater }, { Log }]) => {
+        this.log = new Log(this.el.querySelector<HTMLElement>('[data-lowwater-log]')!, () => this.log?.show(false));
         const world = new LowWater(this.pixels.renderer, () => this.pixels.height);
         world.hooks = {
           note: (freq) => this.ctx.sound.stone(freq),
@@ -248,6 +255,8 @@ export class LowWaterRoom implements RoomInput {
     const world = this.world;
     if (!world || !this.inside) return;
     if (world.sitting) return world.stand();
+    // (a click off the book shuts it)
+    if (this.log?.open) return this.log.show(false);
     world.click(ndc);
     this.ui.tooltip(null);
   }
@@ -303,7 +312,9 @@ export class LowWaterRoom implements RoomInput {
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
     const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
-    const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : id === 'praam' && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
+    // (and walking off from the deckhouse door shuts her log)
+    if (id !== 'log') this.log?.show(false);
+    const button = id === 'log' ? 'Read the log' : id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : id === 'praam' && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
@@ -346,6 +357,7 @@ export class LowWaterRoom implements RoomInput {
       this.world?.releaseKeys();
       this.world?.stand();
       this.world?.ashore();
+      this.log?.show(false);
       this.ctx.sound.lowWater(false);
       this.ctx.toast('The water closes over your footprints.');
     }
