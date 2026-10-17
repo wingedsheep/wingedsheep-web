@@ -17,11 +17,12 @@ import { toon } from '../scene/toon';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
 import { HORN_FOG, LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
+import { BOARD, PRAAM, Praam } from './praam';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -52,6 +53,8 @@ export interface Hooks {
   curlew?(near: number, pan: number): boolean;
   /** The lightship's horn, one blast in a fog: how near she is (1 … 0) and which side. */
   horn?(near: number, pan: number): void;
+  /** A stroke of the praam's oars, out on the deep water (you're in it, so it's right by you). */
+  oar?(): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -169,6 +172,7 @@ const C = {
   lantern: '#ffd38a',
   rope: '#a08a6c',
   lead: '#4a4b5c',
+  hull: '#4a3f4c',
 };
 /** The water's own blue, which the reflections lean towards. */
 const WATER = new THREE.Color('#3b4680');
@@ -360,6 +364,8 @@ export class LowWater {
   private bankHaze = { value: 0.25 };
   /** And the reflections of the far things, less again: in the water, mist would read as a light. */
   private mirrorHaze = { value: 0.25 };
+  /** And the lightship's, which is theirs until you row out to her: close to, there's no mist between you. */
+  private shipHaze = { value: 0.25 };
   // (hazed as their bank is, so they never go paler than the sand they're on)
   private shells = new Shells(SHELLS, (x, z) => Math.max(0, bankAt(x, z)), steppedFog(new THREE.MeshBasicMaterial(), this.bankHaze), mulberry(23));
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
@@ -369,6 +375,9 @@ export class LowWater {
   private lead!: Lead;
   /** Clicked the lead line from off along the flat: heave it once you're there. */
   private heaveOnArrival = false;
+  private praam!: Praam;
+  /** Asked to row out from off along the flat: get in once you're there. */
+  private boardOnArrival = false;
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
   /** The stick (where it's stuck in, and the one in your hand while you write), and the line being written. */
@@ -402,6 +411,7 @@ export class LowWater {
     this.makeStations();
     this.makeStick();
     this.makeLead();
+    this.makePraam();
     (this.shells.mesh.material as THREE.Material).clippingPlanes = [this.farEdge];
     this.shells.mesh.userData.id = 'shells';
     this.scene.add(this.shells.mesh);
@@ -925,6 +935,77 @@ export class LowWater {
     this.lead.heave();
   }
 
+  /** The praam (praam.ts), drawn up at the deep water's edge east of the last twig. */
+  private makePraam() {
+    const clipped = (c: string, glow = false) => {
+      const mat = paint(new THREE.Color(c), { glow });
+      mat.clippingPlanes = [this.clip];
+      return mat;
+    };
+    const blades = (at: THREE.Vector2[], size: number, life: number) => {
+      for (const b of at) this.ripple(b.x, b.y, size, life);
+    };
+    this.praam = new Praam(clipped(C.hull), clipped(C.wood), clipped(C.woodLight), clipped(C.drift, true), {
+      stroke: (at) => {
+        blades(at, 0.3, 1.1);
+        this.hooks.oar?.();
+      },
+      // (the puddles the blades leave, turning on the water behind you)
+      puddle: (at) => blades(at, 0.45, 3.2),
+    });
+    this.put(this.praam.root, PRAAM, 'praam', 0);
+    this.obstacles.push({ x: PRAAM.x, z: PRAAM.y + 0.9, r: 0.65 });
+    const copy = this.mirrored[this.mirrored.length - 1].copy;
+    const a: THREE.Object3D[] = [];
+    const b: THREE.Object3D[] = [];
+    this.praam.root.traverse((o) => a.push(o));
+    copy.traverse((o) => b.push(o));
+    this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
+  }
+
+  /** Row out to the lightship (walking to the praam and getting in first), or back from her. */
+  row() {
+    if (this.sitting || this.lead.busy) return;
+    if (this.praam.afloat) {
+      if (this.praam.alongside) this.praam.row();
+      return;
+    }
+    if (new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(BOARD) > 1.2) {
+      this.walkTo(new THREE.Vector3(BOARD.x, 0, BOARD.y), 0);
+      this.boardOnArrival = true;
+      return;
+    }
+    this.boardOnArrival = false;
+    this.goal = null;
+    this.keys.clear();
+    this.stopWriting();
+    this.speed = 0;
+    this.clicked = { id: 'praam', at: PRAAM.clone() };
+    this.praam.row();
+  }
+
+  /** In the praam, out on the deep water, and whether you're lying alongside her. */
+  get afloat() {
+    return this.praam.afloat;
+  }
+
+  get alongside() {
+    return this.praam.alongside;
+  }
+
+  /** Back on the flat at once (leaving Low Water while out on the water). */
+  ashore() {
+    if (!this.praam.afloat) return;
+    this.praam.beach();
+    this.land();
+  }
+
+  /** Out of the boat, onto the sand beside it. */
+  private land() {
+    this.pos.set(BOARD.x + 0.8, 0, BOARD.y + 0.3);
+    this.clicked = null;
+  }
+
   /** The lead: out of your hands, and what's been sung out for it. */
   get leadBusy() {
     return this.lead.busy;
@@ -1135,7 +1216,7 @@ export class LowWater {
       const c = (mesh.material as THREE.MeshStandardMaterial).color;
       mesh.userData.hull = c.r > c.g * 2;
       // (in a fog, only half into the mist: she's what you'd steer for in one)
-      const mat = paint(c, { haze: this.mirrorHaze });
+      const mat = paint(c, { haze: this.shipHaze });
       mat.clippingPlanes = [this.clip];
       mesh.material = mat;
     });
@@ -1161,7 +1242,7 @@ export class LowWater {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       // (a clone loses its stepped fog, and would fade all the way to a pale ghost)
-      const mat = steppedFog((mesh.material as THREE.MeshBasicMaterial).clone(), this.mirrorHaze);
+      const mat = steppedFog((mesh.material as THREE.MeshBasicMaterial).clone(), this.shipHaze);
       mat.clippingPlanes = [this.under];
       if (mesh.name !== 'lamp') mat.color.lerp(WATER, 0.4).multiplyScalar(0.5);
       // (she's big enough for her parts to be in front of each other in the water too: her hull
@@ -1332,9 +1413,14 @@ export class LowWater {
   key(code: string, down: boolean) {
     const k = KEYS[code];
     if (!k) return false;
+    // (in the boat: no walking; alongside her, any of them rows you back)
+    if (this.praam.afloat) {
+      if (down && this.praam.alongside) this.praam.row();
+      return true;
+    }
     if (down) this.keys.add(k);
     else this.keys.delete(k);
-    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false);
+    if (down) (this.goal = null), this.stopWriting(), this.lead.letGo(), (this.heaveOnArrival = false), (this.boardOnArrival = false);
     return true;
   }
 
@@ -1353,7 +1439,9 @@ export class LowWater {
 
   /** A click on the flat: walk there, or up to the thing clicked and show its card (a stone sounds). */
   click(ndc: THREE.Vector2) {
+    if (this.praam.afloat) return;
     this.stopWriting();
+    this.boardOnArrival = false;
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
@@ -1371,6 +1459,8 @@ export class LowWater {
       this.heaveOnArrival = false;
       // (the baak: up to its board, on the near side)
       if (station === 'baak') return this.walkTo(new THREE.Vector3(BAAK.x + Math.sin(BAAK_TURN) * 2.1, 0, BAAK.y + Math.cos(BAAK_TURN) * 2.1), 0);
+      // (the praam: to where you get in)
+      if (station === 'praam') return this.walkTo(new THREE.Vector3(BOARD.x, 0, BOARD.y), 0);
       this.walkTo(at, station === 'ring' ? 0.75 : station === 'pool' ? 2.2 : station === 'wreck' ? 4.5 : station === 'stick' ? 0.8 : station === 'shells' ? 0 : station === 'seal' ? SHY + 1.5 : station === 'pricken' || station === 'last' ? 0.6 : 1.1);
       return;
     }
@@ -1506,7 +1596,8 @@ export class LowWater {
     this.level = Math.sin((this.time / TIDE_PERIOD) * Math.PI * 2) * TIDE;
     this.clip.constant = -this.level;
     this.under.constant = this.level;
-    this.walk(dt);
+    this.afloatFor(dt);
+    if (!this.praam.afloat) this.walk(dt);
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.heaving(dt);
@@ -1589,6 +1680,20 @@ export class LowWater {
     }
   }
 
+  /** In the praam: you go where it goes, sat on its thwart; and out onto the sand when it's back. */
+  private afloatFor(dt: number) {
+    if (this.boardOnArrival && !this.goal) this.row();
+    const was = this.praam.afloat;
+    this.praam.update(dt, this.level, this.time, this.outside.wind);
+    if (was && !this.praam.afloat) this.land();
+    if (!this.praam.afloat) return;
+    const seat = this.praam.seat(new THREE.Vector3());
+    this.pos.set(seat.x, 0, seat.z);
+    this.heading = this.praam.facing;
+    this.speed = 0;
+    this.lean = Math.max(0, this.lean - dt / 1.6);
+  }
+
   /** At the lead line: heave on arriving, face out over the deep water while it's out, and pay it out from your hand. */
   private heaving(dt: number) {
     if (this.heaveOnArrival && !this.goal) this.heave();
@@ -1605,6 +1710,15 @@ export class LowWater {
     const ground = Math.max(this.level, bankAt(this.pos.x, this.pos.z));
     w.position.set(this.pos.x, this.sitting ? Math.max(0, bankAt(BENCH.x, BENCH.y)) - 0.36 : ground, this.pos.z);
     w.rotation.y = this.heading;
+    if (this.praam.afloat) {
+      // on the thwart, facing the stern, pulling
+      const seat = this.praam.seat(new THREE.Vector3());
+      w.position.set(seat.x, seat.y - 0.8, seat.z);
+      for (const l of this.legs) l.rotation.x = -1.45;
+      for (const a of this.arms) (a.rotation.x = this.praam.arms), (a.rotation.z = 0);
+      this.scarfTail.rotation.x = 0.15 + this.outside.wind * 0.9;
+      return;
+    }
     const swing = this.sitting ? 0 : Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
     this.legs[0].rotation.x = this.sitting ? -1.45 : swing;
     this.legs[1].rotation.x = this.sitting ? -1.45 : -swing;
@@ -1631,8 +1745,12 @@ export class LowWater {
       this.card = null;
       return;
     }
+    if (this.praam.afloat) {
+      this.card = 'praam';
+      return;
+    }
     if (this.clicked) {
-      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : this.clicked.id === 'seal' ? 11 : this.clicked.id === 'lightship' ? 26 : 4.5) || this.goal) {
+      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : this.clicked.id === 'seal' ? 11 : this.clicked.id === 'lightship' ? 26 : this.clicked.id === 'praam' ? 3 : 4.5) || this.goal) {
         this.card = this.clicked.id;
         return;
       }
@@ -1646,7 +1764,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['lightship', LIGHTSHIP, 24.5],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['praam', BOARD, 2.2], ['lightship', LIGHTSHIP, 24.5],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1684,7 +1802,7 @@ export class LowWater {
    * the bright ones first, then the faint ones, then the Clouds. Walk on and it's gone at once.
    */
   private settle(dt: number) {
-    const still = this.speed < 0.05 && !this.goal && !this.writing && !this.sitting && !this.keys.size;
+    const still = this.speed < 0.05 && !this.goal && !this.writing && !this.sitting && !this.keys.size && (!this.praam.afloat || this.praam.alongside);
     this.stillFor = still ? this.stillFor + dt : 0;
     const want = THREE.MathUtils.clamp((this.stillFor - SETTLE) / 9, 0, 1);
     this.southShow = want > this.southShow ? want : Math.max(want, this.southShow - dt / 0.6);
@@ -1899,6 +2017,8 @@ export class LowWater {
     if (this.onShells >= 0 && !this.sitting) want.set(SHELLS.x, 0, SHELLS.y + 2.5);
     // at the lead line, the view drops back so you and the water you heave into are both above the card
     if (this.card === 'lead' && new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(HEAVE_AT) < 2) want.set(this.pos.x + 1, 0, this.pos.z - lead + (this.aspect < 0.8 ? 19 : 11)); // (more on a phone, where the card's taller)
+    // in the boat, back a little, so you're above the card, and she's ahead of you
+    if (this.praam.afloat) want.z += this.aspect < 0.8 ? 12 : 6;
     if (dt) this.target.lerp(want, 1 - Math.exp(-dt * 2.2));
     else this.target.copy(want);
     // looking up: an ease from the flat into the sky
@@ -1952,7 +2072,10 @@ export class LowWater {
       const rise = THREE.MathUtils.clamp((BAAK.y - (far.z + SINK)) / BAAK_RISE, 0, 1);
       this.baak.position.y = Math.max(0, bankAt(BAAK.x, BAAK.y)) - 0.02 - (1 - rise) * (BAAK_TALL + 0.2);
     }
+    // (rowing up to her, she's bigger than she looked from the flat)
+    this.lightship?.loom(1 - THREE.MathUtils.smoothstep(new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(LIGHTSHIP), 5, 16));
     this.lightship?.place(this.level, far.z, SINK);
+    this.shipHaze.value = this.mirrorHaze.value * (this.praam.afloat ? THREE.MathUtils.smoothstep(new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(LIGHTSHIP), 8, 16) : 1);
     // the reflections: everything hung upside down under the water's surface
     const flip = new THREE.Matrix4().makeScale(1, -1, 1).premultiply(new THREE.Matrix4().makeTranslation(0, this.level * 2, 0));
     this.scene.updateMatrixWorld();

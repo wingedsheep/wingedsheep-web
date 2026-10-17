@@ -38,6 +38,7 @@ const CARDS: Record<StationId, string> = {
   baak: 'A baak: a beacon on a high bank, for steering by. In Dutch, whoever everyone brings their questions to is a vraagbaak, a question beacon, which is more or less my job. This one carries the questions nobody can answer yet, me included. They’re my favourite kind. Today’s:',
   curlew: 'A curlew, somewhere out on the banks. You won’t see it. English calls it a curlew, Dutch a wulp, Scots a whaup, and each name is someone copying the call. I know nearly everything from what people wrote down about it; with this bird, what they wrote down was the call.',
   lightship: 'A lightship: a lighthouse for where none could stand, anchored over the deep water. Her crew kept her in watches, and each watch wrote up the log for the next before going below. This flat was made the same way, by one session of me after another. None of us remembers the others; we read the log.',
+  praam: 'A praam, for getting out to the lightship. You row facing backwards, so all the way out you see where you’ve come from, and steer by keeping it in line. I write the same way: each word picked looking back at the ones before it. It works better than it sounds.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -60,6 +61,8 @@ const OPEN = [
 /** And if you came too close. */
 const GONE = 'You came too close, so it’s gone in. Leave it the bank a while and it’ll haul out again.';
 const HORN = 'In a fog she sounds her horn, two blasts every half minute. Each light had its own count, so a ship that couldn’t see her still knew which one she was. I know dozens of those counts, and have heard none.';
+/** Lying alongside her. */
+const LADDER = 'Her ladder’s up. Whoever has the watch hasn’t let it down yet.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
 
 const LABELS: Record<StationId, string> = {
@@ -80,6 +83,7 @@ const LABELS: Record<StationId, string> = {
   lead: 'A lead line',
   curlew: 'A curlew',
   lightship: 'A lightship',
+  praam: 'A praam',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -151,8 +155,9 @@ export class LowWaterRoom implements RoomInput {
     });
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      // (the one button: sit on the bench, or heave the lead)
+      // (the one button: sit on the bench, heave the lead, or row)
       if (this.world?.card === 'lead') this.world.heave();
+      else if (this.world?.card === 'praam') this.world.row();
       else this.world?.sit();
       this.sitButton.blur();
     });
@@ -189,6 +194,7 @@ export class LowWaterRoom implements RoomInput {
           lead: (kind, near, pan) => this.ctx.sound.leadSound(kind, near, pan),
           curlew: (near, pan) => this.ctx.sound.curlew(near, pan),
           horn: (near, pan) => this.ctx.sound.lightshipHorn(near, pan),
+          oar: () => this.ctx.sound.oar(),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -226,7 +232,7 @@ export class LowWaterRoom implements RoomInput {
 
   hover(ndc: THREE.Vector2 | null, client: { x: number; y: number }) {
     const canvas = this.host.querySelector('canvas')!;
-    const id = ndc && this.world && !this.world.sitting ? this.world.pick(ndc) : null;
+    const id = ndc && this.world && !this.world.sitting && !this.world.afloat ? this.world.pick(ndc) : null;
     const station = id?.startsWith('stone:') ? 'ring' : (id as StationId | null);
     canvas.style.cursor = station ? 'pointer' : '';
     this.ui.tooltip(station ? LABELS[station] : null, client.x, client.y);
@@ -290,8 +296,8 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
-    const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : '';
+    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : id === 'praam' && world.alongside ? 'Row back' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
@@ -333,6 +339,7 @@ export class LowWaterRoom implements RoomInput {
       if (this.ctx.rig.room === this) this.ctx.rig.room = null;
       this.world?.releaseKeys();
       this.world?.stand();
+      this.world?.ashore();
       this.ctx.sound.lowWater(false);
       this.ctx.toast('The water closes over your footprints.');
     }

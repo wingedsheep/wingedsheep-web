@@ -12,6 +12,8 @@ import * as THREE from 'three';
 export const LIGHTSHIP = new THREE.Vector2(-5, -130);
 /** How much smaller than her model she's shown, so she reads as further off than she is. */
 export const LIGHTSHIP_SCALE = 0.7;
+/** And how much bigger again she's shown alongside. */
+const LOOM = 0.8;
 /** How tall she stands over the water, to the top of the lantern's cap (m). */
 const TALL = 9.8 * LIGHTSHIP_SCALE;
 /** How far past the horizon she's all the way up (m). */
@@ -32,6 +34,8 @@ export const HORN_FOG = 0.5;
 export class Lightship {
   private bob = 0;
   private sunk = 0;
+  /** How close you've rowed up to her (0 … 1 alongside). */
+  private near = 0;
   /** Where her fog signal's count was last frame (s into its period), or -1 when it's not sounding. */
   private horn = -1;
 
@@ -73,9 +77,19 @@ export class Lightship {
     blast(1 / (1 + (d / 100) ** 2), (dx / Math.max(d, 1)) * 0.9);
   }
 
+  /**
+   * Rowed up close (`near` 0 from the flat … 1 alongside), she's bigger than she looked: from the
+   * flat she's shown small so she reads as far off, which close to she isn't.
+   */
+  loom(near: number) {
+    this.root.scale.setScalar(1 + LOOM * near);
+    this.near = near;
+  }
+
   /** Up over the horizon as you come out, top first. `far` is where the flat runs out (z). */
   place(level: number, far: number, sink: number) {
-    const rise = THREE.MathUtils.clamp((LIGHTSHIP.y - (far + sink)) / RISE, 0, 1);
+    // (and once you're out on the water with her, she's up whatever the zoom does to the horizon)
+    const rise = Math.max(THREE.MathUtils.clamp((LIGHTSHIP.y - (far + sink)) / RISE, 0, 1), Math.min(1, this.near * 4));
     this.sunk = (1 - rise) * (TALL + 0.3);
     this.root.position.y = level - 0.02 + this.bob - this.sunk;
   }

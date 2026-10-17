@@ -256,6 +256,8 @@ export const SOUNDS: Sfx[] = [
   ...[1, 2].map((i) => ({ name: `lowwater-curlew-${i}`, seconds: 5, prompt: 'A single Eurasian curlew calling far away across a wide empty tidal mudflat at dusk: its mournful rising whistle, cour-lee, cour-lee, then a short bubbling trill, heard from a long way off with a soft open echo, no other birds, no wind, no waves, no music' })),
   // and the lightship anchored past the deep water, sounding her horn in a fog
   { name: 'lowwater-horn', seconds: 5, prompt: 'A lightship foghorn far away across open water in thick fog sounding one long sustained blast: a deep, low, steady drone held unbroken for three full seconds, then stopping with a short falling grunt, a faint echo after, no waves, no wind, no gulls, no music' },
+  // and the praam at the deep water's edge, rowed out to her
+  { name: 'lowwater-oar', seconds: 3, prompt: 'One slow stroke of a pair of wooden oars on a small flat-bottomed wooden rowing boat on dead calm water, close up: the oars creak once in their wooden thole pins, both blades dip in together with a soft clean plunge, a long quiet pull through the water, then the blades lift out and drip, quiet evening, no wind, no waves, no voices, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root
