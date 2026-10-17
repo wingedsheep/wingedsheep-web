@@ -18,6 +18,7 @@ import { GAUGE, makeGauge, reading } from './gauge';
 import { GEUL, GEUL_GLSL, geulDepth, geulNear, geulSaid, geulStrip, runGeul } from './geul';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
+import { Flock } from './flock';
 import { Glow } from './glow';
 import { MIRAGE, MIRAGE_GLSL, Mirage } from './mirage';
 import { MOON, MOON_GLSL, Moon, type MoonNow } from './moon';
@@ -33,7 +34,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -78,6 +79,8 @@ export interface Hooks {
   deckStep?(): void;
   /** The geul running, set every frame: how loud (0 … 1, by how near and how hard it's running) and which side. */
   geul?(level: number, pan: number): void;
+  /** The knots over the far flat, flying: how loud their wings are (0 … 1), and which side (-1 … 1). */
+  knots?(level: number, pan: number): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -317,6 +320,8 @@ const SETTLE = 3;
 const SOUTH_LINE = 22;
 /** Stood still this long (s) while the island's up in the east, a line about it. */
 const MIRAGE_LINE = 10;
+/** Stood still this long (s) while the knots are up, a line about them. */
+const KNOTS_LINE = 6;
 /** At night, stood still this long (s) after lighting the water, a line about it (once it's gone out). */
 const GLOW_LINE = 5;
 
@@ -380,6 +385,10 @@ export class LowWater {
   private curlew = new Curlew();
   private curlewSaid = false;
   private mirage = new Mirage();
+  /** The knots, in autumn and winter (flock.ts), and the horizon and the water under you, in the camera's space, to put them on. */
+  private flock = new Flock();
+  private horizonCam = new THREE.Vector3();
+  private underCam = new THREE.Vector3();
   /** The real moon, when it's up (moon.ts). */
   private moon = new Moon();
   /** Where the horizon is, up from the middle of the picture (view heights). */
@@ -468,6 +477,7 @@ export class LowWater {
     this.stars = group;
     this.starMat = mat;
     this.lines = lines;
+    this.camera.add(this.flock.birds, this.flock.mirror);
     this.makeBanks();
     this.makeWalker();
     this.makeStations();
@@ -1620,6 +1630,8 @@ export class LowWater {
         if (o.userData.id) return o.userData.id;
       }
     }
+    // (and out in the sky, the knots, if they're up: they're nearer than anything else up there)
+    if (this.flock.at(ndc.y / 2 - this.horizonA, ndc.x / 2)) return 'knots';
     // (and out in the sky, the island, if it's showing there)
     if (this.clear() > 0.6 && this.mirage.at(ndc.y / 2 - this.horizonA, ndc.x / 2)) return 'morgana';
     // (and the moon, if it's up)
@@ -1651,7 +1663,7 @@ export class LowWater {
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
     // (the island: twenty kilometres off, so you stay where you are and look)
-    if (id === 'morgana' || id === 'moon') {
+    if (id === 'morgana' || id === 'moon' || id === 'knots') {
       this.goal = null;
       this.clicked = { id, at: new THREE.Vector2(this.pos.x, this.pos.z) };
       return;
@@ -1855,6 +1867,13 @@ export class LowWater {
     this.frame(dt);
     // (after the camera's placed: its road comes to where you are in the picture)
     this.moon.update(dt, outside.moon, this.clear(), outside.night, this.aspect, 1 / this.texels(), this.youInPicture());
+    // the knots: here from August to May, and up now and then if you could see them (not at night,
+    // nor in rain, fog or a gale); heard from the side they're on, louder as they turn
+    const month = visitDate().getMonth();
+    const fade = THREE.MathUtils.clamp((this.clear() - 0.3) / 0.4, 0, 1) * (1 - THREE.MathUtils.smoothstep(outside.night, 0.4, 0.7));
+    this.flock.update(dt, month !== 5 && month !== 6 && fade > 0.9 && outside.wind < 0.8);
+    this.flock.place(this.view * this.zoomed, this.aspect, this.horizonCam.y, this.horizonCam.z, this.underCam.y, this.underCam.z, this.deck.aboard ? 4.5 : this.praam.afloat ? 1.2 : 2, fade);
+    this.hooks.knots?.(this.flock.seen * (0.25 + 0.45 * this.flock.turning), THREE.MathUtils.clamp(this.flock.across * 1.6, -0.8, 0.8));
   }
 
   private walk(dt: number) {
@@ -2087,8 +2106,10 @@ export class LowWater {
     // or a while, with the island up in the east: a line about that
     const lifted = !best && !this.sitting && this.stillFor > MIRAGE_LINE && this.mirage.lift > 0.6;
     // or, at night, a few seconds after the water you lit has gone out again
+    // or a little while, with the knots up
+    const flying = !best && !this.sitting && this.stillFor > KNOTS_LINE && this.flock.seen > 0.5;
     const lit = !best && !this.sitting && this.outside.night > 0.4 && this.stillFor > GLOW_LINE && this.wake.litAgo < this.stillFor + 3 && !this.wake.points.visible;
-    this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
+    this.card = this.sitting ? 'bench' : (best ?? (flying ? 'knots' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
   }
 
   /** Where you are in the picture, for the moon's road: across (a share of the width) and down from the horizon (view heights). */
@@ -2415,6 +2436,8 @@ export class LowWater {
     this.ground.position.set(this.target.x, this.level, this.target.z + (back - reach) / 2);
     this.ground.scale.set(view * this.aspect * 2.4 + 40, 1, reach + back);
     const horizon = far.clone().applyMatrix4(cam.matrixWorldInverse);
+    this.horizonCam.copy(horizon);
+    this.underCam.set(this.target.x, this.level, this.target.z).applyMatrix4(cam.matrixWorldInverse);
     // the sky stands just behind it, filling the picture
     this.sky.position.set(0, 0, horizon.z - 0.3);
     this.sky.scale.set(w * 2 + 4, h * 2 + 4, 1);

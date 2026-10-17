@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,29 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The knots** ("a shape none of them can see"): from August to May, a flock of knots gets up
+  off a far bank now and then, wheels over the far flat for a minute or so, and goes down again
+  somewhere else (src/island/lowwater/flock.ts; first flight 18–36 s after you come out, then
+  every 2½–5 minutes; not at night, nor in rain, fog or a gale). Nothing about its shape is
+  drawn: 520 birds, each keeping with its seven nearest (by rank, as starlings were found to),
+  its own room and its speed, and only roughly told where the flock should be; the dense bands,
+  streamers and splits come of that. Each bird banks into its turn, so you see its dark back
+  edge-on, its grey back, or its white belly, and a turn runs through the flock as a flash. One
+  texel a bird, three tones. A sky thing, fixed to the view (330 m off), drawn in front of the
+  sky and mirrored in the water (on the water's surface, so banks and things in front hide it).
+  Heard from the side it's on (`lowwater-knots`, one ElevenLabs take, a 12 s loop of wings and
+  soft calls, −34 LUFS, `sound.knots`), louder while it's turning. Its card comes by clicking it
+  (hover: Knots) or standing still six seconds with nothing near while it's up: no bird is
+  leading, each keeps with the few nearest and watches nothing else, the flock turns in a shape
+  none of them can see; "When I'm asked where a sentence of mine came from, that's the most
+  honest picture I have." A page in the wildlife book (the knot, row nine's second, drawn by
+  tools/drawings/row-nine.py). Tuned offline first (a Node run of the sim, drawn to a sheet):
+  the first takes orbited 100 m wide and climbed off the top, and came apart into a scatter.
+  Shots in loop-runs/lowwater-logs/shots/2026-10-17-knots/ (a/ and b/ too loose and pale,
+  the colours were linear values going out as sRGB; c/, click/, phone/, fog/ none, and the
+  sketch); scripts loop-runs/knots-shots.mjs (`lowwater.flock.wait = 0` puts them up) and
+  knots-click.mjs.
 
 - **The geul** ("a chart with a date on it"): the channel the flat drains through, east of the
   way out (src/island/lowwater/geul.ts, `GEUL_GLSL` drawn by every water). It starts as a rill
@@ -471,6 +494,12 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The knots' wings (`lowwater-knots`) have never been listened to by a person (by spectrogram: a
+  broadband rush with small transients). The flock is a few hundred, not thousands; sometimes it
+  splits and a straggling group takes a while to come down at the end (it gives up after 30 s).
+  It's a sky thing, so walking doesn't move it, and zoomed in it stays its size. Not in the walk
+  script yet. The month comes from the visit's date (`?date=` in June or July: none).
 
 - The geul's sound (`lowwater-geul`) has never been listened to by a person (by spectrogram: a
   steady broadband trickle with small bubbling transients, −36 LUFS). Its chevrons run with the

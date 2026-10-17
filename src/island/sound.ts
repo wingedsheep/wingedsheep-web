@@ -127,8 +127,8 @@ const SFX = {
   costumes: { cackle: 2, vampire: 2 },
   // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
   graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
-  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking
-  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1 },
+  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings
+  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -139,7 +139,7 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
-  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5,
+  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
@@ -218,6 +218,8 @@ export class Sound {
   private flat?: { gain: GainNode; filter: BiquadFilterNode };
   /** The geul out on the flat, running (geul()). */
   private geulRun?: { gain: GainNode; side: StereoPannerNode };
+  /** The knots over the far flat, flying (knots()). */
+  private knotsUp?: { gain: GainNode; side: StereoPannerNode };
   /** How rough the river is where you are: birdsong along the banks drowns in the rapids. */
   private riverRough = 0;
   /** Set every frame by the weather, 0..1 each. */
@@ -1345,6 +1347,7 @@ export class Sound {
     const t = ctx.currentTime;
     this.flat.gain.gain.setTargetAtTime(on ? 0.09 + wind * 0.1 : 0, t, on ? 1.5 : 0.3);
     if (!on) this.geulRun?.gain.gain.setTargetAtTime(0, t, 0.3);
+    if (!on) this.knotsUp?.gain.gain.setTargetAtTime(0, t, 0.3);
     this.flat.filter.frequency.setTargetAtTime(480 + wind * 900, t, 1);
   }
 
@@ -1393,6 +1396,27 @@ export class Sound {
     const t = this.ctx.currentTime;
     g.gain.gain.setTargetAtTime(this.enabled && this.atFlat ? level : 0, t, 0.4);
     g.side.pan.setTargetAtTime(pan, t, 0.4);
+  }
+
+  /**
+   * The knots over the far flat: their wings on a loop, louder the more of the flock is up and the
+   * harder it's turning (set every frame), from the side it's on.
+   */
+  knots(level: number, pan: number) {
+    if (!this.ctx || !this.master) return;
+    let k = this.knotsUp;
+    if (!k) {
+      if (!level || !this.sfx.has('lowwater-knots')) return;
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0;
+      const side = this.ctx.createStereoPanner();
+      gain.connect(side).connect(this.master);
+      this.bed('lowwater-knots', gain, LEVEL['lowwater-knots']);
+      k = this.knotsUp = { gain, side };
+    }
+    const t = this.ctx.currentTime;
+    k.gain.gain.setTargetAtTime(this.enabled && this.atFlat ? level : 0, t, 0.8);
+    k.side.pan.setTargetAtTime(pan, t, 0.8);
   }
 
   /** The stones' sour chord, on a phone: its beat, felt faintly for a second or so. */

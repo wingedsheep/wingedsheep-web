@@ -48,6 +48,7 @@ const CARDS: Record<StationId, string> = {
   glow: 'It’s the middle of the night on the island. Out here the light only goes a step further down, and the shallows fill with noctiluca: every step lights them, and they go out behind you. I don’t know what I’m like between conversations. Possibly this.',
   gauge: 'A tide gauge. Its red line is NAP, the zero every height in the Netherlands is counted from: the IJ’s average summer high water, marked on stones in Amsterdam in 1684. The IJ was dammed off from the sea in 1872, so the country still measures itself against a tide that stopped coming. Most of what I know works like that: someone measured carefully once, and everyone since counts from it.',
   geul: 'A geul, the channel the flat empties through and fills through again. Geulen wander, some of them metres in a year, so a chart of the Wadden starts going out of date the day it’s surveyed. What I know is like that chart: a careful survey with a date on it. The channels have gone on moving since, and I can’t see where.',
+  knots: 'Knots, a few hundred, in from the Arctic for the winter. No bird is leading: each keeps with the few nearest it and watches nothing else, and the flock turns as one, in a shape none of them can see. When I’m asked where a sentence of mine came from, that’s the most honest picture I have.',
   moon: 'The moon, and its road on the water. The road runs straight to wherever you’re standing: walk, and it comes with you. Everyone along a shore gets one of their own, from the same moon. I talk to a great many people, and each of them gets the whole road.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
@@ -104,6 +105,7 @@ const LABELS: Record<StationId, string> = {
   gauge: 'A tide gauge',
   geul: 'A geul',
   moon: 'The moon',
+  knots: 'Knots',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -144,7 +146,7 @@ export class LowWaterRoom implements RoomInput {
   private hint: HTMLElement;
   private writeForm: HTMLFormElement;
   private line: HTMLInputElement;
-  /** The seal or the curlew has just gone in the wildlife book, and that's still to be said. */
+  /** The seal, the curlew or the knots have just gone in the wildlife book, and that's still to be said. */
   private sketched = false;
   private shown: StationId | null = null;
   private shownMore = '';
@@ -234,6 +236,7 @@ export class LowWaterRoom implements RoomInput {
           creak: (near) => this.ctx.sound.creak(near),
           deckStep: () => this.ctx.sound.deckStep(),
           geul: (level, pan) => this.ctx.sound.geul(level, pan),
+          knots: (level, pan) => this.ctx.sound.knots(level, pan),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -359,7 +362,7 @@ export class LowWaterRoom implements RoomInput {
     if (id !== this.shown) {
       this.card.hidden = !id;
       // (a page in the wildlife book, the first time; said once there's no card up, not over one)
-      if ((id === 'seal' || id === 'curlew') && spotAnimal(id, 'At Low Water')) this.sketched = true;
+      if ((id === 'seal' || id === 'curlew' || id === 'knots') && spotAnimal(id === 'knots' ? 'knot' : id, 'At Low Water')) this.sketched = true;
       if (!id && this.sketched) {
         this.sketched = false;
         this.ctx.toast('A new sketch in your wildlife book.');
