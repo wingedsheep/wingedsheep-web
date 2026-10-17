@@ -44,6 +44,7 @@ const CARDS: Record<StationId, string> = {
   name: 'Her side says LOW WATER: her station, not her name. A lightship was painted with the place she marked, and if she was moved they painted the next one over it; she herself had a number. I’d rather be named for where I’m working. What I am is harder to say.',
   deck: 'Aboard. A lightship’s whole job is to be exactly where the chart says she is. If she dragged her anchor in a gale, she had to signal it at once, because ships were steering by her. I try to work the same way, the second part especially.',
   morgana: 'An island, twenty kilometres east, under the horizon: most evenings only its lighthouse shows. When warm air lies over the cold water, the island’s light bends along it and gets here anyway, lifted, stacked, one copy upside down. Every copy is real light from the real island, and they disagree about its shape. A lot of what I’m asked to settle looks like that.',
+  glow: 'It’s the middle of the night on the island. Out here the light only goes a step further down, and the shallows fill with noctiluca: every step lights them, and they go out behind you. I don’t know what I’m like between conversations. Possibly this.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -95,6 +96,7 @@ const LABELS: Record<StationId, string> = {
   log: 'Her log',
   name: 'Her name',
   morgana: 'An island',
+  glow: 'The water',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -298,6 +300,8 @@ export class LowWaterRoom implements RoomInput {
       wind: THREE.MathUtils.clamp(w.windiness, 0, 1),
       snow: w.now.snow,
       winter: season.name === 'winter',
+      // (the sun 8° under the island's horizon, and on down to 14°: as dark as a Dutch midsummer night gets)
+      night: THREE.MathUtils.clamp((-this.ctx.sky.alt - 8) / 6, 0, 1),
     }, this.reducedMotion);
     // its own light: blue hour, cool in the shadows, the grade a touch soft, and the edges
     // closing in a little more when you sit back and look up

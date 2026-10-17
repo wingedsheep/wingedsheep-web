@@ -16,6 +16,7 @@ import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
+import { Glow } from './glow';
 import { MIRAGE, MIRAGE_GLSL, Mirage } from './mirage';
 import { HORN_FOG, LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
 import { BOARD, PRAAM, Praam } from './praam';
@@ -29,7 +30,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana' | 'glow';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -40,6 +41,8 @@ export interface Outside {
   snow: number;
   /** In winter, a skin of ice where the banks meet the water. */
   winter: boolean;
+  /** How deep into the night it is on the island, 0 (not yet) … 1: out here the light goes a step further down, and the shallows glow where you walk. */
+  night: number;
 }
 
 export interface Hooks {
@@ -209,6 +212,7 @@ const SKY_GLSL = /* glsl */ `
   uniform float uTexel; // one texel, in view heights
   uniform float uFog;
   uniform float uGloom;
+  uniform float uNight;
   uniform vec3 uMist;
   float bayer() {
     ivec2 p = ivec2(gl_FragCoord.xy);
@@ -216,10 +220,12 @@ const SKY_GLSL = /* glsl */ `
   }
   ${MIRAGE_GLSL}
   // a: how far above the horizon (view heights); x: across the picture (-0.5 left … 0.5 right)
-  vec3 skyAt(float a, float x) {
+  vec3 skyAt(float a0, float x) {
     float d = bayer();
     float j = (d - 0.5) * uTexel * 5.0; // each band's edge dithered over a few texels
-    float warm = 1.0 - smoothstep(-0.55, 0.7, x); // the warm band, broad on the left, thinning out
+    // deep in the island's night the light's gone a step further down: the bands lower, the warm one narrower
+    float a = a0 * (1.0 + uNight * 0.8);
+    float warm = (1.0 - smoothstep(-0.55, 0.7, x)) * (1.0 - uNight * 0.4); // the warm band, broad on the left, thinning out
     float w1 = 0.006 + 0.016 * warm;
     float w2 = w1 + 0.012 + 0.02 * warm;
     vec3 col = vec3(0.56, 0.50, 0.58);                                   // the horizon, pale
@@ -233,7 +239,8 @@ const SKY_GLSL = /* glsl */ `
     if (a + j > 0.5) col = vec3(0.034, 0.04, 0.135);
     if (a + j > 0.75) col = vec3(0.022, 0.026, 0.1);
     // the island east, under the horizon, as the air brings it up (lowwater/mirage.ts)
-    col = mirage(col, a, x, d);
+    col *= 1.0 - uNight * 0.2 * step(0.09, a);
+    col = mirage(col, a0, x, d);
     // rain: greyer and lower; fog: the low sky gone to mist
     float l = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(col, vec3(l) * vec3(0.92, 0.95, 1.08), uGloom * 0.6) * (1.0 - uGloom * 0.2);
@@ -296,11 +303,15 @@ function southSky() {
 const SOUTH = southSky();
 /** How far into the haze far things go: only part way on a clear evening (the flat's not that wide), all of it in a fog. */
 const HAZE = { value: 1 };
+/** How far into the island's night it is (Outside.night), for the sky and its mirror. */
+const NIGHT = { value: 0 };
 /** Stood still this long (s), the water settles enough to show the bright ones; and this long, to say what they are. */
 const SETTLE = 3;
 const SOUTH_LINE = 22;
 /** Stood still this long (s) while the island's up in the east, a line about it. */
 const MIRAGE_LINE = 10;
+/** At night, stood still this long (s) after lighting the water, a line about it (once it's gone out). */
+const GLOW_LINE = 5;
 
 interface Mirrored {
   src: THREE.Object3D;
@@ -426,7 +437,9 @@ export class LowWater {
   /** Just written: the stick's card keeps quiet till you've walked off, so you can read what you wrote. */
   private justWrote = false;
   private pace = PACE;
-  private outside: Outside = { rain: 0, fog: 0, wind: 0, snow: 0, winter: false };
+  private outside: Outside = { rain: 0, fog: 0, wind: 0, snow: 0, winter: false, night: 0 };
+  /** The shallows' noctiluca, at night (glow.ts). */
+  private wake = new Glow();
   private hemi = new THREE.HemisphereLight('#8d9ad6', '#2a2944', 1.7);
   private sun = new THREE.DirectionalLight('#ffbf94', 1.25);
   private fill = new THREE.DirectionalLight('#7f8cc4', 0.55);
@@ -457,6 +470,7 @@ export class LowWater {
     this.scene.add(this.shells.mesh);
     this.pickables.push(this.shells.mesh);
     this.specks = this.makePool();
+    this.scene.add(this.wake.points);
     this.speckHome = (this.specks.geometry.attributes.position.array as Float32Array).slice();
     this.makePrints();
     this.makeRings();
@@ -493,6 +507,7 @@ export class LowWater {
         uMist: { value: MIST.clone() },
         uMir: MIRAGE.rows,
         uMirage: MIRAGE.at,
+        uNight: NIGHT,
         uHorizon: { value: 0 },
         uView: { value: 30 },
         uAspect: { value: 1 },
@@ -630,6 +645,7 @@ export class LowWater {
         uMist: { value: MIST.clone() },
         uMir: MIRAGE.rows,
         uMirage: MIRAGE.at,
+        uNight: NIGHT,
         uHorizon: { value: 0 },
         uView: { value: 30 },
         uAspect: { value: 1 },
@@ -989,7 +1005,11 @@ export class LowWater {
       return mat;
     };
     const blades = (at: THREE.Vector2[], size: number, life: number) => {
-      for (const b of at) this.ripple(b.x, b.y, size, life);
+      for (const b of at) {
+        this.ripple(b.x, b.y, size, life);
+        // (and at night, the blades light the water where they go in and come out)
+        if (this.outside.night > 0.4) this.wake.light(b.x, this.level + 0.006, b.y, 8, size * 1.1);
+      }
     };
     this.praam = new Praam(clipped(C.hull), clipped(C.wood), clipped(C.woodLight), clipped(C.drift, true), {
       stroke: (at) => {
@@ -1743,6 +1763,7 @@ export class LowWater {
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.heaving(dt);
+    this.wake.update(dt);
     this.curlew.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), outside, (near, pan) => this.hooks.curlew?.(near, pan) ?? false);
     this.settle(dt);
     this.near();
@@ -1987,7 +2008,9 @@ export class LowWater {
     const south = !best && !this.sitting && this.stillFor > SOUTH_LINE && this.clear() > 0.6;
     // or a while, with the island up in the east: a line about that
     const lifted = !best && !this.sitting && this.stillFor > MIRAGE_LINE && this.mirage.lift > 0.6;
-    this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : lifted ? 'morgana' : null));
+    // or, at night, a few seconds after the water you lit has gone out again
+    const lit = !best && !this.sitting && this.outside.night > 0.4 && this.stillFor > GLOW_LINE && this.wake.litAgo < this.stillFor + 3 && !this.wake.points.visible;
+    this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
   }
 
   /** Whether the fog's thick enough for the lightship to be sounding her horn. */
@@ -2143,6 +2166,8 @@ export class LowWater {
     p.mesh.rotation.y = this.heading;
     p.mesh.visible = true;
     p.age = 0;
+    // at night, a step in the water lights it
+    if (bankAt(x, z) < this.level - 0.01 && this.outside.night > 0.4) this.wake.light(x, this.level + 0.006, z, 6 + Math.round(this.outside.night * 4), 0.4);
     if (this.shells.which(x, z) >= 0) this.hooks.shell?.();
     else this.hooks.step?.(bankAt(x, z) < this.level);
   }
@@ -2217,11 +2242,12 @@ export class LowWater {
     fogged.near = DISTANCE + reach * Math.cos(ELEVATION) * (0.45 - fog * 0.38);
     fogged.far = DISTANCE + reach * Math.cos(ELEVATION) * (0.88 - fog * 0.45);
     fogged.color.copy(HORIZON_HAZE).lerp(MIST, fog);
-    this.hemi.intensity = 1.7 * (1 - gloom * 0.25);
-    this.sun.intensity = 1.25 * (1 - gloom * 0.6) * (1 - fog * 0.5);
+    NIGHT.value = o.night;
+    this.hemi.intensity = 1.7 * (1 - gloom * 0.25) * (1 - o.night * 0.25);
+    this.sun.intensity = 1.25 * (1 - gloom * 0.6) * (1 - fog * 0.5) * (1 - o.night * 0.35);
     // stars: a few at first, more as you look up, gone behind rain or fog
     const clear = this.clear();
-    this.starMat.uniforms.uShow.value = (0.45 + this.lean * 0.55) * clear;
+    this.starMat.uniforms.uShow.value = Math.min(1, 0.45 + o.night * 0.3 + this.lean * 0.55) * clear;
     this.starMat.uniforms.uTime.value = this.time;
     // the shapes drawn in, faintly, once you've been looking a while
     const lines = this.sitting ? THREE.MathUtils.clamp((this.satFor - 3) / 3, 0, 1) * clear : 0;

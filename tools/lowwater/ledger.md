@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,19 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The walk out at night** ("the shallows light where you walk"): when it's deep night on the
+  island (the sun 8° under the visitor's horizon and on down to 14°: `night` in `Outside`, from
+  `ctx.sky.alt`), the flat keeps its hour but goes a step further down: the sky's bands lower, the
+  warm one narrower and dimmer, the upper sky and its mirror darker, the light on things lower,
+  a few more stars (`uNight` in SKY_GLSL, `weather()` in world.ts). And the shallows are full of
+  noctiluca: every step you take in the water lights a scatter of specks round your foot, the
+  oars' blades light it where they go in and come out, and each speck flares, dims, flickers and
+  goes out within four seconds (src/island/lowwater/glow.ts, the pool's colours). Silent on
+  purpose. Stand still a few seconds after the water you lit has gone out, with nothing else
+  near, and its card: "I don't know what I'm like between conversations. Possibly this." Shots
+  in loop-runs/lowwater-logs/shots/2026-10-17-night/ (a/ night, day/ the same walk at 14:00,
+  phone/); the script is loop-runs/night-shots.mjs (`?time=02:00`).
 
 - **The fata morgana** ("an island in the east"): an island twenty kilometres east, under the
   horizon, on the right of the picture (src/island/lowwater/mirage.ts). Most of the time only
@@ -380,10 +393,13 @@ lamp close up), not explained.
 - **The baak's other days**: in a gale it could creak; a bird (a cormorant drying its wings) on
   the ball now and then. Only if it stays quiet.
 - **Distant birds**: oystercatchers' piping, far off, never seen (the curlew is in; oystercatchers only if they'd say something the curlew doesn't).
-- **The walk out at night**: when the island is in deep night, the flat's blue hour gets darker and the
-  noctiluca brightens along the waterline wherever you step.
+- ~~**The walk out at night**~~: done (glow.ts).
 
 ## Known issues
+
+- The night's noctiluca only lights in the water you walk through; dry sand and the deck stay dark. The
+  night is only seen if you visit between about 23:00 and 04:00 in summer (earlier in winter), or with
+  `?time=`; nothing says so. The blades' light in the praam has only been checked in code, not in a shot.
 
 - The fata morgana is in the sky's own units, so zooming in doesn't make it bigger (like the
   stars). It sits low in the warm band's dithered rows, and when the layer is high it's mostly
