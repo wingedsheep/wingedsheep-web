@@ -254,6 +254,8 @@ export class Shop {
   // Tine
   private turnIn = 6;
   private turning = -1;
+  /** How much longer Tine's line has to go (s). */
+  private talking = 0;
   private look = new THREE.Vector2(0, 0.4);
 
   constructor(private texels: () => number) {
@@ -952,6 +954,16 @@ export class Shop {
     pos.needsUpdate = true;
   }
 
+  /** Where Tine is from you, across the picture: -1 (left) … 1 (right), for her voice. */
+  tineSide() {
+    return THREE.MathUtils.clamp((TINE_AT.x - this.pos.x) * this.right.x + (TINE_AT.z - this.pos.z) * this.right.z, -3, 3) / 3;
+  }
+
+  /** Tine says a line out loud, about this long (s): her head goes with the words while she does. */
+  tineSays(seconds: number) {
+    this.talking = seconds;
+  }
+
   /** Tine reads, turning a page every so often; come to the counter and she looks up at you, and goes back to it when you go. */
   private tineLives(dt: number) {
     const t = this.tine;
@@ -966,7 +978,11 @@ export class Shop {
     }
     const k = 1 - Math.exp(-dt * (near ? 4 : 2));
     this.look.lerp(want, k);
-    t.head.rotation.set(this.look.y, this.look.x, 0, 'YXZ');
+    // (talking, her head dips a little on the stresses, and stills between phrases)
+    this.talking = Math.max(0, this.talking - dt);
+    const phrase = Math.max(0, Math.sin(this.time * 1.3) + 0.35);
+    const nod = this.talking > 0.2 ? Math.abs(Math.sin(this.time * 6.5)) * Math.min(1, phrase) * 0.09 : 0;
+    t.head.rotation.set(this.look.y + nod, this.look.x, 0, 'YXZ');
     // the page: every fifteen to twenty-five seconds, over (not while she's looking at you)
     if (this.turning < 0) {
       this.turnIn -= dt;

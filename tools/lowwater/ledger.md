@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -32,9 +32,10 @@ voice, and later a game.
    shop (shop.ts): shelves of spines, the Penguin shelf, the ladder, the window onto the street
    with the island's hour and rain in it, sunlight on the boards, the table and rug, Tine at the
    counter reading; five cards. See Done.
-2. **Her voice**: Tine's lines spoken (ElevenLabs speech: add TTS to tools/sounds/generate.ts or
-   a sibling script, one voice, Dutch-accented English, dry), placed at the counter; more lines,
-   by the hour, weather and day.
+2. **Her voice** (done): Tine's lines spoken, in a senior Dutch voice speaking English
+   (tools/lowwater/tine.py records src/island/lowwater/tine.json), from her side of the counter;
+   eight first lines by the moment (rain, snow, night, Sunday, a Monday morning, morning,
+   evening, day) and seven in turn after. See Done.
 3. **Its sound**: the bell on its spring over the street door, the boards, a clock, the rain on
    the glass, the street outside through the window, her page turning.
 4. **Someone comes in**: customers (their own voices) asking for half-remembered books ("blue
@@ -189,6 +190,29 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The bookshop, step 2: her voice** (project: The bookshop): Tine says her lines out loud now.
+  Her words moved to src/island/lowwater/tine.json; tools/lowwater/tine.py records each with
+  ElevenLabs (voice "Marianne", a senior Dutch voice from the library, speaking English with
+  eleven_multilingual_v2: picked over two others for being the lowest and levellest, the
+  driest), trims and levels it to -20 LUFS into public/audio/lowwater/tine/, named by a hash of
+  the words so an edited line is recorded again, and writes tine-tape.json. Fifteen lines (632 KB):
+  the first time at the counter by the moment (`tineMoment` in words.ts: rain, snow, the night,
+  Sunday ("I'm not open. I come in to read where nobody wants anything from me. Present company
+  excepted."), a Monday morning (Dutch shops shut till the afternoon), morning (the kettle),
+  evening (she shuts at the end of her chapter), the day), then seven in turn: the pencil note,
+  the pencilled price top right, the book you had at twelve, the shelf behind her, the letters in
+  a tin, the blue cover that was green and a windmill, since 1979. `sound.tine(file, side)` in
+  sound.ts plays a take through the flat's bus from her side of the picture (`tineSide` in shop.ts,
+  panned up to 0.6), the top taken off at 7.5 kHz and two early reflections for a small room of
+  books; a new line cuts off the last, and going out of the shop or leaving Low Water stops her.
+  While she talks her head dips on the stresses (`tineSays`, timed at fifteen characters a
+  second). Only with the site's sound on. Why: a character with her own voice was the point of
+  the shop, and a bookseller is someone you hear before you read. Checked: every take transcribed
+  back word for word by ElevenLabs' speech-to-text; in Playwright (loop-runs/tine-voice.mjs <out>
+  <size> <query> <tag> [shots]) each moment's first line and three visits in turn, the take
+  fetched and played, desktop and phone; shots in loop-runs/lowwater-logs/shots/2026-10-17-tine-voice.
+  No console errors.
 
 - **The bookshop, step 1: the door and the shop** (project: The bookshop): on the page at
   (-22, -17), north of the way to the sentence, a door stands on its own, drawn in ink and ajar,
@@ -1346,7 +1370,10 @@ lamp close up), not explained.
   of letter-ish marks, not legible even zoomed in. The ladder's foot reads a little like a chair
   back. When Tine looks up at you she turns away from the camera, so you see her hair. The
   window faces west and is sunlit at any daylight hour (the patch's slant is chosen, not the real
-  sun's). No sound but the boards; the door bell swings silently. Fog and snow in the window never
+  sun's). No sound but the boards and her voice; the door bell swings silently. Her voice has never
+  been listened to by a person (picked by description, pitch and a transcript); her nod is timed
+  from the line's length, not the take's, and is a few texels. Sunday and Monday morning come
+  from the visit's date, her hours from the island's clock. Fog and snow in the window never
   screenshot. Rain streaks are faint. Leaving Low Water from the shop puts you at the withies.
 
 - In their steps (old floor): you only fall in walking along a line, not by clicking a print; a

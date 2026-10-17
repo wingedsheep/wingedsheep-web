@@ -90,6 +90,8 @@ const DRIVEN = (() => {
  * touch): low, since his clips are levelled hot and the drive and the compressor add more.
  */
 const DJ_LEVEL = 0.4;
+/** Tine's voice across her counter (her lines are levelled to -20 LUFS). */
+const TINE_LEVEL = 0.85;
 /** Short clips, decoded up front: one of each set plays, never the same one twice in a row. */
 const CLIPS = {
   baa: ['sheep-1', 'sheep-2', 'sheep-3'],
@@ -222,6 +224,9 @@ export class Sound {
    */
   private flatOut?: { gain: GainNode; filter: BiquadFilterNode };
   private walled = false;
+  /** Tine's line being said in the bookshop, and her recordings as they're fetched. */
+  private tineSaying?: AudioBufferSourceNode;
+  private tineTakes = new Map<string, Promise<AudioBuffer>>();
   /** The geul out on the flat, running (geul()). */
   private geulRun?: { gain: GainNode; side: StereoPannerNode };
   /** The knots over the far flat, flying (knots()). */
@@ -1398,6 +1403,48 @@ export class Sound {
     if (!this.enabled || !this.ctx) return;
     this.play('lowwater-slide', 1, { air: 12000 });
     navigator.vibrate?.(6);
+  }
+
+  /**
+   * Tine at her counter in the bookshop behind the page, saying a line (recorded by
+   * tools/lowwater/tine.py): from her side of the picture (`side` -1 … 1), close, in a small room
+   * of books and boards (two early reflections, the top taken off). A new line cuts off the last;
+   * `null` just stops her (going out of the shop).
+   */
+  tine(file: string | null, side = 0) {
+    this.tineSaying?.stop();
+    this.tineSaying = undefined;
+    if (!file || !this.enabled || !this.ctx) return;
+    const ctx = this.ctx;
+    let take = this.tineTakes.get(file);
+    if (!take) {
+      take = fetch(`${AUDIO}lowwater/tine/${file}`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${file}: ${r.status}`))))
+        .then((data) => ctx.decodeAudioData(data));
+      this.tineTakes.set(file, take);
+    }
+    const src = ctx.createBufferSource();
+    this.tineSaying = src;
+    void take.then((buffer) => {
+      if (this.tineSaying !== src || !this.enabled) return;
+      src.buffer = buffer;
+      const top = ctx.createBiquadFilter();
+      top.type = 'lowpass';
+      top.frequency.value = 7500;
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = Math.max(-1, Math.min(1, side)) * 0.6;
+      const gain = ctx.createGain();
+      gain.gain.value = TINE_LEVEL;
+      src.connect(top).connect(pan).connect(gain).connect(this.flatBus().gain);
+      for (const [delay, level] of [[0.011, 0.12], [0.023, 0.08]]) {
+        const d = ctx.createDelay(0.05);
+        d.delayTime.value = delay;
+        const g = ctx.createGain();
+        g.gain.value = level;
+        top.connect(d).connect(g).connect(pan);
+      }
+      src.start(ctx.currentTime + 0.25);
+    }).catch(() => {});
   }
 
   /**

@@ -1,0 +1,21 @@
+{
+  "first": {
+    "rain": "Wipe your feet. Paper hates rain more than I do.",
+    "snow": "Shut the door, quick. Snow’s worse than rain: it waits till it’s inside before it gets anything wet.",
+    "night": "We’re shut, officially. But you came in through the back of a page, so I suppose you’d better have a look round.",
+    "sunday": "It’s Sunday, I’m not open. I come in to read where nobody wants anything from me. Present company excepted.",
+    "monday": "Monday morning. Shops here don’t open till the afternoon, and in forty-odd years nobody’s given me a reason to change that.",
+    "morning": "The kettle’s only just on. Look round all you like, but don’t expect conversation till it’s boiled.",
+    "evening": "I shut at six, in theory. In practice I shut when I get to the end of my chapter.",
+    "day": "Come in, shut the door, it’s not a church. Ask if you’re looking for something. Don’t ask for the one with the blue cover."
+  },
+  "again": [
+    "People think a pencil note spoils a book. It’s the only proof anyone read it.",
+    "The price is in pencil, first page, top right. If it’s in pen, it came from a shop that didn’t deserve it.",
+    "Everyone wants the book they had when they were twelve. It’s never as good. They always buy it.",
+    "The ones on the shelf behind me aren’t for sale. They have the best margins.",
+    "You find things in them. Bus tickets, a pressed flower, a letter nobody posted. I keep the letters in a tin. I haven’t read them all.",
+    "Last week a man wanted the one with the blue cover, with a lighthouse in it. It was green, and a windmill. We found it.",
+    "I’ve had this shop since 1979. I’ve read the ones that matter, and a great many that don’t."
+  ]
+}

@@ -9,6 +9,7 @@ import type { IslandContext } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { visitDate } from './scene/calendar';
+import TAPE from './lowwater/tine-tape.json';
 import { season } from './scene/season';
 import { moonPosition, visitorLocation } from './scene/sun';
 import { LONGEST, sandable } from './lowwater/sand';
@@ -21,7 +22,7 @@ import type { Ridge } from './lowwater/ridge';
 import type { Shop } from './lowwater/shop';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_LABELS, SHOP_WINDOW, STREET_DOOR, TINE_AGAIN, TINE_FIRST, TINE_MORE, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_LABELS, SHOP_WINDOW, STREET_DOOR, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -521,9 +522,16 @@ export class LowWaterRoom implements RoomInput {
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        const m = shop.moment;
-        const first = m.rain > 0.3 ? TINE_FIRST.rain : m.day < 0.2 ? TINE_FIRST.night : TINE_FIRST.day;
-        this.text.textContent = id === 'tine' ? (shop.visits <= 1 ? first : TINE_AGAIN[(shop.visits - 2) % TINE_AGAIN.length]) : id === 'shelves' ? SHELVES : id === 'window' ? SHOP_WINDOW : id === 'door' ? STREET_DOOR : SHOP;
+        // (what Tine says, on the card and out loud: the first time by the moment, then the rest in turn)
+        const line = shop.visits <= 1 ? `first.${tineMoment(shop.moment, visitDate(), new Date(this.ctx.sky.time).getHours())}` : `again.${(shop.visits - 2) % TINE_AGAIN.length}`;
+        const [part, which] = line.split('.');
+        const said = part === 'first' ? TINE_FIRST[which as keyof typeof TINE_FIRST] : TINE_AGAIN[Number(which)];
+        this.text.textContent = id === 'tine' ? `“${said}”` : id === 'shelves' ? SHELVES : id === 'window' ? SHOP_WINDOW : id === 'door' ? STREET_DOOR : SHOP;
+        if (id === 'tine' && this.ctx.sound.enabled) {
+          this.ctx.sound.tine(TAPE[line as keyof typeof TAPE], shop.tineSide());
+          // (her takes run about fifteen characters a second, after a breath)
+          shop.tineSays(0.25 + said.length / 15);
+        }
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
@@ -648,6 +656,7 @@ export class LowWaterRoom implements RoomInput {
     if (to === 'page' && this.page && this.inShop) {
       // (back out of the shop's street door: onto the page in front of its door, the page as you left it)
       this.shop?.releaseKeys();
+      this.ctx.sound.tine(null);
       this.inShop = false;
       this.page.fromShop();
       this.onPage = true;
@@ -840,6 +849,7 @@ export class LowWaterRoom implements RoomInput {
       this.world?.ashore();
       this.log?.show(false);
       this.postcard?.show(false);
+      this.ctx.sound.tine(null);
       this.ctx.sound.lowWater(false);
       this.ctx.toast('The water closes over your footprints.');
     }

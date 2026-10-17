@@ -1,6 +1,7 @@
 /** Low Water's words: what each thing says, and the lines that come after. */
 import type { Cast, FloorCard } from './floor';
 import type { StationId } from './world';
+import tine from './tine.json';
 
 /** What each thing says. */
 export const CARDS: Record<StationId, string> = {
@@ -311,17 +312,21 @@ export const SHELVES = 'Fiction, A to Z, all the way up. The orange spines are o
 export const SHOP_WINDOW = 'The shop’s name is on the glass, backwards from in here: Antiquariaat De Ezelsoor. An ezelsoor is a donkey’s ear, the corner of a page someone folded down to keep their place.';
 /** By the street door. */
 export const STREET_DOOR = 'The street door. Out through it is the page again.';
-/** Tine, at the counter, the first time: by the moment (rain, night, otherwise). */
-export const TINE_FIRST = {
-  rain: '“Wipe your feet. Paper hates rain more than I do.”',
-  night: '“We’re shut, officially. But you came in through the back of a page, so I suppose you’d better have a look round.”',
-  day: '“Come in, shut the door, it’s not a church. Ask if you’re looking for something. Don’t ask for the one with the blue cover.”',
-};
-/** And coming back to the counter, one of these in turn. */
-export const TINE_AGAIN = [
-  '“People think a pencil note spoils a book. It’s the only proof anyone read it.”',
-  '“The ones on the shelf behind me aren’t for sale. They have the best margins.”',
-  '“Forty-seven years I’ve had this shop. I’ve read the ones that matter, and a great many that don’t.”',
-];
+/**
+ * Tine, at the counter (her words are tine.json, which tools/lowwater/tine.py records in her voice):
+ * the first time by the moment, and coming back to the counter, the rest in turn.
+ */
+export type TineMoment = keyof typeof tine.first;
+export const TINE_FIRST = tine.first;
+export const TINE_AGAIN = tine.again;
+/** What she says the first time, for the moment: rain, snow, the night, Sunday, a Monday morning, the morning, the evening, or the day. */
+export function tineMoment(m: { day: number; rain: number; snow: number }, at: Date, hour: number): TineMoment {
+  if (m.rain > 0.3) return 'rain';
+  if (m.snow > 0.3) return 'snow';
+  if (m.day < 0.2) return 'night';
+  if (at.getDay() === 0) return 'sunday';
+  if (at.getDay() === 1 && hour < 13) return 'monday';
+  return hour < 11 ? 'morning' : hour >= 17 ? 'evening' : 'day';
+}
 export const TINE_MORE = 'That’s Tine. She’s kept this shop since 1979, and she’s never once let a book go out of the door without saying what she thinks of it.';
 export const SHOP_LABELS = { tine: 'Tine', shelves: 'Fiction, A–Z', window: 'The window', door: 'The street door' };
