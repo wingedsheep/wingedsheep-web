@@ -52,6 +52,12 @@ export class Forks {
   /** The words said so far, and whether it's reached its full stop. */
   said: string[] = [];
   done = false;
+  /**
+   * For the sound: the pencil starting a word (or its line) for so many seconds, from so near (0–1)
+   * and that side (−1–1); a word going into ink; the full stop.
+   */
+  onPencil?: (seconds: number, near: number, pan: number, line: boolean) => void;
+  onSay?: (stop: boolean) => void;
   private ink = new THREE.MeshBasicMaterial({ color: INK, side: THREE.DoubleSide });
   private pencil = new THREE.MeshBasicMaterial({ color: PENCIL, side: THREE.DoubleSide });
   private words: Word[] = [];
@@ -131,8 +137,10 @@ export class Forks {
       word.text.geometry.dispose();
       word.text = write(`${word.w}.`, this.depth);
       word.mesh.geometry = word.text.geometry;
+      this.onSay?.(true);
       return;
     }
+    this.onSay?.(false);
     // (a fork wanders as a path does, but keeps coming back towards where the sentence began)
     const lean = THREE.MathUtils.clamp((START.x - word.at.x) * 0.3, -4, 4);
     const top = 7 * this.depth * T0 + 0.5;
@@ -153,11 +161,15 @@ export class Forks {
         break;
       }
     }
+    // heard from where it's being written: softer further off, gone past about 30 m
+    const hear = (at: THREE.Vector3) => [Math.max(0, 1 - pos.distanceTo(at) / 30), THREE.MathUtils.clamp((at.x - pos.x) / 14, -1, 1)] as const;
     for (const l of this.lines) {
+      if (l.wait > 0 && l.wait - dt <= 0) this.onPencil?.(LEN / DRAW, ...hear(l.from.at), true);
       l.wait -= dt;
       if (l.wait < 0) l.grown = Math.min(1, l.grown + (dt * DRAW) / LEN);
     }
     for (const w of this.words) {
+      if (w.wait > 0 && w.wait - dt <= 0) this.onPencil?.((w.text.marks.length - 1) / HAND, ...hear(w.at), false);
       w.wait -= dt;
       if (w.wait < 0 && w.letters < w.text.marks.length - 1) w.letters = Math.min(w.text.marks.length - 1, w.letters + dt * HAND);
       w.text.geometry.setDrawRange(0, w.text.marks[Math.floor(w.letters)]);

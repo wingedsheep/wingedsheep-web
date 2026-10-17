@@ -156,6 +156,8 @@ export class LowWaterRoom implements RoomInput {
       .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }]) => {
         this.page = new Page(() => this.pixels.height);
         this.page.onStep = () => this.ctx.sound.pageStep();
+        this.page.forks.onPencil = (seconds, near, pan, line) => this.ctx.sound.pencil(seconds, near, pan, line);
+        this.page.forks.onSay = (stop) => this.ctx.sound.nib(stop);
         this.paper.copy(PAPER);
         this.log = new Log(this.el.querySelector<HTMLElement>('[data-lowwater-log]')!, () => this.log?.show(false));
         this.postcard = new Postcard(this.el.querySelector<HTMLElement>('[data-lowwater-postcard]')!, () => this.postcard?.show(false));
@@ -182,7 +184,7 @@ export class LowWaterRoom implements RoomInput {
           bean: (pan) => this.ctx.sound.beanPlop(pan),
         };
         this.world = world;
-        if (import.meta.env.DEV) Object.assign(window, { lowwater: world, lowwaterPage: this.page });
+        if (import.meta.env.DEV) Object.assign(window, { lowwater: world, lowwaterPage: this.page, lowwaterSound: this.ctx.sound });
         this.resize();
         return world;
       })

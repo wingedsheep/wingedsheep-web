@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -28,8 +28,9 @@ the change of material does the work, and one card says it.
    it, and only then are the words that could come next drawn out from it, in pencil, as thick
    as I guess they were likely. Said words ink; the rest stay in pencil. Ends in a full stop and
    the sentence you walked as a card. See Done.
-3. **Its sound**: near-silence is right; maybe one quiet thing when a sentence ends. Perhaps
-   the session's one piece of music, if a sentence's end earns it.
+3. **Its sound** (done): a real pencil as the next words are written, each from where it's
+   written; a nib as a word goes into ink; the dot of the full stop, pressed and felt. No
+   music: the dot was the one quiet thing the end needed. See Done.
 4. **The end of a sentence**: what the full stop does (it could be where the page turns, and
    everything walked goes at once, as it does when you leave).
 5. Then see. The page may be enough.
@@ -65,6 +66,21 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The page, step 3: its sound** (project: The page): the page stays near-silent, but now you
+  hear the writing. When the words that could come next are drawn out from the one you said,
+  each line is one long soft pencil stroke from your feet, and each word is a scratch of pencil
+  exactly as long as its letters take to write, from where it's being written (panned left or
+  right, softer further off, gone past 30 m). A real pencil, `lowwater-pencil` (ElevenLabs, 6 s
+  of small joined handwriting on thick paper; by spectrogram ~10 dry broadband strokes a second,
+  −19.5 LUFS raw), sliced a word at a time from a random place in it (`pencil()` in sound.ts,
+  level 0.15, lines duller and at 0.8 speed). Stepping on a word, it goes into ink with a nib
+  touching down (`nib()`, WebAudio: a soft press and a small tick; 4 ms on a phone); at the full
+  stop, the dot: the pen pressed once, firmly, with the desk's knock under it (12 ms on a phone).
+  Forks emits `onPencil`/`onSay`; lowwater.ts wires them. In dev, `window.lowwaterSound` is the
+  site's sound, for checks. Checked with loop-runs/pencil-check.mjs (forks-shots with every
+  pencil/nib call logged; the audio context running and the pencil loaded, a full stop reached,
+  no errors); shots in loop-runs/lowwater-logs/shots/2026-10-17-pencil/. Nothing on screen changed.
 
 - **The page, step 2: the forks** ("they just weren't said"; project: The page): 40 m west of
   where you come onto the page lies one small word, "a", in pencil (`START` in
@@ -713,6 +729,9 @@ lamp close up), not explained.
 
 ## Known issues
 
+- The page's pencil, nib and dot have never been listened to by a person: levels are a guess
+  (the pencil at 0.15, about −34 LUFS close to, which is louder than the page's steps on
+  purpose). At a three-way fork the three lines' strokes overlap for half a second.
 - The forks: the words are crisp but small (9 texels high); on a phone they're the same few
   texels. You can only ever say the words of the fork in front of you; walking onto old pencil
   words does nothing, and nothing says so. Words have no hover label, and clicking one only

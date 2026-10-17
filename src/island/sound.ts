@@ -127,8 +127,8 @@ const SFX = {
   costumes: { cackle: 2, vampire: 2 },
   // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
   graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
-  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings
-  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1 },
+  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil
+  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -139,7 +139,7 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
-  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5,
+  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
@@ -1593,6 +1593,69 @@ export class Sound {
     env.gain.setTargetAtTime(0, t + 0.045, 0.035);
     src.connect(band).connect(env).connect(this.master);
     src.start(t, Math.random() * 1.5, 0.3);
+  }
+
+  /**
+   * The pencil on the page, writing out a word that could come next (or drawing its line): a slice
+   * of a real pencil, as long as the writing takes, from where the word is, softer further off.
+   * A line is one long stroke, so it's duller and quieter than the letters.
+   */
+  pencil(seconds: number, near: number, pan: number, line = false) {
+    const take = this.sfx.get('lowwater-pencil')?.[0];
+    if (!this.enabled || !this.ctx || !this.master || !take || near <= 0) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const len = Math.min(seconds, take.duration - 0.1);
+    const src = ctx.createBufferSource();
+    src.buffer = take;
+    src.playbackRate.value = line ? 0.8 : 0.95 + Math.random() * 0.1;
+    const air = ctx.createBiquadFilter();
+    air.type = 'lowpass';
+    air.frequency.value = (line ? 2500 : 5000) + near * near * 9000;
+    const side = ctx.createStereoPanner();
+    side.pan.value = Math.max(-1, Math.min(1, pan));
+    const env = ctx.createGain();
+    const level = LEVEL['lowwater-pencil'] * near * near * (line ? 0.45 : 1);
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(level, t + 0.02);
+    env.gain.setValueAtTime(level, t + Math.max(0.03, len - 0.05));
+    env.gain.linearRampToValueAtTime(0, t + len);
+    src.connect(air).connect(side).connect(env).connect(this.master);
+    src.start(t, Math.random() * (take.duration - len - 0.05), len + 0.05);
+  }
+
+  /**
+   * A word said on the page, going into ink: the nib touching down, a soft wet press with a small
+   * tick in it, by your feet. With the full stop, the dot: the pen pressed once, firmly, and lifted
+   * (and, on a phone, felt).
+   */
+  nib(stop = false) {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    navigator.vibrate?.(stop ? 12 : 4);
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const press = ctx.createBufferSource();
+    press.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = (stop ? 900 : 1600) * (0.92 + Math.random() * 0.16);
+    band.Q.value = 1.2;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(stop ? 0.06 : 0.025, t + 0.004);
+    env.gain.setTargetAtTime(0, t + 0.01, stop ? 0.045 : 0.025);
+    press.connect(band).connect(env).connect(this.master);
+    press.start(t, Math.random() * 1.5, 0.3);
+    // the tick of the point on the paper, and for the dot, the knock of the desk under it
+    const tick = ctx.createOscillator();
+    tick.frequency.value = stop ? 210 : 2900 + Math.random() * 400;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(stop ? 0.07 : 0.012, t + 0.002);
+    g.gain.setTargetAtTime(0, t + 0.004, stop ? 0.03 : 0.006);
+    tick.connect(g).connect(this.master);
+    tick.start(t);
+    tick.stop(t + 0.3);
   }
 
   /** A footstep onto laid shells: a few small dry clicks as they shift against each other (and, close up on a phone, felt). */

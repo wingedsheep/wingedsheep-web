@@ -264,6 +264,8 @@ export const SOUNDS: Sfx[] = [
   { name: 'lowwater-geul', loop: true, seconds: 12, lufs: -36, prompt: 'A small shallow tidal creek on an open mudflat running steadily over sand, a quiet continuous trickle and soft lapping where the current curls along a low muddy bank, close up, very calm evening, no wind, no waves, no birds, no voices, no music' },
   // and a flock of knots wheeling over the far flat in autumn and winter: their wings, as they turn
   { name: 'lowwater-knots', loop: true, seconds: 12, lufs: -34, prompt: 'A huge flock of several thousand small shorebirds wheeling together in the air over a wide empty tidal mudflat, heard from a little way off: a soft continuous rushing roar of thousands of wings that swells and fades as the flock turns, and faint low soft grunting calls, knut, knut, very calm evening, no wind, no waves, no gulls, no voices, no music' },
+  // and the page past the flat: a pencil writing out the words that could come next, sliced a word at a time
+  { name: 'lowwater-pencil', seconds: 6, prompt: 'A sharp graphite pencil writing quickly in small joined handwriting on a single sheet of thick paper on a wooden desk, very close up: continuous light dry scratching strokes and tiny ticks as the point lifts and lands, steady, a very quiet room, no voices, no paper rustling, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root
