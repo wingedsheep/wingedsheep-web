@@ -129,8 +129,8 @@ const SFX = {
   costumes: { cackle: 2, vampire: 2 },
   // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
   graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
-  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain and the slide over its hole, the sea's wash in front of the old floor, and in the bookshop the door's bell, the street and Tine's page
-  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1, 'lowwater-shipbell': 1, 'lowwater-curtain': 1, 'lowwater-slide': 1, 'lowwater-wash': 1, 'lowwater-shopbell': 1, 'lowwater-street': 1, 'lowwater-turn': 1 },
+  // out on Low Water (src/island/commonplace/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain and the slide over its hole, the sea's wash in front of the old floor, and in the bookshop the door's bell, the street and Tine's page
+  commonplace: { 'commonplace-bell': 2, 'commonplace-seal': 1, 'commonplace-slip': 1, 'commonplace-lead': 1, 'commonplace-curlew': 2, 'commonplace-horn': 1, 'commonplace-oar': 1, 'commonplace-creak': 1, 'commonplace-geul': 1, 'commonplace-knots': 1, 'commonplace-pencil': 1, 'commonplace-shipbell': 1, 'commonplace-curtain': 1, 'commonplace-slide': 1, 'commonplace-wash': 1, 'commonplace-shopbell': 1, 'commonplace-street': 1, 'commonplace-turn': 1 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -141,8 +141,8 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
-  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15, 'lowwater-shipbell': 0.4, 'lowwater-curtain': 0.3, 'lowwater-slide': 0.3, 'lowwater-wash': 0.55,
-  'lowwater-shopbell': 0.4, 'lowwater-street': 0.5, 'lowwater-turn': 0.12,
+  'commonplace-bell': 0.55, 'commonplace-seal': 0.4, 'commonplace-slip': 0.45, 'commonplace-lead': 0.4, 'commonplace-curlew': 0.45, 'commonplace-horn': 0.6, 'commonplace-oar': 0.35, 'commonplace-creak': 0.4, 'commonplace-geul': 0.5, 'commonplace-knots': 0.5, 'commonplace-pencil': 0.15, 'commonplace-shipbell': 0.4, 'commonplace-curtain': 0.3, 'commonplace-slide': 0.3, 'commonplace-wash': 0.55,
+  'commonplace-shopbell': 0.4, 'commonplace-street': 0.5, 'commonplace-turn': 0.12,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
@@ -215,7 +215,7 @@ export class Sound {
   private rush?: { gain: GainNode; filter: BiquadFilterNode };
   private falls?: { roar: GainNode; air: BiquadFilterNode; deep: GainNode; throb: OscillatorNode; depth: GainNode; synth: GainNode; recorded: boolean };
   private atRiver = false;
-  /** Out on Low Water (src/island/lowwater/): as far from the island's sounds as the river is. */
+  /** Out on Low Water (src/island/commonplace/): as far from the island's sounds as the river is. */
   private atFlat = false;
   /** Shallow water and air out on the flat. */
   private flat?: { gain: GainNode; filter: BiquadFilterNode };
@@ -1326,19 +1326,19 @@ export class Sound {
   // --- Low Water ------------------------------------------------------------------------
 
   /**
-   * Out on the flat (src/island/lowwater/): the island's sea and fire fall away, and all that's
+   * Out on the flat (src/island/commonplace/): the island's sea and fire fall away, and all that's
    * left is a hush of air over very shallow water, a little brighter and louder in a wind. The
    * weather still comes along. On the page (`inside` 'page') there's no water at all; in the
    * hide's dark room ('room') the flat's still all there, through a wall: dull, quiet, and every
    * sound of it from behind you, where the hole is. Down on the old floor ('floor') it's the
    * flat's air still, and the sea in front (`floorSea`).
    */
-  lowWater(on: boolean, wind = 0, inside: '' | 'page' | 'room' | 'floor' | 'shop' = '') {
+  commonplace(on: boolean, wind = 0, inside: '' | 'page' | 'room' | 'floor' | 'shop' = '') {
     this.atFlat = on;
     this.shopped = on && inside === 'shop';
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
     const ctx = this.ctx;
-    if (on) this.load('lowwater');
+    if (on) this.load('commonplace');
     const out = this.flatBus();
     this.walled = on && inside === 'room';
     out.gain.gain.setTargetAtTime(this.walled ? 0.45 : 1, ctx.currentTime, 0.15);
@@ -1401,19 +1401,19 @@ export class Sound {
   /** The hide's curtain, pushed aside going into its dark room or out of it: heavy cloth, close by, at the door on your right. */
   curtain() {
     if (!this.enabled || !this.ctx) return;
-    this.play('lowwater-curtain', 1, { air: 9000, pan: 0.35 });
+    this.play('commonplace-curtain', 1, { air: 9000, pan: 0.35 });
   }
 
   /** The slide over the hide's hole, pushed along to its next hole: dry wood in a groove, behind you, and its knock felt. */
   slide() {
     if (!this.enabled || !this.ctx) return;
-    this.play('lowwater-slide', 1, { air: 12000 });
+    this.play('commonplace-slide', 1, { air: 12000 });
     navigator.vibrate?.(6);
   }
 
   /**
    * Tine at her counter in the bookshop behind the page, saying a line (recorded by
-   * tools/lowwater/tine.py): from her side of the picture (`side` -1 … 1), close, in a small room
+   * tools/commonplace/tine.py): from her side of the picture (`side` -1 … 1), close, in a small room
    * of books and boards (two early reflections, the top taken off). A new line cuts off the last;
    * `null` just stops her (going out of the shop).
    */
@@ -1424,7 +1424,7 @@ export class Sound {
     const ctx = this.ctx;
     let take = this.tineTakes.get(file);
     if (!take) {
-      take = fetch(`${AUDIO}lowwater/tine/${file}`)
+      take = fetch(`${AUDIO}commonplace/tine/${file}`)
         .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${file}: ${r.status}`))))
         .then((data) => ctx.decodeAudioData(data));
       this.tineTakes.set(file, take);
@@ -1514,12 +1514,12 @@ export class Sound {
     if (!this.ctx || !this.master) return;
     let g = this.geulRun;
     if (!g) {
-      if (!level || !this.sfx.has('lowwater-geul')) return;
+      if (!level || !this.sfx.has('commonplace-geul')) return;
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
       const side = this.ctx.createStereoPanner();
       gain.connect(side).connect(this.flatBus().gain);
-      this.bed('lowwater-geul', gain, LEVEL['lowwater-geul']);
+      this.bed('commonplace-geul', gain, LEVEL['commonplace-geul']);
       g = this.geulRun = { gain, side };
     }
     const t = this.ctx.currentTime;
@@ -1535,12 +1535,12 @@ export class Sound {
     if (!this.ctx || !this.master) return;
     let k = this.knotsUp;
     if (!k) {
-      if (!level || !this.sfx.has('lowwater-knots')) return;
+      if (!level || !this.sfx.has('commonplace-knots')) return;
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
       const side = this.ctx.createStereoPanner();
       gain.connect(side).connect(this.flatBus().gain);
-      this.bed('lowwater-knots', gain, LEVEL['lowwater-knots']);
+      this.bed('commonplace-knots', gain, LEVEL['commonplace-knots']);
       k = this.knotsUp = { gain, side };
     }
     const t = this.ctx.currentTime;
@@ -1557,12 +1557,12 @@ export class Sound {
     if (!this.ctx || !this.master) return;
     let w = this.washIn;
     if (!w) {
-      if (!level || !this.sfx.has('lowwater-wash')) return;
+      if (!level || !this.sfx.has('commonplace-wash')) return;
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
       const side = this.ctx.createStereoPanner();
       gain.connect(side).connect(this.flatBus().gain);
-      this.bed('lowwater-wash', gain, LEVEL['lowwater-wash']);
+      this.bed('commonplace-wash', gain, LEVEL['commonplace-wash']);
       w = this.washIn = { gain, side };
     }
     const t = this.ctx.currentTime;
@@ -1579,7 +1579,7 @@ export class Sound {
     if (!this.ctx || !this.master) return;
     let s = this.streetIn;
     if (!s) {
-      if (!level || !this.sfx.has('lowwater-street')) return;
+      if (!level || !this.sfx.has('commonplace-street')) return;
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
       const glass = this.ctx.createBiquadFilter();
@@ -1587,7 +1587,7 @@ export class Sound {
       glass.frequency.value = 3200;
       const side = this.ctx.createStereoPanner();
       gain.connect(glass).connect(side).connect(this.flatBus().gain);
-      this.bed('lowwater-street', gain, LEVEL['lowwater-street']);
+      this.bed('commonplace-street', gain, LEVEL['commonplace-street']);
       s = this.streetIn = { gain, side };
     }
     const t = this.ctx.currentTime;
@@ -1599,13 +1599,13 @@ export class Sound {
   shopBell(pan: number) {
     if (!this.enabled || !this.ctx) return;
     navigator.vibrate?.([4, 60, 3]);
-    this.play('lowwater-shopbell', 1, { air: 14000, pan: pan * 0.7 });
+    this.play('commonplace-shopbell', 1, { air: 14000, pan: pan * 0.7 });
   }
 
   /** Tine turning a page, from her side: a dry whisper of paper, only heard near. */
   shopTurn(pan: number, near: number) {
     if (!this.enabled || !this.ctx || near < 0.3) return;
-    this.play('lowwater-turn', near, { air: 9000, pan: pan * 0.6 });
+    this.play('commonplace-turn', near, { air: 9000, pan: pan * 0.6 });
   }
 
   /**
@@ -1739,7 +1739,7 @@ export class Sound {
   buoy(near: number, pan: number) {
     if (!this.enabled || !this.ctx || !this.master || near < 0.02) return;
     if (near > 0.6) navigator.vibrate?.(10);
-    if (this.play('lowwater-bell', near, { air: 2200 + near * near * 15000, pan })) return;
+    if (this.play('commonplace-bell', near, { air: 2200 + near * near * 15000, pan })) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
     const side = ctx.createStereoPanner();
@@ -1768,7 +1768,7 @@ export class Sound {
   sealSound(kind: 'slip' | 'breath', near: number, pan: number) {
     if (!this.enabled || !this.ctx || near < 0.03) return;
     if (kind === 'slip' && near > 0.5) navigator.vibrate?.(8);
-    this.play(kind === 'slip' ? 'lowwater-slip' : 'lowwater-seal', near, { air: 1800 + near * near * 14000, pan });
+    this.play(kind === 'slip' ? 'commonplace-slip' : 'commonplace-seal', near, { air: 1800 + near * near * 14000, pan });
   }
 
   /**
@@ -1778,7 +1778,7 @@ export class Sound {
   leadSound(kind: 'plunk' | 'bottom', near: number, pan: number) {
     if (!this.enabled || !this.ctx) return;
     if (kind === 'bottom') return void navigator.vibrate?.(12);
-    this.play('lowwater-lead', near, { air: 1800 + near * near * 14000, pan });
+    this.play('commonplace-lead', near, { air: 1800 + near * near * 14000, pan });
   }
 
   /**
@@ -1787,7 +1787,7 @@ export class Sound {
    */
   curlew(near: number, pan: number) {
     if (!this.enabled || !this.ctx) return false;
-    return this.play('lowwater-curlew', near, { air: 2500 + near * near * 12000, pan });
+    return this.play('commonplace-curlew', near, { air: 2500 + near * near * 12000, pan });
   }
 
   /**
@@ -1797,7 +1797,7 @@ export class Sound {
   lightshipHorn(near: number, pan: number) {
     if (!this.enabled || !this.ctx) return;
     if (near > 0.6) navigator.vibrate?.([14, 30, 14, 30, 14]);
-    this.play('lowwater-horn', near, { air: 900 + near * near * 7000, pan });
+    this.play('commonplace-horn', near, { air: 900 + near * near * 7000, pan });
   }
 
   /**
@@ -1807,21 +1807,21 @@ export class Sound {
   shipBell(near: number, pan: number) {
     if (!this.enabled || !this.ctx || near < 0.03) return;
     if (near > 0.8) navigator.vibrate?.(8);
-    this.play('lowwater-shipbell', near, { air: 2000 + near * near * 14000, pan });
+    this.play('commonplace-shipbell', near, { air: 2000 + near * near * 14000, pan });
   }
 
   /** A stroke of the praam's oars: you're in the boat, so it's right by you. Felt, faintly, as the blades bite. */
   oar() {
     if (!this.enabled || !this.ctx) return;
     navigator.vibrate?.(6);
-    this.play('lowwater-oar', 1, { air: 9000 });
+    this.play('commonplace-oar', 1, { air: 9000 });
   }
 
   /** The lightship's hull, creaking at the end of a roll: under your feet aboard (and felt, faintly), duller from the boat. */
   creak(near: number) {
     if (!this.enabled || !this.ctx) return;
     if (near > 0.8) navigator.vibrate?.(10);
-    this.play('lowwater-creak', near, { air: 1500 + near * near * 9000 });
+    this.play('commonplace-creak', near, { air: 1500 + near * near * 9000 });
   }
 
   /** A footstep on her deck: a soft hollow knock on planking (in the bookshop, a customer's too: quieter, from where they are). */
@@ -2017,7 +2017,7 @@ export class Sound {
    * A line is one long stroke, so it's duller and quieter than the letters.
    */
   pencil(seconds: number, near: number, pan: number, line = false) {
-    const take = this.sfx.get('lowwater-pencil')?.[0];
+    const take = this.sfx.get('commonplace-pencil')?.[0];
     if (!this.enabled || !this.ctx || !this.master || !take || near <= 0) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
@@ -2031,7 +2031,7 @@ export class Sound {
     const side = ctx.createStereoPanner();
     side.pan.value = Math.max(-1, Math.min(1, pan));
     const env = ctx.createGain();
-    const level = LEVEL['lowwater-pencil'] * near * near * (line ? 0.45 : 1);
+    const level = LEVEL['commonplace-pencil'] * near * near * (line ? 0.45 : 1);
     env.gain.setValueAtTime(0, t);
     env.gain.linearRampToValueAtTime(level, t + 0.02);
     env.gain.setValueAtTime(level, t + Math.max(0.03, len - 0.05));
@@ -3036,7 +3036,7 @@ export class Sound {
     this.load('island');
     for (const set of this.wants) this.load(set);
     if (this.atRiver) this.load('river');
-    if (this.atFlat) this.load('lowwater');
+    if (this.atFlat) this.load('commonplace');
   }
 
   // --- the recordings -----------------------------------------------------------------------
@@ -3248,7 +3248,7 @@ export class Sound {
       out = src.connect(air);
     }
     // (the flat's sounds go out through its bus, so the hide's walls can come between; the curtain's in there with you)
-    const flat = name.startsWith('lowwater-') && name !== 'lowwater-curtain' && name !== 'lowwater-slide' && this.flatOut;
+    const flat = name.startsWith('commonplace-') && name !== 'commonplace-curtain' && name !== 'commonplace-slide' && this.flatOut;
     if (opts.pan) {
       const pan = ctx.createStereoPanner();
       pan.pan.value = Math.max(-1, Math.min(1, flat ? this.side(opts.pan) : opts.pan));

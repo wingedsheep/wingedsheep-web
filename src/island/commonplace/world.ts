@@ -38,7 +38,7 @@ import { SeaHeart } from './bean';
 import { makeFigure } from './figure';
 import { Bells } from './bells';
 
-/** Her deckhouse, as tools/models/lowwater.py has it (her model's metres): its middle along her, its windows each side, its door. */
+/** Her deckhouse, as tools/models/commonplace.py has it (her model's metres): its middle along her, its windows each side, its door. */
 const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
@@ -146,12 +146,12 @@ const ROUTE = [
   [0.4, -79], [1.6, -88], [0.2, -100], [-1.0, -111],
 ].map(([x, z]) => new THREE.Vector3(x, 0, z));
 const LAST = new THREE.Vector2(-1.0, -111);
-/** The wreck, off to the east of the way out, its bow swung round to the north-east (tools/models/lowwater.py). */
+/** The wreck, off to the east of the way out, its bow swung round to the north-east (tools/models/commonplace.py). */
 const WRECK = new THREE.Vector2(13, -76);
 const WRECK_TURN = 0.6;
 const WRECK_LENGTH = 10;
 const WRECK_BEAM = 3.2;
-/** The bell buoy, out in the deep water past the last twig, and where its bell and its light hang (tools/models/lowwater.py). */
+/** The bell buoy, out in the deep water past the last twig, and where its bell and its light hang (tools/models/commonplace.py). */
 const BUOY = new THREE.Vector2(7, -126);
 const BUOY_LAMP = 2.48;
 /** Its light: a long flash, two seconds in every ten (a safe-water mark's). */
@@ -289,7 +289,7 @@ const SKY_GLSL = /* glsl */ `
     if (a + j > 0.3) col = vec3(0.053, 0.062, 0.18);
     if (a + j > 0.5) col = vec3(0.034, 0.04, 0.135);
     if (a + j > 0.75) col = vec3(0.022, 0.026, 0.1);
-    // the island east, under the horizon, as the air brings it up (lowwater/mirage.ts)
+    // the island east, under the horizon, as the air brings it up (commonplace/mirage.ts)
     col *= 1.0 - uNight * 0.2 * step(0.09, a);
     col = mirage(col, a0, x, d);
     // rain: greyer and lower; fog: the low sky gone to mist
@@ -411,7 +411,7 @@ interface Ring {
   size: number;
 }
 
-export class LowWater {
+export class Commonplace {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, DISTANCE * 2.5);
   readonly subTexel = new THREE.Vector2();
@@ -1669,11 +1669,11 @@ export class LowWater {
     }
   }
 
-  /** What's modelled in Blender (tools/models/lowwater.py), loaded once you're out here. */
+  /** What's modelled in Blender (tools/models/commonplace.py), loaded once you're out here. */
   private async makeModels() {
-    const gltf = await new GLTFLoader().loadAsync(`/models/lowwater.glb?v=${__MODELS__}`);
+    const gltf = await new GLTFLoader().loadAsync(`/models/commonplace.glb?v=${__MODELS__}`);
     const find = (kind: string) => {
-      const o = gltf.scene.children.find((c) => c.userData.lowwater === kind);
+      const o = gltf.scene.children.find((c) => c.userData.commonplace === kind);
       o?.removeFromParent();
       return o;
     };
@@ -3129,7 +3129,7 @@ export class LowWater {
   }
 }
 
-/** The wreck's half-width at t (-1 stern … 1 bow), as tools/models/lowwater.py shapes it. */
+/** The wreck's half-width at t (-1 stern … 1 bow), as tools/models/commonplace.py shapes it. */
 function wreckHalfBeam(t: number) {
   const end = t > 0 ? 0.55 : 0.7;
   const k = Math.max(0, Math.abs(t) - (1 - end)) / end;

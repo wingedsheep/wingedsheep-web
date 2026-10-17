@@ -9,7 +9,7 @@
     blender -b --factory-startup -P tools/models/build.py -- --only career [--scene student] [--preview out.png]
     blender -b --factory-startup -P tools/models/build.py -- --only fauna --preview out.png [--focus x,y --span m]
     blender -b --factory-startup -P tools/models/build.py -- --only river [--preview out.png]
-    blender -b --factory-startup -P tools/models/build.py -- --only lowwater [--preview out.png]
+    blender -b --factory-startup -P tools/models/build.py -- --only commonplace [--preview out.png]
 
 Outputs (public/models/):
   island.glb    terrain + every model, with ids, lights and emitters as glTF extras
@@ -22,7 +22,7 @@ Outputs (public/models/):
   hut.glb       the mountain hut, inside, with Vincent's bed (tools/models/hut.py)
   career-<id>.glb  one floating diorama per chapter of the career trail (tools/models/career/)
   river.glb     what the wild-water river scatters along its banks (tools/models/river.py)
-  lowwater.glb  what Low Water loads when you walk out: the wreck (tools/models/lowwater.py)
+  commonplace.glb  what Low Water loads when you walk out: the wreck (tools/models/commonplace.py)
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def args():
     ap.add_argument("--yaw", type=float, default=0.0)
     ap.add_argument("--focus", default="0,1")
     ap.add_argument("--span", type=float, default=70.0)
-    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse", "lamproom", "hut", "fauna", "career", "river", "lowwater"])
+    ap.add_argument("--only", choices=["island", "library", "workshop", "lighthouse", "lamproom", "hut", "fauna", "career", "river", "commonplace"])
     ap.add_argument("--scene", help="with --only career: just this chapter's diorama")
     return ap.parse_args(argv)
 
@@ -255,15 +255,15 @@ def build_river(a):
         preview(a.preview, a.night, a.yaw, (n * 2.0, 0.0), a.span if a.span != 70.0 else n * 4.4, sea=False)
 
 
-def build_lowwater(a):
+def build_commonplace(a):
     reset_scene()
-    import lowwater  # noqa: E402
-    lowwater.build()
-    export("lowwater.glb")
-    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'lowwater.glb'}")
+    import commonplace  # noqa: E402
+    commonplace.build()
+    export("commonplace.glb")
+    print(f"exported {len(bpy.data.objects)} objects -> {OUT / 'commonplace.glb'}")
 
-    if a.preview and a.only == "lowwater":
-        roots = [o for o in bpy.data.objects if "lowwater" in o]
+    if a.preview and a.only == "commonplace":
+        roots = [o for o in bpy.data.objects if "commonplace" in o]
         for i, o in enumerate(roots):
             o.location = (i * 14.0, 0, 0)
         preview(a.preview, a.night, a.yaw, (len(roots) * 7.0 - 7.0, 0.0), a.span if a.span != 70.0 else 16.0, sea=False)
@@ -289,8 +289,8 @@ def main():
         build_career(a)
     if a.only in (None, "river"):
         build_river(a)
-    if a.only in (None, "lowwater"):
-        build_lowwater(a)
+    if a.only in (None, "commonplace"):
+        build_commonplace(a)
     if a.only == "fauna":
         preview_fauna(a)
 

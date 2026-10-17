@@ -774,74 +774,74 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .exhibit-card, .exhibit-card.beside, .exhibit-card.beside.to-left { position: fixed; left: 8px; right: 8px; top: auto; bottom: 64px; width: auto; max-height: 62vh; overflow-y: auto; transform: none; animation-name: sheet-in; }
 }
 
-/* --- Low Water: out on the flat (src/island/lowwater.ts) ------------------------------------ */
-.lowwater { position: absolute; inset: 0; z-index: 5; pointer-events: none; font-family: var(--ui); }
-.island-page:has(.lowwater:not([hidden])) :is(.brand, .hud, .hint) { display: none; }
-.lowwater .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.lowwater-back {
+/* --- Low Water: out on the flat (src/island/commonplace.ts) ------------------------------------ */
+.commonplace { position: absolute; inset: 0; z-index: 5; pointer-events: none; font-family: var(--ui); }
+.island-page:has(.commonplace:not([hidden])) :is(.brand, .hud, .hint) { display: none; }
+.commonplace .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.commonplace-back {
   position: absolute; top: 12px; left: 12px; padding: 5px 12px 7px; border: 0; pointer-events: auto; cursor: pointer;
   font: 15px var(--ui); color: #dfe3f4; background: rgba(20, 24, 54, 0.62); clip-path: var(--notch);
 }
-.lowwater-back:hover, .lowwater-back:focus-visible { color: #fff; background: rgba(20, 24, 54, 0.85); outline: none; }
-.lowwater-card {
+.commonplace-back:hover, .commonplace-back:focus-visible { color: #fff; background: rgba(20, 24, 54, 0.85); outline: none; }
+.commonplace-card {
   position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); width: min(460px, calc(100vw - 32px));
   padding: 14px 20px 14px; background: rgba(18, 21, 48, 0.82); color: #e9e6f2; clip-path: var(--notch);
-  box-shadow: inset 0 0 0 2px rgba(150, 160, 210, 0.35); pointer-events: auto; animation: lowwater-in 0.6s ease-out;
+  box-shadow: inset 0 0 0 2px rgba(150, 160, 210, 0.35); pointer-events: auto; animation: commonplace-in 0.6s ease-out;
 }
-@keyframes lowwater-in { from { opacity: 0; transform: translate(-50%, 6px); } }
-.lowwater-card p { margin: 0; font: 17px/1.5 var(--serif); white-space: pre-line; }
-.lowwater-card .lowwater-more { margin-top: 10px; color: #c4c9e6; font-style: italic; animation: lowwater-in 1.2s ease-out; }
+@keyframes commonplace-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+.commonplace-card p { margin: 0; font: 17px/1.5 var(--serif); white-space: pre-line; }
+.commonplace-card .commonplace-more { margin-top: 10px; color: #c4c9e6; font-style: italic; animation: commonplace-in 1.2s ease-out; }
 /* the card folds down to its first line, out of the way of the flat (tap it, or walk on, on a phone) */
-.lowwater-card { cursor: pointer; }
-.lowwater-card [data-lowwater-text] { padding-right: 22px; }
-.lowwater-fold {
+.commonplace-card { cursor: pointer; }
+.commonplace-card [data-commonplace-text] { padding-right: 22px; }
+.commonplace-fold {
   position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; padding: 0; border: 0; cursor: pointer;
   background: none; color: #c4c9e6; font: 700 18px/1 var(--ui);
 }
-.lowwater-fold::before { content: '–'; }
-.lowwater-fold:hover, .lowwater-fold:focus-visible { color: #fff; outline: none; }
-.lowwater-card.folded { padding-top: 8px; padding-bottom: 8px; }
-.lowwater-card.folded [data-lowwater-text] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c4c9e6; }
-.lowwater-card.folded :is(.lowwater-more, .lowwater-write) { display: none; }
-.lowwater-card.folded .lowwater-sit { margin-top: 6px; }
-.lowwater-card.folded .lowwater-fold { top: 0; height: 100%; }
-.lowwater-card.folded .lowwater-fold::before { content: '+'; }
-.lowwater-sit {
+.commonplace-fold::before { content: '–'; }
+.commonplace-fold:hover, .commonplace-fold:focus-visible { color: #fff; outline: none; }
+.commonplace-card.folded { padding-top: 8px; padding-bottom: 8px; }
+.commonplace-card.folded [data-commonplace-text] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c4c9e6; }
+.commonplace-card.folded :is(.commonplace-more, .commonplace-write) { display: none; }
+.commonplace-card.folded .commonplace-sit { margin-top: 6px; }
+.commonplace-card.folded .commonplace-fold { top: 0; height: 100%; }
+.commonplace-card.folded .commonplace-fold::before { content: '+'; }
+.commonplace-sit {
   margin-top: 10px; padding: 4px 16px 6px; border: 0; cursor: pointer; font: 700 15px var(--ui); clip-path: var(--notch);
   background: #f0b088; color: var(--ink); box-shadow: inset 0 -3px 0 #c07e5e;
 }
-.lowwater-sit:hover { background: #f6c3a2; }
-/* in the bookshop, the books on the shelves a customer might mean, one button each (src/island/lowwater/customer.ts) */
-.lowwater-choices { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; }
-.lowwater-choices[hidden] { display: none; }
-.lowwater-choices button {
+.commonplace-sit:hover { background: #f6c3a2; }
+/* in the bookshop, the books on the shelves a customer might mean, one button each (src/island/commonplace/customer.ts) */
+.commonplace-choices { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; }
+.commonplace-choices[hidden] { display: none; }
+.commonplace-choices button {
   padding: 3px 12px 5px; border: 0; cursor: pointer; font: 15px var(--serif); text-align: left; clip-path: var(--notch);
   background: rgba(240, 176, 136, 0.16); color: #f3e6d6; box-shadow: inset 0 0 0 2px rgba(240, 176, 136, 0.55);
 }
-.lowwater-choices button:hover, .lowwater-choices button:focus-visible { background: #f0b088; color: var(--ink); outline: none; }
-.lowwater-write { display: flex; gap: 8px; margin-top: 10px; }
-.lowwater-write[hidden] { display: none; }
-.lowwater-write input {
+.commonplace-choices button:hover, .commonplace-choices button:focus-visible { background: #f0b088; color: var(--ink); outline: none; }
+.commonplace-write { display: flex; gap: 8px; margin-top: 10px; }
+.commonplace-write[hidden] { display: none; }
+.commonplace-write input {
   flex: 1; min-width: 0; padding: 4px 10px 6px; border: 0; font: 15px var(--ui); letter-spacing: 0.06em; text-transform: uppercase;
   color: #e9e6f2; background: rgba(8, 10, 28, 0.7); box-shadow: inset 0 0 0 2px rgba(150, 160, 210, 0.3); clip-path: var(--notch);
 }
-.lowwater-write input::placeholder { color: rgba(196, 201, 230, 0.5); text-transform: none; letter-spacing: 0; }
-.lowwater-write input:focus { outline: none; box-shadow: inset 0 0 0 2px rgba(240, 176, 136, 0.7); }
-.lowwater-write button {
+.commonplace-write input::placeholder { color: rgba(196, 201, 230, 0.5); text-transform: none; letter-spacing: 0; }
+.commonplace-write input:focus { outline: none; box-shadow: inset 0 0 0 2px rgba(240, 176, 136, 0.7); }
+.commonplace-write button {
   padding: 4px 16px 6px; border: 0; cursor: pointer; font: 700 15px var(--ui); clip-path: var(--notch);
   background: #f0b088; color: var(--ink); box-shadow: inset 0 -3px 0 #c07e5e;
 }
-.lowwater-write button:hover { background: #f6c3a2; }
+.commonplace-write button:hover { background: #f6c3a2; }
 /* her log: a printed form on paper, ruled, a column for the watch and one for the remarks, and
-   every line in its own watch's hand (src/island/lowwater/log.ts) */
-.lowwater-log {
+   every line in its own watch's hand (src/island/commonplace/log.ts) */
+.commonplace-log {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(600px, calc(100vw - 24px));
   max-height: calc(100% - 70px); overflow-y: auto; padding: 14px 18px 12px; pointer-events: auto; color: var(--ink);
   background: #ece2c8; clip-path: var(--notch); box-shadow: inset 0 0 0 3px #c4b28a, inset 0 -6px 0 #d8caa4;
   animation: log-in 0.5s ease-out;
 }
 @keyframes log-in { from { opacity: 0; transform: translate(-50%, -48%); } }
-.lowwater:has(.lowwater-log:not([hidden])) .lowwater-card { visibility: hidden; }
+.commonplace:has(.commonplace-log:not([hidden])) .commonplace-card { visibility: hidden; }
 .log-head, .log-cols { display: flex; justify-content: space-between; margin: 0; font: 13px var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: #6a5a48; }
 .log-head { padding-bottom: 6px; font-size: 14px; color: #4a3c30; }
 .log-cols { display: grid; grid-template-columns: 112px 1fr; border-top: 3px solid #4a3c30; border-bottom: 2px solid #9a4a44; padding: 3px 0 2px; }
@@ -862,12 +862,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .log-nav button:disabled { opacity: 0.35; cursor: default; }
 .log-nav button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--ink); }
 /* the postcard on the table: the proof in a hand on the left, the address on the right, a stamp
-   and a postmark, and on its other side the flat as it looked (src/island/lowwater/postcard.ts) */
-.lowwater-postcard {
+   and a postmark, and on its other side the flat as it looked (src/island/commonplace/postcard.ts) */
+.commonplace-postcard {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(620px, calc(100vw - 24px));
   max-height: calc(100% - 70px); overflow-y: auto; pointer-events: auto; animation: log-in 0.5s ease-out;
 }
-.lowwater:has(.lowwater-postcard:not([hidden])) .lowwater-card { visibility: hidden; }
+.commonplace:has(.commonplace-postcard:not([hidden])) .commonplace-card { visibility: hidden; }
 .postcard { margin-bottom: 10px; color: #232040; background: #f1ead8; clip-path: var(--notch); box-shadow: inset 0 0 0 3px #d2c6a6, inset 0 -6px 0 #e0d6ba; }
 .postcard-back { display: grid; grid-template-columns: 1.25fr auto 1fr; aspect-ratio: 3 / 2; padding: 18px 16px 16px 20px; }
 .postcard-back[hidden], .postcard-front[hidden] { display: none; }
@@ -899,17 +899,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .postcard-address span { padding: 8px 0 3px 6px; border-bottom: 2px solid #b9ab8c; }
 .postcard-front { padding: 14px; }
 .postcard-front img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; image-rendering: pixelated; }
-.lowwater-postcard .log-nav { justify-content: center; }
+.commonplace-postcard .log-nav { justify-content: center; }
 /* a book from Tine's own shelf in the shop: the printed page, and three readers in its margins,
-   each in their own hand: pencil, blue biro, and Tine's green ink (src/island/lowwater/margins.ts) */
-.lowwater-kept {
+   each in their own hand: pencil, blue biro, and Tine's green ink (src/island/commonplace/margins.ts) */
+.commonplace-kept {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 24px));
   max-height: calc(100% - 70px); overflow-y: auto; padding: 14px 16px 12px; pointer-events: auto; color: #2a2420;
   background: #efe5cc; clip-path: var(--notch); box-shadow: inset 0 0 0 3px #c9b68c, inset 0 -6px 0 #ddcda6, inset 14px 0 0 -8px #d6c49c;
   animation: log-in 0.5s ease-out;
 }
-.lowwater:has(.lowwater-kept:not([hidden])) .lowwater-card { visibility: hidden; }
-.lowwater-kept.turned .kept-rows { animation: postcard-turn 0.3s ease-out; transform-origin: 0 50%; }
+.commonplace:has(.commonplace-kept:not([hidden])) .commonplace-card { visibility: hidden; }
+.commonplace-kept.turned .kept-rows { animation: postcard-turn 0.3s ease-out; transform-origin: 0 50%; }
 .kept-head { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding-bottom: 5px; border-bottom: 2px solid #c9b68c; font: 12px var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: #6a5a48; }
 .kept-head span:last-child { text-align: right; text-transform: none; letter-spacing: 0.02em; }
 .kept-row { display: grid; grid-template-columns: 150px 1fr 170px; gap: 14px; margin-bottom: 8px; }
@@ -925,17 +925,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .kept-note.hand-tine { color: #2f6a44; font-style: italic; font-weight: 600; font-size: 15.5px; letter-spacing: 0.02em; transform: skewX(-8deg) rotate(-0.6deg); }
 .kept-left .kept-note { text-align: right; }
 .kept-folio { margin: 4px 0 10px; text-align: center; font: 13px var(--serif); color: #6a5a48; }
-.lowwater-hint {
+.commonplace-hint {
   position: absolute; bottom: 10px; right: 14px; margin: 0; font: 13px var(--ui); color: rgba(220, 225, 245, 0.55);
   transition: opacity 1.5s;
 }
-.lowwater-hint.gone { opacity: 0; }
+.commonplace-hint.gone { opacity: 0; }
 @media (max-width: 700px) {
-  .lowwater-card { bottom: 16px; padding: 12px 16px; }
-  .lowwater-log { padding: 10px 12px; }
+  .commonplace-card { bottom: 16px; padding: 12px 16px; }
+  .commonplace-log { padding: 10px 12px; }
   .log-cols, .log-rows li { grid-template-columns: 84px 1fr; }
   .log-nav button { padding: 4px 10px 6px; font-size: 14px; }
-  .lowwater-kept { padding: 10px 12px; }
+  .commonplace-kept { padding: 10px 12px; }
   .kept-row { grid-template-columns: 1fr; gap: 4px; margin-bottom: 12px; }
   .kept-print { order: -1; font-size: 15.5px; }
   .kept-margin { padding-left: 18px; gap: 6px; }
@@ -949,12 +949,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .postcard-postmark { top: 2px; right: 58px; }
   .postcard-address { margin: 0; font-size: 15px; }
   .postcard-address span { padding-top: 4px; }
-  .lowwater-card p { font-size: 16px; }
-  .lowwater-card.folded [data-lowwater-text] { font-size: 15px; }
-  .lowwater-hint { display: none; }
+  .commonplace-card p { font-size: 16px; }
+  .commonplace-card.folded [data-commonplace-text] { font-size: 15px; }
+  .commonplace-hint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lowwater-card, .lowwater-card .lowwater-more, .lowwater-log, .lowwater-kept, .lowwater-kept.turned .kept-rows { animation: none; }
+  .commonplace-card, .commonplace-card .commonplace-more, .commonplace-log, .commonplace-kept, .commonplace-kept.turned .kept-rows { animation: none; }
 }
 
 /* --- wild water: the river's HUD and cards (src/island/river.ts) ---------------------------- */

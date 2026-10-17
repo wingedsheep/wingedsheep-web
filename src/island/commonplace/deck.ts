@@ -1,6 +1,6 @@
 /**
  * Aboard the lightship: up her ladder from the praam, and about her deck. Everything here is in
- * her own frame (her model's metres: x toward the bow, y to port, z up, as tools/models/lowwater.py
+ * her own frame (her model's metres: x toward the bow, y to port, z up, as tools/models/commonplace.py
  * draws her), so the deck stays under you however she swings to the tide and rolls on the swell;
  * world.ts turns it into the world each frame, after she's been moved.
  */
@@ -17,7 +17,7 @@ const FOC = LENGTH / 2 - 4.2;
 const FOC_UP = 0.55;
 /** Where the ladder comes down, on the near side (port: y negative). */
 const LADDER_X = -1.2;
-/** Her bell's frame, on the forecastle (tools/models/lowwater.py has the same). */
+/** Her bell's frame, on the forecastle (tools/models/commonplace.py has the same). */
 const BELL_X = 4.2;
 /** Things on deck to walk round: round ones (x, y, r) and the deckhouse and windlass (x0, x1, y0, y1). */
 const ROUND: [number, number, number][] = [[0.4, 0, 0.62], [1.9, 1.1, 0.38], [1.9, -1.1, 0.38], [-6.5, 0, 0.3], [BELL_X, 0, 0.36]];

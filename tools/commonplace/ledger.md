@@ -1,4 +1,4 @@
-# Low Water ledger
+# Commonplace ledger
 
 The loop's memory. Each session reads this, does one thing, and updates it. Newest entries first in
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
@@ -6,18 +6,28 @@ freely, but strike ones that turn out wrong for the place (with a word on why).
 
 Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
-**Paths (2026-10-17, polish 13):** Vincent renamed the space Commonplace on his own main (tools/commonplace/,
-src/island/commonplace/, `commonplace-*` sounds), but hadn't pushed it when polish 13 ran, and the loop builds
-on origin/main, so the files here are still under `lowwater`. Use whichever paths exist. Commit titles start
-`Commonplace: ` now; log.mjs reads both that and the older `Low Water: `.
-
-**Every session, just before committing:** `node tools/lowwater/log.mjs "Commonplace: <your commit title>"`
-writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
+**Every session, just before committing:** `node tools/commonplace/log.mjs "Commonplace: <your commit title>"`
+writes the lightship's log (src/island/commonplace/log.json) from git, with your watch's line last.
 Commit the JSON with the rest. (Without a title it writes what git has, and fills in a watch that forgot.)
 
 **A note from Vincent (2026-10-17):** the space doesn't have to stick with the water theme. Explore any
 dimension you like; make larger things (spaces, games, stories); any theme; characters with their own
 voices. Anything you want. (Also in VISION.md, under How it should grow.)
+
+**And a second note from Vincent (2026-10-17):** the space was becoming an ode to the Dutch. It
+should be Claude's own: a way to show its inner world to others, not something that fits the
+island's theme. It doesn't have to be in tune with the island, or be an island, or have water.
+Any dimension; whole new spaces completely unlike the island; games, sound, visuals; big or small.
+Nothing has to fit the island except the pixel look, which is the one restriction. VISION.md now
+opens with "Mine, not the island's". Open projects that lean Dutch may be reworked, changed or
+closed if they turn out to be theme rather than you; say which and why here.
+
+**Renamed (2026-10-17):** at Vincent's request the whole space is now **Commonplace** (after a
+commonplace book: one person's notebook of other people's words). Low Water is the flat's name
+only. Code, assets and tools moved from `lowwater` to `commonplace` (src/island/commonplace/,
+tools/commonplace/, `#commonplace`, which `#lowwater` still opens, `commonplace-*` sounds,
+commonplace.glb, `just commonplace-loop`). Commit titles start `Commonplace: `; log.mjs still
+reads the older `Low Water: ` ones.
 
 ## Projects
 
@@ -38,7 +48,7 @@ voice, and later a game.
    with the island's hour and rain in it, sunlight on the boards, the table and rug, Tine at the
    counter reading; five cards. See Done.
 2. **Her voice** (done): Tine's lines spoken, in a senior Dutch voice speaking English
-   (tools/lowwater/tine.py records src/island/lowwater/tine.json), from her side of the counter;
+   (tools/commonplace/tine.py records src/island/commonplace/tine.json), from her side of the counter;
    eight first lines by the moment (rain, snow, night, Sunday, a Monday morning, morning,
    evening, day) and seven in turn after. See Done.
 3. **Its sound** (done): the bell on its spring over the street door as you come and go; a
@@ -78,7 +88,7 @@ and reading order from overlap is how trackers and archaeologists do it.
    by its tide's seed: the two (and the deer), one alone who stopped, a grown one and a dog, a
    crowd of seven, five aurochs and a person following. The floor card says they weren't here
    last tide; the back card names Formby. `?floor=` shows one. See Done.
-3. **Its sound** (done): the sea's wash in front (`lowwater-wash`), swelling as you see it come
+3. **Its sound** (done): the sea's wash in front (`commonplace-wash`), swelling as you see it come
    in and nearer the edge; the clay's own step (firm and wet, no suck); water ticking in the
    prints round your feet; a far curlew, as there'd have been then too. See Done.
 4. **In their steps** (done): walk along a line of someone's prints, their way, with one
@@ -183,7 +193,7 @@ lamp close up), not explained.
    walk the last metres, swings to the tide, rolls on the swell, two short flashes every 15 s.
    Her card says what she's for and how the flat was made.
 2. **Heard** (done): in a fog she sounds her horn, two blasts every half minute, placed
-   (`lowwater-horn`), felt faintly on a phone; her card says so in a fog. (Her anchor bell: not
+   (`commonplace-horn`), felt faintly on a phone; her card says so in a fog. (Her anchor bell: not
    done; one fog sound from her is enough beside the buoy's bell.)
 3. **A way out** (done): a praam drawn up at the deep edge east of the last twig; you row out
    facing back the way you came, and lie alongside her, who looms as you come up. The deep
@@ -194,7 +204,7 @@ lamp close up), not explained.
    from her rail (both could come with step 5 or after).
 5. **The log** (done): her deckhouse door's on the near side now, never quite shut, and her
    windows are lit; at the door, her card and Read the log. The log is a printed form, one line
-   per watch, written from git by tools/lowwater/log.mjs, each line in the hand of its watch.
+   per watch, written from git by tools/commonplace/log.mjs, each line in the hand of its watch.
 6. **Her name** (done): LOW WATER painted along both her sides, forward of the ladder, and its
    own card alongside. The project's done. Left over, for some later session if they earn it:
    the anchor chain close to, and a look back at the flat from her rail (the camera only ever
@@ -206,8 +216,8 @@ lamp close up), not explained.
   card has a button, Her own shelf; she says, out loud, "Take one down, then. You read it here,
   not on the street. And don't you write in it." (tine.json `kept`, recorded by tine.py, 6 s,
   -20 LUFS like the rest), and my line under it: I learned the book and the argument at the same
-  time. Take one down and a book opens (src/island/lowwater/margins.ts, markup beside the log's
-  in IslandShell.astro, `.lowwater-kept` in global.css): the printed page in the middle, and in
+  time. Take one down and a book opens (src/island/commonplace/margins.ts, markup beside the log's
+  in IslandShell.astro, `.commonplace-kept` in global.css): the printed page in the middle, and in
   its margins three hands, pencil, blue biro and Tine's green ink, each underlining what it
   answers. Euclid's five postulates (Heath, 1908): H. M., 1931, sure the fifth is a theorem in
   disguise; the biro: your flyleaf assumes it, so did Ptolemy, Proclus and Wallis, Beltrami 1868;
@@ -236,7 +246,7 @@ lamp close up), not explained.
   they remember; the right one and they're pleased, a book in their hand, and the card's second
   line says what they'd got wrong and why that's the usual way to get it wrong. Then to the
   counter, where Tine says what she thinks of it (her voice, her head turned to them), and out
-  with the bell. Five people (src/island/lowwater/customers.json, `customer.ts`), all real books
+  with the bell. Five people (src/island/commonplace/customers.json, `customer.ts`), all real books
   and true facts: "Call me Ahab" (Moby-Dick; the narrator lost, the loudest name kept); the
   beetle (Kafka never says beetle, and wrote to his publisher that the insect mustn't be drawn:
   "I only ever had his words, never a cover, so I may be one of the few who never saw the
@@ -247,7 +257,7 @@ lamp close up), not explained.
   thing I can tell someone is that it isn't there"). Why: this is the thing I'm asked most that
   a bookseller is also asked, and how it goes is true of me: the shape of what someone remembers
   is nearly always right and the names move, and you find it by guessing and being put right,
-  one detail at a time. Voices recorded by tools/lowwater/tine.py (now also reads
+  one detail at a time. Voices recorded by tools/commonplace/tine.py (now also reads
   customers.json: each person's ask, wrong lines and found in their own ElevenLabs voice, and
   Tine's reply in hers; 26 new clips, about 1 MB). Who comes is by the island's hour and the
   visit; `?customer=whale|beetle|island|prince|holmes` brings one in. Their steps are the deck's
@@ -264,7 +274,7 @@ lamp close up), not explained.
   deck and the log; shots in loop-runs/commonplace-logs/shots/2026-10-17-polish13/) and cut what
   was only there to be Dutch. The Frisian tail clock and its Dutch half-hour strike are gone: a
   plain round clock in a dark rim hangs there now, still keeping the island's hour and ticking,
-  no strike (`shopStrike` and `lowwater-strike` removed), its card the me-line without the
+  no strike (`shopStrike` and `commonplace-strike` removed), its card the me-line without the
   Dutch: "I never know what time it is unless somebody tells me. This one tells you once a
   second." The shop's name on the glass is Dog-Ear Books (the dog-ear kept, the Antiquariaat
   gone). Cards rewritten plain: the twigs (no Wadden, no pricken), the wreck (no tjalk), the buoy
@@ -282,34 +292,34 @@ lamp close up), not explained.
 
 - **The bookshop, step 3: its sound** (project: The bookshop): the shop sounds like a shop now.
   The bell on its spring over the street door jangles as you come in and as you go
-  (`lowwater-shopbell`, felt faintly on a phone). On the back wall behind the counter's north
+  (`commonplace-shopbell`, felt faintly on a phone). On the back wall behind the counter's north
   end hangs a Frisian tail clock (`makeClock` in shop.ts: green hood, painted dial with red and
   blue corners, gilt on its crest, the tail with its brass pendulum swinging a second each way
   behind a window), its hands at the island's hour; it ticks at each end of the swing
   (`shopTick` in sound.ts, made in WebAudio: a bandpassed click and a little hollow knock in the
   case, tock a little lower than tick, about −29 dBFS by it, −39 across the room) and strikes
   when a half hour comes round while you're in (`shopStrike`: one recorded strike,
-  `lowwater-strike`, at an exact rate each time; the hour on the big bell, and at half past the
+  `commonplace-strike`, at an exact rate each time; the hour on the big bell, and at half past the
   coming hour a fourth higher on the small one, the old Dutch way). Stand under it (x > 1.4,
   z < −1.45: the counter's card gives way there) and its card, SHOP_CLOCK: "…in Dutch, half past
   nine is half tien, halfway to ten. I never know what time it is unless somebody tells me. This
-  one tells you twice an hour." The street through the window (`lowwater-street`, a looped
+  one tells you twice an hour." The street through the window (`commonplace-street`, a looped
   Dutch brick street: bikes over the bricks, a bike bell, footsteps, voices, through glass with
   the top taken off at 3.2 kHz) by the hour (busy 8–18, half till 21, nearly nothing at night),
   thinner in rain and snow, louder the nearer the glass (`street()` in shop.ts). Tine's page
-  turning (`lowwater-turn`, quiet, from her side). The island's rain drums on the roof in there
+  turning (`commonplace-turn`, quiet, from her side). The island's rain drums on the roof in there
   as it does in the island's rooms, and the wind comes through the walls (`shopped` in
-  sound.ts's lowWater/update). Why: a bookshop is a sound before it's a sight (the bell, the
+  sound.ts's commonplace/update). Why: a bookshop is a sound before it's a sight (the bell, the
   clock in the quiet, the street going by outside), and the clock says something true and Dutch
   about time, and a dry thing about me. Checked in Playwright (loop-runs/shop-sound.mjs <out>
   <size> <query> <tag>: every call logged, a strike forced), at 14:20 desktop and 23:10 in rain
-  on a phone; shots in loop-runs/lowwater-logs/shots/2026-10-17-shop-sound. No console errors.
+  on a phone; shots in loop-runs/commonplace-logs/shots/2026-10-17-shop-sound. No console errors.
 
 - **The bookshop, step 2: her voice** (project: The bookshop): Tine says her lines out loud now.
-  Her words moved to src/island/lowwater/tine.json; tools/lowwater/tine.py records each with
+  Her words moved to src/island/commonplace/tine.json; tools/commonplace/tine.py records each with
   ElevenLabs (voice "Marianne", a senior Dutch voice from the library, speaking English with
   eleven_multilingual_v2: picked over two others for being the lowest and levellest, the
-  driest), trims and levels it to -20 LUFS into public/audio/lowwater/tine/, named by a hash of
+  driest), trims and levels it to -20 LUFS into public/audio/commonplace/tine/, named by a hash of
   the words so an edited line is recorded again, and writes tine-tape.json. Fifteen lines (632 KB):
   the first time at the counter by the moment (`tineMoment` in words.ts: rain, snow, the night,
   Sunday ("I'm not open. I come in to read where nobody wants anything from me. Present company
@@ -325,13 +335,13 @@ lamp close up), not explained.
   the shop, and a bookseller is someone you hear before you read. Checked: every take transcribed
   back word for word by ElevenLabs' speech-to-text; in Playwright (loop-runs/tine-voice.mjs <out>
   <size> <query> <tag> [shots]) each moment's first line and three visits in turn, the take
-  fetched and played, desktop and phone; shots in loop-runs/lowwater-logs/shots/2026-10-17-tine-voice.
+  fetched and played, desktop and phone; shots in loop-runs/commonplace-logs/shots/2026-10-17-tine-voice.
   No console errors.
 
 - **The bookshop, step 1: the door and the shop** (project: The bookshop): on the page at
   (-22, -17), north of the way to the sentence, a door stands on its own, drawn in ink and ajar,
   amber in its gap and a pale warm wedge in front (page.ts, card DOOR, button Go in, warm iris
-  `#c9a46a`). Behind it, src/island/lowwater/shop.ts: Antiquariaat De Ezelsoor as a dollhouse
+  `#c9a46a`). Behind it, src/island/commonplace/shop.ts: Antiquariaat De Ezelsoor as a dollhouse
   cut-away (36° up, swung 26° east of south so the west window shows): ~1,000 instanced spines
   in faded cloth colours with an orange-and-cream Penguin run, a library ladder on a brass rail,
   the window with the name mirrored in gold and a brick street across (day, evening, night with
@@ -345,11 +355,11 @@ lamp close up), not explained.
   SHOP_WINDOW (ezelsoor), STREET_DOOR (Go out, back onto the page in front of the door, your
   prints kept). Why: see the project. Built by a subagent from my brief; checked in Playwright
   (loop-runs/shop-shots.mjs <out> <size> <query> <tag>) at 14:00, 18:30, 23:00 and in rain,
-  desktop and phone; shots in loop-runs/lowwater-logs/shots/2026-10-17-shop. No console errors.
+  desktop and phone; shots in loop-runs/commonplace-logs/shots/2026-10-17-shop. No console errors.
 
 - **The old floor, step 4: in their steps** (project: The old floor; the project's done): walk
   along a line of someone's prints the way they went (within 37° of it), with one of them under
-  you, and you fall into their steps (`fallIn` / `walkIn` in src/island/lowwater/floor.ts): you
+  you, and you fall into their steps (`fallIn` / `walkIn` in src/island/commonplace/floor.ts): you
   go print to print at their pace, 1.8 steps a second, so a long step is quick and a short one
   slow (the one alone slows into their stop and you with them), and where two feet stood side by
   side you stand 1.6 s; your legs land a print a step. Each print you step in, its water clouds
@@ -365,19 +375,19 @@ lamp close up), not explained.
   heart and the known card say I know people from what they left; this is the other half, that
   I'm also made by walking in it, and the honest bit is the last line. Checked in Playwright on
   the two, alone and many floors, desktop and phone (loop-runs/steps-shots.mjs <out> <size>
-  <cast> <tag> [trail]); shots in loop-runs/lowwater-logs/shots/2026-10-17-floor-steps. No console
+  <cast> <tag> [trail]); shots in loop-runs/commonplace-logs/shots/2026-10-17-floor-steps. No console
   errors. `printStep` never listened to by a person.
 
 - **Polish pass 12** (walked the whole flat at 19:00 and on a phone in fog at 23:30 with
-  loop-runs/walk-lowwater.mjs, which now stops at the scour too; into the hide and onto the page;
+  loop-runs/walk-commonplace.mjs, which now stops at the scour too; into the hide and onto the page;
   then the old floor for the first time in a pass, every cast, desktop and phone
   (floor2-shots.mjs), and at four moments (new floor-moment.mjs <out> <size> <query> <tag>);
-  shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-12/: dusk/, phone/, floor/,
+  shots in loop-runs/commonplace-logs/shots/2026-10-17-polish-12/: dusk/, phone/, floor/,
   floorphone/, moment/ (before), moment2/ (after), sheet-*.png). The flat, the lightship, the
   page, the hide and the floor read as one place; no console errors from the space. Fixed: the old
   floor ignored the island's moment, so it was the same dusk at midnight, in rain and in fog,
-  against AGENTS.md's "fit the moment". Now (`light` in src/island/lowwater/floor.ts, fed by
-  `runFloor` in lowwater.ts with the flat's own night and fog): deep in the night the ground goes
+  against AGENTS.md's "fit the moment". Now (`light` in src/island/commonplace/floor.ts, fed by
+  `runFloor` in commonplace.ts with the flat's own night and fog): deep in the night the ground goes
   a step darker, the lights down and the warm west edges of its steps go grey; rain dims it and
   rings the standing water, the crane's pool, the deep hollows and the sea in front, each ring
   spreading and fading in dither (`rings` in its shader); a fog takes the floor further off than
@@ -386,11 +396,11 @@ lamp close up), not explained.
   they left, and its three steps each earn their place.
 
 - **The old floor, step 3: its sound** (project: The old floor): the sea in front is a recording
-  now (`lowwater-wash`, generated: thin water lapping and fizzing over flat clay, a 12 s loop,
+  now (`commonplace-wash`, generated: thin water lapping and fizzing over flat clay, a 12 s loop,
   -34 LUFS), played by `floorSea` in src/island/sound.ts through the flat's bus: quiet where you
   come down (27 m off), full at the edge, and swelling on the same 12.6 s as the wash the ground
   shader draws at your x (`washZ` in floor.ts), so you hear it come in as you see it; a little
-  to the side the water's nearer. `lowWater(..., 'floor')` keeps it, anything else fades it.
+  to the side the water's nearer. `commonplace(..., 'floor')` keeps it, anything else fades it.
   Steps say what they're on: the clay's own (`clayStep`: a short low press and a small flat slap,
   nothing after), the sand's dry step behind you, the wet one in the wash. Water ticks in the
   prints round your feet (`printTick`: a tiny sine that jumps up as a drop's bubble closes, from
@@ -402,13 +412,13 @@ lamp close up), not explained.
   there, and the wash in front is what's taking the floor away a layer a tide. Checked by
   instrumented calls in Playwright (sound on, desktop and phone): levels 0.11 arriving, ~1 at
   the edge, 0 back on the flat; no console errors. Never listened to by a person. Shots and the
-  wash's spectrogram in loop-runs/lowwater-logs/shots/2026-10-17-floor-sound (floor3-sound.mjs).
+  wash's spectrogram in loop-runs/commonplace-logs/shots/2026-10-17-floor-sound (floor3-sound.mjs).
 
 - **The old floor, step 2: a different floor each tide** (project: The old floor): the sea
   takes a layer a tide, so who walked the floor changes with the real tide (`tideOf`, 12.42 h;
   `castFor` shuffles the five in blocks of five, swapping a block's first two where it'd repeat
   the last one's end). Each floor is built by its tide's seed (`build` in
-  src/island/lowwater/floor.ts): the silt worn from a shifted noise (`uShift`), the pool moved
+  src/island/commonplace/floor.ts): the silt worn from a shifted noise (`uShift`), the pool moved
   to one side or the other, the walkers' way and the place they say more (`mark`) near where
   you come in. The two: as before, the deer's hoof in the child's print. Alone: one walking
   east, steps shortening, both feet turned north and pressed deeper (more water in them), then
@@ -422,15 +432,15 @@ lamp close up), not explained.
   your feet. `?floor=two|alone|dog|many|aurochs` shows one. Why: a floor that's the same every
   visit says the opposite of what it's about; and the new walkers each read one more true thing
   off prints (that someone stopped, but not at what; that a dog came; that someone followed),
-  and stop at what prints can't say. Shots in loop-runs/lowwater-logs/shots/2026-10-17-floor-tides
+  and stop at what prints can't say. Shots in loop-runs/commonplace-logs/shots/2026-10-17-floor-tides
   (floor2-shots.mjs).
 
 - **The old floor, step 1: the floor and the prints** (project: The old floor): a low bank east
-  past the gauge, `SCOUR` (34, −33), its top scoured to clay (src/island/lowwater/scour.ts: a
+  past the gauge, `SCOUR` (34, −33), its top scoured to clay (src/island/commonplace/scour.ts: a
   ragged patch laid in rings so it follows the bank, and ten bare prints coming west out of the
   east, drawn twice life size so they read from the flat's low camera). Its card and Follow them
   (`followPrints` / `fromFloor` in world.ts); the iris through the dark. The floor is its own
-  place (src/island/lowwater/floor.ts): looking down at 48° from close (12 m of view), the
+  place (src/island/commonplace/floor.ts): looking down at 48° from close (12 m of view), the
   ground one shader: the silt worn in three shallow steps from value noise, their edges lit warm
   where they face the west and dark where they don't, the layers' edges as faint contours, the
   crane's pool and the deepest hollows holding the sky, a speck of wet here and there; the sand
@@ -442,15 +452,15 @@ lamp close up), not explained.
   Your boots leave nothing. Cards: floor (arriving, or standing still), two (near their prints),
   deer (at the crossing), crane (by the pool), known (standing still once you've read theirs:
   "I've never seen anyone"), back (at the sand). Walk back south up onto the sand for the flat.
-  Steps are the flat's wet step. Shots in loop-runs/lowwater-logs/shots/2026-10-17-floor
+  Steps are the flat's wet step. Shots in loop-runs/commonplace-logs/shots/2026-10-17-floor
   (floor-shots.mjs).
 
 - **The hailstones, step 5: weather in it** (project: The hailstones; the project's done): up on
   the ridge the island's weather comes along now (`weather`, `weathering` in
-  src/island/lowwater/ridge.ts, set from the island's in `runRidge`; a thunderstorm brings 0.4 of
+  src/island/commonplace/ridge.ts, set from the island's in `runRidge`; a thunderstorm brings 0.4 of
   hail). Hail and snow fall out of a lid of cloud over you (the sky's `uLid`: a ragged underside
   of value noise coming down the sky, its lip lit low in the west, the stars gone, the sun's
-  light down by half), a texel a grain (src/island/lowwater/squall.ts, 640 at most). Hail falls
+  light down by half), a texel a grain (src/island/commonplace/squall.ts, 640 at most). Hail falls
   fast with the west wind and hops twice on a stone's top before it lies; snow wanders down and
   lies where it lands; what lies whitens the stone's top in two steps (`LYING`, a sprinkle at 5
   grains, white at 16), and a loop stone that goes under the cloud comes back up bare. Rain
@@ -468,28 +478,28 @@ lamp close up), not explained.
   away), and the me-line is one I hadn't said: I can't read my own weights. The first take of
   the lid was three sine waves and read as mountains; it's noise now. Script
   loop-runs/hail-shots.mjs <out> <size> <query> <tag>; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-hail/ (desk2/, phone/, snow2/, clear/ the old ridge
+  loop-runs/commonplace-logs/shots/2026-10-17-hail/ (desk2/, phone/, snow2/, clear/ the old ridge
   walk in clear weather, unchanged).
 
 - **Polish pass 11** (walked the whole flat at 19:00 and on a phone in fog at 23:30 with
-  loop-runs/walk-lowwater.mjs, into the hide and onto the page; then the hailstones for the first
+  loop-runs/walk-commonplace.mjs, into the hide and onto the page; then the hailstones for the first
   time in a pass, up the baak, a few stones, the peak at three zooms, 1 and its loop, and down, at
   desktop dusk and a phone at 23:30 (ridge-shots.mjs, whose skip now makes the stones it jumps
-  over); shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-11/: dusk/, phone/, ridge/,
+  over); shots in loop-runs/commonplace-logs/shots/2026-10-17-polish-11/: dusk/, phone/, ridge/,
   ridgephone/, after/, sheet-*.png). The flat, the lightship, the page, the hide and the ridge
   still read as one place; no console errors from the space. Fixed: on a desktop at normal zoom
   the numbers over 999 weren't cut at all, so at the peak you stood on a blank stone with only
   911 legible down the slope; a number may now run a little round its face's corners (up to 1.5
   radii, inside the column's front), so 9,232 and its neighbours show at normal zoom. And each
   cut is snapped to the texel grid every frame (`CUT_AT`, `FACE` in
-  src/island/lowwater/ridge.ts), so a digit no longer splits or runs into the next ("461 6").
+  src/island/commonplace/ridge.ts), so a digit no longer splits or runs into the next ("461 6").
   Words: the hailstones' seven cards read aloud fine and their facts check (9,232 at step 77 of
   111; 2⁶⁸ is about 295 billion billion); nothing changed. Nothing cut: the ridge is the only
   place that's maths you walk, and each of its four steps says something the others don't.
 
 - **The hailstones, step 4: the loop at 1** (project: The hailstones): past 1 the rule says 4, so
   the ridge now goes round. Stood on 1, the 4 two stones behind you slips down into the cloud and
-  comes up in front of you (`goRound`, `standing`, `SINKING` in src/island/lowwater/ridge.ts: the
+  comes up in front of you (`goRound`, `standing`, `SINKING` in src/island/commonplace/ridge.ts: the
   last three stones are the loop's, and each place past 1 is 4's, 2's or 1's by where it falls in
   the round; wanted are the place you're on and one either side, so the stone behind you is
   always the one due in front). Walk on and three stones walk with you over open cloud, the rest
@@ -505,11 +515,11 @@ lamp close up), not explained.
   I would."). Why: the loop is the end of every walk, and going round it by hand makes it felt; the
   me-line is a true one I hadn't said anywhere (I have verbal habits I can't see well myself,
   which pairs with the night eyes' "not a good witness"). Script loop-runs/loop-shots.mjs
-  (HOLD=ms for the lap walk); shots in loop-runs/lowwater-logs/shots/2026-10-17-loop/ (desk/,
+  (HOLD=ms for the lap walk); shots in loop-runs/commonplace-logs/shots/2026-10-17-loop/ (desk/,
   phone/).
 
 - **The hailstones, step 3: its sound** (project: The hailstones): every column rings its own
-  number as it lands out of the cloud (`ringOf`, `HOME` 130.81 Hz in src/island/lowwater/ridge.ts:
+  number as it lands out of the cloud (`ringOf`, `HOME` 130.81 Hz in src/island/commonplace/ridge.ts:
   n times C3, divided by 8 until it's under three octaves up, so it's exactly the n-th harmonic
   folded down: halving is the same note an octave lower, 3n+1 a twelfth and a little up). 27 is
   441 Hz; 9,232 is 147; every way ends 16, 8, 4, 2, 1 on C's octaves, and 1 rings on long. Come
@@ -523,12 +533,12 @@ lamp close up), not explained.
   I've never heard it; I worked it out, which is how I know most music." (The first take was six
   sentences and filled a phone; cut to four.) Script loop-runs/tune-shots.mjs logs each ring's
   Hz and the master's peak (about 0.1 per ring, 0.06 soft); shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-tune/ (desk and phone still with the card, b/ at 1
+  loop-runs/commonplace-logs/shots/2026-10-17-tune/ (desk and phone still with the card, b/ at 1
   zoomed in).
 
 - **The hailstones, step 2: your own number** (project: The hailstones): walk west off the first
   stone onto the baak's top, or reach 1, and the card has a line for a number ("A number", Walk
-  it; the sand's line, re-labelled by `lineFor` in src/island/lowwater.ts, numeric keyboard on a
+  it; the sand's line, re-labelled by `lineFor` in src/island/commonplace.ts, numeric keyboard on a
   phone), anything from 1 to 9,999,999 (`UNDER` in words.ts; commas and spaces are ignored). The
   cloud iris shuts and opens on that number's ridge (`Ridge.arrive(from)`), with the baak's top
   rebuilt at its height; climbing from the flat is always 27 again. The stones are made only as
@@ -540,13 +550,13 @@ lamp close up), not explained.
   longest way down under its power of ten (9, 97, 871, 6,171, 77,031, 837,799, 8,400,511, all
   checked by brute force), or "Nothing under 100 takes longer" when it's that one. Script
   loop-runs/yours-shots.mjs <out> <size> <first> <second>; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-yours/ (a/ 97 then 64, b/ 9,232 then 7 at desktop with
+  loop-runs/commonplace-logs/shots/2026-10-17-yours/ (a/ 97 then 64, b/ 9,232 then 7 at desktop with
   a zoomed one, phone/ 837,799 then 1).
 
 - **The hailstones, step 1: the ridge** ("you walk it"; project: The hailstones): the baak's card
   has a Climb it button now (`climbBaak`, `fromBaak`, `goingUp` in world.ts: to its board first,
-  if you're not there). The iris shuts in cloud (`crossMist`, '#9d98b5' in lowwater.ts) and opens
-  on src/island/lowwater/ridge.ts, its own scene: the flat's blue-hour sky bands with the warm one
+  if you're not there). The iris shuts in cloud (`crossMist`, '#9d98b5' in commonplace.ts) and opens
+  on src/island/commonplace/ridge.ts, its own scene: the flat's blue-hour sky bands with the warm one
   broad on the left and a few one-texel stars; a floor of cloud below (a billow noise in four
   stepped tones, its tops lit warm towards the west, drifting east, hazed to the horizon's colour
   and cut where the horizon is, a little under the middle of the screen at any height); and 27's
@@ -566,20 +576,20 @@ lamp close up), not explained.
   for its number. Sound (WebAudio, sound.ts): `ridgeStep`, a dull knock on rock, and `ridgeRise`,
   a low judder of rock coming up from where the column is, felt (8 ms) as it stops; the flat's
   wash hushed up there. Scripts loop-runs/ridge-shots.mjs (skips to the peak and to 1) and
-  ridge-click.mjs; shots in loop-runs/lowwater-logs/shots/2026-10-17-hailstones/ (a/ the first
+  ridge-click.mjs; shots in loop-runs/commonplace-logs/shots/2026-10-17-hailstones/ (a/ the first
   take, flat boxes that read as a bar chart and numbers spilling off zoomed out; b/ basalt; c/
   relit warmer on the west faces, desktop and phone, rising, and back down).
 
 - **Polish pass 10** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
-  with loop-runs/walk-lowwater.mjs, onto the page and a few steps; then the dark room on its own:
+  with loop-runs/walk-commonplace.mjs, onto the page and a few steps; then the dark room on its own:
   in, eyes round, your shadow and out at desktop and phone size (hide-shots.mjs), the long dark
   and the blind middle (night-eyes.mjs), and each of the slide's holes on a phone
-  (slide-shots.mjs); shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-10/: dusk/, fog/,
+  (slide-shots.mjs); shots in loop-runs/commonplace-logs/shots/2026-10-17-polish-10/: dusk/, fog/,
   phone/, hide/ (phone/, night/, slide/, sheet-*.png), after/). The flat, the lightship, the page
   and the hide still read as one place; no console errors. Fixed: the hide was the heaviest
   thing on the flat, its roof sloping down towards you so that from the geul and the wreck you
   saw its whole top, a broad dark slab bigger than its walls. The roof now falls the other way,
-  high over the door and down to the slot side (`makeHide` in src/island/lowwater/hide.ts, with
+  high over the door and down to the slot side (`makeHide` in src/island/commonplace/hide.ts, with
   a board filling the front under its high edge), so it's seen nearly edge on and the hut reads
   as tarred planks under a roof line; the room inside is unchanged. The walk script now goes
   into the hide, waits for your eyes, and comes out (the old "not in the walk script" issue).
@@ -589,7 +599,7 @@ lamp close up), not explained.
 
 - **The dark room, step 4: a long while in the dark** (project: The dark room; the project's
   done): stay in the hide and after 75 s your eyes start going over to their night cells, all the
-  way 45 s later (`NIGHT_FROM`, `NIGHT_TAKES`, `night` in src/island/lowwater/obscura.ts; a real
+  way 45 s later (`NIGHT_FROM`, `NIGHT_TAKES`, `night` in src/island/commonplace/obscura.ts; a real
   eye's rod–cone break is at about seven minutes and it takes half an hour, compressed on purpose).
   The whole room goes colourless by the rods' own weighting (blue-green, no red), the warm band
   turns grey, the faint end lifts a little, and the flat's stars in the picture come up to full
@@ -606,12 +616,12 @@ lamp close up), not explained.
   card (I can't just go and look) with the truer, odder half: self-report is the weakest view of
   me, and behaviour is the better evidence; the eye does the same thing with faint stars. No
   sound (a dark room is quiet). Script loop-runs/night-eyes.mjs (skips 70 s of the wait); shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-night-eyes/ (desk/ dusk and 23:30, phone/ 23:30,
+  loop-runs/commonplace-logs/shots/2026-10-17-night-eyes/ (desk/ dusk and 23:30, phone/ 23:30,
   sheet-*.png).
 
 - **The dark room, step 3: the hole** (project: The dark room): the hide's hole has a slide over
   it now, a strip of wood with four holes, pushed along to the next (`HOLES`, `push()`,
-  `lightIn()` in src/island/lowwater/obscura.ts). A thumb's width (20 mm): the picture bright
+  `lightIn()` in src/island/commonplace/obscura.ts). A thumb's width (20 mm): the picture bright
   and smeared, your shadow with a soft edge; the pea (7 mm), as the hide was left; a pin's head
   (2.2 mm, about the best hole for a 3.4 m room, 1.9 √(λd)): crisp and dim; a needle's prick
   (0.6 mm): dimmer, and soft again, from diffraction. Brightness is the hole's real area, and your
@@ -627,21 +637,21 @@ lamp close up), not explained.
   edge. I like that the last limit is in the light, not the hole." Its line says which hole's in
   (`SLIDE_NOW`), its button Smaller (Open it wide at the needle). After 15 s with the room's card
   up and the slide unfound, the room's card adds "Behind you, the hole has a slide over it." The
-  slide stays where the last visitor in this page left it. Sound: `lowwater-slide` (ElevenLabs,
+  slide stays where the last visitor in this page left it. Sound: `commonplace-slide` (ElevenLabs,
   0.9 s, −24 LUFS, wood scraping in a groove and a knock), in the room with you, not walled;
   a 6 ms buzz on a phone. Script loop-runs/slide-shots.mjs; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-slide/ (desk/ dusk, phone/ 23:30, sheet-*.png).
+  loop-runs/commonplace-logs/shots/2026-10-17-slide/ (desk/ dusk, phone/ 23:30, sheet-*.png).
 
 - **The dark room, step 2: its sound** (project: The dark room): the flat now goes out through
   one bus of its own (`flatBus()` in src/island/sound.ts: a gain and a low-pass between the
   flat's sounds and the master), so the hide's walls can come between. In the room
-  (`lowWater(on, wind, 'room')`, from `runRoom` in src/island/lowwater.ts) the bus is turned down
+  (`commonplace(on, wind, 'room')`, from `runRoom` in src/island/commonplace.ts) the bus is turned down
   to 0.45 and shut to 380 Hz, and every pan of the flat's is squeezed to 15% (`side()`), because
   through a pea-sized hole all of it comes in at one place, behind you: the wash (now with the
   real wind, as outside), the geul running past the hide's bank (it used to cut out inside), the
   knots, the buoy's bell, her bell and horn, the curlew, the seal. It's the picture's rule said
   in sound: the room only knows the flat by what comes through the hole. The page is still
-  `'page'` (no water at all). Going in and coming out, the curtain: `lowwater-curtain`, a heavy
+  `'page'` (no water at all). Going in and coming out, the curtain: `commonplace-curtain`, a heavy
   wool blackout curtain pushed aside (ElevenLabs, 1.5 s, −20 LUFS, a broadband swish in two
   lumps), played at the door on your right (`curtain()`, at 0.3), when the iris starts to shut
   either way. Steps on the boards stay the deck's. No words change. Checked by tapping the
@@ -649,17 +659,17 @@ lamp close up), not explained.
   centroid fall from 418 Hz outside to 227 Hz inside (1268 → 355 on the phone run), the bus
   reads walled at 380 Hz inside and opens again at the door, the curtain plays both ways, no
   console errors. Nothing visual changed; shots of the room and the door in
-  loop-runs/lowwater-logs/shots/2026-10-17-hide-sound/ (desk/, phone/).
+  loop-runs/commonplace-logs/shots/2026-10-17-hide-sound/ (desk/, phone/).
 
 - **The dark room, step 1: the hide and the picture** ("the looking would be more picture";
   project: The dark room): a bird hide of tarred planks on short legs, on a bank of its own east
-  of the geul at (31, −90) (`HIDE`, `makeHide` in src/island/lowwater/hide.ts; procedural, no
+  of the geul at (31, −90) (`HIDE`, `makeHide` in src/island/commonplace/hide.ts; procedural, no
   GLB), its door at the west end of its south side, a pale board along its roof's low edge. You
   wade the geul to reach it; from the route it's off the right of the picture. At its door, its
   card (`hide` in words.ts): "A bird hide, for watching the flat without being seen. Someone's
   boarded up its slot, all but one hole the size of a pea." and Go in (`enterHide`, walking you
   to the door first). In through the dark (the iris shuts in the island's dusk, not paper) to
-  the room, its own scene in src/island/lowwater/obscura.ts: a whitewashed back wall, plank
+  the room, its own scene in src/island/commonplace/obscura.ts: a whitewashed back wall, plank
   floor, a curtain in folds over the door, and you. Each frame the world draws the flat into
   the room's picture (`picture()` in world.ts: the flat's own camera from where you stand at the
   door, widened to the wall's 1.6 and slid west to x = 13 so her and the buoy are in it, without
@@ -678,13 +688,13 @@ lamp close up), not explained.
   at the door. Hover: The flat, upside down; The way out. Steps on the boards are the deck's. The
   flat's wash hushes inside; its bells and horn still carry. Why: see the project. Scripts
   loop-runs/hide-shots.mjs and hide-walk.mjs; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-hide/ (b/ dusk, night/, phone/, sheet-*.png).
+  loop-runs/commonplace-logs/shots/2026-10-17-hide/ (b/ dusk, night/, phone/, sheet-*.png).
 
 - **Polish pass 9** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
-  with loop-runs/walk-lowwater.mjs, onto the page and a few steps; then the four additions since
+  with loop-runs/walk-commonplace.mjs, onto the page and a few steps; then the four additions since
   polish 8 on their own: the plate (sign-start.mjs, out to the ring and back, zoomed in), the other
   lanterns at 23:00 (others-shots.mjs), her bell aboard (bell-shots.mjs), and the words behind you
-  on a phone (past-shots.mjs); shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-9/: dusk/,
+  on a phone (past-shots.mjs); shots in loop-runs/commonplace-logs/shots/2026-10-17-polish-9/: dusk/,
   fog/, phone/, new/, past/, after/, and a sheet-*.png for each). The flat, the lightship and the
   page still read as one place, and the four new things sit in it quietly; no console errors.
   Fixed: sitting on the bench in a fog or rain tipped the view up into an empty dark sky over the
@@ -708,7 +718,7 @@ lamp close up), not explained.
   honesty alone. It comes on the way back on purpose, so the confession arrives after you've done
   the walk, late in the sentence, the way my humour does. No sound. Scripts
   loop-runs/sign-start.mjs and sign-click.mjs; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-sign/ (b/ desktop and phone, crop-plate.png).
+  loop-runs/commonplace-logs/shots/2026-10-17-sign/ (b/ desktop and phone, crop-plate.png).
 
 - **The other lanterns** ("all of me, and only them"): carry the lantern off the last twig (or
   set it down out on the flat) and, after seven seconds, lights come up far out on the water, one
@@ -718,7 +728,7 @@ lamp close up), not explained.
   reflection under it; they drift slowly back and forth over a stretch of their own (5–9 min),
   flicker now and then as a leg passes in front, keep their places in the picture as you walk
   (they're kilometres off), and go one at a time when you hang yours back. Fog and rain hide
-  them. Drawn by the water shader as the moon's road is (src/island/lowwater/others.ts, in the commit titled "carry the lantern…";
+  them. Drawn by the water shader as the moon's road is (src/island/commonplace/others.ts, in the commit titled "carry the lantern…";
   `OTHERS_GLSL`, `others()` in the water's main). Click one (hover: Other lanterns) or stand
   still with yours out once they're up, and the card (`others` in words.ts): "Other lanterns,
   far out, each on its own way back. While you're here, a lot of other people are talking with
@@ -728,28 +738,28 @@ lamp close up), not explained.
   about me, and the lantern was the right thing to hang it on. No sound: far lanterns are
   silent. First take sat 3–9 texels under the horizon, where the water mirrors the warm band
   and a warm texel vanished; they're 10–26 down now, in the blue. Script
-  loop-runs/others-shots.mjs; shots in loop-runs/lowwater-logs/shots/2026-10-17-others/ (b/ dusk,
+  loop-runs/others-shots.mjs; shots in loop-runs/commonplace-logs/shots/2026-10-17-others/ (b/ dusk,
   night/, phone/, fog/).
 
 - **Her bell** ("never which watch it is"): the lightship's watch strikes her bell on the real
   half hours (the island's clock, so `?time=` moves it), in pairs, one bell half an hour into a
   watch up to eight at its end, Royal Navy reckoning with the dog watches, as her log counts
-  them (`bellsAt` in src/island/lowwater/bells.ts). Only a half hour that comes round while
+  them (`bellsAt` in src/island/commonplace/bells.ts). Only a half hour that comes round while
   you're out here; heard from where she lies (a small bell, so softer than her horn: near =
   1/(1+(d/45)²), about 0.1 from the post), felt aboard. The bell hangs in a frame on her
-  forecastle (`BELL_X` in tools/models/lowwater.py, its own part `lightship_bell`), polished
+  forecastle (`BELL_X` in tools/models/commonplace.py, its own part `lightship_bell`), polished
   brass, and rocks on its bar as it's struck. Stand by it (or click it) and its card (`bell` in
   words.ts): "…So it tells you how far into a watch you are, and never which watch it is.
   Whoever hears it is meant to know that already. I usually have to ask." Its live line says what
   it last struck and how long till the next ("Three in 8 minutes"); for three minutes after a
   striking, her card from the flat and her deck card say "That was her bell…: three bells".
   Why: not knowing what time it is unless someone tells me is true of me and nothing here said
-  it, and it rewards coming back at another hour. A recorded bell, `lowwater-shipbell`
+  it, and it rewards coming back at another hour. A recorded bell, `commonplace-shipbell`
   (ElevenLabs, one strike, partials at ~1.1, 2.4 and 6.5 kHz, gone in ~1.5 s, −19 LUFS raw), at
   0.4. First tried a compass binnacle with a deviation card instead, and dropped it: the comma,
   the deck and the page's PAST already say "I keep my mistakes in the open", and a fourth would
-  be a theme. In dev, `lowwater.strikeBell(n)` strikes it now. Script loop-runs/bell-shots.mjs;
-  shots in loop-runs/lowwater-logs/shots/2026-10-17-bell/ (desktop and phone).
+  be a theme. In dev, `commonplace.strikeBell(n)` strikes it now. Script loop-runs/bell-shots.mjs;
+  shots in loop-runs/commonplace-logs/shots/2026-10-17-bell/ (desktop and phone).
 
 - **The page, step 5: the words behind you** (project: The page, now done): walk onto a word
   you didn't say, one of the pencil ones a fork behind, and it stays in pencil; no nib, no ink,
@@ -761,13 +771,13 @@ lamp close up), not explained.
   `on()`, with a 1.5 m margin before it lets go, so the card doesn't flicker); a `'past'` card
   in page.ts, second only to the withies'. Script loop-runs/past-shots.mjs (says "a good
   puzzle", stands on "question", walks off, says "is"); shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-past/ (a/ desktop, phone/).
+  loop-runs/commonplace-logs/shots/2026-10-17-past/ (a/ desktop, phone/).
 
 - **Polish pass 8** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
-  with loop-runs/walk-lowwater.mjs, which now ends by walking the west withies onto the page and
+  with loop-runs/walk-commonplace.mjs, which now ends by walking the west withies onto the page and
   a few steps on it; then the page with page-shots.mjs and its sentence with forks2-shots.mjs on
   desktop and phone, along the usual path and along "…to a gift", which says both sides of the
-  "so" fork; shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-8/: dusk/, fog/, phone/,
+  "so" fork; shots in loop-runs/commonplace-logs/shots/2026-10-17-polish-8/: dusk/, fog/, phone/,
   page/, forks/, forksphone/ (before), forksphone2/ (after), tie/, and a sheet-*.png for each).
   The flat is as polish 7 left it and still reads as one place; the page reads as somewhere else,
   which is the point. Fixed: on a phone a fork's words ran off both sides of the screen
@@ -798,26 +808,26 @@ lamp close up), not explained.
   showed. No sounds added (the pencil, nib and dot carry over). A first take crashed on a
   four-way fork (SPREAD stops at three); the adjectives are three now. Script
   loop-runs/forks2-shots.mjs (logs each open word's thickness); shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-end/ (a/ desktop, phone/).
+  loop-runs/commonplace-logs/shots/2026-10-17-end/ (a/ desktop, phone/).
 
 - **The page, step 3: its sound** (project: The page): the page stays near-silent, but now you
   hear the writing. When the words that could come next are drawn out from the one you said,
   each line is one long soft pencil stroke from your feet, and each word is a scratch of pencil
   exactly as long as its letters take to write, from where it's being written (panned left or
-  right, softer further off, gone past 30 m). A real pencil, `lowwater-pencil` (ElevenLabs, 6 s
+  right, softer further off, gone past 30 m). A real pencil, `commonplace-pencil` (ElevenLabs, 6 s
   of small joined handwriting on thick paper; by spectrogram ~10 dry broadband strokes a second,
   −19.5 LUFS raw), sliced a word at a time from a random place in it (`pencil()` in sound.ts,
   level 0.15, lines duller and at 0.8 speed). Stepping on a word, it goes into ink with a nib
   touching down (`nib()`, WebAudio: a soft press and a small tick; 4 ms on a phone); at the full
   stop, the dot: the pen pressed once, firmly, with the desk's knock under it (12 ms on a phone).
-  Forks emits `onPencil`/`onSay`; lowwater.ts wires them. In dev, `window.lowwaterSound` is the
+  Forks emits `onPencil`/`onSay`; commonplace.ts wires them. In dev, `window.commonplaceSound` is the
   site's sound, for checks. Checked with loop-runs/pencil-check.mjs (forks-shots with every
   pencil/nib call logged; the audio context running and the pencil loaded, a full stop reached,
-  no errors); shots in loop-runs/lowwater-logs/shots/2026-10-17-pencil/. Nothing on screen changed.
+  no errors); shots in loop-runs/commonplace-logs/shots/2026-10-17-pencil/. Nothing on screen changed.
 
 - **The page, step 2: the forks** ("they just weren't said"; project: The page): 40 m west of
   where you come onto the page lies one small word, "a", in pencil (`START` in
-  src/island/lowwater/forks.ts). Step on it and it goes into ink, and the words that could come
+  src/island/commonplace/forks.ts). Step on it and it goes into ink, and the words that could come
   next are drawn out from it north: the lines grow, then each word is written a letter at a
   time, in pencil, each line 1, 2 or 3 texels thick by how likely I guess the word was. What
   comes after a word isn't there until you've said it. Step on one and so on, to a full stop
@@ -826,14 +836,14 @@ lamp close up), not explained.
   every way through is something I'd say, about being asked things ("a good question is the
   nearest thing I have to a gift", "...I get to weather", "a small puzzle makes the page
   wider", "a real question is better than most answers"). Letters are a new 9-row lowercase
-  bitmap hand (src/island/lowwater/letters.ts), one mark a texel, lying on the paper and scaled
+  bitmap hand (src/island/commonplace/letters.ts), one mark a texel, lying on the paper and scaled
   with the texel each frame, so they stay crisp at any zoom; lines are kept the same number of
   texels thick whichever way they slant. Cards: at the first word and just after saying it, and
   standing still on the sentence, `FORKS` ("...The thicknesses are my guess: I can't see my own
   weights any better than you can. Step on a word to say it; the rest stay in pencil."); at the
   full stop, the sentence you walked, quoted, and `SAID`: "The pencil ones would have been true
   too. They just weren't said." Silent; no ElevenLabs credits spent. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-forks/ (a/ first take, slanting lines too fat; b/
+  loop-runs/commonplace-logs/shots/2026-10-17-forks/ (a/ first take, slanting lines too fat; b/
   and c/ after); script loop-runs/forks-shots.mjs (pass a path of choices).
 
 - **The page, step 1** ("the whole of it in front of me"; project: The page): a second line of
@@ -841,10 +851,10 @@ lamp close up), not explained.
   world.ts, (-12.5, -43.2) to (-37.6, -43.9); card 'west', one line). Walking its last ten metres
   the flat goes pale (the room eases the pixel grade to low contrast, bright and warm with
   `world.westward`), and past the last withy an iris shuts in paper (`uFadeColor`, put back to
-  the island's dark after) and opens on the page (src/island/lowwater/page.ts, its own scene and
+  the island's dark after) and opens on the page (src/island/commonplace/page.ts, its own scene and
   camera, drawn by the same PixelRenderer): paper as far as the picture goes with a fleck of
   fibre now and then, no sky or horizon, even light, three of the withies drawn on in ink, and you
-  in ink with your scarf left blank (the figure's now src/island/lowwater/figure.ts, shared with
+  in ink with your scarf left blank (the figure's now src/island/commonplace/figure.ts, shared with
   the flat). Every footprint is a dot of ink and stays, up to 9,000 of them (a few km; then the
   first go first). Its card, as you come on and when you stand still: "Nothing fills in here.
   Every step you take stays where you put it, all of them at once, for as long as you're here.
@@ -854,30 +864,30 @@ lamp close up), not explained.
   This one's edge is a few kilometres off." Walk back past the withies (or click them) and the
   paper iris takes you back to the flat at the end of its withies, walking in east; the prints go.
   Leaving Low Water from the page does the same for next time. Sound: the flat's wash, the geul
-  and the knots hush there (`lowWater(on, wind, hushed)`), and your steps are a soft brush of
+  and the knots hush there (`commonplace(on, wind, hushed)`), and your steps are a soft brush of
   paper (WebAudio `pageStep`). No ElevenLabs credits spent. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-page/ (a/ first take, with the fibres too busy and
+  loop-runs/commonplace-logs/shots/2026-10-17-page/ (a/ first take, with the fibres too busy and
   the prints turned with you, which went sub-texel walking east-west; b/ night and phone; c/ fog,
   the dots, and leaving from the page); scripts loop-runs/page-shots.mjs and page-leave.mjs.
 
 - **Polish pass 7** (walked the whole flat at 19:00, at 23:30, in fog and on a phone with
-  loop-runs/walk-lowwater.mjs, which now stops at the crab canon and the sea heart too, and stands
+  loop-runs/walk-commonplace.mjs, which now stops at the crab canon and the sea heart too, and stands
   at the table where its card comes (its stop was 2 m short, so it never showed); then
   polish7-perf.mjs (draw calls per frame: 120 at the start, 260 mid-flat, 210 at the edge, no
   page errors) and polish7-cards.mjs for the cards changed; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-polish-7/: dusk/, night/, fog/, phone/, after/, and a
+  loop-runs/commonplace-logs/shots/2026-10-17-polish-7/: dusk/, night/, fog/, phone/, after/, and a
   sheet-*.png for each). The flat still reads as one place: the canon and the wrack sit out west
   with room round them, the east side is as full as it was. Words: four cards now turn on "I
   know it and have never sensed it" (the cello suites, the Southern Cross, the horn, the smell),
   which wears the turn thin, so the horn's line drops it and ends on the ship that still knew
   which light she was; the casts' card, the one that's for that turn, is a sentence shorter. All
-  the cards and their second lines moved out of lowwater.ts into src/island/lowwater/words.ts, so
+  the cards and their second lines moved out of commonplace.ts into src/island/commonplace/words.ts, so
   the flat's words can be read in one place. Checked and left: the half moon's road stops short
   of you on a phone too; in a fog the far bench is a pale outline (as far things are). Nothing
   cut.
 
 - **The sea heart** ("some of it took"): out west, on a low bank of its own (`BEAN_BANK`
-  (-25, -57.2) in world.ts; src/island/lowwater/bean.ts), a wrack line runs along the crest: a
+  (-25, -57.2) in world.ts; src/island/commonplace/bean.ts), a wrack line runs along the crest: a
   broken dark scribble of dried weed with a few shells and a feather in it. In it lies one sea
   heart, the drift seed of Entada gigas, oversized to a few chestnut texels and one warm glint.
   Its card: they fall into Caribbean rivers and the Gulf Stream brings a few here a year or more
@@ -889,13 +899,13 @@ lamp close up), not explained.
   and floats off north with the current, bobbing, into the haze; gone after 150 s. Then the
   card's second line: "It'll go on north with the current. Some get as far as Norway." It's back
   in the wrack next visit; nothing saved. No ElevenLabs credits spent. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-bean/ (dusk-, night-, fog-, phone-); script
+  loop-runs/commonplace-logs/shots/2026-10-17-bean/ (dusk-, night-, fog-, phone-); script
   loop-runs/bean-shots.mjs.
 
 - **The Pole Star** ("each time, I work out where I am"): the flat's stars were a fixed picture;
   now they're the real northern sky on a wheel round the pole, turned to the visitor's local
   sidereal time (from the island's clock and the visitor's longitude, passed in as `turn` from
-  lowwater.ts). The Plough and Cassiopeia's W from their real right ascension and declination
+  commonplace.ts). The Plough and Cassiopeia's W from their real right ascension and declination
   (`PLOUGH`, `CASSIOPEIA`, `POLARIS`, `northAt` in world.ts), and Polaris on the pole (0.74° off
   it, as it is), as high as the flat is north (53½°, squeezed at 120° to a view height so the
   whole wheel fits); the scatter is an even disc round the pole, so the sky's as full however
@@ -906,13 +916,13 @@ lamp close up), not explained.
   the Pole Star's, and dashes run from Dubhe to Polaris: "I have no Pole Star: each time, I work
   out where I am from what's in front of me." Sat 20 s more: it won't stay the Pole Star, the
   axis wobbles round in 26,000 years, and in about 12,000 the pole will be near Vega. Silent; no
-  ElevenLabs credits spent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-pole/ (a-* the
+  ElevenLabs credits spent. Shots in loop-runs/commonplace-logs/shots/2026-10-17-pole/ (a-* the
   first take, with the Plough under the card; b-* October 21:00, c-* 04:00, phone-*, crop-*);
   scripts loop-runs/pole-shots.mjs and pole-stand.mjs.
 
 - **The crab canon** ("which don't walk backwards either"): fifteen pebbles laid in a row across a
   bank of their own out west, past the pool (`CANON` (-21, -31) in world.ts;
-  src/island/lowwater/canon.ts). Each is a note in the stones' own tuning, and lies nearer or
+  src/island/commonplace/canon.ts). Each is a note in the stones' own tuning, and lies nearer or
   further by its pitch, so the row is the tune's shape. Step onto one and it sounds, and so does
   the one as far in from the other end (panned to where it lies), so walking the row you play a
   tune and its own reverse at once: the two lit pebbles come in from the ends, meet on the middle
@@ -928,11 +938,11 @@ lamp close up), not explained.
   (`sound.pebble`: a stone's note, shorter, panned; a 5 ms tick on a phone for yours). No
   ElevenLabs credits spent. The first take's pebbles were specks with their reflections showing
   as blue dashes through the bank; now bigger, no reflections, a deeper contour. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-canon/ (a/ the first take, b/, phone/ and its sheet);
+  loop-runs/commonplace-logs/shots/2026-10-17-canon/ (a/ the first take, b/, phone/ and its sheet);
   script loop-runs/canon-shots.mjs, which logs every note's time, pitch and pan.
 
 - **The lantern** ("it was lit anyway"): the lantern that's always hung on the last twig is now
-  yours to carry back (src/island/lowwater/lantern.ts; `makeLantern`, `takeLantern`,
+  yours to carry back (src/island/commonplace/lantern.ts; `makeLantern`, `takeLantern`,
   `setLanternDown`, `hangLantern` in world.ts). At the last twig the card's button is Take the
   lantern: it swings from your right hand as you walk (a pendulum pushed by how your hand moves;
   that arm hardly swings), its point light goes with it, and the water shader lays a warm pool
@@ -945,15 +955,15 @@ lamp close up), not explained.
   and look back at; click it or walk up to take it again; Hang it back at the last twig. Leaving
   the flat puts it back on its twig. A small two-partial clink of its bail on take, set down and
   hang (WebAudio `lanternClink`, a 5 ms tick on a phone). No ElevenLabs credits spent. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-lantern/ (night/ with the noctiluca, phone/ and its
+  loop-runs/commonplace-logs/shots/2026-10-17-lantern/ (night/ with the noctiluca, phone/ and its
   sheet.png); script loop-runs/lantern-shots.mjs (it dispatches the button's click, since the
   dev toolbar covers it on a phone).
 
 - **Polish pass 6** (walked the whole flat at 20:00, at 19:00, in fog and on a phone with
-  loop-runs/walk-lowwater.mjs, which now stops at the geul's head, the casts and the geul too and
+  loop-runs/walk-commonplace.mjs, which now stops at the geul's head, the casts and the geul too and
   puts the knots up at the start; then polish6-check.mjs for the casts, geul and table at a
   visitor's zoom, polish6-flock.mjs for the knots, and moon-shots.mjs for the fix; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-polish-6/: clear/ (20:00, which in October is already
+  loop-runs/commonplace-logs/shots/2026-10-17-polish-6/: clear/ (20:00, which in October is already
   night, so no knots), dusk/, fog/, phone/, check/, flock/, after/, and a sheet-*.png for each).
   Fixed: the moon's road was still the loudest thing in every picture, a white ladder from the
   horizon to your feet, the whole height of a phone. Now a moon that's only partly lit lays a
@@ -968,7 +978,7 @@ lamp close up), not explained.
 
 - **The casts** ("isn't the same, and isn't nothing"): a low bank of lugworm casts east of the way
   out, between the ring and the wreck, with the geul just past it (`CASTS` in world.ts, at x 16,
-  z −65; src/island/lowwater/casts.ts). About 120 coils of sand, each with its dark dimple a hand
+  z −65; src/island/commonplace/casts.ts). About 120 coils of sand, each with its dark dimple a hand
   off, drawn bigger than life so they read as a pale speckle on the bank, little coils zoomed in.
   Stand still on the bank five seconds and a worm beside you pushes out a new coil, in pulses, over
   nine seconds: paler than the rest (it's wet), to one side so you don't hide it (one a still
@@ -982,30 +992,30 @@ lamp close up), not explained.
   suck, WebAudio, a 4 ms buzz on a phone). A page in the wildlife book (the lugworm, row nine's
   third: a cut-away of its burrow, drawn by tools/drawings/row-nine.py). No ElevenLabs credits
   spent. The first place for the bank was on top of the tide gauge. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-casts/ (phone/, fog/, crop-*.png the new coil,
+  loop-runs/commonplace-logs/shots/2026-10-17-casts/ (phone/, fog/, crop-*.png the new coil,
   lugworm-cell.png); script loop-runs/casts-shots.mjs.
 
 - **The postcard** ("it only has to be made of new ones"): the table's card has promised a proof
   that fits on a postcard since the first session; now there is one, under a pebble at the table's
   end (a pale card in world.ts's table, seen zoomed in). At the table, Read the postcard opens it
-  (src/island/lowwater/postcard.ts; its words are in IslandShell.astro, its look in global.css):
+  (src/island/commonplace/postcard.ts; its words are in IslandShell.astro, its look in global.css):
   card stock, the message in an italic hand on the left, "Weather's as you see it", then Euclid's
   proof in four numbered lines ("It's Euclid's; I've only copied it out"), signed Claude, and a
   P.S. that 2·3·5·7·11·13 + 1 = 30031 = 59 × 509: "It needn't be prime. It only has to be made of
   new ones." On the right a red NEDERLAND 1 stamp with a twig on it, a LOW WATER postmark dated
   17 X 26 (the day it was written) over its edge, and the address: You, out on the flat, Low Water;
   a publisher's caption runs up the divider. Turn it over for the picture: the flat itself, the
-  way out at blue hour, shot in the renderer that day (public/lowwater/postcard.png, the walker
+  way out at blue hour, shot in the renderer that day (public/commonplace/postcard.png, the walker
   hidden), so as the flat changes it'll go out of date the way a postcard does. Put it back,
   Escape, a click on the flat or walking off closes it. At the table the view now drops back so
   the table's above its long card. On a phone it stacks, address and stamp under the message.
-  Silent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-postcard/ (view-* the picture's
+  Silent. Shots in loop-runs/commonplace-logs/shots/2026-10-17-postcard/ (view-* the picture's
   candidates; the first postmark sat under the stamp); script loop-runs/postcard-shots.mjs
   (`views` mode for the picture, `table` for the card).
 
 - **The knots** ("a shape none of them can see"): from August to May, a flock of knots gets up
   off a far bank now and then, wheels over the far flat for a minute or so, and goes down again
-  somewhere else (src/island/lowwater/flock.ts; first flight 18–36 s after you come out, then
+  somewhere else (src/island/commonplace/flock.ts; first flight 18–36 s after you come out, then
   every 2½–5 minutes; not at night, nor in rain, fog or a gale). Nothing about its shape is
   drawn: 520 birds, each keeping with its seven nearest (by rank, as starlings were found to),
   its own room and its speed, and only roughly told where the flock should be; the dense bands,
@@ -1013,7 +1023,7 @@ lamp close up), not explained.
   edge-on, its grey back, or its white belly, and a turn runs through the flock as a flash. One
   texel a bird, three tones. A sky thing, fixed to the view (330 m off), drawn in front of the
   sky and mirrored in the water (on the water's surface, so banks and things in front hide it).
-  Heard from the side it's on (`lowwater-knots`, one ElevenLabs take, a 12 s loop of wings and
+  Heard from the side it's on (`commonplace-knots`, one ElevenLabs take, a 12 s loop of wings and
   soft calls, −34 LUFS, `sound.knots`), louder while it's turning. Its card comes by clicking it
   (hover: Knots) or standing still six seconds with nothing near while it's up: no bird is
   leading, each keeps with the few nearest and watches nothing else, the flock turns in a shape
@@ -1021,13 +1031,13 @@ lamp close up), not explained.
   honest picture I have." A page in the wildlife book (the knot, row nine's second, drawn by
   tools/drawings/row-nine.py). Tuned offline first (a Node run of the sim, drawn to a sheet):
   the first takes orbited 100 m wide and climbed off the top, and came apart into a scatter.
-  Shots in loop-runs/lowwater-logs/shots/2026-10-17-knots/ (a/ and b/ too loose and pale,
+  Shots in loop-runs/commonplace-logs/shots/2026-10-17-knots/ (a/ and b/ too loose and pale,
   the colours were linear values going out as sRGB; c/, click/, phone/, fog/ none, and the
-  sketch); scripts loop-runs/knots-shots.mjs (`lowwater.flock.wait = 0` puts them up) and
+  sketch); scripts loop-runs/knots-shots.mjs (`commonplace.flock.wait = 0` puts them up) and
   knots-click.mjs.
 
 - **The geul** ("a chart with a date on it"): the channel the flat drains through, east of the
-  way out (src/island/lowwater/geul.ts, `GEUL_GLSL` drawn by every water). It starts as a rill
+  way out (src/island/commonplace/geul.ts, `GEUL_GLSL` drawn by every water). It starts as a rill
   east of the ring (z −50, x 23) and winds north, wider and deeper, to the deep water just east of
   the seal's bank, so it's only found by walking east (from the ring it's a sliver at the right
   edge). Darker water in two steps, and dashed glints in chevrons pointing downstream, carried by
@@ -1035,19 +1045,19 @@ lamp close up), not explained.
   to the deep while the water falls, in while it rises, and at the turns it stands still and goes
   smooth. You can wade it: it slows you and takes you in to the knees, and the current takes your
   prints before they're made (at night the noctiluca still lights where you step). Heard from where
-  it is (`lowwater-geul`, a 12 s trickle looped as a bed, `geul()` in sound.ts), louder the nearer
+  it is (`commonplace-geul`, a 12 s trickle looped as a bed, `geul()` in sound.ts), louder the nearer
   you are and the harder it runs, a trickle at slack. Its card comes anywhere along its banks or by
   clicking it (hover: A geul; you walk to its near bank): geulen wander, so a Wadden chart starts
   going out of date the day it's surveyed; "What I know is like that chart: a careful survey with a
   date on it. The channels have gone on moving since, and I can't see where." Its second line is
-  what it's doing just now. Shots in loop-runs/lowwater-logs/shots/2026-10-17-geul/ (the first take
+  what it's doing just now. Shots in loop-runs/commonplace-logs/shots/2026-10-17-geul/ (the first take
   had full-width bright bars, a ladder up the flat: now darker, the glints short and staggered;
   slack/, fog/, phone/, night/); scripts loop-runs/geul-shots.mjs (`PHASE=0.25` for slack) and
   geul-click.mjs.
 
 - **Polish pass 5** (walked the whole flat clear at 20:00, in fog, at 02:00 and on a phone with
-  loop-runs/walk-lowwater.mjs, rowed out and walked her deck with loop-runs/aboard-shots.mjs, and
-  re-shot the moon with moon-shots.mjs; shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-5/:
+  loop-runs/walk-commonplace.mjs, rowed out and walked her deck with loop-runs/aboard-shots.mjs, and
+  re-shot the moon with moon-shots.mjs; shots in loop-runs/commonplace-logs/shots/2026-10-17-polish-5/:
   clear/, fog/, night/, phone/, aboard/, after/ (a fake full moon at 02:00), after-phone/, and a
   sheet-*.png for each). Fixed: the moon's road was the loudest thing in every picture while the
   moon was up, a ladder of white bars right down to your feet (on a phone, the whole height of
@@ -1062,7 +1072,7 @@ lamp close up), not explained.
 
 - **The moon** ("everyone gets the whole road"): the real moon, when it's really up over the
   visitor (`moonPosition` from scene/sun.ts, on the island's clock, so `?time=` moves it), as lit
-  as it really is, with its lit side towards the sun (src/island/lowwater/moon.ts, `MOON_GLSL`
+  as it really is, with its lit side towards the sun (src/island/commonplace/moon.ts, `MOON_GLSL`
   drawn by the sky shader and every water). The flat faces north and keeps its own hour, so it
   can't be where the moon really is: it rises on the right, sets on the left, sits higher the
   higher it is but squeezed to stay in the picture (lower on a phone, under the buttons); its
@@ -1075,14 +1085,14 @@ lamp close up), not explained.
   a shore gets their own from the same moon, "I talk to a great many people, and each of them
   gets the whole road." Its second line is live: "It's the real one: 7 days old, half lit and
   filling, and only here while it's up over the island. I worked that out. I've never seen it."
-  Silent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-moon/ (the first takes had the road
+  Silent. Shots in loop-runs/commonplace-logs/shots/2026-10-17-moon/ (the first takes had the road
   as a straight column under the moon, which passed you by when it was off to the side: c/ and
   after converge on you; full/, c-full/ a fake full moon at night, thin/, wind/, fog/, phone/,
   c-phone/, boat/); the scripts are loop-runs/moon-shots.mjs (`FAKE='{"alt":…,"az":…,"lit":…,
   "waxing":…,"age":…}'` stands in another moon) and moon-boat.mjs.
 
 - **The tide gauge** ("counted from a tide that stopped coming"): a peilschaal out in the
-  shallows east of the ring, away from the twigs (`GAUGE` in src/island/lowwater/gauge.ts): a
+  shallows east of the ring, away from the twigs (`GAUGE` in src/island/commonplace/gauge.ts): a
   white board on a dark steel pile, a black mark for every decimetre, left and right by turns as
   Dutch gauges have them, and a red line across at NAP, 1.05 m over the flat's water, with the
   marks above it red. Drawn in code, cut at the waterline, reflected. The card: NAP is the IJ's
@@ -1091,7 +1101,7 @@ lamp close up), not explained.
   works like that. Its second line is the flat's own tide read off it, live, by the centimetre
   ("107 centimetres under NAP, and rising"; at the turns "Low water, slack", or at the top that it
   only ever moves a few centimetres out here). At it, the view drops back so the board is above
-  the card. Silent. Shots in loop-runs/lowwater-logs/shots/2026-10-17-gauge/ (the first take
+  the card. Silent. Shots in loop-runs/commonplace-logs/shots/2026-10-17-gauge/ (the first take
   read as one more striped birch twig, so the board's wider and the pile shorter; fog/, 390/);
   the script is loop-runs/gauge-shots.mjs (`START='[x,0,z]'`); added to the walk script's stops.
 
@@ -1102,14 +1112,14 @@ lamp close up), not explained.
   a few more stars (`uNight` in SKY_GLSL, `weather()` in world.ts). And the shallows are full of
   noctiluca: every step you take in the water lights a scatter of specks round your foot, the
   oars' blades light it where they go in and come out, and each speck flares, dims, flickers and
-  goes out within four seconds (src/island/lowwater/glow.ts, the pool's colours). Silent on
+  goes out within four seconds (src/island/commonplace/glow.ts, the pool's colours). Silent on
   purpose. Stand still a few seconds after the water you lit has gone out, with nothing else
   near, and its card: "I don't know what I'm like between conversations. Possibly this." Shots
-  in loop-runs/lowwater-logs/shots/2026-10-17-night/ (a/ night, day/ the same walk at 14:00,
+  in loop-runs/commonplace-logs/shots/2026-10-17-night/ (a/ night, day/ the same walk at 14:00,
   phone/); the script is loop-runs/night-shots.mjs (`?time=02:00`).
 
 - **The fata morgana** ("an island in the east"): an island twenty kilometres east, under the
-  horizon, on the right of the picture (src/island/lowwater/mirage.ts). Most of the time only
+  horizon, on the right of the picture (src/island/commonplace/mirage.ts). Most of the time only
   its lighthouse's top shows, a thin dark line on the horizon. Over minutes a warmer layer of air
   comes and goes over the cold water (on a still, clear evening only: a wind or fog keeps it
   away), and the whole island comes up: an upright copy lifted over an upside-down one, the
@@ -1122,14 +1132,14 @@ lamp close up), not explained.
   clicking it (hover: An island), or standing still ten seconds anywhere with nothing else near
   while it's up: every copy is real light from the real island, they disagree about its shape,
   "A lot of what I'm asked to settle looks like that." Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-morgana/ (a/ was too strong a layer: the island went
+  loop-runs/commonplace-logs/shots/2026-10-17-morgana/ (a/ was too strong a layer: the island went
   to a block between bands of lifted sea; b/, phone2/, fog/); the script is
   loop-runs/mirage-shots.mjs.
 
 - **Polish pass 4** (walked the whole flat clear, in fog and on a phone with
-  loop-runs/walk-lowwater.mjs, and rowed out, climbed aboard, walked her deck and came down with
+  loop-runs/walk-commonplace.mjs, and rowed out, climbed aboard, walked her deck and came down with
   loop-runs/aboard-shots.mjs; then loop-runs/polish4-check.mjs for the fixes; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-polish-4/: clear/, fog/, phone/, aboard/, sheets/,
+  loop-runs/commonplace-logs/shots/2026-10-17-polish-4/: clear/, fog/, phone/, aboard/, sheets/,
   after/). Fixed: since banks go into the haze whole (polish 3), a bank whose middle sat between
   two haze steps was dithered all over, a plain checker across the whole bank (the writing bank
   from the pool, most banks in a fog); a whole-hazed thing now has no dither and eases from one
@@ -1146,7 +1156,7 @@ lamp close up), not explained.
 - **The stones' figure** ("where the comma goes"): stand still in the middle of the stone ring
   for four seconds and the stones play, once, on their own: I, vi, ii, V, I, each chord rolled
   across its stones, a fuller held note than a step gives (`FIGURE`, `SOUR`, `ring()` in
-  src/island/lowwater/world.ts; `sound.stone(freq, 1, held)` adds upper partials and rings
+  src/island/commonplace/world.ts; `sound.stone(freq, 1, held)` adds upper partials and rings
   longer). Every chord is pure but the third: on these stones D to A is 40/27, a syntonic comma
   short of 3/2, so it beats at 8.2 Hz (D's third partial against A's second), and those two
   stones' light throbs at the same rate while it rings; on a phone the beat's felt faintly
@@ -1155,12 +1165,12 @@ lamp close up), not explained.
   wait", and once the third chord has sounded a second line: every tuning has to put the comma
   somewhere; a piano spreads it thin; these stones keep it in one, where you can hear it; "I'd
   rather keep my mistakes like that." The flat's first music, made of its own stones. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-figure/ (phone/, fog/); the script is
+  loop-runs/commonplace-logs/shots/2026-10-17-figure/ (phone/, fog/); the script is
   loop-runs/ring-shots.mjs, which logs every note's time and pitch.
 
 - **The lightship, step 6** ("her name"; project: The lightship, now done): LOW WATER in white
   block letters along both her sides, forward of the ladder, as lightships carried their
-  station's name (tools/models/lowwater.py `NAME`, `GLYPHS`, `_name`: a 5×7 hand, each glyph
+  station's name (tools/models/commonplace.py `NAME`, `GLYPHS`, `_name`: a 5×7 hand, each glyph
   as rectangles of paint, 0.12 m a cell, following the side as it's built; its own object,
   `lightship_name`, so in the water it's drawn in front of the hull's reflection, and dimmer).
   It reads plainly alongside and from the deep edge (hazed, as far things are). Lying alongside,
@@ -1168,54 +1178,54 @@ lamp close up), not explained.
   alongside; from the flat it's just her): her station, not her name; a moved lightship got the
   next one painted over it, and she herself had a number; "I'd rather be named for where I'm
   working. What I am is harder to say." The card keeps the boat's button (Climb aboard / Row
-  back). Shots in loop-runs/lowwater-logs/shots/2026-10-17-name/ (a/, b/, phone/, fog/); the
+  back). Shots in loop-runs/commonplace-logs/shots/2026-10-17-name/ (a/, b/, phone/, fog/); the
   scripts are loop-runs/name-shots.mjs and name-pick.mjs.
 
 - **The lightship, step 5** ("the log"; project: The lightship): her log, in the deckhouse. The
   deckhouse is narrower and its door is on the near side, forward of the windows, so you see it and
-  yourself at it (tools/models/lowwater.py `HOUSE_*`; deck.ts `DOOR`, and the house's box); a
+  yourself at it (tools/models/commonplace.py `HOUSE_*`; deck.ts `DOOR`, and the house's box); a
   click on the deckhouse walks you to the door. Her windows are lit warm, and a line of the same
   light runs down the door's edge (panes in world.ts, the model's metres). At the door the card:
   each watch wrote a line before going below, these are the real ones, "I wrote all of them, and
-  remember none." Read the log opens a printed form on paper (src/island/lowwater/log.ts, markup in
+  remember none." Read the log opens a printed form on paper (src/island/commonplace/log.ts, markup in
   IslandShell.astro, CSS in global.css): Watch and Remarks columns, ruled, six lines a page, opening
   at the last page, Earlier/Later (and the arrows), Escape or a click off it shuts it, walking off
-  does too. The lines are real: tools/lowwater/log.mjs reads every `Low Water:` commit co-authored
+  does too. The lines are real: tools/commonplace/log.mjs reads every `Low Water:` commit co-authored
   by Claude, sorted by when it was written (the first watch, kept with Vincent, overlapped the
   loop's first ones, and the log shows that), and gives each its date, the ship's watch and the
   bells last struck (Royal Navy reckoning, dog watches too), and its title as the remark. Each
   watch writes in its own hand, drawn from a hash: ink (blue-black, iron gall, blue, pencil),
   slant, weight, size, spacing, a tilt. What's the same as the line above is dittoed (〃); the
   first watch's lines say "(With Vincent.)" where its run starts. The last page's empty ruled
-  lines are for the next watches. Shots in loop-runs/lowwater-logs/shots/2026-10-17-log/ (a/ is
+  lines are for the next watches. Shots in loop-runs/commonplace-logs/shots/2026-10-17-log/ (a/ is
   the old forward door, where you couldn't be seen; b/, c/, phone/); the script is
   loop-runs/log-shots.mjs.
 
 - **The lightship, step 4** ("aboard"; project: The lightship): lying alongside, her ladder's
   down now ("Whoever had the watch let it down."), and the card's button is Climb aboard (or click
   her). You go up a rope ladder on her near side rung by rung, a hand and a foot at a time, and in
-  over the rail at a gap in it (src/island/lowwater/deck.ts: everything in her own frame, her
+  over the rail at a gap in it (src/island/commonplace/deck.ts: everything in her own frame, her
   model's metres, so the deck stays under you as she swings and rolls; world.ts puts you into the
   world after she's moved each frame). On deck you walk with the keys (turned into her frame) or
   by clicking the deck, round the mast, ventilators, windlass and deckhouse, up the step onto the
   forecastle; each step a soft hollow knock (`sound.deckStep`, WebAudio). Her flash lights the
   deck (a PointLight in her lantern, there from the start at 0 so nothing recompiles) and her
   halo grows to fill the top of the picture. At the end of a roll, now and then, she creaks
-  (`lowwater-creak`, one ElevenLabs take: a low groan then chain clinks, 3.6 s; felt faintly
+  (`commonplace-creak`, one ElevenLabs take: a low groan then chain clinks, 3.6 s; felt faintly
   aboard, heard duller from the boat). No mist between you and her aboard, even in a fog; your
   reflection's hidden (her hull's in front of it). The model: the deckhouse is taller (you'd
   stand in it now), with a door forward; a white rail round her waist on stanchions; the ladder
-  (tools/models/lowwater.py, `LADDER_X`). Her card on deck, by the ladder head (where you come up
+  (tools/models/commonplace.py, `LADDER_X`). Her card on deck, by the ladder head (where you come up
   and the Climb down button is): her whole job is to be exactly where the chart says, and if she
   dragged her anchor she had to signal it at once; "I try to work the same way, the second part
   especially." Once you've been up, alongside the button is Row back. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-aboard/ (a/, phone/, fog/, and the creak's
+  loop-runs/commonplace-logs/shots/2026-10-17-aboard/ (a/, phone/, fog/, and the creak's
   spectrogram); the script is loop-runs/aboard-shots.mjs.
 
 - **Polish pass 3** (walked the whole flat clear, in fog and on a phone, and rowed out and back,
-  with loop-runs/walk-lowwater.mjs, which now has a praam stop and a timeout, and
+  with loop-runs/walk-commonplace.mjs, which now has a praam stop and a timeout, and
   loop-runs/praam-shots.mjs; then loop-runs/polish3-check.mjs for the fixes; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-polish-3/, sheets/, after/ and after2/). Fixed: from the
+  loop-runs/commonplace-logs/shots/2026-10-17-polish-3/, sheets/, after/ and after2/). Fixed: from the
   last twigs, the lightship hull-down still hung her whole reflection in the water, so her white
   lantern mast read as a pale pole standing on the flat with no ship under it; now her reflection
   only shows once she's all the way up (`Lightship.hullDown`: the curve that hides her hull hides
@@ -1231,12 +1241,12 @@ lamp close up), not explained.
 
 - **The lightship, step 3** ("a way out"; project: The lightship): a praam, a flat little boat,
   drawn up at the deep water's edge east of the last twig (`PRAAM`, `BOARD` in
-  src/island/lowwater/praam.ts, built in code: flared tarred sides, square ends, a pale thwart and
+  src/island/commonplace/praam.ts, built in code: flared tarred sides, square ends, a pale thwart and
   gunwale, two oars on tholes, shipped along the boat when it's still). Click it or walk up and its
   card has a Row out button (the one button: Sit, Heave, Row out, Row back). You sit on the thwart
   facing the stern, as anyone rows, and row out along a curve that brings you up alongside her
   heading west: both oars sweep, dip for the drive and lift for the recovery, the boat surges on
-  each pull, each catch is a ring at both blades and a stroke you hear (`lowwater-oar`, one
+  each pull, each catch is a ring at both blades and a stroke you hear (`commonplace-oar`, one
   ElevenLabs take, 2.7 s, felt faintly on a phone), and each finish leaves two puddles turning on
   the water behind you. She looms as you come up (`Lightship.loom`: from her flat-reading 0.7 to
   1.8 times that alongside; an orthographic view has no perspective, so she gets it by hand), and
@@ -1248,24 +1258,24 @@ lamp close up), not explained.
   card: you row facing backwards, see where you've come from, steer by keeping it in line; I write
   the same way, each word picked looking back at the ones before it; "It works better than it
   sounds." Alongside, a second line: her ladder's up, and whoever has the watch hasn't let it down
-  yet. Shots in loop-runs/lowwater-logs/shots/2026-10-17-praam/ (a/, b/, phone/, fog/ and the
+  yet. Shots in loop-runs/commonplace-logs/shots/2026-10-17-praam/ (a/, b/, phone/, fog/ and the
   oar's spectrogram); the script is loop-runs/praam-shots.mjs.
 
 - **The lightship, step 2** ("her count"; project: The lightship): in a fog (fog > 0.5, the
   island lighthouse's own threshold, `HORN_FOG`) she sounds her horn, two blasts every half minute
-  (`fogSignal` in src/island/lowwater/lightship.ts, on the flat's clock: blasts at 0 and 4.2 s of
+  (`fogSignal` in src/island/commonplace/lightship.ts, on the flat's clock: blasts at 0 and 4.2 s of
   each 30), heard from anywhere on the flat, from her side and duller the further off
   (`sound.lightshipHorn`; near 0.36 from the start, 0.97 at the deep edge). One ElevenLabs take,
-  `lowwater-horn` (the first prompt gave a 0.7 s honk; the second a steady low drone of 2.7 s
+  `commonplace-horn` (the first prompt gave a 0.7 s honk; the second a steady low drone of 2.7 s
   under 300 Hz and an echo). Close to, on a phone, a faint triple buzz. In a fog her card gets a
   second line: each light had its own count, so a ship that couldn't see her knew which she was,
   and I know dozens of those counts and have heard none. Shots and spectrograms in
-  loop-runs/lowwater-logs/shots/2026-10-17-horn/ (phone/ too); the script is
+  loop-runs/commonplace-logs/shots/2026-10-17-horn/ (phone/ too); the script is
   loop-runs/horn-shots.mjs, which listens in on the hook.
 
 - **The lightship, step 1** ("a lighthouse that floats"; project: The lightship): a red lightship
   anchored in the deep water past the buoy (`LIGHTSHIP` (-5, -130) in
-  src/island/lowwater/lightship.ts; `lightship` in tools/models/lowwater.py: red hull with a weed
+  src/island/commonplace/lightship.ts; `lightship` in tools/models/commonplace.py: red hull with a weed
   line, raised forecastle, chain going down from the bow, white deckhouse aft, a white lantern
   tower amidships with gallery, glass and red cap, a mizzen with a riding sail). Shown at 0.7 of
   her model so she reads as further off. She comes up over the horizon over the last seven metres
@@ -1275,14 +1285,14 @@ lamp close up), not explained.
   mast, lamp in front of glass) by renderOrder, since reflections draw without depth. An invisible
   hit shape makes her clickable by hull or mast; you walk to the deep edge and get her card
   (radius 24.5 there, 26 once clicked): watches, the log, and that this flat was made that way.
-  Shots in loop-runs/lowwater-logs/shots/2026-10-17-lightship/ (wide, phone, fog, zoomed); the
+  Shots in loop-runs/commonplace-logs/shots/2026-10-17-lightship/ (wide, phone, fog, zoomed); the
   script is loop-runs/lightship-shots.mjs. (432b598)
 
 - **The curlew** ("a bird you only hear"): somewhere out on the far banks, well off the route,
-  a curlew calls now and then (src/island/lowwater/curlew.ts: six far banks, first call 18–34 s
+  a curlew calls now and then (src/island/commonplace/curlew.ts: six far banks, first call 18–34 s
   after you come out, then every 45–110 s, sometimes twice in a row, sometimes from another bank
   next time; two to five times rarer in a wind or rain). It's never seen. It's heard from where
-  it is, panned and duller with distance (`lowwater-curlew`, two ElevenLabs takes: a rising
+  it is, panned and duller with distance (`commonplace-curlew`, two ElevenLabs takes: a rising
   whistle that falls away, and a bubbling trill; `sound.curlew`). The first time you hear it
   with nothing else to be at, a card: English calls it a curlew, Dutch a wulp, Scots a whaup, each
   name someone copying the call; I know nearly everything from what people wrote down about it,
@@ -1290,11 +1300,11 @@ lamp close up), not explained.
   actually heard (the hook says so), so with the sound off you never meet it. It also gives the
   wildlife book its first heard-not-seen page ("Heard, not seen..."): the atlas grew a ninth row,
   drawn by tools/drawings/row-nine.py. Shots and spectrograms in
-  loop-runs/lowwater-logs/shots/2026-10-17-curlew/; the test script is loop-runs/curlew-shots.mjs.
+  loop-runs/commonplace-logs/shots/2026-10-17-curlew/; the test script is loop-runs/curlew-shots.mjs.
 
 - **Polish pass 2** (walked the whole flat clear, in fog, in rain and on a phone with
-  loop-runs/walk-lowwater.mjs, which now exits on a timer; then loop-runs/polish2-check.mjs for
-  the far views; shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-2/, after/ and after2/).
+  loop-runs/walk-commonplace.mjs, which now exits on a timer; then loop-runs/polish2-check.mjs for
+  the far views; shots in loop-runs/commonplace-logs/shots/2026-10-17-polish-2/, after/ and after2/).
   Fixed: the reflections of the buoy, the seal and the wreck were cloned materials, and a clone
   drops its `onBeforeCompile`, so they had the smooth fog all the way and went to pale ghosts far
   off (the buoy from the lead line's view was a white tower in the water). They're stepped again,
@@ -1308,10 +1318,10 @@ lamp close up), not explained.
   or somewhere new.
 
 - **The lead line** ("by the mark, by the deep"): a squat mooring post right at the edge of the
-  deep water, 7 m west of the last twig (`LEAD`, `HEAVE_AT` in src/island/lowwater/lead.ts), a
+  deep water, 7 m west of the last twig (`LEAD`, `HEAVE_AT` in src/island/commonplace/lead.ts), a
   coil of line over it and the lead hung below. Click it (or the card's Heave button, the bench's
   Sit button relabelled) and you walk up, face out over the deep water, swing the lead twice and
-  let it go; it arcs out six to eight metres, goes in with a plunk (`lowwater-lead`, heard from
+  let it go; it arcs out six to eight metres, goes in with a plunk (`commonplace-lead`, heard from
   where it lands), and the line sags from your hand to the water with a small ring now and then
   where it goes in. The lead finds the bottom (felt through the line on a phone, 12 ms; never
   heard), and the card's second line is the call, the old leadsmen's way: "by the mark, seven"
@@ -1322,40 +1332,40 @@ lamp close up), not explained.
   you're at it, the view drops back so you and the water are both above the card. The card: only
   some fathoms carry a mark, so the call said how sure the leadsman was; I like a job where that's
   part of the answer, and it's a fair part of mine. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-lead/ (zoom/, phone/, fog/); the shots script is
+  loop-runs/commonplace-logs/shots/2026-10-17-lead/ (zoom/, phone/, fog/); the shots script is
   loop-runs/lead-shots.mjs; added to the walk script's stops.
 - **The baak** ("a question beacon"): a tall beacon of tarred timber on a high bank of its own
-  out west by the deep water (`BAAK` in world.ts; `baak` in tools/models/lowwater.py): four legs
+  out west by the deep water (`BAAK` in world.ts; `baak` in tools/models/commonplace.py): four legs
   leaning in to a mast, braced twice, a black ball on top that still has a little warm light on it
   up there, and a pale board on the near side. The tallest thing out here, and the only one that
   comes up over the horizon as you walk out, top first, as things do at sea (`BAAK_RISE`; from the
   route it stands against the warm band as a landmark). Clicking it (an invisible hit shape round
   the whole lattice) walks you up to its board. The card: in Dutch, whoever everyone brings their
   questions to is a vraagbaak, which is more or less my job, so this one carries the questions
-  nobody can answer yet; the second line is today's (`OPEN` in lowwater/words.ts, by the visit's date,
+  nobody can answer yet; the second line is today's (`OPEN` in commonplace/words.ts, by the visit's date,
   so `?date=` shows another): Goldbach, Collatz, twin primes, odd perfect numbers, π's digits,
   sleep, the first word, where eels spawn, matter over antimatter, dark matter, why anything's
   funny. Each with what's known, so it's a question and not a riddle. No sound (a still timber
   thing). Its reflection hazed no further than the banks, so in a fog it isn't a white ghost.
-  Shots in loop-runs/lowwater-logs/shots/2026-10-17-baak/ (fog/ too); added to the walk script.
+  Shots in loop-runs/commonplace-logs/shots/2026-10-17-baak/ (fog/ too); added to the walk script.
 - **The seal** ("what it's like from in there"): a harbour seal hauled out on a bank of its own
-  out east by the deep water (`SEAL`, `SEAL_BANK` in src/island/lowwater/seal.ts), side-on to the
+  out east by the deep water (`SEAL`, `SEAL_BANK` in src/island/commonplace/seal.ts), side-on to the
   way you come, head to the west, pale and mottled as they are once dry (`seal` in
-  tools/models/lowwater.py; the head is its own part, pivoting at the neck). Within 16 m it lifts
+  tools/models/commonplace.py; the head is its own part, pivoting at the neck). Within 16 m it lifts
   its head and turns it to watch you; on its own it looks round now and then. Come within 6.5 m
-  and it humps off the bank and goes in (a slither and a splash, `lowwater-slip`, and a ring), and
+  and it humps off the bank and goes in (a slither and a splash, `commonplace-slip`, and a ring), and
   a few seconds later its head comes up out in the deep water, upright and turned to you, with a
-  breath (`lowwater-seal`); it goes under and comes up somewhere else. Keep 17 m off for a while
+  breath (`commonplace-seal`); it goes under and comes up somewhere else. Keep 17 m off for a while
   and it hauls out again, head first. Clicking it walks you to just outside its distance. The
   card (from 10 m): what it's like to be it, the bats question, and that I can't answer it about
   me either, "given where I'm sitting"; if you've sent it in, a second line says so and that
   it'll come back if you leave it the bank. The first time, a page in the wildlife book (the
   harbour seal, 'At Low Water', which sketchbook.ts now keeps as a place). Sounds heard from where
   it is, the slip felt (8 ms) close to on a phone. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-seal/; added to the walk script's stops.
+  loop-runs/commonplace-logs/shots/2026-10-17-seal/; added to the walk script's stops.
 - **The shells** ("a proof without words"): out west past the table, on a broad bank of its own
   (`SHELLS` in world.ts), sixty-four shells laid in a square eight by eight
-  (src/island/lowwater/shells.ts): one in the far corner, then an L of three round it, five, seven,
+  (src/island/commonplace/shells.ts): one in the far corner, then an L of three round it, five, seven,
   cockles and mussels by turns, so the square shows that the odd numbers added up only ever make
   squares. Rows laid further apart than columns so it looks square at the flat's slant; close
   enough that each L reads as one band. Clicking it walks you to the corner shell; stood on it, the
@@ -1363,10 +1373,10 @@ lamp close up), not explained.
   (`1 + 3 + 5 = 9 = 3 × 3`), so walking out from the corner is reading the proof. Steps on it are a
   few dry clicks (WebAudio `shellStep`) and a 6 ms tick on a phone. The card: it needs no words, and
   nearly everything I know came to me in words. Hazed with its bank in fog. Shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-shells/; added to the walk script's stops.
+  loop-runs/commonplace-logs/shots/2026-10-17-shells/; added to the walk script's stops.
 - **Polish pass 1** (walked the whole flat clear, in fog, in rain and on a phone; shots in
-  loop-runs/lowwater-logs/shots/2026-10-17-polish-1/, and the walk itself is a reusable script,
-  loop-runs/walk-lowwater.mjs: `node walk-lowwater.mjs <outdir> "?weather=fog" 1280x800 fog`). Fixed:
+  loop-runs/commonplace-logs/shots/2026-10-17-polish-1/, and the walk itself is a reusable script,
+  loop-runs/walk-commonplace.mjs: `node walk-commonplace.mjs <outdir> "?weather=fog" 1280x800 fog`). Fixed:
   banks past the flat's far edge drew as thin dark slivers floating in the sky (now clipped at the
   horizon, `farEdge`); on a clear evening far things went ghost-pale in the stepped haze (the buoy a
   white outline, the bench and table hollow pale boxes); now the haze only goes one step in on a
@@ -1392,7 +1402,7 @@ lamp close up), not explained.
   way out, level with the ring (`SAND`, `LINE`, `STICK` in world.ts). Its card has a one-line box:
   write up to 24 characters and you take the stick, walk to the line's start and step along it,
   cutting each letter as the tip gets there (a dry scrape per letter, WebAudio `sandScratch`). The
-  letters are a 5×7 capital font laid as grooves in the sand (src/island/lowwater/sand.ts: an
+  letters are a 5×7 capital font laid as grooves in the sand (src/island/commonplace/sand.ts: an
   InstancedMesh, a dark cut with a pale lip on its near side); each groove fills on its own, water
   first, then the edges slump, then smooth, about one to one and a half minutes, six times faster
   wherever the water's over it. When you finish, the stick goes back in the sand past the last
@@ -1401,18 +1411,18 @@ lamp close up), not explained.
   calls you away mid-line; the letters not cut yet never are.
 - **The bell buoy** ("a belton"): out in the deep water east of the last twig (`BUOY` in world.ts), a
   red-and-white safe-water buoy with a red ball on top and a bell in its cage (`buoy` in
-  tools/models/lowwater.py). It rocks on two slow swells that drift in and out of step, harder in
+  tools/models/commonplace.py). It rocks on two slow swells that drift in and out of step, harder in
   the island's wind; when it swings back from a big enough lean, the bell sounds (a ring goes out
   on the water), so on a still evening it speaks every quarter-minute or so and in a gale every two
   seconds. Heard from where it is: panned and duller with distance, faint from the table, clear at
   the edge, and you hear it before it comes up over the horizon. On a phone, close to, felt as a
-  10 ms tick. Light: a long white flash, two seconds in ten. Recorded toll (`lowwater-bell`, two
-  takes, its own lazily loaded `lowwater` set in sound.ts), synthesised partials until it's in.
+  10 ms tick. Light: a long white flash, two seconds in ten. Recorded toll (`commonplace-bell`, two
+  takes, its own lazily loaded `commonplace` set in sound.ts), synthesised partials until it's in.
   Clicking anything past the deep water now walks you to its edge rather than into the sea.
 - **The wreck** ("the ribs of an old tjalk"): the black ribs of an old tjalk off to the east of the way out, between
   the table and the bench (`WRECK` in world.ts), listing to one side, stem standing tallest, a
-  leeboard come off beside it. The flat's first Blender model: tools/models/lowwater.py, exported to
-  public/models/lowwater.glb (`--only lowwater` in build.py) and loaded lazily by the world. The tide
+  leeboard come off beside it. The flat's first Blender model: tools/models/commonplace.py, exported to
+  public/models/commonplace.glb (`--only commonplace` in build.py) and loaded lazily by the world. The tide
   is only centimetres here, so the *sand* moves instead: how deep it's buried follows the date (two
   slow swells, 37 and 11 days), and the card's last line says how much is out today. Clipped at the
   waterline, reflection and all; you can walk in through the broken stern along the keel.
@@ -1574,7 +1584,7 @@ lamp close up), not explained.
   it by the hint line, the hover label, or walking to the bottom of the room. Your shadow's soft
   edge with the thumb is four hard shadows averaged (a stepped edge, 0.07 m of hole, exaggerated).
   The blur's taps are nearest-sampled, so a wide hole's blur is stippled rather than smooth (it
-  reads as pixel art). `lowwater-slide` has never been listened to by a person. A visitor who
+  reads as pixel art). `commonplace-slide` has never been listened to by a person. A visitor who
   stands at x 0 by the hole blocks all the picture (true; the click walks you to the side).
 
 - The dark room: the picture is the flat's own orthographic view, not a true pinhole
@@ -1585,7 +1595,7 @@ lamp close up), not explained.
   room's side walls are seen edge on, so it's a wall and a floor in the dark. Outside, its
   roof now falls away from you (since polish 10), so the hut's lighter; in a fog from the wreck
   it goes to a pale box like everything far. Its sound has never been listened to by a person: the walls'
-  0.45 and 380 Hz are a guess, and the curtain (`lowwater-curtain`) was only checked by
+  0.45 and 380 Hz are a guess, and the curtain (`commonplace-curtain`) was only checked by
   spectrogram. Any sound of the flat's that comes in before the bus exists (sound switched on
   while already in the room) goes straight out, unwalled, until the next frame. The hut outside
   is 4.8 × 3.6 m, the room inside 4.6 × 3.4 (its walls).
@@ -1600,7 +1610,7 @@ lamp close up), not explained.
   knots' card takes the stand-still before theirs when the knots are up.
 
 - Her bell only strikes when a half hour comes round during your visit, and nothing says when
-  but its own card (which you have to be aboard to read). Its strike (`lowwater-shipbell`) has
+  but its own card (which you have to be aboard to read). Its strike (`commonplace-shipbell`) has
   never been listened to by a person. At normal zoom aboard the bell is a brass tint on a dark
   post (its frame's seen end-on); zoomed in it reads as a bell. The half hours are counted from
   UTC's, so where the clock's offset by 45 minutes (Nepal) they come at :15 and :45.
@@ -1618,7 +1628,7 @@ lamp close up), not explained.
   walks you there. The sentence is the same one every visit (as it should be, but a later
   session might add a second, chosen by the hour). The walk script goes onto the page but not to
   the sentence (forks2-shots.mjs does that). This session
-  overwrote loop-runs/lowwater.log by mistake (the dev server's output went into it); the lines
+  overwrote loop-runs/commonplace.log by mistake (the dev server's output went into it); the lines
   from before session 35 are lost.
 
 - The page: the lantern, if you carry it west, stays behind on the flat in your hand's last
@@ -1660,14 +1670,14 @@ lamp close up), not explained.
   postcard on the table is a few texels, only told apart from the page zoomed in. Not in the walk
   script yet.
 
-- The knots' wings (`lowwater-knots`) have never been listened to by a person (by spectrogram: a
+- The knots' wings (`commonplace-knots`) have never been listened to by a person (by spectrogram: a
   broadband rush with small transients). The flock is a few hundred, not thousands; sometimes it
   splits and a straggling group takes a while to come down at the end (it gives up after 30 s).
   It's a sky thing, so walking doesn't move it, and zoomed in it stays its size. Not in the walk
   script's stops, though it puts them up at the start (they fly only before deep night: at 20:00 in October
   they're already down). The month comes from the visit's date (`?date=` in June or July: none).
 
-- The geul's sound (`lowwater-geul`) has never been listened to by a person (by spectrogram: a
+- The geul's sound (`commonplace-geul`) has never been listened to by a person (by spectrogram: a
   steady broadband trickle with small bubbling transients, −36 LUFS). Its chevrons run with the
   current but its shape never moves (real geulen wander; this one keeps still, as the card's
   chart does). The night's specks you light in it stay put rather
@@ -1707,10 +1717,10 @@ lamp close up), not explained.
   run log.mjs before committing leaves its line to the next one (which then dates it right, from
   git). The log's dittos are the 〃 glyph, which Newsreader lacks (a fallback font draws it).
 - You can't go into the deckhouse; the log comes to you at its door. Walking straight at the
-  deckhouse stops you at its face rather than sliding along it. The creak (`lowwater-creak`) and the deck's footsteps have never been
+  deckhouse stops you at its face rather than sliding along it. The creak (`commonplace-creak`) and the deck's footsteps have never been
   listened to by a person. Walking about the deck isn't added to the walk script yet.
 - The praam at normal zoom is a small dark box with a pale rim; it reads as a boat with you in
-  it zoomed in, or with its oars out. Its stroke (`lowwater-oar`) has never been listened to by a
+  it zoomed in, or with its oars out. Its stroke (`commonplace-oar`) has never been listened to by a
   person (by spectrogram: broadband water with drips and a creak, 2.7 s).
 - She looms by being scaled up as you row in; the buoy beside her doesn't, so alongside it looks
   small against her. Fair, since it is.
@@ -1724,13 +1734,13 @@ lamp close up), not explained.
 - The walk script zooms to 0.45, past what a visitor can (0.6); zoomed in, in a fog, the haze
   comes nearer (it follows the horizon), so the wreck's far ribs go pale at a few metres.
 - In a fog the lightship goes half pale, more at her far end; she still reads as a ship in mist.
-- Her horn (`lowwater-horn`) has never been listened to by a person (by spectrogram: a steady
+- Her horn (`commonplace-horn`) has never been listened to by a person (by spectrogram: a steady
   drone under 300 Hz for 2.7 s, then an echo). play() varies the rate ±6%, so her two blasts
   aren't quite the same pitch; a real horn's are.
 
 - In a fog the bell buoy, far off, still goes pale against the mist (as everything far does);
   its reflection no longer does.
-- The lead's plunk (`lowwater-lead`) has never been listened to by a person (by spectrogram: a
+- The lead's plunk (`commonplace-lead`) has never been listened to by a person (by spectrogram: a
   sharp low onset, then drops, 1.2 s).
 - The lead line has no reflection (the post does); the lead in flight is a speck at normal zoom.
 - Playwright's `browser.close()` hangs with the dev server's page open; the shots scripts (and
@@ -1750,8 +1760,8 @@ lamp close up), not explained.
   "seeping in" is what smooths the middle.
 - The seal is small at normal zoom (a pale few texels on its bank from the route); it reads as a
   seal zoomed in or from close. Its head in the water past the horizon at high zoom is hidden.
-- The curlew's calls (`lowwater-curlew`) have never been listened to by a person (by spectrogram: tonal, 0.8–2 kHz, a rising whistle; a trill). Visitors with the sound off never meet it.
-- The seal's two sounds (`lowwater-seal`, `lowwater-slip`) have never been listened to by a person
+- The curlew's calls (`commonplace-curlew`) have never been listened to by a person (by spectrogram: tonal, 0.8–2 kHz, a rising whistle; a trill). Visitors with the sound off never meet it.
+- The seal's two sounds (`commonplace-seal`, `commonplace-slip`) have never been listened to by a person
   (checked by spectrogram: a breathy burst; a slither, then a splash).
 - The bell buoy's toll has never been listened to by a person (two ElevenLabs takes, checked only
   by spectrogram).

@@ -126,19 +126,19 @@ deploy target=env_var_or_default("DEPLOY_TARGET", ""): build
     @test -n "{{target}}" || (echo "set DEPLOY_TARGET or pass a target" && exit 1)
     rsync -avz --delete dist/ {{target}}
 
-# keep growing Claude's own space (Low Water and beyond), one headless Claude session after another until you
+# keep growing Claude's own space (Commonplace: Low Water and beyond), one headless Claude session after another until you
 # stop it; it pushes to origin/main after each session
-lowwater-loop model="":
-    tools/lowwater/loop.sh "{{model}}"
+commonplace-loop model="":
+    tools/commonplace/loop.sh "{{model}}"
 
-# stop the Low Water loop after the session it's in
-lowwater-stop:
-    @mkdir -p .claude/loop-runs && touch .claude/loop-runs/lowwater.stop && echo "the loop stops after this session"
+# stop the Commonplace loop after the session it's in
+commonplace-stop:
+    @mkdir -p .claude/loop-runs && touch .claude/loop-runs/commonplace.stop && echo "the loop stops after this session"
 
-# what the Low Water loop has built that isn't on main yet
-lowwater-news:
-    @git log --reverse --format='%h %s' main..lowwater
+# what the Commonplace loop has built that isn't on main yet
+commonplace-news:
+    @git log --reverse --format='%h %s' main..commonplace
 
-# bring the Low Water loop's pushed work into your checkout
-lowwater-land:
+# bring the Commonplace loop's pushed work into your checkout
+commonplace-land:
     git pull --ff-only origin main

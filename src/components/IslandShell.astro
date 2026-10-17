@@ -448,22 +448,22 @@ const places = [
     </div>
   </section>
 
-  <!-- Low Water: a tidal flat far out past the island, at blue hour (src/island/lowwater.ts) -->
-  <section class="lowwater" data-panel="lowwater" hidden aria-labelledby="lowwater-title">
-    <h2 id="lowwater-title" class="visually-hidden" tabindex="-1">Low Water</h2>
-    <button class="lowwater-back" data-close>Back to the island</button>
-    <div class="lowwater-card" data-lowwater-card hidden aria-live="polite">
-      <button class="lowwater-fold" data-lowwater-fold aria-expanded="true" aria-label="Fold the card away"></button>
-      <p data-lowwater-text></p>
-      <p class="lowwater-more" data-lowwater-more hidden></p>
-      <button class="lowwater-sit" data-lowwater-sit hidden>Sit</button>
-      <div class="lowwater-choices" data-lowwater-choices hidden></div>
-      <form class="lowwater-write" data-lowwater-write hidden>
+  <!-- Commonplace: Claude's own space, which starts at Low Water, a tidal flat far out past the island (src/island/commonplace.ts) -->
+  <section class="commonplace" data-panel="commonplace" hidden aria-labelledby="commonplace-title">
+    <h2 id="commonplace-title" class="visually-hidden" tabindex="-1">Commonplace</h2>
+    <button class="commonplace-back" data-close>Back to the island</button>
+    <div class="commonplace-card" data-commonplace-card hidden aria-live="polite">
+      <button class="commonplace-fold" data-commonplace-fold aria-expanded="true" aria-label="Fold the card away"></button>
+      <p data-commonplace-text></p>
+      <p class="commonplace-more" data-commonplace-more hidden></p>
+      <button class="commonplace-sit" data-commonplace-sit hidden>Sit</button>
+      <div class="commonplace-choices" data-commonplace-choices hidden></div>
+      <form class="commonplace-write" data-commonplace-write hidden>
         <input type="text" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="One line" aria-label="Write in the sand" />
         <button type="submit">Write</button>
       </form>
     </div>
-    <div class="lowwater-log" data-lowwater-log hidden role="dialog" aria-label="Her log">
+    <div class="commonplace-log" data-commonplace-log hidden role="dialog" aria-label="Her log">
       <p class="log-head"><span>Low Water lightship · Log</span><span>Page <span data-log-folio></span></span></p>
       <p class="log-cols"><span>Watch</span><span>Remarks</span></p>
       <ol class="log-rows" data-log-rows></ol>
@@ -473,7 +473,7 @@ const places = [
         <button data-log-later>Later</button>
       </div>
     </div>
-    <div class="lowwater-postcard" data-lowwater-postcard hidden role="dialog" aria-label="A postcard">
+    <div class="commonplace-postcard" data-commonplace-postcard hidden role="dialog" aria-label="A postcard">
       <div class="postcard" data-postcard-card>
         <div class="postcard-back">
           <div class="postcard-message">
@@ -494,14 +494,14 @@ const places = [
             <p class="postcard-address"><span>You</span><span>out on the flat</span><span>Low Water</span></p>
           </div>
         </div>
-        <div class="postcard-front" hidden><img src="/lowwater/postcard.png" alt="A picture of the flat at blue hour: the birch twigs running out over the wet sand, the warm band on the horizon." width="600" height="400" loading="lazy" /></div>
+        <div class="postcard-front" hidden><img src="/commonplace/postcard.png" alt="A picture of the flat at blue hour: the birch twigs running out over the wet sand, the warm band on the horizon." width="600" height="400" loading="lazy" /></div>
       </div>
       <div class="log-nav">
         <button data-postcard-turn>Turn it over</button>
         <button data-postcard-close>Put it back</button>
       </div>
     </div>
-    <div class="lowwater-kept" data-lowwater-kept hidden role="dialog" aria-label="A book from Tine’s shelf">
+    <div class="commonplace-kept" data-commonplace-kept hidden role="dialog" aria-label="A book from Tine’s shelf">
       <p class="kept-head" data-kept-head></p>
       <div class="kept-rows" data-kept-rows></div>
       <p class="kept-folio" data-kept-folio></p>
@@ -510,7 +510,7 @@ const places = [
         <button data-kept-close>Put it back</button>
       </div>
     </div>
-    <p class="lowwater-hint" data-lowwater-hint>Click to walk · or W A S D</p>
+    <p class="commonplace-hint" data-commonplace-hint>Click to walk · or W A S D</p>
   </section>
 
   <section class="panel" data-panel="places" hidden aria-labelledby="places-title">

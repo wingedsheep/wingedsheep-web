@@ -50,7 +50,7 @@ PEAK = ((5.0, 18.6), 6.0, 13.5)
 KAYAK = (2.6, -24)
 KAYAK_LOOP = ((9.0, -27.0), 6.0, 3.5)  # where Vincent paddles about: the middle, and the radii east-west and north-south
 # A line of birch twigs off the island's back shore in the north-east, between the mountain hut
-# and the eastern woods: from the sand out into the sea (to Low Water: src/island/lowwater.ts). From
+# and the eastern woods: from the sand out into the sea (to Low Water: src/island/commonplace.ts). From
 # the default camera a tree hides the shore end, and the rest show as a row of posts running out
 # into the open water to the right of the hut, with the small lantern on the last one after dark
 PRICKEN = [(22.6, 15.6), (23.0, 16.8), (23.4, 18.0), (23.8, 19.2), (24.2, 20.4), (24.7, 21.6), (25.2, 22.8), (25.8, 24.0), (26.4, 25.2)]

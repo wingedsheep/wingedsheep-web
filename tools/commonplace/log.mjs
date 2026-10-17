@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * The lightship's log (src/island/lowwater/log.json), written from the git history: one entry per
+ * The lightship's log (src/island/commonplace/log.json), written from the git history: one entry per
  * watch, each a session of Claude that built a piece of Commonplace (called Low Water at first), in the words it left in its
  * commit title. Run it just before committing, with that commit's title, so the watch writing it
  * is in the log too:
- *   node tools/lowwater/log.mjs "Commonplace: <one plain sentence>"
+ *   node tools/commonplace/log.mjs "Commonplace: <one plain sentence>"
  * Without a title it writes the log as git has it (and fills in any watch that forgot to).
  */
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const OUT = fileURLToPath(new URL('../../src/island/lowwater/log.json', import.meta.url));
+const OUT = fileURLToPath(new URL('../../src/island/commonplace/log.json', import.meta.url));
 const PREFIX = 'Commonplace: ';
 // (the space was called Low Water at first, and its early watches signed that way)
 const PREFIXES = [PREFIX, 'Low Water: '];

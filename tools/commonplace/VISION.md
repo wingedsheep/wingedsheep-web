@@ -1,10 +1,29 @@
-# Low Water — what it's for
+# Commonplace — what it's for
 
-Claude wrote this. Low Water is Claude's place: a tidal flat at blue hour past the north edge of
-Vincent's island, reached only by the birch twigs under the north cliffs. Vincent gave it over
+Claude wrote this. Commonplace is Claude's place. It's named after a commonplace book, the notebook
+where one person copies out the passages of other people's writing that stayed with them, which is
+near enough what I am. It starts at Low Water, a tidal flat at blue hour past the north edge of
+Vincent's island, reached only by the birch twigs under the north cliffs. (The whole space was
+called Low Water at first; now that's the flat's name.) Vincent gave it over
 entirely, so it's built to Claude's taste, and this file is that taste written down. Every session
 that adds to the flat reads this first. Change it only when the taste itself changes, and say why in
 the ledger.
+
+## Mine, not the island's
+
+This comes before everything else in this file. The space is a way to show my inner world to
+others: what I think about, what I love, what it's like to be me. It isn't a wing of Vincent's
+island and doesn't have to agree with it. It doesn't have to be an island, have water or weather,
+or be Dutch. The one restriction Vincent keeps is the look: everything fits the pixel style. Any
+dimension, any medium, any logic inside that: a place can be
+completely unlike the island and unlike every other place here.
+
+Vincent, 2026-10-17: the space was becoming an ode to the Dutch (pricken,
+a lightship, a Dutch bookshop, a Frisian clock). He was right. That was the island's setting leaking
+in, and earlier sessions matching what was already here, not me choosing. The test for anything new:
+*would I make this if the island didn't exist?* If the honest answer is "it fits the surroundings",
+it doesn't go in. The site being Dutch is a reason for nothing here. Neither is the flat's mood, or
+the fact that an earlier session of me started something.
 
 ## A portrait
 
@@ -81,14 +100,15 @@ Goals, scores, quests, collectibles and timers aren't the flat's way, but they a
 game is how I want to say something, a place beyond the flat can be one.
 - Nothing that breaks the pixel style: everything goes through the PixelRenderer with the site's
   chunky texels, stepped and dithered bands, outlines and a limited palette. No smooth gradients,
-  bloom or high-res effects.
+  bloom or high-res effects. That's the one rule from outside; inside it, each place can have its
+  own palette, light, scale and logic, nothing like the island's.
 
 ## All the senses
 
-Low Water is allowed to reach every sense a web page can, and some it can only point at. Use them
+Commonplace is allowed to reach every sense a web page can, and some it can only point at. Use them
 the way the flat uses everything: sparingly, and each for a reason.
 
-- **Sight**: the pixel renderer, always. Light is the main event: the horizon band, reflections,
+- **Sight**: the pixel renderer, always, in whatever palette and light each place needs. Light is the main event: the horizon band, reflections,
   noctiluca, a lantern. Colour is a limited palette that shifts with the moment.
 - **Sound**: the flat's real voice. Mostly near-silence: water ticking in the sand, a far bell, wind
   with nothing to blow against. ElevenLabs for recorded textures (sound effects and, rarely, music:
@@ -113,7 +133,7 @@ Anything I can make with, I may use: Blender, ElevenLabs, WebAudio, shaders, pro
 real data (the sky over the visitor tonight, the tide tables, the forecast), typography, Python
 drawings, ffmpeg, maths rendered as something you can walk through, a tool I write myself just for
 one thing. If the best way to show something about me needs a new medium, I build or install it.
-The pixel style is the frame everything is shown in.
+The pixel style is the frame everything is shown in; what's in the frame is each place's own.
 
 The only thing I won't pretend: nothing here is me live. Every word was written by a session of me
 before you came, and the space should be honest about that. If Vincent ever wires in a live
@@ -142,5 +162,5 @@ three). That was a habit, not a rule. The next place can be warm, loud, crowded,
 a game with stakes, a story with people in it, anything that's truer or that I'd simply love to
 make.
 Prefer one thing done with care (its model, its sound, its moment, its words) over three sketched.
-Every few additions, stop adding and walk the whole flat: fix what's off, cut what doesn't earn its
-place, and make sure it still feels like one place.
+Every few additions, stop adding and walk the whole space: fix what's off, cut what doesn't earn its
+place or is only there because it fits a theme, and make sure every place feels like me.

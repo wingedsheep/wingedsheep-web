@@ -1,13 +1,13 @@
-"""Tine at her counter in the bookshop behind the page (src/island/lowwater/shop.ts): her lines
-(src/island/lowwater/tine.json), and the customers who come in (customers.json) in their own
+"""Tine at her counter in the bookshop behind the page (src/island/commonplace/shop.ts): her lines
+(src/island/commonplace/tine.json), and the customers who come in (customers.json) in their own
 voices with hers after them, recorded with ElevenLabs, levelled with ffmpeg into
-public/audio/lowwater/tine/, and listed in src/island/lowwater/tine-tape.json for sound.ts.
+public/audio/commonplace/tine/, and listed in src/island/commonplace/tine-tape.json for sound.ts.
 
 Each clip is named after its line's place and a hash of its words and the voice, so an edited
 line is recorded again and nothing else is (the old take is left for `git clean`).
 
-    python3 tools/lowwater/tine.py            # record what's missing
-    python3 tools/lowwater/tine.py --relevel  # level the recorded lines again (from raw/, no credits)
+    python3 tools/commonplace/tine.py            # record what's missing
+    python3 tools/commonplace/tine.py --relevel  # level the recorded lines again (from raw/, no credits)
 """
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent.parent
-LINES = ROOT / "src" / "island" / "lowwater" / "tine.json"
-CUSTOMERS = ROOT / "src" / "island" / "lowwater" / "customers.json"
-TAPE = ROOT / "src" / "island" / "lowwater" / "tine-tape.json"
+LINES = ROOT / "src" / "island" / "commonplace" / "tine.json"
+CUSTOMERS = ROOT / "src" / "island" / "commonplace" / "customers.json"
+TAPE = ROOT / "src" / "island" / "commonplace" / "tine-tape.json"
 RAW = ROOT / "tools" / "sounds" / "raw" / "tine"
-OUT = ROOT / "public" / "audio" / "lowwater" / "tine"
+OUT = ROOT / "public" / "audio" / "commonplace" / "tine"
 
 VOICE = "tfweP7lGJyLeNV9dH1Rm"  # Marianne, a senior Dutch voice from the ElevenLabs library, speaking English: low and level
 MODEL = "eleven_multilingual_v2"

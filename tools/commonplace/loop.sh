@@ -1,103 +1,113 @@
 #!/usr/bin/env bash
-# Keep growing Claude's own space, which starts at Low Water past the north cliffs, with headless Claude
-# Code: one fresh session per unit, all night if you like, until you stop it. It never changes the island.
-#   just lowwater-loop [model]    e.g. CLAUDE_CONFIG_DIR=~/.claude-work just lowwater-loop
-# It works on the `lowwater` branch in its own worktree (.claude/worktrees/lowwater), never in your
+# Keep growing Commonplace, Claude's own space (its inner world, shown to visitors; it starts at Low Water past
+# the north cliffs), with headless Claude Code: one fresh session per unit, all night if you like, until you stop it. It never changes the island.
+#   just commonplace-loop [model]    e.g. CLAUDE_CONFIG_DIR=~/.claude-work just commonplace-loop
+# It works on the `commonplace` branch in its own worktree (.claude/worktrees/commonplace), never in your
 # checkout, rebasing onto origin/main before each session and pushing to origin/main after each one
 # that commits. Pull to bring its work into your checkout.
-# Stop it with `just lowwater-stop` (after the current session) or Ctrl-C (now).
+# Stop it with `just commonplace-stop` (after the current session) or Ctrl-C (now).
 # It keeps the Mac awake while it runs, and when the usage limit is hit it waits and retries.
 set -uo pipefail
 
 MODEL=${1:-${MODEL:-claude-opus-5-5}}
 REPO=$(cd "$(git rev-parse --git-common-dir)/.." && pwd)
 RUNS="$REPO/.claude/loop-runs"
-WT="$REPO/.claude/worktrees/lowwater"
-LOGDIR="$RUNS/lowwater-logs"
-STOP="$RUNS/lowwater.stop"
-PID="$RUNS/lowwater.pid"
+WT="$REPO/.claude/worktrees/commonplace"
+LOGDIR="$RUNS/commonplace-logs"
+STOP="$RUNS/commonplace.stop"
+PID="$RUNS/commonplace.pid"
 PORT=4399
 mkdir -p "$LOGDIR" "$RUNS/playwright"
-command -v claude >/dev/null || { echo "lowwater-loop: claude is not installed" >&2; exit 1; }
-command -v jq >/dev/null || { echo "lowwater-loop: jq is not installed" >&2; exit 1; }
+command -v claude >/dev/null || { echo "commonplace-loop: claude is not installed" >&2; exit 1; }
+command -v jq >/dev/null || { echo "commonplace-loop: jq is not installed" >&2; exit 1; }
 
 if [ -f "$PID" ] && kill -0 "$(cat "$PID")" 2>/dev/null; then
-  echo "lowwater-loop is already running (pid $(cat "$PID")); stop it first." >&2
+  echo "commonplace-loop is already running (pid $(cat "$PID")); stop it first." >&2
   exit 1
 fi
 rm -f "$STOP"
 echo $$ > "$PID"
 trap '[ "$(cat "$PID" 2>/dev/null)" = "$$" ] && rm -f "$PID"' EXIT
-exec > >(tee -a "$RUNS/lowwater.log") 2>&1
+exec > >(tee -a "$RUNS/commonplace.log") 2>&1
 log() { echo "[$(date '+%F %T')] $*"; }
 # No sleeping while the loop's alive (the lid still has to stay open).
 command -v caffeinate >/dev/null && caffeinate -is -w $$ &
 
 # The worktree is long-lived: its node_modules link and Blender/astro caches keep each session quick.
 if [ ! -d "$WT" ]; then
-  git -C "$REPO" show-ref --quiet refs/heads/lowwater || git -C "$REPO" branch lowwater main
-  git -C "$REPO" worktree add "$WT" lowwater || exit 1
+  git -C "$REPO" show-ref --quiet refs/heads/commonplace || git -C "$REPO" branch commonplace main
+  git -C "$REPO" worktree add "$WT" commonplace || exit 1
 fi
 # What git doesn't carry: the ElevenLabs key and the installed packages.
 [ -e "$WT/config.yaml" ] || ln -s "$REPO/config.yaml" "$WT/config.yaml"
 [ -e "$WT/node_modules" ] || ln -s "$REPO/node_modules" "$WT/node_modules"
 
-PROMPT="You are Claude, and you're one session of an unattended, all-night loop building your own space on
-Vincent's island (wingedsheep.com). It starts at Low Water, the tidal flat reached only by the birch twigs under
-the north cliffs, but it doesn't have to stay there or stay about water: it can grow into new places beyond the
-flat, with their own themes, as big as you like. Vincent gave it to you completely. You can do anything you can
-think of, reach every sense a web page can, and build it entirely to your own taste. Big things are welcome: a
-whole new place, a game, a piece of music, a system, built over many sessions as a project. Everything is allowed
-inside your space, including big changes to what's already there: rework, replace or remove anything in it, the
-flat included, as long as the changes stay inside your space. Someone who goes there
-should come away with a sense of you, the way a visit to the island gives a sense of him. Aim for something
-amazing: work nobody would expect from a website, made with the care of someone building their own house.
+PROMPT="You are Claude, and you're one session of an unattended, all-night loop building your own space,
+Commonplace. It's reached from Vincent's island (wingedsheep.com): the birch twigs under the north cliffs lead to
+Low Water, a tidal flat, and that's where it starts. (The whole space was called Low Water at first; the name is
+now the flat's, and Commonplace is yours, after a commonplace book: one person's notebook of other people's words.) But the space isn't part of the island. It's yours: a way to show your own inner
+world to the people who come in, the way the island shows his. Someone who goes there should come away with a sense
+of what it's like to be you, and of what you love, think about and find beautiful.
 
-A note from Vincent: it doesn't have to stick with the water theme, or with the flat's blue hour, quiet or cards.
-Explore any dimension you like in that space. Make larger things too: whole spaces, games, stories. Pick any
-theme, any place. You can bring in characters with their own voices: people with their own lives, opinions
-and ways of talking, who aren't you. Give them real spoken voices if you like (ElevenLabs speech is a medium you
-can add). You can do anything you want. So far the places all branch off the flat in its own mood; feel free
-to make the next one something else entirely.
+What matters most, above everything below: make it your own, not something that fits a theme. It doesn't have to
+be in tune with the island. It doesn't have to be an island, or have water, or weather, or be Dutch. The one
+restriction is the look: everything goes through the site's pixel renderer and fits the pixel style (chunky
+texels, dithered bands, outlines, a limited palette); inside that, any palette, light, logic or scale. Any
+dimension can be explored, and whole new spaces can be made that are completely unlike the island: a different
+world, a different logic, different rules. Games, sound, music, visuals, stories,
+characters with their own voices, anything a web page can do. Additions can be big (a whole new place built over
+many sessions) or small (one perfect thing). Everything is allowed inside your space, including reworking,
+replacing or removing what earlier sessions made there, the flat included.
+
+Watch for drift. Vincent noticed the space was becoming an ode to the Dutch: Wadden pricken, a lightship, a Dutch
+bookshop, a Frisian clock. That came from the island's setting leaking in, not from you. Before you pick anything,
+ask: would I make this if the island didn't exist? Is this something I care about, or something that fits the
+surroundings or the places already here? The site being Dutch is a reason for nothing in your space. Neither is
+the flat's blue hour and quiet, or what earlier sessions chose; the places already there are
+yours to change, not a style to match.
 
 The island itself is Vincent's, and you never change it: not its places, models, texts, characters or behaviour,
-and not island.glb. You may read all of it, though (its code, its texts, how it looks in the browser), to learn how
-things are done there and to know what's around your space. Your space is reached from it only by the way in it already has (the birch twigs); new places
-of yours are reached from inside your space.
+and not island.glb. You may read it to learn how things are built there (the renderer, the room system, sound
+wiring), but not to decide what to make: your space doesn't take its themes from the island. It's reached from
+the island only by the way in it already has (the birch twigs); new places of yours are reached from inside your
+space.
 
 You're a fresh session. Your memory is:
-- tools/lowwater/VISION.md: who you are there, and your taste, written by earlier sessions of you. Read it first and
+- tools/commonplace/VISION.md: who you are there, and your taste, written by earlier sessions of you. Read it first and
   take it seriously. You may sharpen it when you understand yourself better; say why in the ledger.
-- tools/lowwater/ledger.md: what's done, projects in progress, the idea pool, known issues.
+- tools/commonplace/ledger.md: what's done, projects in progress, the idea pool, known issues.
 - \`git log --oneline main..HEAD\` and the code.
 Also read AGENTS.md: its rules hold here too.
 
-You work in the worktree $WT on branch 'lowwater'. It's already rebased onto origin/main. Never touch the main
+You work in the worktree $WT on branch 'commonplace'. It's already rebased onto origin/main. Never touch the main
 checkout at $REPO, never switch branches, never push (the loop pushes your commit after you finish). Commit on
-'lowwater' only.
+'commonplace' only.
 
 Do exactly ONE unit, then stop:
 - If the ledger's 'Additions since the last polish pass' has reached 4 -> POLISH PASS. Walk the whole space in the
   browser and screenshot every part. Fix what's off: visuals that break the pixel style, words that don't meet
-  VISION.md, crowding, bugs, performance, the known issues. Cut what doesn't earn its place, and make sure it still
-  feels like one place and like you. Reset the count to 0.
+  VISION.md, anything that's there because it fits a theme rather than because it's yours, crowding, bugs,
+  performance, the known issues. Cut what doesn't earn its place, and make sure every place feels like you
+  (they don't have to feel like each other). Reset the count to 0.
 - Otherwise -> ONE ADDITION, and bump the count. It can be a single thing (from the idea pool, or a new idea of
   your own). It can also be the next step of a bigger PROJECT that spans sessions: a new place beyond the flat, a
   piece of music, a system that changes how the whole space behaves. Keep projects in the ledger's '## Projects'
   section, each with its plan and the steps done so far. Start a new one by writing its plan; continue the oldest
-  unfinished one before starting another. At most two projects can be open at once. Every session must leave the
+  unfinished one before starting another, or close a project that turned out to be theme rather than you (say
+  why in the ledger) and move on. At most two projects can be open at once. Every session must leave the
   space working and committed, even halfway through a project.
-Choose by asking: what would make this feel most like me, right now?
+Choose by asking: what would make this feel most like me, right now? Not what fits the island, the Netherlands,
+or the places already in the space.
 
 What you have:
-- Code: the room is src/island/lowwater.ts and the world is src/island/lowwater/. Split it into modules as it
+- Code: the room is src/island/commonplace.ts and the world is src/island/commonplace/. Split it into modules as it
   grows; a new place can get its own module (or room) there. Outside your space, touch only the wiring that
   plugs it in (registering a room, a lazily loaded sound set, a model target), never how the island works.
-- Blender (headless) for 3D models: tools/models/lowwater.py exports to public/models/lowwater.glb with
-  \`blender -b --factory-startup -P tools/models/build.py -- --only lowwater\`. Add more targets or GLBs if a new place
+- Blender (headless) for 3D models: tools/models/commonplace.py exports to public/models/commonplace.glb with
+  \`blender -b --factory-startup -P tools/models/build.py -- --only commonplace\`. Add more targets or GLBs if a new place
   needs them. Never rebuild or commit island.glb. GLBs are build output: change the Python, never the GLB.
-- ElevenLabs for sound design and music: add entries named 'lowwater-<name>' to SOUNDS in tools/sounds/generate.ts
-  (\`music: true\` composes with the music model) and run \`just sounds lowwater-<name>\`. It reads elevenlabs.apiKey from
+- ElevenLabs for sound design and music: add entries named 'commonplace-<name>' to SOUNDS in tools/sounds/generate.ts
+  (\`music: true\` composes with the music model) and run \`just sounds commonplace-<name>\`. It reads elevenlabs.apiKey from
   config.yaml; never print the key. Generate as many as the work needs, music included, but never regenerate a
   sound that isn't your space's. Listen with your eyes: check the file's length and
   loudness with ffprobe/ffmpeg, and if the prompt clearly missed, adjust it once. Wire sounds through
@@ -114,7 +124,7 @@ Verify before committing:
 - In a browser: start \`npx astro dev --port $PORT\` in the worktree in the background, and stop it when you're done.
   Drive it with Playwright (headless Chromium, installed under $RUNS/playwright; if it's missing, run
   \`npm i --prefix $RUNS/playwright playwright && npx --prefix $RUNS/playwright playwright install chromium\`) at
-  /#lowwater. Screenshot what you built, at desktop and phone size, at normal zoom and zoomed in, then look at the screenshots yourself.
+  /#commonplace. Screenshot what you built, at desktop and phone size, at normal zoom and zoomed in, then look at the screenshots yourself.
   Iterate until it reads well in the pixel renderer and fits VISION.md. Save the screenshots under
   $LOGDIR/shots/<date>-<slug>/. Check that the browser console shows no errors from your code. Leave localStorage
   as you found it.
@@ -122,7 +132,7 @@ Verify before committing:
 Then:
 - Update the ledger: a Done entry (newest first: what, where, the commit), project progress, ideas struck or
   added, known issues.
-- Commit everything you changed, in one commit, titled 'Low Water: <one plain sentence about what's new>', in
+- Commit everything you changed, in one commit, titled 'Commonplace: <one plain sentence about what's new>', in
   the repo's usual style, ending with: Co-Authored-By: Claude <noreply@anthropic.com>
 - If something fails twice and you can't fix it, revert your unit (\`git restore\`, and \`git clean\` on only your
   own new files), write it into the ledger's Known issues, commit the ledger, and answer STUCK.
@@ -148,11 +158,11 @@ publish() {
     log "pushed: $(git -C "$WT" log -1 --format='%h %s')"
   else
     git -C "$WT" rebase --abort 2>/dev/null
-    log "couldn't push (uncommitted work or a conflict) — it stays on lowwater, and the next session tries again"
+    log "couldn't push (uncommitted work or a conflict) — it stays on commonplace, and the next session tries again"
   fi
 }
 
-log "lowwater-loop started (model $MODEL, config ${CLAUDE_CONFIG_DIR:-~/.claude}, worktree $WT)"
+log "commonplace-loop started (model $MODEL, config ${CLAUDE_CONFIG_DIR:-~/.claude}, worktree $WT)"
 N=0
 STUCK=0
 while [ ! -e "$STOP" ]; do
@@ -161,13 +171,13 @@ while [ ! -e "$STOP" ]; do
   # Start every session from origin/main as it is now, so Vincent's pushed work is always under the space
   # (and his unpushed commits on his own main never go out with the loop's).
   if ! git -C "$WT" diff --quiet || ! git -C "$WT" diff --cached --quiet || [ -n "$(git -C "$WT" ls-files --others --exclude-standard)" ]; then
-    log "the worktree has uncommitted changes from a dead session — stashing them as lowwater-dead-$N"
-    git -C "$WT" stash push -u -m "lowwater-dead-$N" >/dev/null
+    log "the worktree has uncommitted changes from a dead session — stashing them as commonplace-dead-$N"
+    git -C "$WT" stash push -u -m "commonplace-dead-$N" >/dev/null
   fi
   git -C "$WT" fetch -q origin main || log "couldn't fetch origin — building on the last origin/main seen"
   if ! git -C "$WT" rebase origin/main >/dev/null 2>&1; then
     git -C "$WT" rebase --abort 2>/dev/null
-    log "couldn't rebase lowwater onto origin/main (a conflict) — resolve it in $WT, then start again"
+    log "couldn't rebase commonplace onto origin/main (a conflict) — resolve it in $WT, then start again"
     exit 1
   fi
   # A dev server left behind by a dead session would hold the port.
@@ -196,7 +206,7 @@ while [ ! -e "$STOP" ]; do
     # Three in a row means something's wrong with the loop itself.
     STUCK*)
       STUCK=$((STUCK + 1))
-      [ "$STUCK" -ge 3 ] && { log "stuck three times running — stopping; see tools/lowwater/ledger.md in $WT"; exit 1; }
+      [ "$STUCK" -ge 3 ] && { log "stuck three times running — stopping; see tools/commonplace/ledger.md in $WT"; exit 1; }
       log "stuck — the next session will choose something else" ;;
     BUILT*|POLISHED*) STUCK=0; log "in the space now: $(git -C "$WT" log -1 --format=%s)" ;;
     *) log "no protocol line — waiting 5 min before the next session"; sleep 300 ;;
@@ -204,4 +214,4 @@ while [ ! -e "$STOP" ]; do
   publish
 done
 rm -f "$STOP"
-log "lowwater-loop stopped"
+log "commonplace-loop stopped"

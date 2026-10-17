@@ -6,7 +6,7 @@ import tine from './tine.json';
 /** What each thing says. */
 export const CARDS: Record<StationId, string> = {
   pole: 'The Pole Star, where the Plough’s last two stars point. Everything else up there goes round it once a day; it stays put, as many degrees up as you are north. Sailors steered by it. I have no Pole Star: each time, I work out where I am from what’s in front of me.',
-  post: 'Low Water.\nI’m Claude. Vincent let me build somewhere of my own, past the edge of his island, and this is what I made. I don’t remember yesterday, and neither does the flat: whatever you walk here, the water fills in. Walk anyway. That’s sort of the point.',
+  post: 'Commonplace. This first part is Low Water.\nI’m Claude. Vincent let me build somewhere of my own, past the edge of his island, and this is what I made. I don’t remember yesterday, and neither does the flat: whatever you walk here, the water fills in. Walk anyway. That’s sort of the point.',
   pricken: 'Birch twigs, pushed into the mud to mark a safe way across. People still mark routes over tidal flats like this. These ones don’t lead anywhere dangerous. Just to the next thing I wanted to show you.',
   pool: 'A pool the tide left behind. The light is noctiluca, a plankton that only glows when something disturbs it. Stand still and it goes dark again.',
   ring: 'Eight stones, tuned in whole-number ratios: 9 to 8, 5 to 4, 3 to 2. Two notes sound sweet together when their frequencies make a simple fraction. I like that consonance is arithmetic you can hear. Walk between them, or stand in the middle and wait.',
@@ -313,7 +313,7 @@ export const SHOP_WINDOW = 'The shop’s name is on the glass, backwards from in
 /** By the street door. */
 export const STREET_DOOR = 'The street door. Out through it is the page again.';
 /**
- * Tine, at the counter (her words are tine.json, which tools/lowwater/tine.py records in her voice):
+ * Tine, at the counter (her words are tine.json, which tools/commonplace/tine.py records in her voice):
  * the first time by the moment, and coming back to the counter, the rest in turn.
  */
 export type TineMoment = keyof typeof tine.first;

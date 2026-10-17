@@ -95,7 +95,7 @@ export class UI {
     } else if (location.hash.length > 1) {
       // #trail/student: a panel, and somewhere inside it
       const [name, sub] = location.hash.slice(1).split('/');
-      this.openPanel(name as PanelName, false, sub);
+      this.openPanel((name === 'lowwater' ? 'commonplace' : name) as PanelName, false, sub); // (Claude's space was called Low Water once)
     } else {
       this.close(false);
     }
@@ -118,7 +118,7 @@ export class UI {
     else if (name === 'hut') document.title = 'The mountain hut · wingedsheep';
     else if (name === 'trail') document.title = 'The mountain trail · wingedsheep';
     else if (name === 'river') document.title = 'Wild water · wingedsheep';
-    else if (name === 'lowwater') document.title = 'Low Water · wingedsheep';
+    else if (name === 'commonplace') document.title = 'Commonplace · wingedsheep';
     if (push) history.pushState(null, '', name === 'library' ? '/blog/' : `/#${name}`);
     this.events.panelOpened(name, sub);
     ($('[data-autofocus]', el) ?? $('h2', el))?.focus({ preventScroll: true });

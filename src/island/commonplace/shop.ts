@@ -5,7 +5,7 @@
  * middle, the shop window and the street door on the west side, and on the east, behind the
  * counter, Tine, who has kept it since 1979, reading.
  *
- * It keeps the island's hour and weather (`moment`, set from lowwater.ts each frame): the sun comes
+ * It keeps the island's hour and weather (`moment`, set from commonplace.ts each frame): the sun comes
  * in at the window and lies on the boards in the shape of its panes, warmer and longer towards
  * evening; at night the street goes dark blue and the lamps are on; in rain the glass runs.
  *
@@ -222,7 +222,7 @@ export class Shop {
   onTurn?: (side: number, near: number) => void;
   /** A customer's step on the boards. */
   onTheirStep?: (side: number, near: number) => void;
-  /** The island's hour and weather, from lowwater.ts: sun up, a low sun, rain, fog, snow (each 0–1), and the clock (hours since midnight, and its seconds). */
+  /** The island's hour and weather, from commonplace.ts: sun up, a low sun, rain, fog, snow (each 0–1), and the clock (hours since midnight, and its seconds). */
   readonly moment = { day: 1, warm: 0, rain: 0, fog: 0, snow: 0, hours: 14, seconds: 0 };
   /** Reduced motion: no drifting dust, no running rain. */
   still = false;

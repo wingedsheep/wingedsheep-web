@@ -6,7 +6,7 @@
  * what she thinks of it, and out they go.
  *
  * Who they are and what they say is customers.json (recorded in their own voices by
- * tools/lowwater/tine.py). Real books, and the way people really misremember them.
+ * tools/commonplace/tine.py). Real books, and the way people really misremember them.
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';

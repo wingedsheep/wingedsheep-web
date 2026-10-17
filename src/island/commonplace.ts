@@ -1,6 +1,6 @@
 /**
- * Low Water: Claude's place. Follow the birch twigs off the beach under the north cliffs and the
- * iris opens on a tidal flat far out past the island, at blue hour (src/island/lowwater/). A few
+ * Commonplace: Claude's own space, which starts at Low Water. Follow the birch twigs off the beach under the north cliffs and the
+ * iris opens on a tidal flat far out past the island, at blue hour (src/island/commonplace/). A few
  * small things to walk between, a card for each, and a bench to sit on. It isn't on the island's
  * clock (it's always this hour out there), but it gets the island's weather.
  */
@@ -9,22 +9,22 @@ import type { IslandContext } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import type { PixelRenderer } from './scene/pixel-renderer';
 import { visitDate } from './scene/calendar';
-import TAPE from './lowwater/tine-tape.json';
+import TAPE from './commonplace/tine-tape.json';
 import { season } from './scene/season';
 import { moonPosition, visitorLocation } from './scene/sun';
-import { LONGEST, sandable } from './lowwater/sand';
-import { sum } from './lowwater/shells';
-import type { Log } from './lowwater/log';
-import type { Floor } from './lowwater/floor';
-import type { Obscura } from './lowwater/obscura';
-import type { Page } from './lowwater/page';
-import type { Ridge } from './lowwater/ridge';
-import type { Shop } from './lowwater/shop';
-import type { Postcard } from './lowwater/postcard';
-import type { Margins } from './lowwater/margins';
-import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, KEPT, TINE_KEPT, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
-import { bellHeard, bellSaid } from './lowwater/bells';
+import { LONGEST, sandable } from './commonplace/sand';
+import { sum } from './commonplace/shells';
+import type { Log } from './commonplace/log';
+import type { Floor } from './commonplace/floor';
+import type { Obscura } from './commonplace/obscura';
+import type { Page } from './commonplace/page';
+import type { Ridge } from './commonplace/ridge';
+import type { Shop } from './commonplace/shop';
+import type { Postcard } from './commonplace/postcard';
+import type { Margins } from './commonplace/margins';
+import type { Commonplace as World, StationId } from './commonplace/world';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SHELVES, SHOP, SHOP_CLOCK, SHOP_LABELS, YOUR_TURN, SHOP_WINDOW, STREET_DOOR, KEPT, TINE_KEPT, TINE_AGAIN, TINE_FIRST, TINE_MORE, tineMoment, DOOR, DOOR_LABEL, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './commonplace/words';
+import { bellHeard, bellSaid } from './commonplace/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
 
@@ -49,35 +49,35 @@ function today<T>(list: T[]) {
   return list[day % list.length];
 }
 
-export class LowWaterRoom implements RoomInput {
+export class CommonplaceRoom implements RoomInput {
   /** Whether the flat (rather than the island) is on screen. */
   inside = false;
   private want = false;
   private fade = 0;
   private world?: World;
-  /** Her log, open on the deckhouse table (lowwater/log.ts). */
+  /** Her log, open on the deckhouse table (commonplace/log.ts). */
   private log?: Log;
-  /** The postcard on the table (lowwater/postcard.ts). */
+  /** The postcard on the table (commonplace/postcard.ts). */
   private postcard?: Postcard;
-  /** A book off Tine's own shelf, open at its margins (lowwater/margins.ts). */
+  /** A book off Tine's own shelf, open at its margins (commonplace/margins.ts). */
   private margins?: Margins;
   private loading?: Promise<World | undefined>;
-  /** The page, past the withies going west (lowwater/page.ts), whether you're on it, and the iris between it and the flat. */
+  /** The page, past the withies going west (commonplace/page.ts), whether you're on it, and the iris between it and the flat. */
   private page?: Page;
   private onPage = false;
   private crossing: 'page' | 'flat' | 'room' | 'ridge' | 'floor' | 'shop' | null = null;
-  /** Inside the hide (lowwater/obscura.ts), and whether the iris on the way is the dark rather than paper. */
+  /** Inside the hide (commonplace/obscura.ts), and whether the iris on the way is the dark rather than paper. */
   private room?: Obscura;
   private inRoom = false;
   private crossDark = false;
-  /** Up the baak, on the hailstones above the cloud (lowwater/ridge.ts), and whether the iris on the way is cloud. */
+  /** Up the baak, on the hailstones above the cloud (commonplace/ridge.ts), and whether the iris on the way is cloud. */
   private ridge?: Ridge;
   private onRidge = false;
   private crossMist = false;
-  /** Down on the old floor, after the prints off the scour (lowwater/floor.ts). */
+  /** Down on the old floor, after the prints off the scour (commonplace/floor.ts). */
   private floor?: Floor;
   private onFloor = false;
-  /** In the bookshop behind the page's door (lowwater/shop.ts), and whether the iris on the way is its warm light. */
+  /** In the bookshop behind the page's door (commonplace/shop.ts), and whether the iris on the way is its warm light. */
   private shop?: Shop;
   private inShop = false;
   private crossWarm = false;
@@ -123,27 +123,27 @@ export class LowWaterRoom implements RoomInput {
     private reducedMotion: boolean,
   ) {
     this.dusk.copy(this.pixels.uniforms.uFadeColor.value);
-    this.el = document.querySelector<HTMLElement>('[data-panel="lowwater"]')!;
-    this.card = this.el.querySelector<HTMLElement>('[data-lowwater-card]')!;
-    this.text = this.el.querySelector<HTMLElement>('[data-lowwater-text]')!;
-    this.more = this.el.querySelector<HTMLElement>('[data-lowwater-more]')!;
-    this.sitButton = this.el.querySelector<HTMLElement>('[data-lowwater-sit]')!;
-    this.choices = this.el.querySelector<HTMLElement>('[data-lowwater-choices]')!;
+    this.el = document.querySelector<HTMLElement>('[data-panel="commonplace"]')!;
+    this.card = this.el.querySelector<HTMLElement>('[data-commonplace-card]')!;
+    this.text = this.el.querySelector<HTMLElement>('[data-commonplace-text]')!;
+    this.more = this.el.querySelector<HTMLElement>('[data-commonplace-more]')!;
+    this.sitButton = this.el.querySelector<HTMLElement>('[data-commonplace-sit]')!;
+    this.choices = this.el.querySelector<HTMLElement>('[data-commonplace-choices]')!;
     this.choices.addEventListener('click', (e) => {
       e.stopPropagation();
       const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-book]');
       if (b && this.inShop) this.shop?.customer?.choose(Number(b.dataset.book));
     });
-    this.foldButton = this.el.querySelector<HTMLElement>('[data-lowwater-fold]')!;
+    this.foldButton = this.el.querySelector<HTMLElement>('[data-commonplace-fold]')!;
     // (a tap on the card, or its corner, folds it away or opens it again; not on its button or its line)
     this.card.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('input, form, button:not([data-lowwater-fold])')) return;
+      if ((e.target as HTMLElement).closest('input, form, button:not([data-commonplace-fold])')) return;
       this.fold(!this.folded);
       this.keepFolded = this.folded;
       if (e.target === this.foldButton) this.foldButton.blur();
     });
-    this.hint = this.el.querySelector<HTMLElement>('[data-lowwater-hint]')!;
-    this.writeForm = this.el.querySelector<HTMLFormElement>('[data-lowwater-write]')!;
+    this.hint = this.el.querySelector<HTMLElement>('[data-commonplace-hint]')!;
+    this.writeForm = this.el.querySelector<HTMLFormElement>('[data-commonplace-write]')!;
     this.line = this.writeForm.querySelector<HTMLInputElement>('input')!;
     this.line.maxLength = LONGEST;
     this.writeForm.addEventListener('submit', (e) => {
@@ -231,8 +231,8 @@ export class LowWaterRoom implements RoomInput {
   }
 
   load() {
-    this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page'), import('./lowwater/obscura'), import('./lowwater/ridge'), import('./lowwater/floor'), import('./lowwater/shop'), import('./lowwater/margins')])
-      .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }, { Shop }, { Margins }]) => {
+    this.loading ??= Promise.all([import('./commonplace/world'), import('./commonplace/log'), import('./commonplace/postcard'), import('./commonplace/page'), import('./commonplace/obscura'), import('./commonplace/ridge'), import('./commonplace/floor'), import('./commonplace/shop'), import('./commonplace/margins')])
+      .then(([{ Commonplace }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }, { Shop }, { Margins }]) => {
         this.shop = new Shop(() => this.pixels.height);
         this.shop.onStep = () => this.ctx.sound.deckStep();
         this.shop.onBell = (side) => this.ctx.sound.shopBell(side);
@@ -257,10 +257,10 @@ export class LowWaterRoom implements RoomInput {
         this.page.forks.onPencil = (seconds, near, pan, line) => this.ctx.sound.pencil(seconds, near, pan, line);
         this.page.forks.onSay = (stop) => this.ctx.sound.nib(stop);
         this.paper.copy(PAPER);
-        this.log = new Log(this.el.querySelector<HTMLElement>('[data-lowwater-log]')!, () => this.log?.show(false));
-        this.postcard = new Postcard(this.el.querySelector<HTMLElement>('[data-lowwater-postcard]')!, () => this.postcard?.show(false));
-        this.margins = new Margins(this.el.querySelector<HTMLElement>('[data-lowwater-kept]')!, () => this.margins?.show(false));
-        const world = new LowWater(this.pixels.renderer, () => this.pixels.height);
+        this.log = new Log(this.el.querySelector<HTMLElement>('[data-commonplace-log]')!, () => this.log?.show(false));
+        this.postcard = new Postcard(this.el.querySelector<HTMLElement>('[data-commonplace-postcard]')!, () => this.postcard?.show(false));
+        this.margins = new Margins(this.el.querySelector<HTMLElement>('[data-commonplace-kept]')!, () => this.margins?.show(false));
+        const world = new Commonplace(this.pixels.renderer, () => this.pixels.height);
         world.hooks = {
           note: (freq, held) => this.ctx.sound.stone(freq, 1, held),
           waver: (hz) => this.ctx.sound.waver(hz),
@@ -284,7 +284,7 @@ export class LowWaterRoom implements RoomInput {
           shipBell: (near, pan) => this.ctx.sound.shipBell(near, pan),
         };
         this.world = world;
-        if (import.meta.env.DEV) Object.assign(window, { lowwater: world, lowwaterPage: this.page, lowwaterRoom: this.room, lowwaterRidge: this.ridge, lowwaterFloor: this.floor, lowwaterShop: this.shop, lowwaterSound: this.ctx.sound });
+        if (import.meta.env.DEV) Object.assign(window, { commonplace: world, commonplacePage: this.page, commonplaceRoom: this.room, commonplaceRidge: this.ridge, commonplaceFloor: this.floor, commonplaceShop: this.shop, commonplaceSound: this.ctx.sound });
         this.resize();
         return world;
       })
@@ -453,7 +453,7 @@ export class LowWaterRoom implements RoomInput {
     if (world.goingIn && !this.crossing) (this.crossing = 'room'), (this.crossDark = true), (this.crossMist = false), this.ctx.sound.curtain();
     u.uVignette.value = 0.45 + world.lean * 0.3;
     u.uHeat.value = 0;
-    this.ctx.sound.lowWater(true, this.ctx.weather.windiness);
+    this.ctx.sound.commonplace(true, this.ctx.weather.windiness);
     this.showCard(world);
     this.walked += dt;
     if (this.walked > 12) this.hint.classList.add('gone');
@@ -471,7 +471,7 @@ export class LowWaterRoom implements RoomInput {
     u.uVignette.value = 0.55;
     u.uHeat.value = 0;
     // (the flat's all still there, a wall away: dull, quiet, and in at the hole behind you)
-    this.ctx.sound.lowWater(true, this.ctx.weather.windiness, 'room');
+    this.ctx.sound.commonplace(true, this.ctx.weather.windiness, 'room');
     this.showRoomCard(room);
     if (room.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = true), this.ctx.sound.curtain();
   }
@@ -504,7 +504,7 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0;
     u.uVignette.value = 0.12;
     u.uHeat.value = 0;
-    this.ctx.sound.lowWater(true, 0, 'page');
+    this.ctx.sound.commonplace(true, 0, 'page');
     this.showPageCard(page);
     if (page.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = false), (this.crossMist = false), (this.crossWarm = false);
     // (and in at the door, through its warm light)
@@ -541,7 +541,7 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0.5;
     u.uVignette.value = 0.35;
     u.uHeat.value = 0;
-    this.ctx.sound.lowWater(true, 0, 'shop');
+    this.ctx.sound.commonplace(true, 0, 'shop');
     const street = shop.street();
     this.ctx.sound.shopStreet(street.level, street.side);
     this.showShopCard(shop);
@@ -628,7 +628,7 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0.6;
     u.uVignette.value = 0.45;
     u.uHeat.value = 0;
-    this.ctx.sound.lowWater(true, 0, 'page');
+    this.ctx.sound.commonplace(true, 0, 'page');
     this.showRidgeCard(ridge);
     if (ridge.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = false), (this.crossMist = true);
   }
@@ -638,7 +638,7 @@ export class LowWaterRoom implements RoomInput {
     const w = this.ctx.weather;
     Object.assign(floor.weather, { wind: THREE.MathUtils.clamp(w.windiness, 0, 1), rain: Math.min(1, w.now.rain + w.now.hail) });
     Object.assign(floor.moment, { night: THREE.MathUtils.clamp((-this.ctx.sky.alt - 8) / 6, 0, 1), fog: w.now.fog });
-    this.ctx.sound.lowWater(true, this.ctx.weather.windiness, 'floor');
+    this.ctx.sound.commonplace(true, this.ctx.weather.windiness, 'floor');
     floor.update(dt);
     const u = this.pixels.uniforms;
     (u.uGrade.value as THREE.Vector3).set(0.95, 1.02, 1.0);
@@ -924,7 +924,7 @@ export class LowWaterRoom implements RoomInput {
       this.postcard?.show(false);
       this.margins?.show(false);
       this.ctx.sound.tine(null);
-      this.ctx.sound.lowWater(false);
+      this.ctx.sound.commonplace(false);
       this.ctx.toast('The water closes over your footprints.');
     }
   }

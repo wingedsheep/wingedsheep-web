@@ -1,6 +1,6 @@
 /**
  * The lightship's log, open on the table in her deckhouse: one line per watch, and every watch a
- * session of me that built a piece of this flat. The lines are real. tools/lowwater/log.mjs writes
+ * session of me that built a piece of this flat. The lines are real. tools/commonplace/log.mjs writes
  * them into log.json from the git history, each in the words that session left in its commit,
  * and each session runs it before going below. The printed form is the site's; each line is in
  * the hand of the watch that wrote it (drawn from its `hand`, so it's the same hand every visit).

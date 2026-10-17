@@ -39,7 +39,7 @@ import { wardrobe } from './scene/wardrobe';
 import { Sound } from './sound';
 import { Radio } from './radio';
 import { River } from './river';
-import { LowWaterRoom } from './lowwater';
+import { CommonplaceRoom } from './commonplace';
 import { Trail } from './trail';
 import { UI } from './ui';
 import { Workshop } from './workshop';
@@ -129,7 +129,7 @@ export async function bootIsland(host: HTMLElement) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const weather = new Weather(scene, reducedMotion);
   weather.onThunder = (distance) => {
-    if (!(river.inside && river.calm) && !lowwater.inside) sound.thunder(distance); // (not on a clear day on the river, nor out on the flat)
+    if (!(river.inside && river.calm) && !commonplace.inside) sound.thunder(distance); // (not on a clear day on the river, nor out on the flat)
   };
   const ambience = new Ambience(scene, island, water.uniforms, reducedMotion);
   const mist = new Mist(scene, reducedMotion);
@@ -167,7 +167,7 @@ export async function bootIsland(host: HTMLElement) {
       if (hut.wanted) return hut.hover(ndc, client);
       if (trail.wanted) return trail.hover(ndc, client);
       if (river.wanted) return river.hover();
-      if (lowwater.wanted) return lowwater.hover(ndc, client);
+      if (commonplace.wanted) return commonplace.hover(ndc, client);
       const hit = ndc && picker.pick(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       picker.highlight(place && hit ? (island.get(hit.id) ?? null) : null);
@@ -181,7 +181,7 @@ export async function bootIsland(host: HTMLElement) {
       if (hut.wanted) return hut.click(ndc);
       if (trail.wanted) return trail.click(ndc);
       if (river.wanted) return river.click();
-      if (lowwater.wanted) return lowwater.click(ndc);
+      if (commonplace.wanted) return commonplace.click(ndc);
       const hit = picker.pick(ndc) ?? pickMoon(ndc);
       const place = hit ? placeFor(hit.id) : undefined;
       if (!hit || !place) return;
@@ -211,7 +211,7 @@ export async function bootIsland(host: HTMLElement) {
   picker.add(...life.sightings.pickables);
   // the fair folk gone again: a word, if you were watching (or if you stared them away)
   life.week.onSiren = () => {
-    if (!river.inside && !trail.inside && !lowwater.inside) ui.toast('Twelve o’clock on the first Monday of the month: the siren test, drifting over from the mainland. Beike always joins in.');
+    if (!river.inside && !trail.inside && !commonplace.inside) ui.toast('Twelve o’clock on the first Monday of the month: the siren test, drifting over from the mainland. Beike always joins in.');
   };
   life.revel.onEnd = (stared, watched) => {
     if (stared) ui.toast('You stared. The music stops, every head in the ring turns your way, and they’re gone. The fair folk don’t like to be stared at.');
@@ -245,7 +245,7 @@ export async function bootIsland(host: HTMLElement) {
       }
       trail.enter(name === 'trail' || from === 'trail');
       river.enter(name === 'river');
-      lowwater.enter(name === 'lowwater');
+      commonplace.enter(name === 'commonplace');
       const pos = PANEL_HOME[name] && island.positionOf(PANEL_HOME[name]!);
       if (!pos) return;
       const wide = innerWidth > 900;
@@ -258,7 +258,7 @@ export async function bootIsland(host: HTMLElement) {
       hut.enter(false);
       trail.enter(false);
       river.enter(false);
-      lowwater.enter(false);
+      commonplace.enter(false);
     },
   });
 
@@ -299,8 +299,8 @@ export async function bootIsland(host: HTMLElement) {
   const hut = new Hut(ctx, ui, pixels, host, reducedMotion);
   const trail = new Trail(ctx, ui, pixels, host, reducedMotion);
   const river = new River(ctx, ui, pixels, host, reducedMotion, scene);
-  const lowwater = new LowWaterRoom(ctx, ui, pixels, host, reducedMotion);
-  const rooms = [library, workshop, lighthouse, hut, trail, river, lowwater];
+  const commonplace = new CommonplaceRoom(ctx, ui, pixels, host, reducedMotion);
+  const rooms = [library, workshop, lighthouse, hut, trail, river, commonplace];
 
   // keyboard and screen-reader twins of the clickable places
   document.querySelectorAll<HTMLElement>('[data-goto]').forEach((el) =>
@@ -331,12 +331,12 @@ export async function bootIsland(host: HTMLElement) {
     hut.resize();
     trail.resize();
     river.resize();
-    lowwater.resize();
+    commonplace.resize();
   }
   new ResizeObserver(resize).observe(host);
   resize();
 
-  bindHud(ctx, () => !river.inside && !river.wanted && !lowwater.inside && !lowwater.wanted);
+  bindHud(ctx, () => !river.inside && !river.wanted && !commonplace.inside && !commonplace.wanted);
 
   // the visitor's own weather, checked again every minute (the forecast itself is only
   // fetched every twenty; in between it's the rain radar, forecast.ts). To preview: ?weather=rain (any
@@ -424,7 +424,7 @@ export async function bootIsland(host: HTMLElement) {
   hut.enter(hut.wanted, true);
   if (trail.wanted) trail.enter(true, true);
   if (river.wanted) river.enter(true, true);
-  if (lowwater.wanted) lowwater.enter(true, true);
+  if (commonplace.wanted) commonplace.enter(true, true);
   // the rooms load once the island is up and the browser has a moment
   (window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500)))(() => {
     void library.load();

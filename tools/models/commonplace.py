@@ -1,6 +1,6 @@
-"""Low Water (src/island/lowwater/): the models the flat loads when you walk out. Most of the flat
+"""Low Water (src/island/commonplace/): the models the flat loads when you walk out. Most of the flat
 is made in code (its sticks and stones are a few boxes each); what's here is what deserves more
-shape than that. Each template's root carries `lowwater=<kind>`, and the world puts it where it goes.
+shape than that. Each template's root carries `commonplace=<kind>`, and the world puts it where it goes.
 
 The wreck: what's left of an old wooden tjalk, a flat-bottomed Dutch cargo boat, lying on the flat
 with a list to one side. Its length runs along x (the bow at +x), its beam along y, and z = 0 is the
@@ -85,7 +85,7 @@ def _cut(pts: list[tuple[float, float]], height: float) -> list[tuple[float, flo
 
 def wreck():
     rng = random.Random(1857)
-    root = group("wreck", (0, -900, 0), lowwater="wreck",
+    root = group("wreck", (0, -900, 0), commonplace="wreck",
                  length=LENGTH, beam=BEAM)
     m = Model("wreck_wood", seed=7)
 
@@ -154,7 +154,7 @@ FLOAT_R = 0.85
 
 
 def buoy():
-    root = group("buoy", (0, -910, 0), lowwater="buoy")
+    root = group("buoy", (0, -910, 0), commonplace="buoy")
     m = Model("buoy_float", seed=9)
     # the float: eight staves round, red and white by turns, wider at the waterline and drawn in under it
     segs = 8
@@ -207,7 +207,7 @@ SEAL_EYE = "#1c1a22"
 
 
 def seal():
-    root = group("seal", (0, -920, 0), lowwater="seal")
+    root = group("seal", (0, -920, 0), commonplace="seal")
     m = Model("seal_body", seed=11)
     # the body: a run of flattened balls along the spine, thickest behind the shoulders, the hind
     # end tapering and tipped up a little off the sand (as they lie, like a banana)
@@ -249,7 +249,7 @@ BAAK_TOP = 6.0  # where the legs meet the mast
 
 
 def baak():
-    root = group("baak", (0, -930, 0), lowwater="baak")
+    root = group("baak", (0, -930, 0), commonplace="baak")
     m = Model("baak", seed=13)
     corners = [(sx * BAAK_FOOT, sy * BAAK_FOOT) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
     leg = lambda c, t: (c[0] * (1 - t), c[1] * (1 - t), BAAK_TOP * t)
@@ -288,11 +288,11 @@ FREEBOARD = 1.3
 LANTERN_Z = 9.0  # the middle of the lantern's glass, over the waterline
 LADDER_X = -1.2  # where her ladder comes down, on the side you row up to
 # her deckhouse: how wide, where its windows are along it each side (from its middle), and its door
-# (src/island/lowwater/deck.ts and world.ts have the same, for walking round it and lighting it)
+# (src/island/commonplace/deck.ts and world.ts have the same, for walking round it and lighting it)
 HOUSE_BEAM = 2.0
 HOUSE_WINDOWS = {-1: (-1.1, -0.1), 1: (-1.1, 0.0, 1.1)}
 HOUSE_DOOR = 0.9
-# her bell, hung in a little frame on the forecastle (src/island/lowwater/deck.ts and world.ts have the same)
+# her bell, hung in a little frame on the forecastle (src/island/commonplace/deck.ts and world.ts have the same)
 BELL_X = 4.2
 BELL_HANG = 1.05  # how high its pivot is over the forecastle's deck
 BELL_BRASS = "#a8894f"  # kept polished, as a ship's bell is
@@ -372,7 +372,7 @@ def _name(m: Model):
                 m.box(((c1 - c0) * c / math.cos(a) + 0.01, 0.03, (r1 - r0) * c + 0.01), (x, side * (half + 0.01), z), NAME_WHITE, rot=(0, 0, a))
 
 def lightship():
-    root = group("lightship", (0, -940, 0), lowwater="lightship")
+    root = group("lightship", (0, -940, 0), commonplace="lightship")
     m = Model("lightship", seed=15)
     deck = _ship_outline()
     # the hull: drawn in under the water, a weed line at it, red up to the deck

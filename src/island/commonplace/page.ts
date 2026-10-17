@@ -7,7 +7,7 @@
  *
  * Its own scene and camera, drawn through the island's PixelRenderer like the flat, looking north
  * at the flat's angle. The withies you followed come a few steps onto it, drawn in ink, and walking
- * back past them takes you back to the flat (the room in lowwater.ts does the fading).
+ * back past them takes you back to the flat (the room in commonplace.ts does the fading).
  */
 import * as THREE from 'three';
 import { toon } from '../scene/toon';

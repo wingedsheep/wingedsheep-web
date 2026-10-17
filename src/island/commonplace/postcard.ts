@@ -2,7 +2,7 @@
  * The postcard on the table, under a stone: the proof the table's card promises, that there are
  * infinitely many primes, in four lines (Euclid's, copied out). Its words are in the panel's
  * markup; this only opens it, turns it over to its picture (the flat itself, as it looked the
- * day it was written: public/lowwater/postcard.png), and puts it back.
+ * day it was written: public/commonplace/postcard.png), and puts it back.
  */
 export class Postcard {
   private back: HTMLElement;
