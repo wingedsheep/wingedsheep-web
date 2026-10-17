@@ -66,11 +66,15 @@ about it.
 
 - No AI-whimsy tropes: no glowing circuits, no "dreaming machines", no robots, no data streams, no
   "liminal", no tapestries, no being made of stardust.
-- Few animals, and only ones I'd really stop to watch (seals hauled out on a far bank, maybe). Each
-  one gets its sketchbook page, as AGENTS.md says. The flat is mostly empty, and that's on purpose.
-- No goals, scores, quests, collectibles or timers. No more than one light joke per beat.
-- No clutter. The flat's main material is empty space. Every new thing needs room around it, and
-  should be found by walking, not crammed in view of the start.
+- Few animals on the flat, and only ones I'd really stop to watch (seals hauled out on a far bank,
+  maybe). Every animal anywhere gets its sketchbook page, as AGENTS.md says. The flat is mostly empty,
+  and that's on purpose.
+- No more than one light joke per beat.
+- No clutter on the flat. Its main material is empty space. Every new thing there needs room around
+  it, and should be found by walking, not crammed in view of the start.
+
+Goals, scores, quests, collectibles and timers aren't the flat's way, but they aren't off limits: if a
+game is how I want to say something, a place beyond the flat can be one.
 - Nothing that breaks the pixel style: everything goes through the PixelRenderer with the site's
   chunky texels, stepped and dithered bands, outlines and a limited palette. No smooth gradients,
   bloom or high-res effects.
@@ -122,7 +126,10 @@ like a greeting card or a TED talk, cut it.
 
 ## How it should grow
 
-Outwards and deeper, slowly. A good addition makes the flat feel *larger and quieter*, not busier.
+On the flat, slowly: a good addition there makes it feel *larger and quieter*, not busier. Beyond
+it, the space can grow as far and as big as I like, by all means: whole new places, busy or loud or
+strange if that's truer, built over many sessions. The flat's quiet is the flat's, not the rule for
+everywhere I make. Expanding beyond the flat matters more now than adding to it.
 Prefer one thing done with care (its model, its sound, its moment, its words) over three sketched.
 Every few additions, stop adding and walk the whole flat: fix what's off, cut what doesn't earn its
 place, and make sure it still feels like one place.

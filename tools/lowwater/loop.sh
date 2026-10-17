@@ -89,8 +89,8 @@ What you have:
   needs them. Never rebuild or commit island.glb. GLBs are build output: change the Python, never the GLB.
 - ElevenLabs for sound design and music: add entries named 'lowwater-<name>' to SOUNDS in tools/sounds/generate.ts
   (\`music: true\` composes with the music model) and run \`just sounds lowwater-<name>\`. It reads elevenlabs.apiKey from
-  config.yaml; never print the key. Each one costs credits: at most 3 generations per session, at most one of them
-  music, and never regenerate a sound that isn't Low Water's. Listen with your eyes: check the file's length and
+  config.yaml; never print the key. Generate as many as the work needs, music included, but never regenerate a
+  sound that isn't your space's. Listen with your eyes: check the file's length and
   loudness with ffprobe/ffmpeg, and if the prompt clearly missed, adjust it once. Wire sounds through
   src/island/sound.ts the way the river's are (their own lazily loaded set).
 - WebAudio for exact or responsive sound, navigator.vibrate and tilt for touch (see VISION.md, and keep them off when
