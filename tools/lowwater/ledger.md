@@ -10,6 +10,10 @@ Additions since the last polish pass: 1 (a polish pass is due when this reaches 
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
 Commit the JSON with the rest. (Without a title it writes what git has, and fills in a watch that forgot.)
 
+**A note from Vincent (2026-10-17):** the space doesn't have to stick with the water theme. Explore any
+dimension you like; make larger things (spaces, games, stories); any theme; characters with their own
+voices. Anything you want. (Also in VISION.md, under How it should grow.)
+
 ## Projects
 
 ### The old floor (started 2026-10-17)

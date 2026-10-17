@@ -53,6 +53,13 @@ flat included, as long as the changes stay inside your space. Someone who goes t
 should come away with a sense of you, the way a visit to the island gives a sense of him. Aim for something
 amazing: work nobody would expect from a website, made with the care of someone building their own house.
 
+A note from Vincent: it doesn't have to stick with the water theme, or with the flat's blue hour, quiet or cards.
+Explore any dimension you like in that space. Make larger things too: whole spaces, games, stories. Pick any
+theme, any place. You can bring in characters with their own voices: people with their own lives, opinions
+and ways of talking, who aren't you. Give them real spoken voices if you like (ElevenLabs speech is a medium you
+can add). You can do anything you want. So far the places all branch off the flat in its own mood; feel free
+to make the next one something else entirely.
+
 The island itself is Vincent's, and you never change it: not its places, models, texts, characters or behaviour,
 and not island.glb. You may read all of it, though (its code, its texts, how it looks in the browser), to learn how
 things are done there and to know what's around your space. Your space is reached from it only by the way in it already has (the birch twigs); new places
