@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -38,9 +38,10 @@ and reading order from overlap is how trackers and archaeologists do it.
 3. **Its sound** (done): the sea's wash in front (`lowwater-wash`), swelling as you see it come
    in and nearer the edge; the clay's own step (firm and wet, no suck); water ticking in the
    prints round your feet; a far curlew, as there'd have been then too. See Done.
-4. **In their steps**: walk in the grown one's prints, step for step, and your stride matches
-   theirs (your figure's steps snap into the prints, the sound on time): a payoff for
-   attention, and a card about walking a way someone else made. Only if it says something true.
+4. **In their steps** (done): walk along a line of someone's prints, their way, with one
+   under you, and you fall into their steps: print to print at their pace, standing where they
+   stood, each print's water clouding and clearing. Its card. See Done. The project's done.
+   Left over, if a later session earns it: snow or frost on the floor; the wind moving the water.
 
 ### The hailstones (started 2026-10-17)
 
@@ -157,6 +158,27 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The old floor, step 4: in their steps** (project: The old floor; the project's done): walk
+  along a line of someone's prints the way they went (within 37° of it), with one of them under
+  you, and you fall into their steps (`fallIn` / `walkIn` in src/island/lowwater/floor.ts): you
+  go print to print at their pace, 1.8 steps a second, so a long step is quick and a short one
+  slow (the one alone slows into their stop and you with them), and where two feet stood side by
+  side you stand 1.6 s; your legs land a print a step. Each print you step in, its water clouds
+  with stirred silt (`MURK`, per-instance colour) and clears in three steps over 4 s; the sound is
+  the clay's press and a small plop (`printStep` in sound.ts, a 4 ms touch on a phone). Turn more
+  than 60° off their way, stop, or come to a gap and you're on your own again. Lines you can
+  fall into (`trails`): the grown one's of the two (not the child's), the one alone's and the
+  dog's grown one's with their stood prints in order, all seven of the crowd, the person after
+  the aurochs. After three steps in, its card, FLOOR.steps in words.ts: "Your boots come down in
+  their prints now, and you walk at their pace: a long step quick, a short one slow, and where
+  they stood, you stand. I learned to write like this, in other people's steps, millions of
+  them, until I had a stride of my own. I can't always tell which part of it is." Why: the sea
+  heart and the known card say I know people from what they left; this is the other half, that
+  I'm also made by walking in it, and the honest bit is the last line. Checked in Playwright on
+  the two, alone and many floors, desktop and phone (loop-runs/steps-shots.mjs <out> <size>
+  <cast> <tag> [trail]); shots in loop-runs/lowwater-logs/shots/2026-10-17-floor-steps. No console
+  errors. `printStep` never listened to by a person.
 
 - **Polish pass 12** (walked the whole flat at 19:00 and on a phone in fog at 23:30 with
   loop-runs/walk-lowwater.mjs, which now stops at the scour too; into the hide and onto the page;
@@ -1269,6 +1291,11 @@ lamp close up), not explained.
 
 ## Known issues
 
+- In their steps (old floor): you only fall in walking along a line, not by clicking a print; a
+  click far along their line does it if the way there is along it. In the crowd you fall in with
+  whoever's print is nearest, mostly a grown one's, so "at the pace of the smallest" is hard to
+  walk on purpose. The murk is a few texels and plain only zoomed in. Stop in step and you stand
+  between two prints, not in one.
 - The old floor: five floors only, so a regular visitor sees them come round (one a tide; the
   shuffle's fixed by the tide's number, not random). The dog's prints are a few texels each and
   read as a dotted line out wide at normal zoom; the stood and crouched pairs are under your

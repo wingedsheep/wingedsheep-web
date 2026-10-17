@@ -207,7 +207,7 @@ export class LowWaterRoom implements RoomInput {
     this.loading ??= Promise.all([import('./lowwater/world'), import('./lowwater/log'), import('./lowwater/postcard'), import('./lowwater/page'), import('./lowwater/obscura'), import('./lowwater/ridge'), import('./lowwater/floor')])
       .then(([{ LowWater }, { Log }, { Postcard }, { Page, PAPER }, { Obscura }, { Ridge }, { Floor }]) => {
         this.floor = new Floor(() => this.pixels.height);
-        this.floor.onStep = (on) => (on === 'clay' ? this.ctx.sound.clayStep() : this.ctx.sound.flatStep(on === 'wash'));
+        this.floor.onStep = (on) => (on === 'clay' ? this.ctx.sound.clayStep() : on === 'print' ? this.ctx.sound.printStep() : this.ctx.sound.flatStep(on === 'wash'));
         this.floor.onSea = (level, pan) => this.ctx.sound.floorSea(level, pan);
         this.floor.onTick = (near, pan) => this.ctx.sound.printTick(near, pan);
         this.floor.onCurlew = (near, pan) => this.ctx.sound.curlew(near, pan);

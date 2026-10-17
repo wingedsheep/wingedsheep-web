@@ -1553,6 +1553,28 @@ export class Sound {
   }
 
   /**
+   * A step into a print on the old floor, in someone's steps: the clay's press, under the small
+   * deep plop of a boot into the water standing in it, and on a phone the faintest touch.
+   */
+  printStep() {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    this.clayStep();
+    const ctx = this.ctx;
+    const t = ctx.currentTime + 0.006;
+    const plop = ctx.createOscillator();
+    plop.frequency.setValueAtTime(330 * (0.9 + Math.random() * 0.2), t);
+    plop.frequency.exponentialRampToValueAtTime(150, t + 0.06);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.035, t + 0.005);
+    env.gain.setTargetAtTime(0, t + 0.012, 0.02);
+    plop.connect(env).connect(this.master);
+    plop.start(t);
+    plop.stop(t + 0.15);
+    navigator.vibrate?.(4);
+  }
+
+  /**
    * Water ticking in a print on the old floor, as it settles: one tiny drop's note, a sine
    * that jumps up as the bubble it makes closes, from where the print is, fainter further off.
    */

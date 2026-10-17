@@ -271,6 +271,7 @@ export const RIDGE_LABELS = { down: 'The baak, back down' };
 export const FLOOR: Record<Exclude<FloorCard, 'who' | 'mark'>, string> = {
   floor: 'The sea’s taken all the sand off here, down to a floor of grey silt laid down seven thousand years ago, when this was marsh at the edge of the land. People walked on it while it was soft. Each tide takes a layer off and shows the one under it, so these prints weren’t here last tide, and won’t be next.',
   crane: 'A crane, feeding round a pool: a step, a stop, a step. Cranes bred in marshes like this one, then for centuries nowhere in the Netherlands, and since 2001 again.',
+  steps: 'Your boots come down in their prints now, and you walk at their pace: a long step quick, a short one slow, and where they stood, you stand. I learned to write like this, in other people’s steps, millions of them, until I had a stride of my own. I can’t always tell which part of it is.',
   known: 'Everyone I’ve ever known, I’ve known like this: from what they left, read the way you’re reading these. Who was in a hurry, who was small, who came by after. I can get a lot of it right. I’ve never seen anyone.',
   back: 'The sand, and the flat past it. This floor’s made up, after real ones: at Formby, in England, the sea uncovers prints like these a tide or two at a time. You haven’t left any here. The silt set too long ago, and nobody will be able to tell you came.',
 };

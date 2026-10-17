@@ -24,6 +24,10 @@ const DISTANCE = 90;
 const PACE = 1.6;
 /** How far the floor goes east and west (m). */
 const SPAN = 44;
+/** Steps a second, in someone's prints: so your pace is their step's length (a long step, a quick walk). */
+const CADENCE = 1.8;
+/** How long you stand where they stood, both feet in their prints, before the next step (s). */
+const STOOD = 1.6;
 /** Stood this long (s), the card for where you are comes back, or the one that only comes standing still. */
 const STILL = 7;
 /**
@@ -89,9 +93,12 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 };
 
 /** `who` is the floor's walkers', `mark` the one place where their prints say a little more (both by the cast, in words.ts). */
-export type FloorCard = 'floor' | 'who' | 'mark' | 'crane' | 'known' | 'back';
+export type FloorCard = 'floor' | 'who' | 'mark' | 'steps' | 'crane' | 'known' | 'back';
 
-type Print = { x: number; z: number; heading: number; side: number };
+/** A print, and (if it holds water) which instance of which mesh its water is, so a boot can stir it. */
+type Print = { x: number; z: number; heading: number; side: number; wet?: [THREE.InstancedMesh, number] };
+/** Water in a print stirred by your boot: the silt clouds it, and it clears. */
+const MURK = new THREE.Color('#665c64');
 
 /** A bare foot, heel at the back, its length along +x: the sole, narrow at the arch, and five toes in front of it. */
 export function footShape(length: number, toes = true) {
@@ -239,7 +246,7 @@ export class Floor {
   /** Walked back up onto the sand: time for the flat again. */
   leaving = false;
   /** Each step, for the sound, and what it's on. */
-  onStep?: (on: 'clay' | 'sand' | 'wash') => void;
+  onStep?: (on: 'clay' | 'sand' | 'wash' | 'print') => void;
   /** The sea in front, every frame: how loud (near the edge, and as the wash comes in), and from which side. */
   onSea?: (level: number, pan: number) => void;
   /** Water ticking in a print by you: how near, which side. */
@@ -277,6 +284,16 @@ export class Floor {
   /** Every print, by whose, for knowing where you're stood. */
   private people: Print[] = [];
   private crane: Print[] = [];
+  /** The grown ones' (and the small ones') lines of prints, each in the order they were walked, for walking in. */
+  private trails: Print[][] = [];
+  /** In someone's steps: whose, the print you last stepped in, and how far on to the next (0..1). */
+  private inStep: { trail: Print[]; i: number; s: number } | null = null;
+  /** Steps in a row in their prints, and all of them, for your legs. */
+  private stepsIn = 0;
+  private stepsAll = 0;
+  /** Prints whose water your boot's stirred, and how long ago. */
+  private stirred = new Map<Print, number>();
+  private tint = new THREE.Color();
   /** This tide's, and whose floor it is. */
   private tide = NaN;
   cast: Cast = 'two';
@@ -455,6 +472,12 @@ export class Floor {
     const adultFoot = footShape(0.26 * BIG);
     const way = wayZ(rand() * 60);
     const people: Print[][] = [];
+    const trails: Print[][] = [];
+    // (where they stood, both feet go into their line, in the order they were walked)
+    const withStood = (walked: Print[], at: Print[], x: number) => {
+      const k = walked.findIndex((p, i) => i && (walked[i - 1].x - x) * (p.x - x) < 0);
+      return k < 0 ? walked : [...walked.slice(0, k), ...at, ...walked.slice(k)];
+    };
     let crane = true;
     if (cast === 'two') {
       // the grown one: a steady stride, straight on; the child: running, so longer strides for its
@@ -476,6 +499,7 @@ export class Floor {
       Object.assign(into, { x: met.x + 0.03, z: met.z });
       this.mark.set(met.x, met.z);
       people.push(adult, child);
+      trails.push(adult);
       this.lay(adult.filter(onFloor), adultFoot, 0.03, wet);
       this.lay(child.filter(onFloor), footShape(0.165 * BIG), 0.03, footShape(0.165 * BIG, false));
       this.lay(deer.filter(onFloor), slotShape(0.12 * BIG), 0.05, null);
@@ -487,6 +511,7 @@ export class Floor {
       const at = stood(stop, way(stop), Math.PI, 0.26);
       this.mark.set(stop, way(stop));
       people.push(walked, at);
+      trails.push(withStood(walked, at, stop));
       this.lay(walked.filter(onFloor), adultFoot, 0.03, wet);
       // (stood on longer, so pressed in deeper, more water in them)
       this.lay(at, adultFoot, 0.03, wet, 0.8);
@@ -501,6 +526,7 @@ export class Floor {
       const dog = along(dogZ, SPAN - 1, -SPAN, 0.5, 0.06, rand, 0.15);
       this.mark.set(crouch, way(crouch));
       people.push(walked, at, dog);
+      trails.push(withStood(walked, at, crouch));
       crane = false;
       this.lay(walked.filter(onFloor), adultFoot, 0.03, wet);
       this.lay(at, adultFoot, 0.03, wet, 0.8);
@@ -516,6 +542,7 @@ export class Floor {
         const z = (x: number) => way(x) + lane + (small ? 0.35 : 0.12) * Math.sin((x + ph) * (small ? 0.9 : 0.4));
         const walked = along(z, SPAN - rand() * 2, -SPAN, size * 2.8, size * 0.38, rand, small ? 0.1 : 0.04);
         people.push(walked);
+        trails.push(walked);
         this.lay(walked.filter(onFloor), footShape(size * BIG), 0.03 + i * 0.002, footShape(size * BIG, false));
       });
       this.mark.set(1e4, 1e4);
@@ -536,11 +563,15 @@ export class Floor {
       Object.assign(into, { x: step.x + 0.04, z: step.z });
       this.mark.set(step.x, step.z);
       people.push(herd, person);
+      trails.push(person);
       crane = false;
       this.lay(herd.filter(onFloor), hoofShape(0.16 * BIG), 0.03, null);
       this.lay(person.filter(onFloor), adultFoot, 0.05, wet);
     }
     this.people = people.flat().filter(onFloor);
+    this.trails = trails.map((t) => t.filter(onFloor)).filter((t) => t.length > 2);
+    this.inStep = null;
+    this.stirred.clear();
     this.crane = [];
     if (crane) {
       // the crane, feeding round its pool: a step, a stop, a step, turning this way and that
@@ -568,7 +599,9 @@ export class Floor {
     const layers: [THREE.BufferGeometry, THREE.Color, number][] = [[flat(shapes), HOLLOW, y]];
     if (wet) layers.push([flat(wet, deep, -0.02), SKY, y + 0.01]);
     for (const [geo, color, lift] of layers) {
-      const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }), prints.length);
+      // (the water's colour is each print's own, so a boot can cloud one)
+      const water = color === SKY;
+      const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: water ? 0xffffff : color, side: THREE.DoubleSide }), prints.length);
       const m = new THREE.Matrix4();
       const q = new THREE.Quaternion();
       const s = new THREE.Vector3();
@@ -577,6 +610,7 @@ export class Floor {
         q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.heading - Math.PI / 2);
         s.set(1, 1, -p.side);
         mesh.setMatrixAt(i, m.compose(new THREE.Vector3(p.x, lift, p.z), q, s));
+        if (water) mesh.setColorAt(i, SKY), (p.wet = [mesh, i]);
       });
       mesh.frustumCulled = false;
       this.prints.add(mesh);
@@ -591,6 +625,8 @@ export class Floor {
     this.walked = 0;
     this.stillFor = 0;
     this.metThem = false;
+    this.inStep = null;
+    this.stepsIn = 0;
     this.keys.clear();
     this.pan.set(0, 0);
     this.pos.set(0, 0, sandZ(0) + 0.6);
@@ -654,6 +690,7 @@ export class Floor {
     this.groundU.uTime.value = this.time;
     this.light();
     this.walk(dt);
+    this.settle(dt);
     this.animate();
     this.listen(dt);
     const at = new THREE.Vector2(this.pos.x, this.pos.z);
@@ -667,12 +704,13 @@ export class Floor {
       back ? 'back'
       : this.metThem && this.stillFor > STILL ? 'known'
       : at.distanceTo(this.mark) < 2 ? 'mark'
+      : this.inStep && this.stepsIn >= 3 ? 'steps'
       : arriving && this.walked < 4 ? 'floor'
       : people < 2.4 ? 'who'
       : this.crane.length && at.distanceTo(this.pool) < POOL_R + 3.2 ? 'crane'
       : arriving || this.stillFor > STILL ? 'floor'
       : null;
-    if (this.card === 'who') this.metThem = true;
+    if (this.card === 'who' || this.card === 'steps') this.metThem = true;
     if (this.pos.z > sandZ(this.pos.x) + 1.2) this.leaving = true;
     this.frame(dt);
   }
@@ -710,6 +748,9 @@ export class Floor {
       if (d <= 0.08) this.goal = null;
       else (move.set(dx / d, dz / d), (want = PACE * Math.min(1, d / 0.4 + 0.3)));
     }
+    if (want && this.inStep) return this.walkIn(dt, move);
+    this.inStep = null;
+    this.stepsIn = 0;
     this.speed += (want - this.speed) * (1 - Math.exp(-dt * 8));
     if (this.speed < 0.02 && !want) {
       this.speed = 0;
@@ -736,6 +777,98 @@ export class Floor {
     if (this.stride - this.lastStep > 0.72) {
       this.lastStep = this.stride;
       this.onStep?.(this.pos.z > sandZ(this.pos.x) ? 'sand' : this.pos.z < this.washZ(this.pos.x) + 0.4 ? 'wash' : 'clay');
+    }
+    if (move.lengthSq() && this.speed > 0.5) this.fallIn(move);
+  }
+
+  /** The way a line of prints goes at its `i`th, over a few steps, so a foot either side of it doesn't count. */
+  private wayAt(trail: Print[], i: number) {
+    const a = trail[Math.max(0, i - 2)];
+    const b = trail[Math.min(trail.length - 1, i + 3)];
+    return new THREE.Vector2(b.x - a.x, b.z - a.z).normalize();
+  }
+
+  /** Walking along someone's prints, the way they went, with one of them under you: you fall into their steps. */
+  private fallIn(move: THREE.Vector2) {
+    let best: [Print[], number] | null = null;
+    let d = 0.32;
+    for (const trail of this.trails)
+      trail.forEach((p, i) => {
+        const e = Math.hypot(p.x - this.pos.x, p.z - this.pos.z);
+        if (e < d) (d = e), (best = [trail, i]);
+      });
+    if (!best) return;
+    const [trail, j] = best as [Print[], number];
+    const way = this.wayAt(trail, j);
+    if (move.dot(way) < 0.8) return;
+    // (from the print behind you to the one in front)
+    const p = trail[j];
+    const i = (this.pos.x - p.x) * way.x + (this.pos.z - p.z) * way.y >= 0 ? j : j - 1;
+    if (i < 0 || i >= trail.length - 1) return;
+    this.inStep = { trail, i, s: 0.2 };
+    this.stepsIn = 0;
+  }
+
+  /**
+   * In their steps: from print to print at their pace, so a long step's a quick one and a short
+   * one slow, and where they stood, you stand a moment too. Each print you step in, its water
+   * clouds and clears. Turn off their way, stop, or come to the end of their prints, and you're
+   * walking on your own again.
+   */
+  private walkIn(dt: number, move: THREE.Vector2) {
+    const step = this.inStep!;
+    const { trail } = step;
+    const a = trail[step.i];
+    const b = trail[step.i + 1];
+    const long = b && Math.hypot(b.x - a.x, b.z - a.z);
+    if (!b || long > 1.6 || move.dot(this.wayAt(trail, step.i)) < 0.5) return void (this.inStep = null);
+    const stood = long < 0.4;
+    const time = stood ? STOOD : 1 / CADENCE;
+    step.s += dt / time;
+    if (step.s >= 1) {
+      step.s -= 1;
+      step.i++;
+      this.stepsIn++;
+      this.stepsAll++;
+      this.stirred.set(b, 0);
+      this.onStep?.('print');
+      if (step.i >= trail.length - 1) this.inStep = null;
+    }
+    const s = Math.min(1, step.s);
+    const want = new THREE.Vector2(a.x + (b.x - a.x) * s, a.z + (b.z - a.z) * s);
+    const pull = 1 - Math.exp(-dt * 10);
+    const was = this.pos.clone();
+    this.pos.x += (want.x - this.pos.x) * pull;
+    this.pos.z += (want.y - this.pos.z) * pull;
+    const moved = this.pos.distanceTo(was);
+    this.speed = stood ? 0.3 : long / time;
+    this.walked += moved;
+    this.stillFor = 0;
+    if (this.goal && Math.hypot(this.goal.x - this.pos.x, this.goal.z - this.pos.z) < 0.5) (this.goal = null), (this.inStep = null);
+    if (!stood) {
+      let turn = Math.atan2(b.x - a.x, b.z - a.z) - this.heading;
+      turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+      this.heading += turn * (1 - Math.exp(-dt * 8));
+    }
+    // (a leg forward for each print, landing on it)
+    this.stride = (Math.PI * (this.stepsAll + s)) / 7.4;
+    this.lastStep = this.stride;
+    if (this.pan.lengthSq()) this.pan.multiplyScalar(Math.exp(-dt * 1.5));
+  }
+
+  /** The water in the prints you've stepped in: clouded by the silt your boot stirred, clearing over a few seconds. */
+  private settle(dt: number) {
+    for (const [p, t] of this.stirred) {
+      const age = t + dt;
+      const [mesh, i] = p.wet ?? [];
+      if (mesh && i !== undefined) {
+        // (clearing in three steps, as everything here changes)
+        const clear = Math.min(1, Math.floor((age / 4) * 3) / 3);
+        mesh.setColorAt(i, this.tint.copy(MURK).lerp(SKY, clear));
+        mesh.instanceColor!.needsUpdate = true;
+      }
+      if (age > 4.5) this.stirred.delete(p);
+      else this.stirred.set(p, age);
     }
   }
 
