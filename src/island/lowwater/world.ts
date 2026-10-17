@@ -706,7 +706,9 @@ export class LowWater {
       }
       geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       geo.computeVertexNormals();
-      const mat = paint(new THREE.Color('#ffffff'), { vertexColors: true, haze: this.bankHaze });
+      // (a bank goes into the haze as one thing: a long one lying along the way out got a hard line
+      // across it where a haze step fell, and in a fog its far half was a pale cloud)
+      const mat = paint(new THREE.Color('#ffffff'), { vertexColors: true, haze: this.bankHaze, whole: true });
       mat.clippingPlanes = [this.clip, this.farEdge];
       this.ice.push(mat);
       const mesh = new THREE.Mesh(geo, mat);
@@ -1990,9 +1992,10 @@ export class LowWater {
     // winter: a skin of ice on the banks' wet edges
     for (const m of this.ice) m.emissive.setRGB(o.winter ? 0.05 : 0, o.winter ? 0.06 : 0, o.winter ? 0.09 : 0);
     // far off, things only go a step into the haze on a clear evening (the banks low dark slivers on
-    // the water, never pale ones); in a fog, all the way into the mist
+    // the water, never pale ones); in a fog, all the way into the mist, but the banks only half way
+    // (any further and a bank lying deep along the way out turns to a white cloud on the water)
     HAZE.value = 0.25 + fog * 0.75;
-    this.bankHaze.value = 0.25 + fog * 0.5;
+    this.bankHaze.value = 0.25 + fog * 0.25;
     this.mirrorHaze.value = 0.25 + fog * 0.25;
     this.lamp.intensity = 2.2 * (1 - fog * 0.4);
   }
@@ -2084,7 +2087,7 @@ export class LowWater {
       // then the haze has them anyway)
       const near = m.src.position.z > far.z + SINK;
       m.src.visible = near;
-      m.copy.visible = near;
+      m.copy.visible = near && !(m.src === this.lightship?.root && this.lightship.hullDown);
       if (m.parts) for (const [a, b] of m.parts) if (a !== m.src) (b.position.copy(a.position), b.quaternion.copy(a.quaternion), b.scale.copy(a.scale), (b.visible = a.visible));
       m.copy.matrix.multiplyMatrices(flip, m.src.matrixWorld);
       m.copy.updateMatrixWorld(true);
@@ -2111,19 +2114,21 @@ function wreckOut(d: Date) {
 }
 
 /** A toon material of its own (never the island's shared one), its fog stepped (see steppedFog). */
-function paint(color: THREE.Color, opts: { glow?: boolean; vertexColors?: boolean; haze?: { value: number } } = {}) {
-  return steppedFog(toon(color, { glow: opts.glow, vertexColors: opts.vertexColors, own: true, bare: true }), opts.haze);
+function paint(color: THREE.Color, opts: { glow?: boolean; vertexColors?: boolean; haze?: { value: number }; whole?: boolean } = {}) {
+  return steppedFog(toon(color, { glow: opts.glow, vertexColors: opts.vertexColors, own: true, bare: true }), opts.haze, opts.whole);
 }
 
 /**
  * Fog in four dithered steps rather than a smooth fade, so what's far off goes to haze the way
  * the rest of the picture does: in texels. Only as far in as `haze` says (1 all the way).
  */
-function steppedFog<T extends THREE.Material>(mat: T, haze = HAZE): T {
+function steppedFog<T extends THREE.Material>(mat: T, haze = HAZE, whole = false): T {
   const before = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
     before?.call(mat, shader, renderer);
     shader.uniforms.uHaze = haze;
+    // (`whole`: as far into it as the thing's middle is, all of it, so no step lands across it)
+    if (whole) shader.vertexShader = shader.vertexShader.replace('#include <fog_vertex>', '#include <fog_vertex>\n#ifdef USE_FOG\nvFogDepth = -(modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).z;\n#endif');
     shader.fragmentShader = 'uniform float uHaze;\n' + shader.fragmentShader.replace(
       '#include <fog_fragment>',
       /* glsl */ `#ifdef USE_FOG
@@ -2135,6 +2140,8 @@ function steppedFog<T extends THREE.Material>(mat: T, haze = HAZE): T {
       #endif`,
     );
   };
+  // (three keys its compiled programs by this function's text, which is the same either way)
+  if (whole) mat.customProgramCacheKey = () => 'whole-haze';
   return mat;
 }
 

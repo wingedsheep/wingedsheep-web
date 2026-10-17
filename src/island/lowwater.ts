@@ -296,20 +296,20 @@ export class LowWaterRoom implements RoomInput {
     const id = world.card;
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
-    const more = k >= 0 ? sum(k) : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
+    const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
     const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : id === 'praam' && world.alongside ? 'Row back' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {
       this.card.hidden = !id;
-      // (a page in the wildlife book, the first time; said once its card has gone, not over it)
+      // (a page in the wildlife book, the first time; said once there's no card up, not over one)
       if ((id === 'seal' || id === 'curlew') && spotAnimal(id, 'At Low Water')) this.sketched = true;
-      if ((this.shown === 'seal' || this.shown === 'curlew') && this.sketched) {
+      if (!id && this.sketched) {
         this.sketched = false;
         this.ctx.toast('A new sketch in your wildlife book.');
       }
       if (id) {
-        this.text.textContent = id === 'wreck' ? `${CARDS.wreck}\n${WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))]}` : CARDS[id];
+        this.text.textContent = CARDS[id];
         // (the animation again, for a new card)
         this.card.style.animation = 'none';
         void this.card.offsetWidth;

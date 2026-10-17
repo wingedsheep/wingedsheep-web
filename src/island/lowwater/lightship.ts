@@ -86,6 +86,14 @@ export class Lightship {
     this.near = near;
   }
 
+  /**
+   * Still partly under the horizon: then so is her reflection, since the water that would show it
+   * is past the same curve (left in, it hangs a pale mast in the water with no ship on it).
+   */
+  get hullDown() {
+    return this.sunk > 0.05;
+  }
+
   /** Up over the horizon as you come out, top first. `far` is where the flat runs out (z). */
   place(level: number, far: number, sink: number) {
     // (and once you're out on the water with her, she's up whatever the zoom does to the horizon)

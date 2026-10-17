@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 ## Projects
 
@@ -34,6 +34,23 @@ lamp close up), not explained.
 6. Maybe: her name on the hull (big enough for the pixels, ~0.9 m letters), once aboard decides it.
 
 ## Done
+
+- **Polish pass 3** (walked the whole flat clear, in fog and on a phone, and rowed out and back,
+  with loop-runs/walk-lowwater.mjs, which now has a praam stop and a timeout, and
+  loop-runs/praam-shots.mjs; then loop-runs/polish3-check.mjs for the fixes; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-polish-3/, sheets/, after/ and after2/). Fixed: from the
+  last twigs, the lightship hull-down still hung her whole reflection in the water, so her white
+  lantern mast read as a pale pole standing on the flat with no ship under it; now her reflection
+  only shows once she's all the way up (`Lightship.hullDown`: the curve that hides her hull hides
+  its mirror too), and she reads as a mast and a sail coming up over the edge. The "new sketch"
+  toast waited for the seal's card to go, but the next card (the buoy's) came straight after and
+  it sat over that; it now waits until no card is up. The wreck's "today" line was run into its
+  card; it's the italic second line now, like every other card's. A bank lying deep along the way
+  out (the shells') had a hard line across it where a haze step fell, and in a fog its far half
+  was a pale cloud on the water: banks now go into the haze as one thing, by their middle's depth
+  (`steppedFog(..., whole)`), and only half way in a fog (`bankHaze` 0.5 at most). Read every card
+  again; nothing cut. The flat still feels like one place, and the lightship is now the thing it
+  all looks out to; the next additions belong out there (step 4, aboard).
 
 - **The lightship, step 3** ("a way out"; project: The lightship): a praam, a flat little boat,
   drawn up at the deep water's edge east of the last twig (`PRAAM`, `BOARD` in
@@ -260,12 +277,14 @@ lamp close up), not explained.
   person (by spectrogram: broadband water with drips and a creak, 2.7 s).
 - She looms by being scaled up as you row in; the buoy beside her doesn't, so alongside it looks
   small against her. Fair, since it is.
-- Not yet in loop-runs/walk-lowwater.mjs's stops (nor is the lightship).
 
 - Zoomed in, the lightship sinks under the nearer horizon (as the baak does): at max zoom-in only
-  her lantern mast and sail show, standing in the water.
+  her lantern mast and sail show, standing in the water (no longer with their reflection).
+- She's cut at her own waterline, which on screen is a little below the drawn horizon, so
+  hull-down she comes up out of the far water rather than exactly over the horizon line.
+- In a fog a whole bank far off is one even dither of mist; it reads as a bank in fog, but the
+  checker is plain to see on a big one.
 - In a fog the lightship goes half pale, more at her far end; she still reads as a ship in mist.
-- Not yet in loop-runs/walk-lowwater.mjs's stops.
 - Her horn (`lowwater-horn`) has never been listened to by a person (by spectrogram: a steady
   drone under 300 Hz for 2.7 s, then an echo). play() varies the rate ±6%, so her two blasts
   aren't quite the same pitch; a real horn's are.
@@ -279,9 +298,6 @@ lamp close up), not explained.
   the walk script) exit on a timer.
 - One walk in polish pass 2 found the phone at the start with the post card after `w.sit()` at the
   bench; it didn't happen again in three runs (likely two swiftshader pages at once).
-
-- The shells' bank is deeper (along the way out) than the others, so from the table its far half
-  sits one haze step paler, with a straight line across it; in fog that line is strong.
 
 - In a fog the baak goes to a pale outline as it comes up over the horizon (as everything far
   does in fog); its ball's reflection shows as a lone pale dot under its bank.
