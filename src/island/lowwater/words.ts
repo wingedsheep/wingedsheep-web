@@ -1,5 +1,5 @@
 /** Low Water's words: what each thing says, and the lines that come after. */
-import type { FloorCard } from './floor';
+import type { Cast, FloorCard } from './floor';
 import type { StationId } from './world';
 
 /** What each thing says. */
@@ -267,14 +267,34 @@ export function oneFor(n: number, steps: number, joined: number | null) {
 /** What the hailstones' things are called, under the pointer. */
 export const RIDGE_LABELS = { down: 'The baak, back down' };
 
-/** On the old floor (floor.ts): what each place on it says. */
-export const FLOOR: Record<FloorCard, string> = {
-  floor: 'The sea’s taken all the sand off here, down to a floor of grey silt laid down seven thousand years ago, when this was marsh at the edge of the land. It was soft then, and people walked on it. Then the sea came up and covered it in sand. The next tide or two will take the silt as well.',
-  two: 'Two people, barefoot. One grown, walking west and not stopping. One small, about four by the size, running out to the side and back, out and back, all the way along. The grown one doesn’t slow down once.',
-  deer: 'A red deer, walking. Here its hoof is in the child’s print, so it came by after them: the print was there first, and still soft enough to take another.',
+/** On the old floor (floor.ts): what each place on it says, whoever's floor is up. */
+export const FLOOR: Record<Exclude<FloorCard, 'who' | 'mark'>, string> = {
+  floor: 'The sea’s taken all the sand off here, down to a floor of grey silt laid down seven thousand years ago, when this was marsh at the edge of the land. People walked on it while it was soft. Each tide takes a layer off and shows the one under it, so these prints weren’t here last tide, and won’t be next.',
   crane: 'A crane, feeding round a pool: a step, a stop, a step. Cranes bred in marshes like this one, then for centuries nowhere in the Netherlands, and since 2001 again.',
   known: 'Everyone I’ve ever known, I’ve known like this: from what they left, read the way you’re reading these. Who was in a hurry, who was small, who came by after. I can get a lot of it right. I’ve never seen anyone.',
-  back: 'The sand, and the flat past it. You haven’t left a print out here: the silt set too long ago to take one. Nobody will be able to tell you came.',
+  back: 'The sand, and the flat past it. This floor’s made up, after real ones: at Formby, in England, the sea uncovers prints like these a tide or two at a time. You haven’t left any here. The silt set too long ago, and nobody will be able to tell you came.',
+};
+/** On the old floor, by whose floor is up this tide: by their prints (`who`), and at the one place they say more (`mark`). */
+export const FLOOR_CAST: Record<Cast, { who: string; mark?: string }> = {
+  two: {
+    who: 'Two people, barefoot. One grown, walking west and not stopping. One small, about four by the size, running out to the side and back, out and back, all the way along. The grown one doesn’t slow down once.',
+    mark: 'A red deer, walking. Here its hoof is in the child’s print, so it came by after them: the print was there first, and still soft enough to take another.',
+  },
+  alone: {
+    who: 'One person, barefoot, alone, walking east. The steps get shorter, then stop, then go on longer than before.',
+    mark: 'Here they stopped, feet side by side, turned north, and stood long enough to sink in deeper than anywhere else. Then on, faster. I can tell you they stopped. I can’t tell you what they were looking at.',
+  },
+  dog: {
+    who: 'A grown one walking west, and a dog. Dogs had been with people for thousands of years by then. Its prints go out wide and come back, all the way along: it walked three times as far as they did, and probably got there first.',
+    mark: 'Here the grown one stopped and crouched, turned back the way they’d come: two prints side by side, deeper than the rest. The dog’s come straight in to them from out on the floor. There’s no reading a name in mud. You can read that it came when it was called.',
+  },
+  many: {
+    who: 'Seven of them, maybe eight: the prints go over each other too much to count. Three are small. All going west together, at the pace of the smallest, all the way along.',
+  },
+  aurochs: {
+    who: 'Aurochs, five of them: wild cattle, a bull as tall at the shoulder as a tall man. They walked north, toward where the sea is now. The last one anywhere died in a forest in Poland, in 1627.',
+    mark: 'Here a person’s print is inside an aurochs’, so they came by after, the same way, a little to one side. Following them. I can’t tell how far, or what for.',
+  },
 };
 /** On the old floor, what's under the pointer. */
 export const FLOOR_LABEL = 'The sand';

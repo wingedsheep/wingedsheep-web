@@ -20,7 +20,7 @@ import type { Page } from './lowwater/page';
 import type { Ridge } from './lowwater/ridge';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, FLOOR, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, FLOOR, FLOOR_CAST, FLOOR_LABEL, HAIL_DOWN, LAPS, LOOP, SQUALL, hailFor, oneFor, peakFor, RIDGE_LABELS, tuneFor, UNDER, NIGHT_EYES, OBSCURA, ROOM_LABELS, SLIDE, SLIDE_HINT, SLIDE_NOW, COMMA, CRAB, END, FORKS, GONE, HORN, LABELS, LADDER, LEAN, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, PAST, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { bellHeard, bellSaid } from './lowwater/bells';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
@@ -502,7 +502,7 @@ export class LowWaterRoom implements RoomInput {
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = FLOOR[id];
+        this.text.textContent = id === 'who' || id === 'mark' ? FLOOR_CAST[floor.cast][id] ?? '' : FLOOR[id];
         this.fold(this.keepFolded && this.small.matches);
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
@@ -576,7 +576,8 @@ export class LowWaterRoom implements RoomInput {
     } else if (to === 'floor' && this.floor) {
       this.world?.releaseKeys();
       this.world!.goingDown = false;
-      this.floor.arrive();
+      // (this tide's floor; ?floor= shows another's)
+      this.floor.arrive(visitDate(), new URLSearchParams(location.search).get('floor'));
       this.onFloor = true;
     } else if (to === 'room' && this.room) {
       this.world?.releaseKeys();

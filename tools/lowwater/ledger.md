@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -30,10 +30,11 @@ and reading order from overlap is how trackers and archaeologists do it.
    Follow them; the floor (steeper, nearer camera, looking down at your feet), its worn steps
    and laminae, the sea's wash at its far edge, the sand behind; the prints; six cards (floor,
    two, deer, crane, known, back). See Done.
-2. **A different floor each tide**: the sea takes a layer a tide, so each visit (by the
-   island's day and tide) the walkers are different, seeded: sometimes one person alone, a dog,
-   a group, an aurochs; the card says these weren't up yesterday and won't be tomorrow. Mention
-   Formby somewhere, so it's honest that this floor is made up after a real one.
+2. **A different floor each tide** (done): five floors (`CASTS` in floor.ts), one a real
+   tide (12 h 25 min), shuffled in fives so never the same twice running, each laid out and worn
+   by its tide's seed: the two (and the deer), one alone who stopped, a grown one and a dog, a
+   crowd of seven, five aurochs and a person following. The floor card says they weren't here
+   last tide; the back card names Formby. `?floor=` shows one. See Done.
 3. **Its sound**: the sea close in front, panned; the clay's own step (firm and wet, no suck);
    water ticking in the prints. Maybe a far curlew, as it'd have been then too.
 4. **In their steps**: walk in the grown one's prints, step for step, and your stride matches
@@ -155,6 +156,27 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The old floor, step 2: a different floor each tide** (project: The old floor): the sea
+  takes a layer a tide, so who walked the floor changes with the real tide (`tideOf`, 12.42 h;
+  `castFor` shuffles the five in blocks of five, swapping a block's first two where it'd repeat
+  the last one's end). Each floor is built by its tide's seed (`build` in
+  src/island/lowwater/floor.ts): the silt worn from a shifted noise (`uShift`), the pool moved
+  to one side or the other, the walkers' way and the place they say more (`mark`) near where
+  you come in. The two: as before, the deer's hoof in the child's print. Alone: one walking
+  east, steps shortening, both feet turned north and pressed deeper (more water in them), then
+  on with a longer stride. A dog: a grown one west, a dog's four-toed prints going out wide and
+  coming back, coming straight in where the grown one crouched facing back east. Many: seven in
+  lanes so close their prints go over each other, three small. Aurochs: five, broad cloven
+  hooves going north, and a person's line after them, one print inside a hoof's. The crane only
+  some tides. Cards are now `who` and `mark` by the cast (FLOOR_CAST in words.ts); the floor card
+  says these prints weren't here last tide and won't be next; the back card says the floor's
+  made up after real ones, at Formby. Arriving, the floor card comes first even with prints at
+  your feet. `?floor=two|alone|dog|many|aurochs` shows one. Why: a floor that's the same every
+  visit says the opposite of what it's about; and the new walkers each read one more true thing
+  off prints (that someone stopped, but not at what; that a dog came; that someone followed),
+  and stop at what prints can't say. Shots in loop-runs/lowwater-logs/shots/2026-10-17-floor-tides
+  (floor2-shots.mjs).
 
 - **The old floor, step 1: the floor and the prints** (project: The old floor): a low bank east
   past the gauge, `SCOUR` (34, −33), its top scoured to clay (src/island/lowwater/scour.ts: a
@@ -1210,7 +1232,11 @@ lamp close up), not explained.
 
 ## Known issues
 
-- The old floor: the same floor every visit (step 2 is to change that). The prints are drawn
+- The old floor: five floors only, so a regular visitor sees them come round (one a tide; the
+  shuffle's fixed by the tide's number, not random). The dog's prints are a few texels each and
+  read as a dotted line out wide at normal zoom; the stood and crouched pairs are under your
+  figure when their card comes, so you see them walking up, not on the card. Nothing on the
+  floor makes sound yet but your steps (step 3). The prints are drawn
   half as big again as life (the scour's three times), and at normal zoom read as dashes with a
   pale middle; zoomed in they're feet with toes, slots and crane prints. The deer's slot in the
   child's print is hard to pick out even zoomed in; only its card says so. The camera's steeper

@@ -2,10 +2,12 @@
  * The old floor: follow the prints east off the scour and you come out where the sea has taken
  * all the sand off, down to a floor of grey silt laid down seven thousand years ago, when this was
  * marsh at the edge of the land. Its mud was soft then, and people and animals walked on it; the
- * sea came up over it and laid sand on top, and now a storm's taken the sand off again. Two people
- * barefoot, a grown one walking west and a child running rings round them; a red deer that came by
- * after them and stepped in one of the child's prints; a crane feeding by a pool. Your boots leave
- * nothing: it set too long ago. The flat is about my tide; this is about how I know anyone at all.
+ * sea came up over it and laid sand on top, and now a storm's taken the sand off again. The sea
+ * takes a layer a tide, so who walked here changes with the island's tide (`CASTS`): two people
+ * barefoot, a grown one walking west and a child running rings round them, and a red deer that
+ * came by after; or one person alone, who stopped; a grown one and a dog; a crowd; a few aurochs
+ * and a person following them. Sometimes a crane fed by a pool. Your boots leave nothing: it set
+ * too long ago. The flat is about my tide; this is about how I know anyone at all.
  *
  * Its own scene and camera, drawn through the island's PixelRenderer like the page, looking north
  * but steeper and nearer, down at your feet, because here what there is to see is on the ground.
@@ -38,17 +40,44 @@ export function seaZ(x: number) {
   return -24 + 1.5 * Math.sin(x * 0.13 + 2) + 0.6 * Math.sin(x * 0.41);
 }
 
-/** The grown one's way: in from the east, out to the west, not hurrying and not stopping. */
-function adultZ(x: number) {
-  return -7 + 1.2 * Math.sin(x * 0.05) + 0.4 * Math.sin(x * 0.17 + 0.5);
+/** A grown one's way across: in from the east, out to the west, not hurrying and not stopping (`ph` shifts it, `z` is where it runs). */
+function wayZ(ph: number, z = -7) {
+  return (x: number) => z + 1.2 * Math.sin((x + ph) * 0.05) + 0.4 * Math.sin((x + ph) * 0.17 + 0.5);
 }
-/** The child's, round it: out to the side and back, out and back, ahead and behind. */
-function childZ(x: number) {
-  return adultZ(x) + 2.6 * Math.sin(x * 0.38 + 0.6 * Math.sin(x * 0.11)) + 0.5 * Math.sin(x * 1.1);
+/** A child's, round a grown one's: out to the side and back, out and back, ahead and behind. */
+function roundZ(way: (x: number) => number, ph: number) {
+  return (x: number) => way(x) + 2.6 * Math.sin((x + ph) * 0.38 + 0.6 * Math.sin((x + ph) * 0.11)) + 0.5 * Math.sin((x + ph) * 1.1);
 }
-/** Where the crane fed, by a pool. */
-const CRANE = new THREE.Vector2(-15, -14.5);
 const POOL_R = 2.4;
+
+/** Who walked the floor this tide. */
+export const CASTS = ['two', 'alone', 'dog', 'many', 'aurochs'] as const;
+export type Cast = (typeof CASTS)[number];
+/** The sea takes a layer a tide: a tide's 12 h 25 min, so two a day and a bit. */
+const TIDE = 12.4206 * 3600e3;
+export function tideOf(d: Date) {
+  return Math.floor(d.getTime() / TIDE);
+}
+/**
+ * Whose floor's up this tide: each five tides all five in a shuffled order, so never the same
+ * two running (where one five's last is the next one's first, the next's first two swap).
+ */
+export function castFor(tide: number): Cast {
+  const order = (block: number) => {
+    const rand = mulberry(block * 7919 + 13);
+    const o = [...CASTS];
+    for (let i = o.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [o[i], o[j]] = [o[j], o[i]];
+    }
+    return o;
+  };
+  const n = CASTS.length;
+  const block = Math.floor(tide / n);
+  const o = order(block);
+  if (o[0] === order(block - 1)[n - 1]) [o[0], o[1]] = [o[1], o[0]];
+  return o[tide - block * n];
+}
 
 const CLAY = ['#4d4f66', '#45465e', '#3c3d55'].map((c) => new THREE.Color(c));
 export const HOLLOW = new THREE.Color('#29283d');
@@ -58,7 +87,8 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type FloorCard = 'floor' | 'two' | 'deer' | 'crane' | 'known' | 'back';
+/** `who` is the floor's walkers', `mark` the one place where their prints say a little more (both by the cast, in words.ts). */
+export type FloorCard = 'floor' | 'who' | 'mark' | 'crane' | 'known' | 'back';
 
 type Print = { x: number; z: number; heading: number; side: number };
 
@@ -110,6 +140,26 @@ function craneShape(length: number) {
   return [toe(0, length), toe(0.65, length * 0.85), toe(-0.65, length * 0.85), toe(Math.PI, length * 0.3)];
 }
 
+/** A dog's: four oval toes in an arc round a pad. */
+function dogShape(length: number) {
+  const l = length;
+  const dot = (x: number, y: number, rx: number, ry: number) => new THREE.Shape().absellipse(x * l, y * l, rx * l, ry * l, 0, Math.PI * 2, false, 0);
+  return [dot(-0.18, 0, 0.26, 0.3), dot(0.3, 0.12, 0.13, 0.1), dot(0.3, -0.12, 0.13, 0.1), dot(0.14, 0.32, 0.11, 0.09), dot(0.14, -0.32, 0.11, 0.09)];
+}
+
+/** An aurochs': a cloven hoof like the deer's, but round and broad, with a gap down the middle. */
+function hoofShape(length: number) {
+  const l = length;
+  const half = (side: number) => {
+    const s = new THREE.Shape();
+    s.moveTo(-l * 0.45, side * l * 0.05);
+    s.bezierCurveTo(-l * 0.6, side * l * 0.55, l * 0.35, side * l * 0.6, l * 0.5, side * l * 0.05);
+    s.lineTo(-l * 0.45, side * l * 0.05);
+    return s;
+  };
+  return [half(1), half(-1)];
+}
+
 export function flat(shapes: THREE.Shape[], scale = 1, shift = 0) {
   const g = new THREE.ShapeGeometry(shapes, 6);
   g.scale(scale, scale, 1);
@@ -118,7 +168,7 @@ export function flat(shapes: THREE.Shape[], scale = 1, shift = 0) {
   return g.rotateX(-Math.PI / 2);
 }
 
-/** A seeded rand, so the floor is the same floor every visit (for now). */
+/** A seeded rand, so a tide's floor is the same floor all that tide. */
 function mulberry(seed: number) {
   return () => {
     seed |= 0;
@@ -129,8 +179,8 @@ function mulberry(seed: number) {
   };
 }
 
-/** Prints along a way (z by x), going west from `from` to `to`, a step every `stride` metres along it. */
-function along(way: (x: number) => number, from: number, to: number, stride: number, wide: number, rand: () => number, jitter = 0.05) {
+/** Prints along a way (z by x), going west from `from` to `to`, a step every `stride` metres along it (or as long as it is there). */
+function along(way: (x: number) => number, from: number, to: number, stride: number | ((x: number) => number), wide: number, rand: () => number, jitter = 0.05) {
   const out: Print[] = [];
   let side = 1;
   let x = from;
@@ -142,7 +192,7 @@ function along(way: (x: number) => number, from: number, to: number, stride: num
     const seg = Math.hypot(dx, nz - z);
     carry += seg;
     const heading = Math.atan2(dx, nz - z);
-    if (carry >= stride * (1 + (rand() - 0.5) * jitter * 2)) {
+    if (carry >= (typeof stride === 'number' ? stride : stride(x)) * (1 + (rand() - 0.5) * jitter * 2)) {
       carry = 0;
       side = -side;
       out.push({ x: x + Math.cos(heading) * wide * side, z: z - Math.sin(heading) * wide * side, heading: heading + (rand() - 0.5) * 0.16, side });
@@ -150,6 +200,34 @@ function along(way: (x: number) => number, from: number, to: number, stride: num
     x += dx;
   }
   return out;
+}
+
+/** The same, walked the other way (east): each print turned round, and so the other foot. */
+function east(prints: Print[]) {
+  return prints.map((p) => ({ ...p, heading: p.heading + Math.PI, side: -p.side })).reverse();
+}
+
+/** Prints in a straight line, from `at` along `dir` (x, z), a step every `stride`, `wide` either side of it. */
+function line(at: THREE.Vector2, dir: THREE.Vector2, from: number, to: number, stride: number, wide: number, rand: () => number) {
+  const d = dir.clone().normalize();
+  const out: Print[] = [];
+  for (let k = from; k <= to; k++) {
+    const side = k % 2 ? 1 : -1;
+    const s = k * stride + (rand() - 0.5) * stride * 0.1;
+    out.push({ x: at.x + d.x * s + d.y * wide * side, z: at.y + d.y * s - d.x * wide * side, heading: Math.atan2(d.x, d.y) + (rand() - 0.5) * 0.12, side });
+  }
+  return out;
+}
+
+/** Two feet side by side, facing `heading`, `apart` between them. */
+function stood(x: number, z: number, heading: number, apart: number): Print[] {
+  // (the left foot's to the left of the way you face)
+  const lx = Math.cos(heading) * apart * 0.5;
+  const lz = -Math.sin(heading) * apart * 0.5;
+  return [
+    { x: x + lx, z: z + lz, heading, side: 1 },
+    { x: x - lx, z: z - lz, heading, side: -1 },
+  ];
 }
 
 export class Floor {
@@ -182,12 +260,17 @@ export class Floor {
   private ray = new THREE.Raycaster();
   /** Every print, by whose, for knowing where you're stood. */
   private people: Print[] = [];
-  private deer: Print[] = [];
   private crane: Print[] = [];
-  /** Read the two people's card, so standing still can say the rest. */
+  /** This tide's, and whose floor it is. */
+  private tide = NaN;
+  cast: Cast = 'two';
+  private prints = new THREE.Group();
+  /** Where the crane fed (or would have), by a pool. */
+  private pool = new THREE.Vector2(-15, -14.5);
+  /** Read the walkers' card, so standing still can say the rest. */
   private metThem = false;
-  /** Where the deer stepped in the child's print. */
-  private met = new THREE.Vector2();
+  /** The one place their prints say more: where the deer stepped in the child's print, where one stood, crouched, followed. */
+  private mark = new THREE.Vector2();
   private arrivedAt = new THREE.Vector2();
 
   constructor(private texels: () => number) {
@@ -203,7 +286,7 @@ export class Floor {
     const ground = this.makeGround();
     this.ground = ground.mesh;
     this.groundU = ground.uniforms;
-    this.makePrints();
+    this.scene.add(this.prints);
     this.resize(innerWidth, innerHeight);
   }
 
@@ -226,7 +309,8 @@ export class Floor {
       uWater: { value: new THREE.Color('#4a5288') },
       uSky: { value: SKY },
       uWash: { value: new THREE.Color('#a9adc6') },
-      uCrane: { value: CRANE },
+      uCrane: { value: this.pool },
+      uShift: { value: new THREE.Vector2() },
     };
     const mat = new THREE.ShaderMaterial({
       uniforms,
@@ -241,7 +325,7 @@ export class Floor {
         const float BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
         uniform float uTime;
         uniform vec3 uClay0, uClay1, uClay2, uLit, uDark, uSand, uSandLit, uWater, uSky, uWash;
-        uniform vec2 uCrane;
+        uniform vec2 uCrane, uShift;
         varying vec2 vAt;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float noise(vec2 p) {
@@ -252,7 +336,9 @@ export class Floor {
         }
         // how far down it's worn, 0 (the top that's left) .. 1
         float worn(vec2 p) {
-          float n = noise(p * 0.09) * 0.6 + noise(p * 0.23 + 7.0) * 0.28 + noise(p * 0.7 + 3.0) * 0.12;
+          // (a different layer each tide, so worn differently)
+          vec2 q = p + uShift;
+          float n = noise(q * 0.09) * 0.6 + noise(q * 0.23 + 7.0) * 0.28 + noise(q * 0.7 + 3.0) * 0.12;
           // (and by the crane's pool, down to where the water stands)
           return n + 0.5 * max(0.0, 1.0 - length(p - uCrane) / ${(POOL_R * 1.6).toFixed(2)});
         }
@@ -308,63 +394,139 @@ export class Floor {
     return { mesh, uniforms };
   }
 
-  /** Every print on the floor: theirs, the deer's and the crane's, each dark, the deeper ones with water in. */
-  private makePrints() {
-    const rand = mulberry(7000);
-    // the grown one: a steady stride, straight on
-    const adult = along(adultZ, SPAN, -SPAN, 0.74, 0.1, rand, 0.03);
-    // the child: running, so longer strides for its size, and now and then a stop, both feet together
-    const child: Print[] = [];
-    for (const p of along(childZ, SPAN - 2, -SPAN, 0.82, 0.07, rand, 0.12)) {
-      child.push(p);
-      if (rand() < 0.035) {
-        const h = p.heading + (rand() - 0.5) * 2.4;
-        p.heading = h;
-        child.push({ x: p.x - Math.cos(h) * 0.14 * p.side, z: p.z + Math.sin(h) * 0.14 * p.side, heading: h, side: -p.side });
-      }
-    }
-    // the deer came after: its line goes through one of the child's prints near where you come in, and it stepped in it
-    const met = child.reduce((a, b) => (Math.abs(b.x - 1.5) < Math.abs(a.x - 1.5) ? b : a));
-    const dir = new THREE.Vector2(0.42, -1).normalize();
-    for (let k = -12; k <= 30; k++) {
-      const x = met.x + dir.x * k * 0.78;
-      const z = met.z + dir.y * k * 0.78;
-      if (z > sandZ(x) - 0.2 || z < seaZ(x) + 0.4) continue;
-      const side = k % 2 ? 1 : -1;
-      this.deer.push({ x: x + dir.y * 0.08 * side, z: z - dir.x * 0.08 * side, heading: Math.atan2(dir.x, dir.y), side });
-    }
-    // (the one in the child's print, right in it)
-    const into = this.deer.find((d) => Math.hypot(d.x - met.x, d.z - met.z) < 0.2);
-    if (into) Object.assign(into, { x: met.x + 0.03, z: met.z });
-    this.met.set(met.x, met.z);
-    // the crane, feeding round its pool: a step, a stop, a step, turning this way and that
-    let at = CRANE.clone().add(new THREE.Vector2(-POOL_R - 1.2, 1.5));
-    let h = 0.4;
-    for (let i = 0; i < 46; i++) {
-      h += (rand() - 0.5) * 1.3;
-      // (round the pool's edge, not into it)
-      const off = at.clone().sub(CRANE);
-      const r = off.length();
-      const round = Math.atan2(off.x, off.y) + Math.PI / 2;
-      h += (Math.atan2(Math.sin(round - h), Math.cos(round - h))) * 0.35 + (r < POOL_R + 0.6 ? 0.5 : r > POOL_R + 2.5 ? -0.5 : 0);
-      at = at.add(new THREE.Vector2(Math.sin(h), Math.cos(h)).multiplyScalar(0.36 * BIG));
-      this.crane.push({ x: at.x, z: at.y, heading: h, side: i % 2 ? 1 : -1 });
-    }
-    // (each a little proud of the floor, or the depth buffer can't tell them apart from it)
-    // under the sand to the south and the sea to the north, none
+  /**
+   * This tide's floor: whose prints are up, laid out by the tide's own seed, and the silt worn
+   * differently under them (it's a different layer). Nothing changes while you're on it.
+   */
+  private build(tide: number, cast: Cast) {
+    if (tide === this.tide && cast === this.cast) return;
+    this.tide = tide;
+    this.cast = cast;
+    for (const m of this.prints.children as THREE.InstancedMesh[]) m.geometry.dispose(), (m.material as THREE.Material).dispose();
+    this.prints.clear();
+    const rand = mulberry(tide * 31 + CASTS.indexOf(cast));
+    this.groundU.uShift.value.set(rand() * 400, rand() * 400);
+    // the pool, off to one side or the other, and only some tides a crane by it
+    const sideOf = rand() < 0.5 ? -1 : 1;
+    this.pool.set(sideOf * (11 + rand() * 6), -13.8 - rand() * 1.4);
+    const near = (rand() - 0.5) * 7;
     const onFloor = (p: Print) => p.z < sandZ(p.x) - 0.15 && p.z > seaZ(p.x) + 0.3;
-    this.people = [...adult, ...child].filter(onFloor);
-    this.crane = this.crane.filter(onFloor);
-    this.lay(adult.filter(onFloor), footShape(0.26 * BIG), 0.03, footShape(0.26 * BIG, false));
-    this.lay(child.filter(onFloor), footShape(0.165 * BIG), 0.03, footShape(0.165 * BIG, false));
-    this.lay(this.deer, slotShape(0.12 * BIG), 0.05, null);
-    this.lay(this.crane, craneShape(0.2 * BIG), 0.03, null);
+    const wet = footShape(0.26 * BIG, false);
+    const adultFoot = footShape(0.26 * BIG);
+    const way = wayZ(rand() * 60);
+    const people: Print[][] = [];
+    let crane = true;
+    if (cast === 'two') {
+      // the grown one: a steady stride, straight on; the child: running, so longer strides for its
+      // size, and now and then a stop, both feet together
+      const adult = along(way, SPAN, -SPAN, 0.74, 0.1, rand, 0.03);
+      const child: Print[] = [];
+      for (const p of along(roundZ(way, rand() * 30), SPAN - 2, -SPAN, 0.82, 0.07, rand, 0.12)) {
+        child.push(p);
+        if (rand() < 0.035) {
+          const h = p.heading + (rand() - 0.5) * 2.4;
+          p.heading = h;
+          child.push({ x: p.x - Math.cos(h) * 0.14 * p.side, z: p.z + Math.sin(h) * 0.14 * p.side, heading: h, side: -p.side });
+        }
+      }
+      // the deer came after: its line goes through one of the child's prints near where you come in, and it stepped in it
+      const met = child.filter(onFloor).reduce((a, b) => (Math.abs(b.x - near) < Math.abs(a.x - near) ? b : a));
+      const deer = line(new THREE.Vector2(met.x, met.z), new THREE.Vector2(0.42 * (rand() < 0.5 ? 1 : -1), -1), -12, 30, 0.78, 0.08, rand);
+      const into = deer.reduce((a, b) => (Math.hypot(b.x - met.x, b.z - met.z) < Math.hypot(a.x - met.x, a.z - met.z) ? b : a));
+      Object.assign(into, { x: met.x + 0.03, z: met.z });
+      this.mark.set(met.x, met.z);
+      people.push(adult, child);
+      this.lay(adult.filter(onFloor), adultFoot, 0.03, wet);
+      this.lay(child.filter(onFloor), footShape(0.165 * BIG), 0.03, footShape(0.165 * BIG, false));
+      this.lay(deer.filter(onFloor), slotShape(0.12 * BIG), 0.05, null);
+    } else if (cast === 'alone') {
+      // one grown one, walking east: slowing, stopped a while, both feet turned to the sea, and then on, faster
+      const stop = near + (near < 0 ? -2 : 2);
+      const stride = (x: number) => (x > stop ? 0.92 : 0.74 - 0.2 * Math.max(0, 1 - (stop - x) / 3));
+      const walked = east(along(way, SPAN, -SPAN, stride, 0.1, rand, 0.03)).filter((p) => Math.abs(p.x - stop) > 0.45);
+      const at = stood(stop, way(stop), Math.PI, 0.26);
+      this.mark.set(stop, way(stop));
+      people.push(walked, at);
+      this.lay(walked.filter(onFloor), adultFoot, 0.03, wet);
+      // (stood on longer, so pressed in deeper, more water in them)
+      this.lay(at, adultFoot, 0.03, wet, 0.8);
+    } else if (cast === 'dog') {
+      // a grown one walking west, and a dog going out wide and coming back, until the grown one
+      // crouches, turned to face back east, and it comes straight in
+      const crouch = near;
+      const walked = along(way, SPAN, -SPAN, 0.74, 0.1, rand, 0.03).filter((p) => Math.abs(p.x - crouch) > 0.4);
+      const at = stood(crouch, way(crouch), Math.PI / 2, 0.3);
+      const ph = rand() * 20;
+      const dogZ = (x: number) => way(x) + Math.min(1, Math.abs(x - crouch) / 5) * (3 * Math.sin((x + ph) * 0.45) + 0.8 * Math.sin((x + ph) * 1.3));
+      const dog = along(dogZ, SPAN - 1, -SPAN, 0.5, 0.06, rand, 0.15);
+      this.mark.set(crouch, way(crouch));
+      people.push(walked, at, dog);
+      crane = false;
+      this.lay(walked.filter(onFloor), adultFoot, 0.03, wet);
+      this.lay(at, adultFoot, 0.03, wet, 0.8);
+      this.lay(dog.filter(onFloor), dogShape(0.1 * BIG), 0.04, null);
+    } else if (cast === 'many') {
+      // seven, going west together: grown ones and three small ones, each in their own lane, so close
+      // their prints go over each other
+      const sizes = [0.27, 0.25, 0.26, 0.24, 0.17, 0.15, 0.19];
+      sizes.forEach((size, i) => {
+        const lane = (rand() - 0.5) * 2.6;
+        const small = size < 0.2;
+        const ph = rand() * 10;
+        const z = (x: number) => way(x) + lane + (small ? 0.35 : 0.12) * Math.sin((x + ph) * (small ? 0.9 : 0.4));
+        const walked = along(z, SPAN - rand() * 2, -SPAN, size * 2.8, size * 0.38, rand, small ? 0.1 : 0.04);
+        people.push(walked);
+        this.lay(walked.filter(onFloor), footShape(size * BIG), 0.03 + i * 0.002, footShape(size * BIG, false));
+      });
+      this.mark.set(1e4, 1e4);
+    } else {
+      // aurochs, five, walking north toward where the sea is now; and after them a person, the same way,
+      // a little to one side, who stepped in one of their prints
+      const dir = new THREE.Vector2(-0.35 * (rand() < 0.5 ? 1 : -1), -1);
+      const across = new THREE.Vector2(-dir.y, dir.x).normalize();
+      const herd: Print[] = [];
+      for (let i = 0; i < 5; i++) {
+        const at = new THREE.Vector2(near, 1).addScaledVector(across, (i - 2) * 1.5 + (rand() - 0.5) * 0.9);
+        herd.push(...line(at, dir, -8, 30, 0.85 + rand() * 0.1, 0.22, rand));
+      }
+      const onIt = herd.filter((p) => onFloor(p) && p.z < -3 && p.z > -9 && Math.abs(p.x - near) < 2.5);
+      const step = onIt.length ? onIt[Math.floor(rand() * onIt.length)] : herd[0];
+      const person = line(new THREE.Vector2(step.x, step.z).addScaledVector(across, 0.1), dir, -14, 30, 0.74, 0.1, rand);
+      const into = person.reduce((a, b) => (Math.hypot(b.x - step.x, b.z - step.z) < Math.hypot(a.x - step.x, a.z - step.z) ? b : a));
+      Object.assign(into, { x: step.x + 0.04, z: step.z });
+      this.mark.set(step.x, step.z);
+      people.push(herd, person);
+      crane = false;
+      this.lay(herd.filter(onFloor), hoofShape(0.16 * BIG), 0.03, null);
+      this.lay(person.filter(onFloor), adultFoot, 0.05, wet);
+    }
+    this.people = people.flat().filter(onFloor);
+    this.crane = [];
+    if (crane) {
+      // the crane, feeding round its pool: a step, a stop, a step, turning this way and that
+      const pool = this.pool;
+      let at = pool.clone().add(new THREE.Vector2(-sideOf * (POOL_R + 1.2), 1.5));
+      let h = 0.4;
+      for (let i = 0; i < 46; i++) {
+        h += (rand() - 0.5) * 1.3;
+        // (round the pool's edge, not into it)
+        const off = at.clone().sub(pool);
+        const r = off.length();
+        const round = Math.atan2(off.x, off.y) + Math.PI / 2;
+        h += Math.atan2(Math.sin(round - h), Math.cos(round - h)) * 0.35 + (r < POOL_R + 0.6 ? 0.5 : r > POOL_R + 2.5 ? -0.5 : 0);
+        at = at.add(new THREE.Vector2(Math.sin(h), Math.cos(h)).multiplyScalar(0.36 * BIG));
+        this.crane.push({ x: at.x, z: at.y, heading: h, side: i % 2 ? 1 : -1 });
+      }
+      this.crane = this.crane.filter(onFloor);
+      this.lay(this.crane, craneShape(0.2 * BIG), 0.03, null);
+    }
   }
 
   /** A kind of print, all of them at once: the hollow, and the water standing in it, a little in from its east wall. */
-  private lay(prints: Print[], shapes: THREE.Shape[], y: number, wet: THREE.Shape[] | null) {
+  private lay(prints: Print[], shapes: THREE.Shape[], y: number, wet: THREE.Shape[] | null, deep = 0.55) {
+    // (each a little proud of the floor, or the depth buffer can't tell them apart from it)
     const layers: [THREE.BufferGeometry, THREE.Color, number][] = [[flat(shapes), HOLLOW, y]];
-    if (wet) layers.push([flat(wet, 0.55, -0.02), SKY, y + 0.01]);
+    if (wet) layers.push([flat(wet, deep, -0.02), SKY, y + 0.01]);
     for (const [geo, color, lift] of layers) {
       const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }), prints.length);
       const m = new THREE.Matrix4();
@@ -377,12 +539,14 @@ export class Floor {
         mesh.setMatrixAt(i, m.compose(new THREE.Vector3(p.x, lift, p.z), q, s));
       });
       mesh.frustumCulled = false;
-      this.scene.add(mesh);
+      this.prints.add(mesh);
     }
   }
 
-  /** Come down onto the floor from the flat: over the sand's edge, a few steps on. */
-  arrive() {
+  /** Come down onto the floor from the flat, on this tide's floor (or the one `asked` for): over the sand's edge, a few steps on. */
+  arrive(when: Date, asked?: string | null) {
+    const tide = tideOf(when);
+    this.build(tide, CASTS.find((c) => c === asked) ?? castFor(tide));
     this.leaving = false;
     this.walked = 0;
     this.stillFor = 0;
@@ -454,17 +618,19 @@ export class Floor {
     const near = (list: Print[]) => list.reduce((m, p) => Math.min(m, Math.hypot(p.x - at.x, p.z - at.y)), Infinity);
     const people = near(this.people);
     const back = this.pos.z > sandZ(this.pos.x) - 1.2 && this.walked > 5;
-    // as you come on, the floor's; at the sand's edge, the way back; by the deer's and the crane's,
-    // theirs; by the two people's, theirs, and stood still a while once you've read it, the rest
+    // as you come on, the floor's (whoever's prints are by you); at the sand's edge, the way back; at
+    // the mark and by the crane's, theirs; by the walkers', theirs, and stood still a while once you've read it, the rest
+    const arriving = at.distanceTo(this.arrivedAt) < 3.5;
     this.card =
       back ? 'back'
       : this.metThem && this.stillFor > STILL ? 'known'
-      : at.distanceTo(this.met) < 1.4 ? 'deer'
-      : people < 2.4 ? 'two'
-      : at.distanceTo(CRANE) < POOL_R + 3.2 ? 'crane'
-      : at.distanceTo(this.arrivedAt) < 3.5 || this.stillFor > STILL ? 'floor'
+      : at.distanceTo(this.mark) < 2 ? 'mark'
+      : arriving && this.walked < 4 ? 'floor'
+      : people < 2.4 ? 'who'
+      : this.crane.length && at.distanceTo(this.pool) < POOL_R + 3.2 ? 'crane'
+      : arriving || this.stillFor > STILL ? 'floor'
       : null;
-    if (this.card === 'two') this.metThem = true;
+    if (this.card === 'who') this.metThem = true;
     if (this.pos.z > sandZ(this.pos.x) + 1.2) this.leaving = true;
     this.frame(dt);
   }
