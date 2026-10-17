@@ -41,7 +41,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page' | 'others';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page' | 'others' | 'sign';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -448,6 +448,8 @@ export class LowWater {
   private pan = new THREE.Vector2();
   private clicked: { id: StationId; at: THREE.Vector2 } | null = null;
   private twigsSeen = false;
+  /** Whether you've been out on the flat (past the ring): back at the post, its plate has its say. */
+  private beenOut = false;
   /** The bird heard out on the far banks, and whether its line has been said. */
   private curlew = new Curlew();
   private curlewSaid = false;
@@ -1026,6 +1028,24 @@ export class LowWater {
     plank.rotation.z = -0.06;
     post.add(pole, plank);
     this.put(post, POST, 'post', 0.3);
+    // and under it, on the side you come from, an enamel plate: white, a red rim, three lines of
+    // black (the rule about guides), a little skew on its two nails
+    const sign = new THREE.Group();
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.3, 0.02), paint(new THREE.Color('#b0473f')));
+    const enamel = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.25, 0.02), paint(new THREE.Color(C.page)));
+    enamel.position.z = 0.006;
+    sign.add(rim, enamel);
+    const ink = paint(new THREE.Color(C.boots));
+    for (const [w, y] of [[0.26, 0.06], [0.28, 0], [0.16, -0.06]]) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(w, 0.022, 0.01), ink);
+      line.position.set(0, y, 0.014);
+      sign.add(line);
+    }
+    sign.position.set(0.01, 0.82, 0.09);
+    sign.rotation.z = 0.04;
+    const plate = new THREE.Group();
+    plate.add(sign);
+    this.put(plate, POST, 'sign', 0);
 
     // the twigs, every few metres along the way out
     const curve = new THREE.CatmullRomCurve3(ROUTE, false, 'centripetal');
@@ -2457,6 +2477,7 @@ export class LowWater {
       }
       this.clicked = null;
     }
+    if (at.y < -40) this.beenOut = true;
     const twig = this.twigs.slice(0, -1).some((t) => t.distanceTo(at) < 1.3);
     if (twig && !this.twigsSeen && at.distanceTo(POST) > 3) {
       this.twigsSeen = true;
@@ -2502,6 +2523,8 @@ export class LowWater {
     // and once the other lanterns are up, with yours out on the flat, a line about them instead
     const others = !best && !this.sitting && this.stillFor > LANTERN_LINE && this.lantern.where !== 'hung' && this.others.up;
     const lit = !best && !this.sitting && this.outside.night > 0.4 && this.stillFor > GLOW_LINE && this.wake.litAgo < this.stillFor + 3 && !this.wake.points.visible;
+    // (back at the post from out on the flat: what its plate says, rather than hello again)
+    if (best === 'post' && this.beenOut) best = 'sign';
     this.card = this.sitting ? (this.satFor > POLE_LINE && this.clear() > 0.6 ? 'pole' : 'bench') : (best ?? (flying ? 'knots' : others ? 'others' : carrying ? 'lantern' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
   }
 

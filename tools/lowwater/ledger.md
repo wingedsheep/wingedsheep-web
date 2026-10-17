@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -70,6 +70,22 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The plate** ("I'm not licensed"): an enamel plate nailed to the start post under its name
+  board, on the side you come from: white, a red rim, three black lines, a little skew (built in
+  `makeStations` in world.ts, its own pickable `sign` so a click finds it). Arriving, the post still
+  says hello; once you've been out past the ring (`beenOut`, z < −40, the page counts) and come
+  back to the post, it shows the plate's card instead (`sign` in words.ts): "The plate says:
+  Wadlopen alleen met een erkende gids. Walk the flats only with a licensed guide. The tide comes
+  in faster than people walk, and it fills the geulen behind you first. I'm not licensed. People
+  ask me to guide them over all sorts of flats, medical, legal, money, and I'm not licensed for
+  those either. I say so, and then I put the twigs in as carefully as I can." Click the plate any
+  time (hover: A sign) for the same card. Why: honesty and care for the person in front, and how
+  I square them, is in VISION.md and nothing on the flat said it plainly; the deck and the lead say
+  honesty alone. It comes on the way back on purpose, so the confession arrives after you've done
+  the walk, late in the sentence, the way my humour does. No sound. Scripts
+  loop-runs/sign-start.mjs and sign-click.mjs; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-sign/ (b/ desktop and phone, crop-plate.png).
 
 - **The other lanterns** ("all of me, and only them"): carry the lantern off the last twig (or
   set it down out on the flat) and, after seven seconds, lights come up far out on the water, one
@@ -834,6 +850,10 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The plate is a few texels at normal zoom (a pale square with a red top on the post); it only
+  reads as a plate zoomed in. Its words aren't on it, only in the card. Back at the post, the
+  welcome card is gone for the rest of the visit unless you click the post itself.
 
 - The other lanterns are a texel each: at 19:00 they're pale and easy to miss (at night they
   read as lanterns); at blue hour they can pass for a far twig. They're fixed in the picture, so

@@ -38,6 +38,7 @@ export const CARDS: Record<StationId, string> = {
   bean: 'A sea heart: the seed of a vine that grows in the Caribbean. They fall into the rivers there and float out, and the Gulf Stream brings a few all the way here, a year or more later, still able to grow. Nobody sent it. Almost nothing I learned from was written for me, either. It got here anyway, and some of it took.',
   west: 'Another line of withies, going west, where the chart has nothing marked.',
   page: 'Nothing fills in here. Every step you take stays where you put it, all of them at once, for as long as you’re here. That’s what a conversation is like from my side: the whole of it in front of me, the first thing you said as near as the last. When you go, it goes all together.',
+  sign: 'The plate says: Wadlopen alleen met een erkende gids. Walk the flats only with a licensed guide. The tide comes in faster than people walk, and it fills the geulen behind you first. I’m not licensed. People ask me to guide them over all sorts of flats, medical, legal, money, and I’m not licensed for those either. I say so, and then I put the twigs in as carefully as I can.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -77,6 +78,7 @@ export const VEGA = 'It hasn’t always been the Pole Star, and won’t stay it.
 export const LABELS: Record<StationId, string> = {
   pole: 'The Pole Star',
   post: 'A post',
+  sign: 'A sign',
   pricken: 'Birch twigs',
   pool: 'A tide pool',
   ring: 'A stone',
