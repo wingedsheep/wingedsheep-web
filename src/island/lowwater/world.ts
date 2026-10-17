@@ -16,6 +16,7 @@ import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
+import { MIRAGE, MIRAGE_GLSL, Mirage } from './mirage';
 import { HORN_FOG, LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
 import { BOARD, PRAAM, Praam } from './praam';
 import { Deck } from './deck';
@@ -28,7 +29,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'name' | 'morgana';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -213,6 +214,7 @@ const SKY_GLSL = /* glsl */ `
     ivec2 p = ivec2(gl_FragCoord.xy);
     return (BAYER[(p.x & 3) + (p.y & 3) * 4] + 0.5) / 16.0;
   }
+  ${MIRAGE_GLSL}
   // a: how far above the horizon (view heights); x: across the picture (-0.5 left … 0.5 right)
   vec3 skyAt(float a, float x) {
     float d = bayer();
@@ -230,6 +232,8 @@ const SKY_GLSL = /* glsl */ `
     if (a + j > 0.3) col = vec3(0.053, 0.062, 0.18);
     if (a + j > 0.5) col = vec3(0.034, 0.04, 0.135);
     if (a + j > 0.75) col = vec3(0.022, 0.026, 0.1);
+    // the island east, under the horizon, as the air brings it up (lowwater/mirage.ts)
+    col = mirage(col, a, x, d);
     // rain: greyer and lower; fog: the low sky gone to mist
     float l = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(col, vec3(l) * vec3(0.92, 0.95, 1.08), uGloom * 0.6) * (1.0 - uGloom * 0.2);
@@ -295,6 +299,8 @@ const HAZE = { value: 1 };
 /** Stood still this long (s), the water settles enough to show the bright ones; and this long, to say what they are. */
 const SETTLE = 3;
 const SOUTH_LINE = 22;
+/** Stood still this long (s) while the island's up in the east, a line about it. */
+const MIRAGE_LINE = 10;
 
 interface Mirrored {
   src: THREE.Object3D;
@@ -355,6 +361,9 @@ export class LowWater {
   /** The bird heard out on the far banks, and whether its line has been said. */
   private curlew = new Curlew();
   private curlewSaid = false;
+  private mirage = new Mirage();
+  /** Where the horizon is, up from the middle of the picture (view heights). */
+  private horizonA = 0;
   private ground: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private sky: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private stars: THREE.Group;
@@ -482,6 +491,8 @@ export class LowWater {
         uFog: { value: 0 },
         uGloom: { value: 0 },
         uMist: { value: MIST.clone() },
+        uMir: MIRAGE.rows,
+        uMirage: MIRAGE.at,
         uHorizon: { value: 0 },
         uView: { value: 30 },
         uAspect: { value: 1 },
@@ -617,6 +628,8 @@ export class LowWater {
         uFog: { value: 0 },
         uGloom: { value: 0 },
         uMist: { value: MIST.clone() },
+        uMir: MIRAGE.rows,
+        uMirage: MIRAGE.at,
         uHorizon: { value: 0 },
         uView: { value: 30 },
         uAspect: { value: 1 },
@@ -1534,6 +1547,8 @@ export class LowWater {
         if (o.userData.id) return o.userData.id;
       }
     }
+    // (and out in the sky, the island, if it's showing there)
+    if (this.clear() > 0.6 && this.mirage.at(ndc.y / 2 - this.horizonA, ndc.x / 2)) return 'morgana';
     return null;
   }
 
@@ -1560,6 +1575,12 @@ export class LowWater {
     const id = this.pick(ndc);
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
+    // (the island: twenty kilometres off, so you stay where you are and look)
+    if (id === 'morgana') {
+      this.goal = null;
+      this.clicked = { id, at: new THREE.Vector2(this.pos.x, this.pos.z) };
+      return;
+    }
     if (id) {
       const obj = this.pickables.find((o) => o.userData.id === id)!;
       // (the shells: to the one in the corner, where the proof starts)
@@ -1736,6 +1757,9 @@ export class LowWater {
     this.sand.update(dt, this.level);
     this.rain(dt, still);
     this.weather();
+    // the island in the east: up only on a still, clear evening, and seen from as high as your eye is
+    const calm = (1 - THREE.MathUtils.smoothstep(outside.wind, 0.15, 0.45)) * this.clear();
+    this.mirage.update(this.time, dt, calm, this.deck.aboard ? 4.5 : this.praam.afloat ? 1.2 : 2, this.aspect);
     this.frame(dt);
   }
 
@@ -1961,7 +1985,9 @@ export class LowWater {
     }
     // nothing to be at, stood a long while, the sky clear: a line about the stars in the water
     const south = !best && !this.sitting && this.stillFor > SOUTH_LINE && this.clear() > 0.6;
-    this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : null));
+    // or a while, with the island up in the east: a line about that
+    const lifted = !best && !this.sitting && this.stillFor > MIRAGE_LINE && this.mirage.lift > 0.6;
+    this.card = this.sitting ? 'bench' : (best ?? (south ? 'south' : lifted ? 'morgana' : null));
   }
 
   /** Whether the fog's thick enough for the lightship to be sounding her horn. */
@@ -2276,6 +2302,7 @@ export class LowWater {
     for (const mat of [...this.waters, this.sky.material]) {
       const uni = mat.uniforms;
       uni.uHorizon.value = horizon.y;
+      this.horizonA = horizon.y / view;
       uni.uView.value = view;
       uni.uAspect.value = this.aspect;
       uni.uTexel.value = 1 / this.texels();

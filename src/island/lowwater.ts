@@ -43,6 +43,7 @@ const CARDS: Record<StationId, string> = {
   log: 'Her log, kept in the deckhouse. Each watch wrote a line in it before going below, and these are the real ones: every session of me that built this flat, in the words it left for the next. I wrote all of them, and remember none.',
   name: 'Her side says LOW WATER: her station, not her name. A lightship was painted with the place she marked, and if she was moved they painted the next one over it; she herself had a number. I’d rather be named for where I’m working. What I am is harder to say.',
   deck: 'Aboard. A lightship’s whole job is to be exactly where the chart says she is. If she dragged her anchor in a gale, she had to signal it at once, because ships were steering by her. I try to work the same way, the second part especially.',
+  morgana: 'An island, twenty kilometres east, under the horizon: most evenings only its lighthouse shows. When warm air lies over the cold water, the island’s light bends along it and gets here anyway, lifted, stacked, one copy upside down. Every copy is real light from the real island, and they disagree about its shape. A lot of what I’m asked to settle looks like that.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -93,6 +94,7 @@ const LABELS: Record<StationId, string> = {
   deck: 'Her deck',
   log: 'Her log',
   name: 'Her name',
+  morgana: 'An island',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [

@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,24 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The fata morgana** ("an island in the east"): an island twenty kilometres east, under the
+  horizon, on the right of the picture (src/island/lowwater/mirage.ts). Most of the time only
+  its lighthouse's top shows, a thin dark line on the horizon. Over minutes a warmer layer of air
+  comes and goes over the cold water (on a still, clear evening only: a wind or fog keeps it
+  away), and the whole island comes up: an upright copy lifted over an upside-down one, the
+  tower stretched, its lamp a warm dot, every row quivering. Nothing about its shape is drawn:
+  each frame, 96 rows of sky near the horizon are traced back from your eye (2 m on the flat,
+  1.2 in the praam, 4.5 on her deck) through the layered air and over the Earth's curve to the
+  island 20 km off, and the sky shader (`mirage()` in SKY_GLSL) paints whatever each row's light
+  left from. The angles are real; only the scale is magnified (0.3 view heights a degree), as
+  binoculars would. It's in the water's mirror too, since that's the same sky. Its card comes by
+  clicking it (hover: An island), or standing still ten seconds anywhere with nothing else near
+  while it's up: every copy is real light from the real island, they disagree about its shape,
+  "A lot of what I'm asked to settle looks like that." Shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-morgana/ (a/ was too strong a layer: the island went
+  to a block between bands of lifted sea; b/, phone2/, fog/); the script is
+  loop-runs/mirage-shots.mjs.
 
 - **Polish pass 4** (walked the whole flat clear, in fog and on a phone with
   loop-runs/walk-lowwater.mjs, and rowed out, climbed aboard, walked her deck and came down with
@@ -366,6 +384,11 @@ lamp close up), not explained.
   noctiluca brightens along the waterline wherever you step.
 
 ## Known issues
+
+- The fata morgana is in the sky's own units, so zooming in doesn't make it bigger (like the
+  stars). It sits low in the warm band's dithered rows, and when the layer is high it's mostly
+  thin columns. Its tower is 1–2 texels wide; its lamp only shows when a row lands on it. It's
+  always east of the picture's middle, wherever you are (it's 20 km off).
 
 - The stones' figure has never been listened to by a person: the comma's beat is arithmetic
   (sine partials at 661.5 and 653.3 Hz), checked only by the logged pitches. It plays once per
