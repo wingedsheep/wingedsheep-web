@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -70,6 +70,20 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 9** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
+  with loop-runs/walk-lowwater.mjs, onto the page and a few steps; then the four additions since
+  polish 8 on their own: the plate (sign-start.mjs, out to the ring and back, zoomed in), the other
+  lanterns at 23:00 (others-shots.mjs), her bell aboard (bell-shots.mjs), and the words behind you
+  on a phone (past-shots.mjs); shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-9/: dusk/,
+  fog/, phone/, new/, past/, after/, and a sheet-*.png for each). The flat, the lightship and the
+  page still read as one place, and the four new things sit in it quietly; no console errors.
+  Fixed: sitting on the bench in a fog or rain tipped the view up into an empty dark sky over the
+  mist (the stars were hidden, the sky wasn't); now the bench only looks up as far as the sky's
+  clear (`lift` in world.ts' camera, times `clear()`), so in a fog you sit and look at the mist,
+  and on a clear night it's as before. Words: the bell's live line read "Four in 4 minutes"; it's
+  "Four bells in four minutes" now (`bellSaid` in bells.ts; numerals only past eight). Nothing
+  cut: each of the four additions says something nothing else here does.
 
 - **The plate** ("I'm not licensed"): an enamel plate nailed to the start post under its name
   board, on the side you come from: white, a red rim, three black lines, a little skew (built in

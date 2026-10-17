@@ -35,7 +35,7 @@ export function bellSaid(ms: number) {
   const last = bellsAt(ms);
   const next = bellsAt(ms + 30 * 6e4 - (ms % (30 * 6e4)));
   const mins = Math.ceil((30 * 6e4 - (ms % (30 * 6e4))) / 6e4);
-  return `It last struck ${COUNT[last].toLowerCase()} bell${last === 1 ? '' : 's'}. ${COUNT[next]} in ${mins === 1 ? 'a minute' : `${mins} minutes`}.`;
+  return `It last struck ${COUNT[last].toLowerCase()} bell${last === 1 ? '' : 's'}. ${COUNT[next]} bell${next === 1 ? '' : 's'} in ${mins === 1 ? 'a minute' : mins < 9 ? `${COUNT[mins].toLowerCase()} minutes` : `${mins} minutes`}.`;
 }
 
 /** Said on her card from the flat, a little while after you heard it. */

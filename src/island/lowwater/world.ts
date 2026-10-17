@@ -2849,8 +2849,9 @@ export class LowWater {
     else this.target.copy(want);
     // looking up: an ease from the flat into the sky
     const ease = this.lean * this.lean * (3 - 2 * this.lean);
-    // (not quite all the way: the horizon stays just over the card, so the Plough low in the north on an autumn evening isn't under it)
-    const lift = ease * view * 0.62;
+    // (not quite all the way: the horizon stays just over the card, so the Plough low in the north on an autumn evening isn't under it;
+    // and only as far as the sky's clear: in a fog or rain there's nothing up there, so you sit and look at the mist)
+    const lift = ease * view * 0.62 * this.clear();
     cam.position.set(this.target.x, Math.sin(ELEVATION) * DISTANCE + lift * Math.cos(ELEVATION), this.target.z + Math.cos(ELEVATION) * DISTANCE - lift * Math.sin(ELEVATION));
     cam.up.set(0, 1, 0);
     cam.lookAt(this.target.x, lift * Math.cos(ELEVATION), this.target.z - lift * Math.sin(ELEVATION));
