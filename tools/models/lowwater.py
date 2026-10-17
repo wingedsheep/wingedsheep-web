@@ -20,6 +20,12 @@ The baak: a beacon of tarred timber on a high bank, the kind that stood on the W
 ships to steer by. Four legs lean in to a mast, braced twice, with a black ball for its topmark, and
 a pale board nailed on the side that faces the way you come (-y), at the height you'd read it.
 Its feet are on z = 0, the sand.
+
+The lightship: a lighthouse that floats, anchored out in the deep water past the last twig, the way
+the Dutch kept them off the sands where nothing could be built. A red hull with its length along x
+(the bow at +x, where the anchor chain goes down), the waterline at z = 0, a white deckhouse aft,
+and the lantern mast amidships with its gallery and its glass at the top (the lamp itself is lit
+in code). A short mast aft carries a riding sail, to keep her head to the wind.
 """
 from __future__ import annotations
 
@@ -269,8 +275,88 @@ def baak():
     return root
 
 
+# a lightship's red, gone darker in the evening; her white a little grey; the lantern's glass
+SHIP_RED = "#8a3036"
+SHIP_WHITE = "#d6d0c8"
+DECK = "#6a5f62"
+GLASS = "#2c3458"
+SAIL = "#a89a86"
+SHIP_LENGTH = 15.0
+SHIP_BEAM = 4.4
+FREEBOARD = 1.3
+LANTERN_Z = 9.0  # the middle of the lantern's glass, over the waterline
+
+
+def _ship_half(t: float) -> float:
+    """Her half-width at t (-1 stern … 1 bow): a round stern, a fine bow."""
+    if t > 0:
+        return SHIP_BEAM / 2 * max(0.0, 1 - t ** 2.2) ** 0.62
+    return SHIP_BEAM / 2 * max(0.0, 1 - (-t) ** 3.5) ** 0.5
+
+
+def _ship_outline(scale: float = 1.0, steps: int = 14) -> list[tuple[float, float]]:
+    """Her outline at the deck (counter-clockwise, seen from above), shrunk by `scale` across."""
+    side = [(t * SHIP_LENGTH / 2, _ship_half(t) * scale) for t in (-1 + 2 * i / steps for i in range(steps + 1))]
+    side[0] = (-SHIP_LENGTH / 2, SHIP_BEAM / 2 * 0.45 * scale)
+    side[-1] = (SHIP_LENGTH / 2 + 0.25, 0.0)
+    top = [(x, -y) for x, y in side[:-1]]
+    bottom = [(x, y) for x, y in reversed(side[:-1])]
+    return top + [side[-1]] + bottom
+
+
+def lightship():
+    root = group("lightship", (0, -940, 0), lowwater="lightship")
+    m = Model("lightship", seed=15)
+    deck = _ship_outline()
+    # the hull: drawn in under the water, a weed line at it, red up to the deck
+    m.slab(_ship_outline(0.62), -1.0, -0.06, SHIP_RED, top=deck)
+    m.slab(_ship_outline(1.01), -0.06, 0.1, WEED)
+    m.slab(deck, 0.1, FREEBOARD, SHIP_RED)
+    # her deck, set in from the bulwarks
+    m.slab(_ship_outline(0.88), FREEBOARD - 0.25, FREEBOARD - 0.05, DECK)
+    # the forecastle, raised at the bow, and the windlass on it with the chain going out
+    fwd = [(x, y) for x, y in _ship_outline() if x > SHIP_LENGTH / 2 - 4.2]
+    m.slab(fwd, FREEBOARD, FREEBOARD + 0.55, SHIP_RED)
+    m.box((0.5, 1.1, 0.35), (SHIP_LENGTH / 2 - 2.2, 0, FREEBOARD + 0.72), IRON)
+    m.plank_line((SHIP_LENGTH / 2 - 0.2, 0.15, FREEBOARD + 0.3), (SHIP_LENGTH / 2 + 2.6, 0.15, -1.2), 0.09, 0.09, IRON)
+    # the deckhouse aft, white, its windows dark, and a stovepipe
+    hx = -SHIP_LENGTH / 2 + 3.4
+    m.box((3.6, 2.4, 1.3), (hx, 0, FREEBOARD + 0.5), SHIP_WHITE)
+    m.box((3.8, 2.6, 0.12), (hx, 0, FREEBOARD + 1.2), DECK)
+    for wx in (-1.1, 0.0, 1.1):
+        for side in (-1, 1):
+            m.box((0.45, 0.05, 0.4), (hx + wx, side * 1.21, FREEBOARD + 0.65), GLASS)
+    m.cyl(0.12, 0.8, (hx + 1.2, 0.6, FREEBOARD + 1.2), IRON, segs=6)
+    # two ventilators, cowls turned aft
+    for vx, vy in ((1.9, 1.1), (1.9, -1.1)):
+        m.cyl(0.12, 0.7, (vx, vy, FREEBOARD - 0.1), SHIP_WHITE, segs=6)
+        m.box((0.32, 0.3, 0.3), (vx - 0.06, vy, FREEBOARD + 0.7), SHIP_WHITE)
+    # the lantern mast amidships: a tapered white tower, a gallery round the top, the glass in its
+    # frames and a red cap over it
+    mx = 0.4
+    m.cyl(0.42, LANTERN_Z - 0.9 - FREEBOARD + 0.2, (mx, 0, FREEBOARD - 0.2), SHIP_WHITE, segs=8, r_top=0.26)
+    m.cyl(0.85, 0.1, (mx, 0, LANTERN_Z - 0.75), IRON, segs=8)
+    for i in range(8):
+        a = i / 8 * math.tau
+        m.box((0.05, 0.05, 0.42), (mx + math.cos(a) * 0.82, math.sin(a) * 0.82, LANTERN_Z - 0.48), IRON)
+    m.cyl(0.84, 0.05, (mx, 0, LANTERN_Z - 0.3), IRON, segs=8)
+    m.cyl(0.55, 0.9, (mx, 0, LANTERN_Z - 0.65), GLASS, segs=8)
+    for i in range(4):
+        a = i / 4 * math.tau + math.pi / 8
+        m.box((0.06, 0.06, 0.9), (mx + math.cos(a) * 0.56, math.sin(a) * 0.56, LANTERN_Z - 0.2), SHIP_RED)
+    m.cyl(0.66, 0.45, (mx, 0, LANTERN_Z + 0.25), SHIP_RED, segs=8, r_top=0.08)
+    m.cyl(0.04, 0.5, (mx, 0, LANTERN_Z + 0.68), IRON, segs=4)
+    # the mizzen aft, with the riding sail sheeted flat along the middle line
+    zx = -SHIP_LENGTH / 2 + 1.0
+    m.cyl(0.1, 5.2, (zx, 0, FREEBOARD), TAR, segs=6, r_top=0.06)
+    m.prism([(zx - 0.05, FREEBOARD + 1.6), (zx - 0.05, FREEBOARD + 5.0), (zx - 2.4, FREEBOARD + 1.9)], 0.04, (0, 0, 0), SAIL)
+    m.build(parent=root)
+    return root
+
+
 def build():
     wreck()
     buoy()
     seal()
     baak()
+    lightship()

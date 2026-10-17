@@ -16,11 +16,12 @@ import { haloTexture } from '../scene/sky';
 import { toon } from '../scene/toon';
 import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
+import { LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -362,6 +363,7 @@ export class LowWater {
   private buoy?: { root: THREE.Object3D; bell?: THREE.Object3D; lamps: THREE.Object3D[]; lean: number; rising: boolean; quiet: number };
   private seal?: Seal;
   private baak?: THREE.Object3D;
+  private lightship?: Lightship;
   private lead!: Lead;
   /** Clicked the lead line from off along the flat: heave it once you're there. */
   private heaveOnArrival = false;
@@ -1022,6 +1024,8 @@ export class LowWater {
     if (seal) this.makeSeal(seal);
     const baak = find('baak');
     if (baak) this.makeBaak(baak);
+    const lightship = find('lightship');
+    if (lightship) this.makeLightship(lightship);
   }
 
   /**
@@ -1115,6 +1119,68 @@ export class LowWater {
     hit.rotation.y = Math.PI / 4;
     g.add(hit);
     this.baak = g;
+  }
+
+  /**
+   * The lightship (lightship.ts), out in the deep water past everything else. Hazed no further
+   * than the reflections, so she stays red at the horizon, and only half goes in a fog; cut at the waterline, so she can come up
+   * over it. Her lamp is a lit box in the lantern, with a halo, flashing her character.
+   */
+  private makeLightship(model: THREE.Object3D) {
+    model.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const c = (mesh.material as THREE.MeshStandardMaterial).color;
+      mesh.userData.hull = c.r > c.g * 2;
+      // (in a fog, only half into the mist: she's what you'd steer for in one)
+      const mat = paint(c, { haze: this.mirrorHaze });
+      mat.clippingPlanes = [this.clip];
+      mesh.material = mat;
+    });
+    model.position.set(0, 0, 0);
+    const k = LIGHTSHIP_SCALE;
+    model.scale.setScalar(k);
+    // (the whole of the lantern's glass, lit: inside it, the glass would hide it)
+    const height = 8.8 * k;
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.2 * k, 0.85 * k, 1.2 * k), paint(new THREE.Color('#fff4dc'), { glow: true }));
+    (lamp.material as THREE.MeshToonMaterial).emissiveIntensity = 1.4;
+    lamp.material.clippingPlanes = [this.clip];
+    lamp.name = 'lamp';
+    lamp.position.set(0.4 * k, height, 0);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(), color: '#ffe9c8', blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
+    halo.scale.setScalar(2.6);
+    halo.position.copy(lamp.position);
+    halo.renderOrder = 6;
+    const g = new THREE.Group();
+    g.add(model, lamp, halo);
+    this.put(g, LIGHTSHIP, 'lightship', 0);
+    const copy = this.mirrored[this.mirrored.length - 1].copy;
+    copy.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      // (a clone loses its stepped fog, and would fade all the way to a pale ghost)
+      const mat = steppedFog((mesh.material as THREE.MeshBasicMaterial).clone(), this.mirrorHaze);
+      mat.clippingPlanes = [this.under];
+      if (mesh.name !== 'lamp') mat.color.lerp(WATER, 0.4).multiplyScalar(0.5);
+      // (she's big enough for her parts to be in front of each other in the water too: her hull
+      // in front of the house and the mast, and the lit lamp in front of its glass)
+      if (mesh.userData.hull) mesh.renderOrder = -4.9;
+      if (mesh.name === 'lamp') mesh.renderOrder = -4.8;
+      mesh.material = mat;
+    });
+    const a: THREE.Object3D[] = [];
+    const b: THREE.Object3D[] = [];
+    g.traverse((o) => a.push(o));
+    copy.traverse((o) => b.push(o));
+    this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
+    this.lightship = new Lightship(g, [lamp, halo, b[a.indexOf(lamp)], b[a.indexOf(halo)]], height);
+    // what you click is her hull and her lantern mast, not just their paint (and not in the reflection)
+    const hidden = new THREE.MeshBasicMaterial({ visible: false });
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(15 * k, 2.6 * k, 4.4 * k), hidden);
+    hull.position.y = 1.1 * k;
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(1.6 * k, 9.8 * k, 1.6 * k), hidden);
+    mast.position.set(0.4 * k, 4.9 * k, 0);
+    g.add(hull, mast);
   }
 
   /** Whether the seal's gone into the water (you came too close). */
@@ -1447,6 +1513,7 @@ export class LowWater {
     this.near();
     this.ring(dt);
     this.rock(dt);
+    this.lightship?.update(this.time, this.time / TIDE_PERIOD, this.outside.wind);
     this.glow(dt);
     this.footprints(dt);
     this.sand.update(dt, this.level);
@@ -1562,7 +1629,7 @@ export class LowWater {
       return;
     }
     if (this.clicked) {
-      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : this.clicked.id === 'seal' ? 11 : 4.5) || this.goal) {
+      if (at.distanceTo(this.clicked.at) < (this.clicked.id === 'ring' ? RING_R + 3 : this.clicked.id === 'wreck' ? 6.5 : this.clicked.id === 'buoy' ? 19 : this.clicked.id === 'seal' ? 11 : this.clicked.id === 'lightship' ? 26 : 4.5) || this.goal) {
         this.card = this.clicked.id;
         return;
       }
@@ -1576,7 +1643,7 @@ export class LowWater {
       return;
     }
     const places: [StationId, THREE.Vector2, number][] = [
-      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8],
+      ['post', POST, 3.2], ['pool', POOL, 4.2], ['ring', RING, RING_R + 1.8], ['table', TABLE, 2.8], ['bench', BENCH, 2.8], ['last', LAST, 3.2], ['wreck', WRECK, 6.2], ['buoy', BUOY, 15], ['stick', this.stick.at, 2.2], ['shells', SHELLS, 4.6], ['seal', SEAL, 10], ['baak', BAAK, 4.5], ['lead', LEAD, 2.8], ['lightship', LIGHTSHIP, 24.5],
     ];
     let best: StationId | null = null;
     let bestD = Infinity;
@@ -1877,6 +1944,7 @@ export class LowWater {
       const rise = THREE.MathUtils.clamp((BAAK.y - (far.z + SINK)) / BAAK_RISE, 0, 1);
       this.baak.position.y = Math.max(0, bankAt(BAAK.x, BAAK.y)) - 0.02 - (1 - rise) * (BAAK_TALL + 0.2);
     }
+    this.lightship?.place(this.level, far.z, SINK);
     // the reflections: everything hung upside down under the water's surface
     const flip = new THREE.Matrix4().makeScale(1, -1, 1).premultiply(new THREE.Matrix4().makeTranslation(0, this.level * 2, 0));
     this.scene.updateMatrixWorld();

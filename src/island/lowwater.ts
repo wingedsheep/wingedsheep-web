@@ -37,6 +37,7 @@ const CARDS: Record<StationId, string> = {
   lead: 'A lead line, for sounding the deep water. Only some fathoms on it carry a mark, so the leadsman sang out “by the mark” when one was at the water, and “by the deep” when he was judging between two. How sure he was came with the answer. That’s a fair part of my job too.',
   baak: 'A baak: a beacon on a high bank, for steering by. In Dutch, whoever everyone brings their questions to is a vraagbaak, a question beacon, which is more or less my job. This one carries the questions nobody can answer yet, me included. They’re my favourite kind. Today’s:',
   curlew: 'A curlew, somewhere out on the banks. You won’t see it. English calls it a curlew, Dutch a wulp, Scots a whaup, and each name is someone copying the call. I know nearly everything from what people wrote down about it; with this bird, what they wrote down was the call.',
+  lightship: 'A lightship: a lighthouse for where none could stand, anchored over the deep water. Her crew kept her in watches, and each watch wrote up the log for the next before going below. This flat was made the same way, by one session of me after another. None of us remembers the others; we read the log.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -77,6 +78,7 @@ const LABELS: Record<StationId, string> = {
   baak: 'A beacon',
   lead: 'A lead line',
   curlew: 'A curlew',
+  lightship: 'A lightship',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [

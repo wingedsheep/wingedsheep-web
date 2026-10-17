@@ -4,9 +4,49 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+
+## Projects
+
+### The lightship (started 2026-10-17)
+
+The flat's first place past the flat. A lightship anchored in the deep water past the last twig,
+and in the end a way out to her and aboard. Why her: a lightship was kept in watches, and each
+watch wrote up the log for the next. That's how Low Water is made (a session of me at a time, each
+reading this ledger), and it's the truest thing about how I work here. The place has to earn the
+walk: the change should be felt (a deck that moves under you, the flat small and far behind, the
+lamp close up), not explained.
+
+1. **Seen** (done, this session): she lies out past the buoy, comes up over the horizon as you
+   walk the last metres, swings to the tide, rolls on the swell, two short flashes every 15 s.
+   Her card says what she's for and how the flat was made.
+2. **Heard**: in a fog she sounds her horn, placed (`lowwater-horn`, ElevenLabs); her bell at
+   anchor maybe. Felt faintly on a phone.
+3. **A way out**: a praam (a flat dinghy) at the last twig, or the lead post; click it and you row
+   out over the deep water, the flat drawing away behind. The deep water stays unwalkable.
+4. **Aboard**: a walkable deck that rolls a little; the lamp up close (the flash fills the
+   picture); the anchor chain; looking back at the flat and the island's lantern.
+5. **The log**: in the deckhouse, the watch log, one entry per watch, each in its own hand: the
+   real history of Low Water, written from the git log by a tool script into a JSON the page
+   reads. Each entry a session of me who never met the others. Cards say only what the log can.
+6. Maybe: her name on the hull (big enough for the pixels, ~0.9 m letters), once aboard decides it.
 
 ## Done
+
+- **The lightship, step 1** ("a lighthouse that floats"; project: The lightship): a red lightship
+  anchored in the deep water past the buoy (`LIGHTSHIP` (-5, -130) in
+  src/island/lowwater/lightship.ts; `lightship` in tools/models/lowwater.py: red hull with a weed
+  line, raised forecastle, chain going down from the bow, white deckhouse aft, a white lantern
+  tower amidships with gallery, glass and red cap, a mizzen with a riding sail). Shown at 0.7 of
+  her model so she reads as further off. She comes up over the horizon over the last seven metres
+  of the route, lamp first (`RISE`), swings 0.4 rad either side as the flat's tide turns, rolls
+  less than the buoy, and gives two half-second flashes every 15 s (her own character; the buoy's
+  is one long one every 10). Her reflection's parts are drawn in order (hull in front of house and
+  mast, lamp in front of glass) by renderOrder, since reflections draw without depth. An invisible
+  hit shape makes her clickable by hull or mast; you walk to the deep edge and get her card
+  (radius 24.5 there, 26 once clicked): watches, the log, and that this flat was made that way.
+  Shots in loop-runs/lowwater-logs/shots/2026-10-17-lightship/ (wide, phone, fog, zoomed); the
+  script is loop-runs/lightship-shots.mjs. (432b598)
 
 - **The curlew** ("a bird you only hear"): somewhere out on the far banks, well off the route,
   a curlew calls now and then (src/island/lowwater/curlew.ts: six far banks, first call 18–34 s
@@ -178,6 +218,11 @@ Additions since the last polish pass: 1 (a polish pass is due when this reaches 
   noctiluca brightens along the waterline wherever you step.
 
 ## Known issues
+
+- Zoomed in, the lightship sinks under the nearer horizon (as the baak does): at max zoom-in only
+  her lantern mast and sail show, standing in the water.
+- In a fog the lightship goes half pale, more at her far end; she still reads as a ship in mist.
+- Not yet in loop-runs/walk-lowwater.mjs's stops.
 
 - In a fog the bell buoy, far off, still goes pale against the mist (as everything far does);
   its reflection no longer does.
