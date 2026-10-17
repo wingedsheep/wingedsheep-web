@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,23 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 4** (walked the whole flat clear, in fog and on a phone with
+  loop-runs/walk-lowwater.mjs, and rowed out, climbed aboard, walked her deck and came down with
+  loop-runs/aboard-shots.mjs; then loop-runs/polish4-check.mjs for the fixes; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-polish-4/: clear/, fog/, phone/, aboard/, sheets/,
+  after/). Fixed: since banks go into the haze whole (polish 3), a bank whose middle sat between
+  two haze steps was dithered all over, a plain checker across the whole bank (the writing bank
+  from the pool, most banks in a fog); a whole-hazed thing now has no dither and eases from one
+  step to the next as you walk (`WHOLE_HAZE` in `steppedFog`), which also closes the old known
+  issue of fogged banks being one even checker. Her flash came back off the water as a cream
+  block under her, brighter than her lamp looked (in the water there's no glass in front of the
+  lamp box); its reflection is a muted warm dot now, like the twigs' lantern's. The lead line's
+  card said "my job", as the baak's does; it ends "Mine should too." now. Read every card again;
+  nothing cut. The lightship holds up aboard: the deck, the flash, the name all read. The flat
+  still feels like one place, now with somewhere past it. A note for the next additions: the
+  far west and the deep edge are full; the east of the flat (past the wreck and the seal) and
+  the island's own moments (night, winter, special days) are the open room.
 
 - **The stones' figure** ("where the comma goes"): stand still in the middle of the stone ring
   for four seconds and the stones play, once, on their own: I, vi, ii, V, I, each chord rolled
@@ -372,8 +389,10 @@ lamp close up), not explained.
   her lantern mast and sail show, standing in the water (no longer with their reflection).
 - She's cut at her own waterline, which on screen is a little below the drawn horizon, so
   hull-down she comes up out of the far water rather than exactly over the horizon line.
-- In a fog a whole bank far off is one even dither of mist; it reads as a bank in fog, but the
-  checker is plain to see on a big one.
+- A whole-hazed bank changes its haze as one even colour as you walk (no dither), so it's the
+  one thing out there that fades rather than steps; it reads as a bank in mist.
+- The walk script zooms to 0.45, past what a visitor can (0.6); zoomed in, in a fog, the haze
+  comes nearer (it follows the horizon), so the wreck's far ribs go pale at a few metres.
 - In a fog the lightship goes half pale, more at her far end; she still reads as a ship in mist.
 - Her horn (`lowwater-horn`) has never been listened to by a person (by spectrogram: a steady
   drone under 300 Hz for 2.7 s, then an echo). play() varies the rate ±6%, so her two blasts

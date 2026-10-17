@@ -1324,7 +1324,9 @@ export class LowWater {
       // (she's big enough for her parts to be in front of each other in the water too: her hull
       // in front of the house and the mast, and the lit lamp in front of its glass)
       if (mesh.userData.hull) mesh.renderOrder = -4.9;
-      if (mesh.name === 'lamp') mesh.renderOrder = -4.8;
+      // (her lamp's flash comes back off the water dimmer and warmer than it is: at full, with no glass
+      // in front of it, it was a cream block under her, brighter than the lamp itself looked)
+      if (mesh.name === 'lamp') (mesh.renderOrder = -4.8), mat.color.set('#a88a68');
       // (and the name on her side in front of the side, and dimmer: in the water it was a pale scrawl)
       if (mesh.name === 'lightship_name') (mesh.renderOrder = -4.85), mat.color.lerp(WATER, 0.35);
       mesh.material = mat;
@@ -2353,13 +2355,19 @@ function steppedFog<T extends THREE.Material>(mat: T, haze = HAZE, whole = false
     shader.uniforms.uHaze = haze;
     // (`whole`: as far into it as the thing's middle is, all of it, so no step lands across it)
     if (whole) shader.vertexShader = shader.vertexShader.replace('#include <fog_vertex>', '#include <fog_vertex>\n#ifdef USE_FOG\nvFogDepth = -(modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).z;\n#endif');
-    shader.fragmentShader = 'uniform float uHaze;\n' + shader.fragmentShader.replace(
+    // (and with no dither: one depth all over, the dither between two steps was a checker over the
+    // whole bank; it eases from one step to the next as you walk instead, all of it at once)
+    shader.fragmentShader = (whole ? '#define WHOLE_HAZE\n' : '') + 'uniform float uHaze;\n' + shader.fragmentShader.replace(
       '#include <fog_fragment>',
       /* glsl */ `#ifdef USE_FOG
+        #ifdef WHOLE_HAZE
+        float fogF = min(uHaze, smoothstep(fogNear, fogFar, vFogDepth));
+        #else
         const float FOG_BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
         ivec2 fogAt = ivec2(gl_FragCoord.xy);
         float fogStep = (FOG_BAYER[(fogAt.x & 3) + (fogAt.y & 3) * 4] + 0.5) / 16.0;
         float fogF = min(uHaze, floor(smoothstep(fogNear, fogFar, vFogDepth) * 4.0 + fogStep) / 4.0);
+        #endif
         gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogF);
       #endif`,
     );
