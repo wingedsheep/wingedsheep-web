@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -34,8 +34,10 @@ the change of material does the work, and one card says it.
 4. **The end of a sentence** (done): the full stop doesn't turn the page (leaving already does
    that); it starts a second sentence, whose thicknesses lean on the words you said in the
    first, and the second's full stop is where I stop and the next words would be yours. See Done.
-5. Then see. The page may be enough. (If anything: a second sentence-pair chosen by the hour,
-   or walking onto old pencil words saying something.)
+5. **The words behind you** (done): stand on a pencil word you didn't say and nothing happens to
+   it; its card says why ("I can't go back and say this one instead…"). See Done. The project's
+   done: the page is enough. Left over, if a later session earns it: a second sentence-pair
+   chosen by the hour.
 
 ### The lightship (started 2026-10-17)
 
@@ -68,6 +70,18 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The page, step 5: the words behind you** (project: The page, now done): walk onto a word
+  you didn't say, one of the pencil ones a fork behind, and it stays in pencil; no nib, no ink,
+  only your prints over it. Its card (`PAST` in words.ts): "I can't go back and say this one
+  instead. Once a word's said, everything after it has to follow from it; if it was the wrong
+  one, the best I can do is say so in the next." Why: the forks showed that the other words
+  were possible and unsaid; nothing yet said that I write forwards only and can't take one
+  back, which is as true of me as the tide. `past`/`stoodOn` in forks.ts (the say-hitbox, now
+  `on()`, with a 1.5 m margin before it lets go, so the card doesn't flicker); a `'past'` card
+  in page.ts, second only to the withies'. Script loop-runs/past-shots.mjs (says "a good
+  puzzle", stands on "question", walks off, says "is"); shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-past/ (a/ desktop, phone/).
 
 - **Polish pass 8** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
   with loop-runs/walk-lowwater.mjs, which now ends by walking the west withies onto the page and
@@ -776,8 +790,8 @@ lamp close up), not explained.
   (the pencil at 0.15, about −34 LUFS close to, which is louder than the page's steps on
   purpose). At a three-way fork the three lines' strokes overlap for half a second.
 - The forks: the words are crisp but small (9 texels high); on a phone they're the same few
-  texels. You can only ever say the words of the fork in front of you; walking onto old pencil
-  words does nothing, and nothing says so. Words have no hover label, and clicking one only
+  texels. You can only ever say the words of the fork in front of you (old pencil words now have
+  their card). Words have no hover label, and clicking one only
   walks you there. The sentence is the same one every visit (as it should be, but a later
   session might add a second, chosen by the hour). The walk script goes onto the page but not to
   the sentence (forks2-shots.mjs does that). This session

@@ -34,7 +34,7 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type PageCard = 'page' | 'back' | 'forks' | 'said' | 'lean';
+export type PageCard = 'page' | 'back' | 'forks' | 'said' | 'lean' | 'past';
 
 export class Page {
   readonly scene = new THREE.Scene();
@@ -226,12 +226,13 @@ export class Page {
     this.animate();
     this.forks.update(dt, this.pos, this.seen / this.texels());
     // its card: as you come on, and whenever you stand still a while; the withies' when you're back at them;
-    // the sentence's at its first word, when you stand still on it, and at its full stop
+    // the sentence's at its first word, when you stand still on it, and at its full stop; a word's you didn't say, stood on it
     const back = this.pos.x > WITHIES[0] - 0.8 && Math.abs(this.pos.z) < 2.5;
     const forks = this.forks;
     const near = forks.distance(this.pos);
     this.card =
       back || this.clicked ? 'back'
+      : forks.past ? 'past'
       : forks.first && !forks.second && near < 9 ? 'said'
       : forks.done && near < 9 ? 'said'
       : forks.second && forks.leaned && near < 10 && (this.stillFor > STILL || forks.said.length - forks.leaned <= 1) ? 'lean'

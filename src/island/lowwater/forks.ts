@@ -57,6 +57,8 @@ export class Forks {
   done = false;
   /** How many words were said when a fork in the second sentence first leant (0: none yet; if the first said both sides of one, it can't). */
   leaned = 0;
+  /** A word you didn't say, stood on: it stays in pencil, and its card says why. */
+  past: string | null = null;
   /**
    * For the sound: the pencil starting a word (or its line) for so many seconds, from so near (0–1)
    * and that side (−1–1); a word going into ink; the full stop.
@@ -70,6 +72,7 @@ export class Forks {
   /** The words you could step on next. */
   private open: Word[] = [];
   private last: Word | null = null;
+  private stoodOn: Word | null = null;
   private strip = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, -0.5);
 
   /** depth: one texel's worth of the page's depth, in texels across (1/sin of the slant). */
@@ -87,6 +90,8 @@ export class Forks {
     this.first = 0;
     this.done = false;
     this.leaned = 0;
+    this.past = null;
+    this.stoodOn = null;
     this.last = null;
     this.open = [this.word('a', START, null, 0)];
   }
@@ -190,15 +195,22 @@ export class Forks {
 
   update(dt: number, pos: THREE.Vector3, texel: number) {
     // stood on a word you could say next: said
+    const on = (w: Word, margin = 0) =>
+      Math.abs(pos.x - w.at.x) < (w.text.width / 2) * texel + 0.5 + margin &&
+      pos.z < w.at.z + 0.7 + margin &&
+      pos.z > w.at.z - 7 * this.depth * texel - 0.3 - margin;
     for (const w of this.open) {
       if (w.letters < 1) continue;
-      const half = (w.text.width / 2) * texel + 0.5;
-      const north = w.at.z - 7 * this.depth * texel - 0.3;
-      if (Math.abs(pos.x - w.at.x) < half && pos.z < w.at.z + 0.7 && pos.z > north) {
+      if (on(w)) {
         this.say(w);
         break;
       }
     }
+    // stood on one that wasn't said: nothing happens to it (until you're a little way off it again)
+    if (this.stoodOn && !on(this.stoodOn, 1.5)) this.stoodOn = null;
+    if (!this.stoodOn)
+      this.stoodOn = this.words.find((w) => w.mesh.material === this.pencil && !this.open.includes(w) && on(w)) ?? null;
+    this.past = this.stoodOn?.w ?? null;
     // heard from where it's being written: softer further off, gone past about 30 m
     const hear = (at: THREE.Vector3) => [Math.max(0, 1 - pos.distanceTo(at) / 30), THREE.MathUtils.clamp((at.x - pos.x) / 14, -1, 1)] as const;
     for (const l of this.lines) {
