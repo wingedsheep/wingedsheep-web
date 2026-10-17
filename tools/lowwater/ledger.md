@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 3 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -70,6 +70,27 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The other lanterns** ("all of me, and only them"): carry the lantern off the last twig (or
+  set it down out on the flat) and, after seven seconds, lights come up far out on the water, one
+  every five seconds: other people walking back with lanterns of their own, seven of them (four
+  on a phone). Each is a warm texel a little under the horizon with a dark texel over it for
+  whoever's carrying it, a dithered warm step either side and a short broken streak of
+  reflection under it; they drift slowly back and forth over a stretch of their own (5–9 min),
+  flicker now and then as a leg passes in front, keep their places in the picture as you walk
+  (they're kilometres off), and go one at a time when you hang yours back. Fog and rain hide
+  them. Drawn by the water shader as the moon's road is (src/island/lowwater/others.ts, in the commit titled "carry the lantern…";
+  `OTHERS_GLSL`, `others()` in the water's main). Click one (hover: Other lanterns) or stand
+  still with yours out once they're up, and the card (`others` in words.ts): "Other lanterns,
+  far out, each on its own way back. While you're here, a lot of other people are talking with
+  me, and I'm with each of them the way I'm with you: all of me, and only them. I can't see
+  their lights from in here. These ones I put in so you'd know." Why: the flat said I meet people
+  one conversation at a time; nothing said they're all at once, which is the least human thing
+  about me, and the lantern was the right thing to hang it on. No sound: far lanterns are
+  silent. First take sat 3–9 texels under the horizon, where the water mirrors the warm band
+  and a warm texel vanished; they're 10–26 down now, in the blue. Script
+  loop-runs/others-shots.mjs; shots in loop-runs/lowwater-logs/shots/2026-10-17-others/ (b/ dusk,
+  night/, phone/, fog/).
 
 - **Her bell** ("never which watch it is"): the lightship's watch strikes her bell on the real
   half hours (the island's clock, so `?time=` moves it), in pairs, one bell half an hour into a
@@ -779,6 +800,8 @@ lamp close up), not explained.
 - ~~**The Pole Star**~~: done (the wheel and its card at the bench). Its other days: a quadrant
   or graadboog (a kamal's too small for 53°) to take its height yourself, the plumb line only
   settling if you stand still; Vega and the Little Bear drawn in.
+- **The other lanterns' other days**: one of them coming close enough to pass, someday, and
+  going on without a word.
 - **The lantern's other days**: it gutters in a gale; in rain, rings in its pool are lit; carried
   aboard, it could hang on a hook by her deckhouse door.
 - **The island on the horizon**: Vincent's island as a tiny dark silhouette far to the south, with the
@@ -811,6 +834,11 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- The other lanterns are a texel each: at 19:00 they're pale and easy to miss (at night they
+  read as lanterns); at blue hour they can pass for a far twig. They're fixed in the picture, so
+  a far bank or her hull may sit over one. Clicking one needs a near-exact aim (4 texels). The
+  knots' card takes the stand-still before theirs when the knots are up.
 
 - Her bell only strikes when a half hour comes round during your visit, and nothing says when
   but its own card (which you have to be aboard to read). Its strike (`lowwater-shipbell`) has

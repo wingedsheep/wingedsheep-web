@@ -22,6 +22,7 @@ import { Flock } from './flock';
 import { Glow } from './glow';
 import { MIRAGE, MIRAGE_GLSL, Mirage } from './mirage';
 import { MOON, MOON_GLSL, Moon, type MoonNow } from './moon';
+import { OTHERS, OTHERS_GLSL, Others } from './others';
 import { HORN_FOG, LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
 import { BOARD, PRAAM, Praam } from './praam';
 import { Deck } from './deck';
@@ -40,7 +41,7 @@ const SHIP_HOUSE = -4.1;
 const HOUSE_WINDOWS = { [-1]: [-1.1, -0.1], 1: [-1.1, 0, 1.1] };
 const HOUSE_DOOR = 0.9;
 
-export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page';
+export type StationId = 'pole' | 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck' | 'log' | 'bell' | 'name' | 'morgana' | 'glow' | 'gauge' | 'moon' | 'geul' | 'knots' | 'casts' | 'lantern' | 'canon' | 'bean' | 'west' | 'page' | 'others';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -457,6 +458,8 @@ export class LowWater {
   private underCam = new THREE.Vector3();
   /** The real moon, when it's up (moon.ts). */
   private moon = new Moon();
+  /** Other lanterns far out, once you've carried yours a while (others.ts). */
+  private others = new Others();
   /** Where the horizon is, up from the middle of the picture (view heights). */
   private horizonA = 0;
   private ground: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
@@ -627,6 +630,7 @@ export class LowWater {
         uMoonYou: MOON.you,
         uNight: NIGHT,
         uLamp: LAMP,
+        uOthers: OTHERS.at,
         uFlow: GEUL.flow,
         uCurrent: GEUL.current,
         uHorizon: { value: 0 },
@@ -683,6 +687,7 @@ export class LowWater {
         varying vec3 vWorld;
         varying vec2 vView;
         ${MOON_GLSL}
+        ${OTHERS_GLSL}
         ${GEUL_GLSL}
         float bank(vec2 p) {
           float h = -1.0;
@@ -747,6 +752,8 @@ export class LowWater {
           col += vec3(0.26, 0.15, 0.05) * floor(lk * 3.0 + d * 0.99) / 3.0 * (1.0 - deep * 0.6);
           // the moon's road, if it's up, coming down the water to you
           col = moonRoad(col, (uHorizon - vView.y) / uView, x, r, uWind, d);
+          // other lanterns far out, if you're carrying yours
+          col = others(col, (uHorizon - vView.y) / uView, x, r, uWind, d);
           if (uSouthShow > 0.0) {
             // (narrow screens get the whole of it smaller, so the Cross still fits)
             vec2 s = (vec2(vView.x / uView, a) - uSouthPole) / min(1.0, uAspect / 1.35);
@@ -1858,6 +1865,8 @@ export class LowWater {
     if (this.clear() > 0.6 && this.mirage.at(ndc.y / 2 - this.horizonA, ndc.x / 2)) return 'morgana';
     // (and the moon, if it's up)
     if (this.moon.at(ndc.y / 2 - this.horizonA, ndc.x / 2)) return 'moon';
+    // (and the other lanterns, far out on the water, if they're up)
+    if (this.others.at(ndc.y / 2 - this.horizonA, ndc.x / 2, this.aspect, 1 / this.texels())) return 'others';
     return null;
   }
 
@@ -1887,7 +1896,7 @@ export class LowWater {
     this.ray.setFromCamera(ndc, this.camera);
     const p = new THREE.Vector3();
     // (the island: twenty kilometres off, so you stay where you are and look)
-    if (id === 'morgana' || id === 'moon' || id === 'knots') {
+    if (id === 'morgana' || id === 'moon' || id === 'knots' || id === 'others') {
       this.goal = null;
       this.clicked = { id, at: new THREE.Vector2(this.pos.x, this.pos.z) };
       return;
@@ -2194,6 +2203,7 @@ export class LowWater {
     this.frame(dt);
     // (after the camera's placed: its road comes to where you are in the picture)
     this.moon.update(dt, outside.moon, this.clear(), outside.night, this.aspect, 1 / this.texels(), this.youInPicture());
+    this.others.update(dt, this.time, this.lantern.where !== 'hung', this.clear(), outside.night, this.aspect, 1 / this.texels());
     // the knots: here from August to May, and up now and then if you could see them (not at night,
     // nor in rain, fog or a gale); heard from the side they're on, louder as they turn
     const month = visitDate().getMonth();
@@ -2489,8 +2499,10 @@ export class LowWater {
     const flying = !best && !this.sitting && this.stillFor > KNOTS_LINE && this.flock.seen > 0.5;
     // or a while, carrying the lantern
     const carrying = !best && !this.sitting && this.stillFor > LANTERN_LINE && this.lantern.where === 'held';
+    // and once the other lanterns are up, with yours out on the flat, a line about them instead
+    const others = !best && !this.sitting && this.stillFor > LANTERN_LINE && this.lantern.where !== 'hung' && this.others.up;
     const lit = !best && !this.sitting && this.outside.night > 0.4 && this.stillFor > GLOW_LINE && this.wake.litAgo < this.stillFor + 3 && !this.wake.points.visible;
-    this.card = this.sitting ? (this.satFor > POLE_LINE && this.clear() > 0.6 ? 'pole' : 'bench') : (best ?? (flying ? 'knots' : carrying ? 'lantern' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
+    this.card = this.sitting ? (this.satFor > POLE_LINE && this.clear() > 0.6 ? 'pole' : 'bench') : (best ?? (flying ? 'knots' : others ? 'others' : carrying ? 'lantern' : south ? 'south' : lifted ? 'morgana' : lit ? 'glow' : null));
   }
 
   /** Where you are in the picture, for the moon's road: across (a share of the width) and down from the horizon (view heights). */
