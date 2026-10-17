@@ -55,6 +55,8 @@ export class Forks {
   said: string[] = [];
   first = 0;
   done = false;
+  /** How many words were said when a fork in the second sentence first leant (0: none yet; if the first said both sides of one, it can't). */
+  leaned = 0;
   /**
    * For the sound: the pencil starting a word (or its line) for so many seconds, from so near (0–1)
    * and that side (−1–1); a word going into ink; the full stop.
@@ -84,6 +86,7 @@ export class Forks {
     this.said = [];
     this.first = 0;
     this.done = false;
+    this.leaned = 0;
     this.last = null;
     this.open = [this.word('a', START, null, 0)];
   }
@@ -107,6 +110,19 @@ export class Forks {
   /** How far you are from the sentence: its first word before you've begun, the last one said after. */
   distance(pos: THREE.Vector3) {
     return pos.distanceTo((this.last ?? this.open[0]).at);
+  }
+
+  /** How far across the words you could step on next reach (m, west and east), for the camera; null if none. */
+  reach(texel: number): [number, number] | null {
+    if (!this.open.length) return null;
+    let west = Infinity;
+    let east = -Infinity;
+    for (const w of this.open) {
+      const half = w.w.length * 3.5 * texel;
+      west = Math.min(west, w.at.x - half);
+      east = Math.max(east, w.at.x + half);
+    }
+    return [west, east];
   }
 
   get begun() {
@@ -164,6 +180,7 @@ export class Forks {
     const leant = next.map(([, , lean]) => !!lean?.some((w) => this.said.slice(0, this.first || undefined).includes(w)));
     const share = (on: boolean) => next.reduce((sum, [, p], i) => sum + (leant[i] === on ? p : 0), 0);
     const any = leant.some(Boolean) && !leant.every(Boolean);
+    if (any && !this.leaned) this.leaned = this.said.length;
     this.open = next.map(([key, base], i) => {
       const p = any ? (base / share(leant[i])) * (leant[i] ? 0.75 : 0.25) : base;
       const at = new THREE.Vector3(word.at.x + SPREAD[next.length][i] + lean, 0, word.at.z - top - LEN);

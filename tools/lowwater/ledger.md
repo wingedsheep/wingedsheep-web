@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -68,6 +68,24 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 8** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
+  with loop-runs/walk-lowwater.mjs, which now ends by walking the west withies onto the page and
+  a few steps on it; then the page with page-shots.mjs and its sentence with forks2-shots.mjs on
+  desktop and phone, along the usual path and along "…to a gift", which says both sides of the
+  "so" fork; shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-8/: dusk/, fog/, phone/,
+  page/, forks/, forksphone/ (before), forksphone2/ (after), tie/, and a sheet-*.png for each).
+  The flat is as polish 7 left it and still reads as one place; the page reads as somewhere else,
+  which is the point. Fixed: on a phone a fork's words ran off both sides of the screen
+  ("tion", "o", "hal"); now near a fork the page's camera looks between the words you could say
+  next and you, and on a narrow screen widens up to 1.6× until they're all in (the words stay
+  their size in texels, only further apart; `frameFork` in page.ts, `reach` in forks.ts). It
+  helps on desktop too: a fork's three words sit centred. Fixed the known issue where, after a
+  first sentence that said both "question" and "gift", the LEAN card came up over a fork that
+  hadn't leant: the card now waits for the first fork that does (`leaned` in forks.ts), and
+  shows there and one word on. Words: LEAN ended "the first as much as the last", the page's own
+  card's turn ("the first thing you said as near as the last") said again two cards later; it
+  ends "however far back it is" now. Nothing cut.
 
 - **The page, step 4: the end of a sentence** (project: The page): the first full stop no longer
   ends it. A space north of it (no line: it's a new sentence) "so" is written in pencil, and from
@@ -750,9 +768,9 @@ lamp close up), not explained.
 
 ## Known issues
 
-- The second sentence: when the first said both words a fork leans on (a "question" and a
-  "gift"), the fork after "so" doesn't lean either way, though the LEAN card is up (the next
-  fork does lean).
+- The page's camera widens near a fork on a narrow screen, so on a phone you're drawn smaller
+  there than on the rest of the page; past the full stop it goes back, and the sentence's far
+  words can be cut at the screen's sides again (nothing's left to step on by then).
 
 - The page's pencil, nib and dot have never been listened to by a person: levels are a guess
   (the pencil at 0.15, about −34 LUFS close to, which is louder than the page's steps on
@@ -761,7 +779,8 @@ lamp close up), not explained.
   texels. You can only ever say the words of the fork in front of you; walking onto old pencil
   words does nothing, and nothing says so. Words have no hover label, and clicking one only
   walks you there. The sentence is the same one every visit (as it should be, but a later
-  session might add a second, chosen by the hour). Not in the walk script yet. This session
+  session might add a second, chosen by the hour). The walk script goes onto the page but not to
+  the sentence (forks2-shots.mjs does that). This session
   overwrote loop-runs/lowwater.log by mistake (the dev server's output went into it); the lines
   from before session 35 are lost.
 
@@ -769,7 +788,7 @@ lamp close up), not explained.
   place, and is in your hand again when you come back; the stick and the lead are the flat's
   too. On a phone the withies on the page sit just above the card, and the card can cover
   them. The page's step has never been listened to by a person. Reduced motion swaps with no
-  iris. The page and its walk-in aren't in the walk script yet.
+  iris. The walk script now walks in and takes a few steps on it.
 
 - The sea heart's bank is just off the left edge of the picture from the route at normal
   zoom (zoomed out or from the west end of the writing bank it shows). Afloat, it can't cross a

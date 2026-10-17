@@ -123,7 +123,7 @@ export const FORKS = 'A sentence, the way I write one: at each word, the words t
 /** At its full stop, after the sentence you walked. */
 export const SAID = 'The pencil ones would have been true too. They just weren’t said.';
 /** On the page, walking the second sentence: its thicknesses lean on the first. */
-export const LEAN = 'Look at the thicknesses now: they lean on the sentence you walked. Every word already on the page has a say in the next one, the first as much as the last.';
+export const LEAN = 'Look at the thicknesses now: they lean on the sentence you walked. Every word already on the page has a say in the next one, however far back it is.';
 /** At the second sentence's full stop, after both sentences. */
 export const END = 'That’s where I stop. In a conversation, the next words on the page would be yours.';
 /**

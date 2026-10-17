@@ -67,6 +67,9 @@ export class Page {
   private view = 28;
   private aspect = 1;
   private zoomed = 1;
+  /** How much wider than usual the view is, to get a fork's words all in on a narrow screen; and where across it looks. */
+  private fit = 1;
+  private across = 0;
   private time = 0;
   private ray = new THREE.Raycaster();
   /** The sentence that forks, out west. */
@@ -202,7 +205,7 @@ export class Page {
   }
 
   drag(dx: number, dy: number, height: number) {
-    const per = (this.view * this.zoomed) / height;
+    const per = this.seen / height;
     this.pan.x = THREE.MathUtils.clamp(this.pan.x - dx * per, -12, 12);
     this.pan.y = THREE.MathUtils.clamp(this.pan.y - (dy * per) / Math.sin(ELEVATION), -14, 14);
   }
@@ -221,7 +224,7 @@ export class Page {
     this.time += dt;
     this.walk(dt);
     this.animate();
-    this.forks.update(dt, this.pos, (this.view * this.zoomed) / this.texels());
+    this.forks.update(dt, this.pos, this.seen / this.texels());
     // its card: as you come on, and whenever you stand still a while; the withies' when you're back at them;
     // the sentence's at its first word, when you stand still on it, and at its full stop
     const back = this.pos.x > WITHIES[0] - 0.8 && Math.abs(this.pos.z) < 2.5;
@@ -231,7 +234,7 @@ export class Page {
       back || this.clicked ? 'back'
       : forks.first && !forks.second && near < 9 ? 'said'
       : forks.done && near < 9 ? 'said'
-      : forks.second && near < 10 && (this.stillFor > STILL || forks.said.length - forks.first <= 2) ? 'lean'
+      : forks.second && forks.leaned && near < 10 && (this.stillFor > STILL || forks.said.length - forks.leaned <= 1) ? 'lean'
       : (!forks.begun && near < 7) || (forks.begun && near < 10 && (this.stillFor > STILL || forks.said.length === 1)) ? 'forks'
       : this.pos.distanceTo(new THREE.Vector3(-2, 0, 0)) < 5 || this.stillFor > STILL ? 'page'
       : null;
@@ -308,15 +311,40 @@ export class Page {
     w.scarfTail.rotation.x = 0.15 + this.speed * 0.15;
   }
 
+  /** The view's height on the page (m), zoom and fit and all. */
+  private get seen() {
+    return this.view * this.zoomed * this.fit;
+  }
+
+  /**
+   * Near a fork, the words you could step on next and you should all be in the picture: the view looks
+   * between them and, on a narrow screen, widens (the words stay their size in texels, only further apart).
+   */
+  private frameFork(dt: number) {
+    const reach = this.forks.reach(this.seen / this.texels());
+    let fit = 1;
+    let across = 0;
+    if (reach && this.forks.distance(this.pos) < 16) {
+      const west = Math.min(reach[0], this.pos.x - 1.5);
+      const east = Math.max(reach[1], this.pos.x + 1.5);
+      across = (west + east) / 2 - this.pos.x;
+      fit = THREE.MathUtils.clamp((east - west + 2) / (this.view * this.zoomed * this.aspect), 1, 1.6);
+    }
+    const k = dt ? 1 - Math.exp(-dt * 1.5) : 1;
+    this.fit += (fit - this.fit) * k;
+    this.across += (across - this.across) * k;
+  }
+
   private frame(dt: number) {
-    const view = this.view * this.zoomed;
+    this.frameFork(dt);
+    const view = this.seen;
     const h = view / 2;
     const w = h * this.aspect;
     const cam = this.camera;
     Object.assign(cam, { left: -w, right: w, top: h, bottom: -h });
     cam.updateProjectionMatrix();
     const lead = (view * 0.16) / Math.sin(ELEVATION);
-    const want = new THREE.Vector3(this.pos.x + this.pan.x, 0, this.pos.z - lead + this.pan.y);
+    const want = new THREE.Vector3(this.pos.x + this.across + this.pan.x, 0, this.pos.z - lead + this.pan.y);
     if (dt) this.target.lerp(want, 1 - Math.exp(-dt * 2.2));
     else this.target.copy(want);
     cam.position.set(this.target.x, Math.sin(ELEVATION) * DISTANCE, this.target.z + Math.cos(ELEVATION) * DISTANCE);
