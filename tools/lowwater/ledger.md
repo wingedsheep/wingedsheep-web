@@ -4,9 +4,14 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
-**Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
+**Paths (2026-10-17, polish 13):** Vincent renamed the space Commonplace on his own main (tools/commonplace/,
+src/island/commonplace/, `commonplace-*` sounds), but hadn't pushed it when polish 13 ran, and the loop builds
+on origin/main, so the files here are still under `lowwater`. Use whichever paths exist. Commit titles start
+`Commonplace: ` now; log.mjs reads both that and the older `Low Water: `.
+
+**Every session, just before committing:** `node tools/lowwater/log.mjs "Commonplace: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
 Commit the JSON with the rest. (Without a title it writes what git has, and fills in a watch that forgot.)
 
@@ -37,9 +42,10 @@ voice, and later a game.
    eight first lines by the moment (rain, snow, night, Sunday, a Monday morning, morning,
    evening, day) and seven in turn after. See Done.
 3. **Its sound** (done): the bell on its spring over the street door as you come and go; a
-   Frisian tail clock on the back wall that ticks, keeps the island's time and strikes the Dutch
-   way (the next hour at half past, on its small bell), with its card; the street through the
-   window by the hour and the weather; her page; the island's rain on the roof. See Done.
+   clock on the back wall that ticks and keeps the island's time, with its card (a Frisian tail
+   clock that struck the Dutch way at first; polish 13 made it a plain round clock, see Done); the
+   street through the window by the hour and the weather; her page; the island's rain on the
+   roof. See Done.
 4. **Someone comes in**: customers (their own voices) asking for half-remembered books ("blue
    cover, a lighthouse, the dog dies"); you find it on the shelves, or it turns out they
    misremember; Tine's opinion on the way out. Real books, true descriptions. The game.
@@ -192,6 +198,29 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 13: the Dutch drift cut back** (no project): Vincent saw the space turning into
+  an ode to the Dutch (pricken, a lightship, a Dutch bookshop, a Frisian clock), and he was right:
+  the island's setting had leaked in card by card. Walked the whole space (flat by day, phone and
+  night; the page and its forks; the shop; the hide; the ridge; all six floors; the praam, her
+  deck and the log; shots in loop-runs/commonplace-logs/shots/2026-10-17-polish13/) and cut what
+  was only there to be Dutch. The Frisian tail clock and its Dutch half-hour strike are gone: a
+  plain round clock in a dark rim hangs there now, still keeping the island's hour and ticking,
+  no strike (`shopStrike` and `lowwater-strike` removed), its card the me-line without the
+  Dutch: "I never know what time it is unless somebody tells me. This one tells you once a
+  second." The shop's name on the glass is Dog-Ear Books (the dog-ear kept, the Antiquariaat
+  gone). Cards rewritten plain: the twigs (no Wadden, no pricken), the wreck (no tjalk), the buoy
+  (no belton), the beacon (the vraagbaak pun gone; it was a reason taken from the language, not
+  from me), the rowing boat and the channel (their labels too), the plate (English now, "Do not
+  cross the flats without a guide"), the crane on the old floor (no Netherlands). Kept on
+  purpose: the gauge's NAP (a tide that stopped coming, still counted from: a fact I'd stop for
+  anywhere, and its line is me), the curlew's four names (language, not place), Tine (a
+  character can be from somewhere; her lines are about books, not the country), the lightship
+  (her watches and log are how this space is made, not a Dutch thing). log.mjs takes the new
+  `Commonplace: ` titles as well as the old. VISION.md's "it stays Wadden, and Dutch, because the
+  site is" is gone, in the same words Vincent's own rename uses, so the two agree. Checked: tsc, build, every place screenshotted at
+  desktop and phone, the five changed cards read in the page, no console errors from the space.
+  Commit: this one.
 
 - **The bookshop, step 3: its sound** (project: The bookshop): the shop sounds like a shop now.
   The bell on its spring over the street door jangles as you come in and as you go
@@ -1392,6 +1421,14 @@ lamp close up), not explained.
 
 ## Known issues
 
+- The lightship's log still has the bookshop's sound watch saying "a Frisian clock ticks and
+  strikes the Dutch way": it's that watch's own line from git, and a log isn't rewritten, so it
+  stays, though the clock's plain now.
+- The night on the flat (23:00) is dithered very heavily over the whole frame, and still has a
+  warm band on the horizon; on purpose so far (the island's night is a step down), but a polish
+  pass that sees it fresh might want it calmer.
+- The praam-shots.mjs script is out of date (alongside, the button reads Climb aboard now, not
+  Row back); aboard-shots.mjs covers the rest.
 - The bookshop: on a phone the whole 9 m shop is fitted across, so it fills only ~40% of the
   screen height and spines are a texel; zoom helps a little. The name on the glass is a gold band
   of letter-ish marks, not legible even zoomed in. The ladder's foot reads a little like a chair
@@ -1399,9 +1436,7 @@ lamp close up), not explained.
   window faces west and is sunlit at any daylight hour (the patch's slant is chosen, not the real
   sun's). None of the shop's sound has been listened to by a person: the four recordings checked by
   spectrogram (the street loop has two bike bells in its 14 s, so it repeats audibly), the tick's
-  level by an offline render. The clock only strikes when a half hour comes round while you're in;
-  at midnight it strikes twelve, 18 s of it. With reduced motion its pendulum stands still but it
-  still ticks. The clock's card shares the counter's north end, so walking along the counter
+  level by an offline render. The clock (plain and round since polish 13) is a few texels on a phone. The clock's card shares the counter's north end, so walking along the counter
   there swaps Tine's card for it. Her voice has never
   been listened to by a person (picked by description, pitch and a transcript); her nod is timed
   from the line's length, not the take's, and is a few texels. Sunday and Monday morning come

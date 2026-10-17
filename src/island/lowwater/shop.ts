@@ -45,8 +45,8 @@ const GOALS = {
   door: new THREE.Vector3(-3.9, 0, 1.45),
   clock: new THREE.Vector3(1.7, 0, -1.75),
 };
-/** The Frisian tail clock on the back wall, behind the north end of the counter: its dial's centre, and its pendulum's pivot. */
-const CLOCK = { x: 2.38, z: BACK + 0.13, dial: 2.36, pivot: 2.0 };
+/** The clock on the back wall, behind the north end of the counter: its dial's centre. */
+const CLOCK = { x: 2.38, z: BACK + 0.13, dial: 2.2 };
 
 const ELEVATION = THREE.MathUtils.degToRad(36);
 /** The camera stands a little east of south, so the west wall (the window) is seen. */
@@ -211,10 +211,9 @@ export class Shop {
   leaving = false;
   /** Each step on the boards, for the sound. */
   onStep?: () => void;
-  /** The shop's own sounds, each from where it is across the picture (-1 … 1) and how near (0–1): the door's bell on its spring, the clock's tick (and tock), its strike (how many, and whether on the small bell), and Tine's page. */
+  /** The shop's own sounds, each from where it is across the picture (-1 … 1) and how near (0–1): the door's bell on its spring, the clock's tick (and tock), and Tine's page. */
   onBell?: (side: number) => void;
   onTick?: (tock: boolean, side: number, near: number) => void;
-  onStrike?: (count: number, small: boolean, side: number, near: number) => void;
   onTurn?: (side: number, near: number) => void;
   /** The island's hour and weather, from lowwater.ts: sun up, a low sun, rain, fog, snow (each 0–1), and the clock (hours since midnight, and its seconds). */
   readonly moment = { day: 1, warm: 0, rain: 0, fog: 0, snow: 0, hours: 14, seconds: 0 };
@@ -259,10 +258,9 @@ export class Shop {
   private moteAt: { x: number; y: number; z: number; p: number }[] = [];
   private bell = new THREE.Group();
   private ring = 0;
-  /** The clock's hands and pendulum, the second it last ticked, and the half hour it last struck. */
-  private hands = { hour: new THREE.Group(), minute: new THREE.Group(), pendulum: new THREE.Group() };
+  /** The clock's hands, and the second it last ticked. */
+  private hands = { hour: new THREE.Group(), minute: new THREE.Group() };
   private ticked = -1;
-  private struck = -1;
   // Tine
   private turnIn = 6;
   private turning = -1;
@@ -693,50 +691,24 @@ export class Shop {
   }
 
   /**
-   * A Frisian tail clock (staartklok) on the back wall behind the counter's north end: a green hood
-   * with a painted dial and gilt on its crown, and under it the tail, its long pendulum swinging a
-   * second each way behind a window. Its hands keep the island's time.
+   * A plain round clock on the back wall behind the counter's north end, in a dark wooden rim. Its
+   * hands keep the island's time, and it ticks loud enough to hear in a quiet shop.
    */
   private makeClock() {
     const g = new THREE.Group();
-    g.position.set(CLOCK.x, 0, CLOCK.z);
-    const green = mat('#2c5a46');
-    const dark = mat('#1f3f31');
-    const gilt = mat('#d4a840');
-    const cream = mat('#efe2c0');
-    // the hood: a box for the works, its painted dial facing out, a little arched crest over it, gilt on top
-    g.add(box(0.44, 0.52, 0.22, green, 0, CLOCK.dial, 0));
-    g.add(box(0.48, 0.05, 0.25, dark, 0, CLOCK.dial - 0.28, 0), box(0.48, 0.05, 0.25, dark, 0, CLOCK.dial + 0.28, 0));
-    const face = new THREE.Mesh(new THREE.CircleGeometry(0.15, 12), cream);
-    face.position.set(0, CLOCK.dial, 0.112);
-    g.add(face);
-    // (the dial's painted corners: red and blue, as they are on the old Frisian ones)
-    for (const [x, y, c] of [[-0.16, 0.18, '#a33a2a'], [0.16, 0.18, '#3a5a8a'], [-0.16, -0.18, '#3a5a8a'], [0.16, -0.18, '#a33a2a']] as const) g.add(box(0.07, 0.07, 0.01, mat(c), x, CLOCK.dial + y, 0.112));
-    const crest = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.2, 10, 1, false, -Math.PI / 2, Math.PI), green);
-    crest.rotation.x = Math.PI / 2;
-    crest.scale.set(1, 1, 0.45);
-    crest.position.set(0, CLOCK.dial + 0.3, 0);
-    g.add(crest);
-    for (const x of [-0.2, 0, 0.2]) g.add(box(0.05, x ? 0.08 : 0.12, 0.05, gilt, x, CLOCK.dial + (x ? 0.36 : 0.53), 0.02));
+    g.position.set(CLOCK.x, CLOCK.dial, CLOCK.z);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.06, 14), mat('#3a2618'));
+    rim.rotation.x = Math.PI / 2;
+    const face = new THREE.Mesh(new THREE.CircleGeometry(0.18, 14), mat('#efe2c0'));
+    face.position.z = 0.032;
+    g.add(rim, face);
     // the hands, from the dial's middle: they're laid along +y and turned round it
     const ink = mat('#1c1814');
-    this.hands.hour.add(box(0.025, 0.08, 0.008, ink, 0, 0.04, 0));
-    this.hands.minute.add(box(0.016, 0.125, 0.008, ink, 0, 0.0625, 0));
-    this.hands.hour.position.set(0, CLOCK.dial, 0.118);
-    this.hands.minute.position.set(0, CLOCK.dial, 0.124);
+    this.hands.hour.add(box(0.03, 0.1, 0.008, ink, 0, 0.05, 0));
+    this.hands.minute.add(box(0.02, 0.15, 0.008, ink, 0, 0.075, 0));
+    this.hands.hour.position.z = 0.038;
+    this.hands.minute.position.z = 0.044;
     g.add(this.hands.hour, this.hands.minute);
-    // the tail: narrower, down from the hood, with its window, and the pendulum's brass bob swinging in it
-    g.add(box(0.3, 0.86, 0.16, green, 0, CLOCK.dial - 0.73, -0.02));
-    g.add(box(0.34, 0.05, 0.19, dark, 0, CLOCK.dial - 1.17, -0.02));
-    g.add(box(0.2, 0.6, 0.01, mat('#1a1410'), 0, CLOCK.dial - 0.72, 0.065));
-    const rod = this.hands.pendulum;
-    rod.position.set(0, CLOCK.pivot, 0.075);
-    rod.add(box(0.012, 0.5, 0.006, gilt, 0, -0.25, 0));
-    const bob = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.012, 10), gilt);
-    bob.rotation.x = Math.PI / 2;
-    bob.position.y = -0.5;
-    rod.add(bob);
-    g.add(rod);
     g.userData.id = 'clock';
     this.scene.add(g);
     this.pickables.push(g);
@@ -889,7 +861,6 @@ export class Shop {
     this.zoomed = 1;
     this.ringBell();
     this.ticked = -1;
-    this.struck = -1;
     this.frame(0);
   }
 
@@ -1057,32 +1028,15 @@ export class Shop {
     return { level: out * glass, side: this.sideOf(WEST, (WIN.z0 + WIN.z1) / 2) };
   }
 
-  /**
-   * The tail clock keeping the island's time: its hands, its pendulum a second each way (a tick at
-   * each end of the swing, tick and tock a little apart), and its strike: on the hour the hour on
-   * the big bell, and at half past the coming hour on the small one, the old Dutch way.
-   */
+  /** The clock keeping the island's time: its hands, and a tick each second (tick and tock a little apart). */
   private keepTime() {
     const { hours, seconds } = this.moment;
     this.hands.hour.rotation.z = -((hours % 12) / 12) * Math.PI * 2;
     this.hands.minute.rotation.z = -((hours % 1) * Math.PI * 2);
-    const swing = Math.cos(seconds * Math.PI);
-    this.hands.pendulum.rotation.z = (this.still ? 0 : swing) * 0.11;
-    const side = this.sideOf(CLOCK.x, CLOCK.z);
-    const near = this.nearness(CLOCK.x, CLOCK.z);
     const second = Math.floor(seconds);
     if (second !== this.ticked) {
-      if (this.ticked >= 0) this.onTick?.(second % 2 === 1, side, near);
+      if (this.ticked >= 0) this.onTick?.(second % 2 === 1, this.sideOf(CLOCK.x, CLOCK.z), this.nearness(CLOCK.x, CLOCK.z));
       this.ticked = second;
-    }
-    const half = Math.floor(hours * 2);
-    if (half !== this.struck) {
-      // (not as you come in: only a half hour that comes round while you're here)
-      if (this.struck >= 0) {
-        const hour = Math.round(hours) % 12 || 12;
-        this.onStrike?.(hour, half % 2 === 1, side, near);
-      }
-      this.struck = half;
     }
   }
 

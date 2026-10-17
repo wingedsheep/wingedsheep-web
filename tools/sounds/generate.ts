@@ -275,12 +275,10 @@ export const SOUNDS: Sfx[] = [
   // the old floor past the scour: the sea's wash coming in over the clay in front of you, and drawing back (looped; its swell is played in code)
   { name: 'lowwater-wash', loop: true, seconds: 12, lufs: -34, prompt: 'Very small slow ripples of calm sea water washing in a few centimetres deep over a flat bare clay shore at low tide and drawing back again, close in front: a soft continuous lapping and fizzing of thin water spreading over smooth wet clay, tiny bubbles, a very calm still evening, no breaking waves, no surf, no wind, no birds, no voices, no music' },
   // the bookshop behind the page: the bell on its spring over the street door, the street outside through the window
-  // (looped, opened and shut by the hour), one page of Tine's book turned, and the strike of the Frisian tail clock on
-  // the wall behind her (the hours on it, the half hour on it played higher, as on the small bell)
+  // (looped, opened and shut by the hour), and one page of Tine's book turned
   { name: 'lowwater-shopbell', seconds: 3, prompt: 'An old brass shop door bell hanging on a curled steel spring above the door of a small old bookshop, set jangling as the door is pushed open: a bright quick tinkling ring, the bell bouncing on its spring and dying away, the door closing softly with a wooden knock, close, inside a quiet small room, no voices, no music' },
   { name: 'lowwater-street', loop: true, seconds: 14, lufs: -34, prompt: 'A narrow brick shopping street in an old Dutch town on a quiet afternoon, heard from inside a small shop through its closed window: bicycles rattling past over the bricks now and then, a bicycle bell ringing once, footsteps passing, people talking a little way off, muffled and distant through the glass, no cars, no music' },
   { name: 'lowwater-turn', seconds: 1, prompt: 'One page of an old hardback book turned over slowly by hand, a soft dry papery whisper and a faint flap as it settles, very close, in a quiet room, no voices, no music' },
-  { name: 'lowwater-strike', seconds: 4, prompt: 'One single strike of the small bronze bell of an antique Frisian wall clock, its hammer hitting the bell once: a clear bright ding with a long shimmering fade, inside a small quiet room, no ticking, no voices, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root

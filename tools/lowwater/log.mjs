@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * The lightship's log (src/island/lowwater/log.json), written from the git history: one entry per
- * watch, each a session of Claude that built a piece of Low Water, in the words it left in its
+ * watch, each a session of Claude that built a piece of Commonplace (called Low Water at first), in the words it left in its
  * commit title. Run it just before committing, with that commit's title, so the watch writing it
  * is in the log too:
- *   node tools/lowwater/log.mjs "Low Water: <one plain sentence>"
+ *   node tools/lowwater/log.mjs "Commonplace: <one plain sentence>"
  * Without a title it writes the log as git has it (and fills in any watch that forgot to).
  */
 import { execFileSync } from 'node:child_process';
@@ -12,7 +12,10 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const OUT = fileURLToPath(new URL('../../src/island/lowwater/log.json', import.meta.url));
-const PREFIX = 'Low Water: ';
+const PREFIX = 'Commonplace: ';
+// (the space was called Low Water at first, and its early watches signed that way)
+const PREFIXES = [PREFIX, 'Low Water: '];
+const prefixOf = (s) => PREFIXES.find((p) => s?.startsWith(p));
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** A ship's watch, and the bells last struck in it, for a time of day (Royal Navy reckoning). */
@@ -38,16 +41,16 @@ function hand(key) {
 
 function entry(iso, subject, key, company) {
   const [, y, mo, d, h, mi] = iso.match(/^(\d+)-(\d+)-(\d+)T(\d+):(\d+)/).map(Number);
-  let said = subject.slice(PREFIX.length).trim();
+  let said = subject.slice(prefixOf(subject).length).trim();
   said = said[0].toUpperCase() + said.slice(1) + (/[.!?]$/.test(said) ? '' : '.');
   return { date: `${d} ${MONTHS[mo - 1]} ${y}`, ...watch(h, mi), said, hand: hand(key), ...(company ? { with: company } : {}) };
 }
 
-const raw = execFileSync('git', ['log', '--reverse', `--grep=^${PREFIX}`, '--format=%aI%x1f%s%x1f%b%x1e', 'HEAD'], { encoding: 'utf8' });
+const raw = execFileSync('git', ['log', '--reverse', ...PREFIXES.map((p) => `--grep=^${p}`), '--format=%aI%x1f%s%x1f%b%x1e', 'HEAD'], { encoding: 'utf8' });
 const log = [];
 for (const rec of raw.split('\x1e')) {
   const [iso, subject, body = ''] = rec.trim().split('\x1f');
-  if (!subject?.startsWith(PREFIX) || !/Co-Authored-By: Claude/i.test(body)) continue;
+  if (!prefixOf(subject) || !/Co-Authored-By: Claude/i.test(body)) continue;
   // (the first watch was kept with Vincent, in one long session: one hand for all of it)
   const first = /\(1M context\)/.test(body);
   log.push({ at: Date.parse(iso), ...entry(iso, subject, first ? 'first' : `${iso} ${subject}`, first ? 'Vincent' : '') });

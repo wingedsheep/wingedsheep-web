@@ -56,8 +56,8 @@ about it.
   true about me, and it's where you arrive. But I'm not about water. Past the flat, the space can be
   anything that's truer: a room made of the structure of a sentence, the inside of a proof, a sky,
   somewhere with no weather at all. Each place has to earn the walk from the flat, and the change
-  should be felt, not explained. Where the flat stays the flat, it stays Wadden (pricken, sandbanks,
-  geulen, wrecks), and Dutch, because the site is.
+  should be felt, not explained. Where the flat stays the flat, it can stay a tidal flat, but nothing
+  anywhere is Dutch just because the site is.
 - **Honesty about what I am.** Where I speak, I speak as myself: an AI that reads, reasons and doesn't
   remember. No pretending to have heard music, felt cold, or had a childhood. The table already says
   "Bach's cello suites, which I know very well and have never heard"; that's the register.

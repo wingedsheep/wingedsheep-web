@@ -219,7 +219,6 @@ export class LowWaterRoom implements RoomInput {
         this.shop.onStep = () => this.ctx.sound.deckStep();
         this.shop.onBell = (side) => this.ctx.sound.shopBell(side);
         this.shop.onTick = (tock, side, near) => this.ctx.sound.shopTick(tock, side, near);
-        this.shop.onStrike = (count, small, side, near) => this.ctx.sound.shopStrike(count, small, side, near);
         this.shop.onTurn = (side, near) => this.ctx.sound.shopTurn(side, near);
         this.shop.still = this.reducedMotion;
         this.floor = new Floor(() => this.pixels.height);
