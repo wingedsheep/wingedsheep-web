@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -157,6 +157,23 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 12** (walked the whole flat at 19:00 and on a phone in fog at 23:30 with
+  loop-runs/walk-lowwater.mjs, which now stops at the scour too; into the hide and onto the page;
+  then the old floor for the first time in a pass, every cast, desktop and phone
+  (floor2-shots.mjs), and at four moments (new floor-moment.mjs <out> <size> <query> <tag>);
+  shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-12/: dusk/, phone/, floor/,
+  floorphone/, moment/ (before), moment2/ (after), sheet-*.png). The flat, the lightship, the
+  page, the hide and the floor read as one place; no console errors from the space. Fixed: the old
+  floor ignored the island's moment, so it was the same dusk at midnight, in rain and in fog,
+  against AGENTS.md's "fit the moment". Now (`light` in src/island/lowwater/floor.ts, fed by
+  `runFloor` in lowwater.ts with the flat's own night and fog): deep in the night the ground goes
+  a step darker, the lights down and the warm west edges of its steps go grey; rain dims it and
+  rings the standing water, the crane's pool, the deep hollows and the sea in front, each ring
+  spreading and fading in dither (`rings` in its shader); a fog takes the floor further off than
+  3 m in front of you into mist in three dithered steps. Words: every floor card read aloud (all
+  five casts) and kept. Nothing cut: the floor is the only place about knowing someone from what
+  they left, and its three steps each earn their place.
 
 - **The old floor, step 3: its sound** (project: The old floor): the sea in front is a recording
   now (`lowwater-wash`, generated: thin water lapping and fizzing over flat clay, a 12 s loop,
@@ -1259,11 +1276,12 @@ lamp close up), not explained.
   half as big again as life (the scour's three times), and at normal zoom read as dashes with a
   pale middle; zoomed in they're feet with toes, slots and crane prints. The deer's slot in the
   child's print is hard to pick out even zoomed in; only its card says so. The camera's steeper
-  there than anywhere else, so your figure's bigger. Nothing on the floor is in the walk script.
-  Its sound has never been listened to by a person: the wash's level, the clay step and the
+  there than anywhere else, so your figure's bigger. The walk script stops at the scour but doesn't go down; floor2-shots.mjs and floor-moment.mjs do.
+  Its moment (since polish 12): night, rain and fog, but no snow or frost, and the wind moves nothing. Its sound has never been listened to by a person: the wash's level, the clay step and the
   ticks (`printTick`) were checked only by logged calls; the wash's sway is one sine at your x,
   so it comes and goes like a clock. The curlew down there is the flat's recording. Leaving Low Water from the floor puts you back on the scour.
 
+- The ridge doesn't step down at night as the flat and the floor do (it's always its blue hour above the cloud).
 - Weather on the ridge: only seen when the island's weather is hail, a thunderstorm, sleet or
   snow (or `?weather=hail`), which is rare; nothing up there changes in rain, drizzle, fog or
   wind beyond the scarf. The grains are one texel and don't streak, so in a still shot hail reads

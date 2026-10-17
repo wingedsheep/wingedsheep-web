@@ -248,6 +248,11 @@ export class Floor {
   onCurlew?: (near: number, pan: number) => boolean;
   /** The island's weather, for the curlew (it keeps quieter in a wind or rain). */
   readonly weather = { wind: 0, rain: 0 };
+  /** The island's moment, as on the flat: how far into the night (0..1), and its fog (0..1). Rain is `weather.rain`. */
+  readonly moment = { night: 0, fog: 0 };
+  private hemi = new THREE.HemisphereLight('#8f95c8', '#3e3655', 1.3);
+  private sun = new THREE.DirectionalLight('#ffbf92', 2.2);
+  private lit = new THREE.Color('#6d5f72');
   private curlew = new Curlew();
   private tickIn = 1;
   private you: Figure;
@@ -287,8 +292,8 @@ export class Floor {
   constructor(private texels: () => number) {
     this.scene.background = CLAY[2].clone();
     // the warm band's light, low from the west; the sky's blue on the rest
-    this.scene.add(new THREE.HemisphereLight('#8f95c8', '#3e3655', 1.3), this.camera);
-    const sun = new THREE.DirectionalLight('#ffbf92', 2.2);
+    this.scene.add(this.hemi, this.camera);
+    const sun = this.sun;
     sun.position.set(-40, 14, 10);
     this.scene.add(sun, sun.target);
     const skin = toon(new THREE.Color('#3a3348'), { own: true, bare: true });
@@ -313,7 +318,7 @@ export class Floor {
       uClay0: { value: CLAY[0] },
       uClay1: { value: CLAY[1] },
       uClay2: { value: CLAY[2] },
-      uLit: { value: new THREE.Color('#6d5f72') },
+      uLit: { value: this.lit.clone() },
       uDark: { value: new THREE.Color('#2e2d43') },
       uSand: { value: new THREE.Color('#686274') },
       uSandLit: { value: new THREE.Color('#757080') },
@@ -322,6 +327,11 @@ export class Floor {
       uWash: { value: new THREE.Color('#a9adc6') },
       uCrane: { value: this.pool },
       uShift: { value: new THREE.Vector2() },
+      uRain: { value: 0 },
+      uNight: { value: 0 },
+      uFog: { value: 0 },
+      uMist: { value: new THREE.Color('#8d90ac') },
+      uNear: { value: 0 },
     };
     const mat = new THREE.ShaderMaterial({
       uniforms,
@@ -337,6 +347,8 @@ export class Floor {
         uniform float uTime;
         uniform vec3 uClay0, uClay1, uClay2, uLit, uDark, uSand, uSandLit, uWater, uSky, uWash;
         uniform vec2 uCrane, uShift;
+        uniform float uRain, uNight, uFog, uNear;
+        uniform vec3 uMist;
         varying vec2 vAt;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float noise(vec2 p) {
@@ -355,6 +367,17 @@ export class Floor {
         }
         float sandZ(float x) { return 4.0 + 0.8 * sin(x * 0.21) + 0.4 * sin(x * 0.57 + 1.0); }
         float seaZ(float x) { return -24.0 + 1.5 * sin(x * 0.13 + 2.0) + 0.6 * sin(x * 0.41); }
+        // a raindrop's ring spreading on standing water, somewhere in each cell of it, now and then
+        vec3 rings(vec2 p, vec3 col, float d) {
+          vec2 q = p * 1.4;
+          vec2 cell = floor(q);
+          float h = hash(cell + 17.0);
+          if (h > uRain * 0.9) return col;
+          float age = fract(uTime * (0.7 + 0.4 * h) + hash(cell + 5.0));
+          vec2 c = cell + 0.25 + 0.5 * vec2(hash(cell + 2.0), hash(cell + 9.0));
+          float r = length(q - c);
+          return abs(r - age * 0.5) < 0.06 && 1.0 - age > d ? mix(col, uWash, 0.55) : col;
+        }
         void main() {
           vec2 p = vAt;
           ivec2 px = ivec2(gl_FragCoord.xy);
@@ -367,6 +390,7 @@ export class Floor {
             col = uWater;
             if (hash(floor(vec2(p.x * 2.2 + uTime * 0.12, p.y * 9.0))) > 0.95) col = mix(uWater, uSky, 0.5);
             if (p.y > sea - 0.25 - 0.25 * d) col = uWash;
+            else col = rings(p, col, d);
           } else if (p.y > sand) {
             // the sand you came over, in ripples, with its lip dark against the clay
             col = sin((p.y + 0.3 * sin(p.x * 0.7)) * 9.0) > 0.55 - d * 0.3 ? uSandLit : uSand;
@@ -390,11 +414,16 @@ export class Floor {
             // the crane's pool, and the deepest hollows, hold water, and give back the sky
             vec2 c = p - uCrane;
             float pool = length(c * vec2(1.0, 1.25)) - ${POOL_R.toFixed(2)} * (1.0 + 0.12 * sin(atan(c.y, c.x) * 3.0 + 1.0));
-            if (pool < 0.0) col = pool < -0.2 || d < 0.5 ? mix(uSky, uWater, 0.35) : uDark;
-            else if (w > 0.84) col = (w > 0.87 || d < 0.5) ? mix(uSky, uClay2, 0.25) : uClay2;
+            if (pool < 0.0) col = rings(p, pool < -0.2 || d < 0.5 ? mix(uSky, uWater, 0.35) : uDark, d);
+            else if (w > 0.84) col = (w > 0.87 || d < 0.5) ? rings(p, mix(uSky, uClay2, 0.25), d) : uClay2;
             // and it's all wet: a speck of sky here and there
             else if (hash(floor(p * 9.0)) > 0.9975) col = mix(col, uSky, 0.45);
           }
+          // deep in the night, everything a step further down (the water too: it holds the night sky)
+          col *= 1.0 - 0.3 * uNight;
+          // in a fog, the floor further off goes to mist, in dithered steps
+          float far = clamp((uNear - 3.0 - p.y) / 9.0, 0.0, 1.0) * uFog;
+          if (far > 0.0) col = mix(col, uMist, floor(far * 3.0 + d) / 3.0 * 0.8);
           gl_FragColor = vec4(col, 1.0);
         }`,
     });
@@ -623,6 +652,7 @@ export class Floor {
   update(dt: number) {
     this.time += dt;
     this.groundU.uTime.value = this.time;
+    this.light();
     this.walk(dt);
     this.animate();
     this.listen(dt);
@@ -645,6 +675,22 @@ export class Floor {
     if (this.card === 'who') this.metThem = true;
     if (this.pos.z > sandZ(this.pos.x) + 1.2) this.leaving = true;
     this.frame(dt);
+  }
+
+  /**
+   * The island's moment, as the flat has it: deep in the night the light goes a step down and the
+   * warm edges go with it; rain dims it and rings what water's standing; a fog takes the far floor.
+   */
+  private light() {
+    const { night, fog } = this.moment;
+    const gloom = Math.min(1, this.weather.rain * 0.9);
+    this.hemi.intensity = 1.3 * (1 - gloom * 0.25) * (1 - night * 0.3);
+    this.sun.intensity = 2.2 * (1 - gloom * 0.6) * (1 - fog * 0.5) * (1 - night * 0.6);
+    this.groundU.uLit.value.copy(this.lit).lerp(CLAY[0], Math.max(night * 0.8, gloom * 0.6, fog * 0.5));
+    this.groundU.uRain.value = this.weather.rain;
+    this.groundU.uNight.value = night;
+    this.groundU.uFog.value = fog;
+    this.groundU.uNear.value = this.pos.z;
   }
 
   private walk(dt: number) {

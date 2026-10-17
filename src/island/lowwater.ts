@@ -486,6 +486,7 @@ export class LowWaterRoom implements RoomInput {
   private runFloor(floor: Floor, dt: number) {
     const w = this.ctx.weather;
     Object.assign(floor.weather, { wind: THREE.MathUtils.clamp(w.windiness, 0, 1), rain: Math.min(1, w.now.rain + w.now.hail) });
+    Object.assign(floor.moment, { night: THREE.MathUtils.clamp((-this.ctx.sky.alt - 8) / 6, 0, 1), fog: w.now.fog });
     this.ctx.sound.lowWater(true, this.ctx.weather.windiness, 'floor');
     floor.update(dt);
     const u = this.pixels.uniforms;
