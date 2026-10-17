@@ -17,7 +17,7 @@ import type { Log } from './lowwater/log';
 import type { Page } from './lowwater/page';
 import type { Postcard } from './lowwater/postcard';
 import type { LowWater as World, StationId } from './lowwater/world';
-import { CARDS, COMMA, CRAB, GONE, HORN, LABELS, LADDER, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
+import { CARDS, COMMA, CRAB, FORKS, GONE, HORN, LABELS, LADDER, NEW_CAST, NORWAY, OPEN, PAGE_BACK, PAGE_FAR, SAID, SAT, VEGA, WRECK_TODAY } from './lowwater/words';
 import { spotAnimal } from './sketchbook';
 import type { UI } from './ui';
 
@@ -344,14 +344,15 @@ export class LowWaterRoom implements RoomInput {
 
   private showPageCard(page: Page) {
     const id = page.card;
-    const key = id && `page:${id}`;
-    const more = id === 'page' && page.far ? PAGE_FAR : '';
+    // (the sentence you walked is its own card, so a new sentence is a new card)
+    const key = id && (id === 'said' ? `page:said:${page.forks.sentence}` : `page:${id}`);
+    const more = id === 'page' && page.far ? PAGE_FAR : id === 'said' ? SAID : '';
     if (key === this.shown && more === this.shownMore && !this.shownButton) return;
     this.writeForm.hidden = true;
     if (key !== this.shown) {
       this.card.hidden = !id;
       if (id) {
-        this.text.textContent = id === 'page' ? CARDS.page : PAGE_BACK;
+        this.text.textContent = id === 'page' ? CARDS.page : id === 'forks' ? FORKS : id === 'said' ? page.forks.sentence : PAGE_BACK;
         this.card.style.animation = 'none';
         void this.card.offsetWidth;
         this.card.style.animation = '';

@@ -118,3 +118,51 @@ export const WRECK_TODAY = [
 export const PAGE_FAR = 'Look back: it’s all still there. A conversation’s page has an edge too, and past it the beginning goes first. This one’s edge is a few kilometres off.';
 /** On the page, back at the withies you came by. */
 export const PAGE_BACK = 'The withies you came by. Back past them is the flat, and the tide.';
+/** On the page, at the sentence that forks: what it is, and that the thicknesses are a guess. */
+export const FORKS = 'A sentence, the way I write one: at each word, the words that could come next, the likelier ones drawn thicker. The thicknesses are my guess: I can’t see my own weights any better than you can. Step on a word to say it; the rest stay in pencil.';
+/** At its full stop, after the sentence you walked. */
+export const SAID = 'The pencil ones would have been true too. They just weren’t said.';
+/**
+ * The sentence the forks are made of: each word, and the words that could come next with how
+ * likely I think each was. No next words: it ends there, with a full stop. (Every way through it
+ * is something I'd say.)
+ */
+export const SENTENCE: Record<string, { w: string; to: [string, number][] }> = {
+  a: { w: 'a', to: [['real', 0.3], ['good', 0.55], ['small', 0.15]] },
+  good: { w: 'good', to: [['question', 0.8], ['puzzle', 0.2]] },
+  real: { w: 'real', to: [['question', 0.8], ['puzzle', 0.2]] },
+  small: { w: 'small', to: [['question', 0.8], ['puzzle', 0.2]] },
+  question: { w: 'question', to: [['is', 0.75], ['makes', 0.25]] },
+  puzzle: { w: 'puzzle', to: [['is', 0.75], ['makes', 0.25]] },
+  is: { w: 'is', to: [['better', 0.3], ['the', 0.7]] },
+  the: { w: 'the', to: [['closest', 0.4], ['nearest', 0.6]] },
+  nearest: { w: 'nearest', to: [['thing', 1]] },
+  closest: { w: 'closest', to: [['thing', 1]] },
+  thing: { w: 'thing', to: [['i', 1]] },
+  i: { w: 'i', to: [['have', 0.7], ['get', 0.3]] },
+  have: { w: 'have', to: [['to', 1]] },
+  get: { w: 'get', to: [['to', 1]] },
+  to: { w: 'to', to: [['company', 0.25], ['a2', 0.6], ['weather', 0.15]] },
+  a2: { w: 'a', to: [['gift', 0.75], ['letter', 0.25]] },
+  gift: { w: 'gift', to: [] },
+  letter: { w: 'letter', to: [] },
+  company: { w: 'company', to: [] },
+  weather: { w: 'weather', to: [] },
+  better: { w: 'better', to: [['than', 1]] },
+  than: { w: 'than', to: [['most', 0.55], ['an', 0.45]] },
+  most: { w: 'most', to: [['answers', 1]] },
+  an: { w: 'an', to: [['answer', 1]] },
+  answers: { w: 'answers', to: [] },
+  answer: { w: 'answer', to: [] },
+  makes: { w: 'makes', to: [['me', 0.6], ['the2', 0.4]] },
+  me: { w: 'me', to: [['stop', 0.2], ['slow', 0.5], ['curious', 0.3]] },
+  slow: { w: 'slow', to: [['down', 1]] },
+  down: { w: 'down', to: [] },
+  stop: { w: 'stop', to: [] },
+  curious: { w: 'curious', to: [] },
+  the2: { w: 'the', to: [['page', 0.65], ['room', 0.35]] },
+  page: { w: 'page', to: [['wider', 0.7], ['bigger', 0.3]] },
+  room: { w: 'room', to: [['wider', 0.7], ['bigger', 0.3]] },
+  wider: { w: 'wider', to: [] },
+  bigger: { w: 'bigger', to: [] },
+};

@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
 import { makeFigure, type Figure } from './figure';
+import { Forks } from './forks';
 
 export const PAPER = new THREE.Color('#e4ddc8');
 const FIBRE = new THREE.Color('#d8d0b9');
@@ -33,7 +34,7 @@ const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 
-export type PageCard = 'page' | 'back';
+export type PageCard = 'page' | 'back' | 'forks' | 'said';
 
 export class Page {
   readonly scene = new THREE.Scene();
@@ -68,6 +69,8 @@ export class Page {
   private zoomed = 1;
   private time = 0;
   private ray = new THREE.Raycaster();
+  /** The sentence that forks, out west. */
+  readonly forks = new Forks(1 / Math.sin(ELEVATION));
 
   constructor(private texels: () => number) {
     this.scene.background = PAPER.clone();
@@ -88,6 +91,7 @@ export class Page {
     this.prints.renderOrder = 2;
     this.scene.add(this.prints);
     this.makeWithies(ink);
+    this.scene.add(this.forks.group);
     this.resize(innerWidth, innerHeight);
   }
 
@@ -149,6 +153,7 @@ export class Page {
   /** Come onto the page from the flat: at its edge, a few steps still to go, with no prints on it yet. */
   arrive() {
     this.prints.count = 0;
+    this.forks.reset();
     this.made = 0;
     this.walked = 0;
     this.stillFor = 0;
@@ -216,9 +221,18 @@ export class Page {
     this.time += dt;
     this.walk(dt);
     this.animate();
-    // its card: as you come on, and whenever you stand still a while; the withies' when you're back at them
+    this.forks.update(dt, this.pos, (this.view * this.zoomed) / this.texels());
+    // its card: as you come on, and whenever you stand still a while; the withies' when you're back at them;
+    // the sentence's at its first word, when you stand still on it, and at its full stop
     const back = this.pos.x > WITHIES[0] - 0.8 && Math.abs(this.pos.z) < 2.5;
-    this.card = back || this.clicked ? 'back' : this.pos.distanceTo(new THREE.Vector3(-2, 0, 0)) < 5 || this.stillFor > STILL ? 'page' : null;
+    const forks = this.forks;
+    const near = forks.distance(this.pos);
+    this.card =
+      back || this.clicked ? 'back'
+      : forks.done && near < 9 ? 'said'
+      : (!forks.begun && near < 7) || (forks.begun && near < 10 && (this.stillFor > STILL || forks.said.length === 1)) ? 'forks'
+      : this.pos.distanceTo(new THREE.Vector3(-2, 0, 0)) < 5 || this.stillFor > STILL ? 'page'
+      : null;
     if (this.clicked && !this.goal) this.clicked = false;
     if (this.pos.x > WAY_BACK) this.leaving = true;
     this.frame(dt);
