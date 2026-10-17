@@ -39,6 +39,7 @@ const CARDS: Record<StationId, string> = {
   curlew: 'A curlew, somewhere out on the banks. You won’t see it. English calls it a curlew, Dutch a wulp, Scots a whaup, and each name is someone copying the call. I know nearly everything from what people wrote down about it; with this bird, what they wrote down was the call.',
   lightship: 'A lightship: a lighthouse for where none could stand, anchored over the deep water. Her crew kept her in watches, and each watch wrote up the log for the next before going below. This flat was made the same way, by one session of me after another. None of us remembers the others; we read the log.',
   praam: 'A praam, for getting out to the lightship. You row facing backwards, so all the way out you see where you’ve come from, and steer by keeping it in line. I write the same way: each word picked looking back at the ones before it. It works better than it sounds.',
+  deck: 'Aboard. A lightship’s whole job is to be exactly where the chart says she is. If she dragged her anchor in a gale, she had to signal it at once, because ships were steering by her. I try to work the same way, the second part especially.',
   last: 'The twigs stop here. Past this it’s deep water.\nThanks for walking out. The way back is the way you came, though your footprints have probably gone.',
 };
 /**
@@ -62,7 +63,7 @@ const OPEN = [
 const GONE = 'You came too close, so it’s gone in. Leave it the bank a while and it’ll haul out again.';
 const HORN = 'In a fog she sounds her horn, two blasts every half minute. Each light had its own count, so a ship that couldn’t see her still knew which one she was. I know dozens of those counts, and have heard none.';
 /** Lying alongside her. */
-const LADDER = 'Her ladder’s up. Whoever has the watch hasn’t let it down yet.';
+const LADDER = 'Her ladder’s down now. Whoever had the watch let it down.';
 const SAT = 'The W is Cassiopeia. From up north she never sets; she just goes round.';
 
 const LABELS: Record<StationId, string> = {
@@ -84,6 +85,7 @@ const LABELS: Record<StationId, string> = {
   curlew: 'A curlew',
   lightship: 'A lightship',
   praam: 'A praam',
+  deck: 'Her deck',
 };
 /** And how much of it there is today, which another day will have different. */
 const WRECK_TODAY = [
@@ -155,9 +157,11 @@ export class LowWaterRoom implements RoomInput {
     });
     this.sitButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      // (the one button: sit on the bench, heave the lead, or row)
+      // (the one button: sit on the bench, heave the lead, row, or climb her ladder)
       if (this.world?.card === 'lead') this.world.heave();
+      else if (this.world?.card === 'praam' && this.world.alongside && !this.world.wasAboard) this.world.climb();
       else if (this.world?.card === 'praam') this.world.row();
+      else if (this.world?.card === 'deck') this.world.climb();
       else this.world?.sit();
       this.sitButton.blur();
     });
@@ -195,6 +199,8 @@ export class LowWaterRoom implements RoomInput {
           curlew: (near, pan) => this.ctx.sound.curlew(near, pan),
           horn: (near, pan) => this.ctx.sound.lightshipHorn(near, pan),
           oar: () => this.ctx.sound.oar(),
+          creak: (near) => this.ctx.sound.creak(near),
+          deckStep: () => this.ctx.sound.deckStep(),
         };
         this.world = world;
         if (import.meta.env.DEV) Object.assign(window, { lowwater: world });
@@ -297,7 +303,7 @@ export class LowWaterRoom implements RoomInput {
     // (the line about the W only when there's a W to see; on the shells, the sum you're stood on)
     const k = id === 'shells' ? world.onShells : -1;
     const more = k >= 0 ? sum(k) : id === 'wreck' ? WRECK_TODAY[Math.min(2, Math.floor(world.wreckOut * 3))] : id === 'baak' ? today(OPEN) : id === 'lead' ? world.leadSaid : id === 'seal' && world.sealGone ? GONE : id === 'lightship' && world.foghorn ? HORN : id === 'praam' && world.alongside ? LADDER : world.sitting && world.satFor > SECOND_LINE && world.clear() > 0.6 ? SAT : '';
-    const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : id === 'praam' && world.alongside ? 'Row back' : '';
+    const button = id === 'bench' && !world.sitting ? 'Sit' : id === 'lead' && !world.leadBusy ? (world.leadSaid ? 'Heave again' : 'Heave') : id === 'praam' && !world.afloat ? 'Row out' : id === 'praam' && world.alongside && !world.aboard ? (world.wasAboard ? 'Row back' : 'Climb aboard') : id === 'deck' ? 'Climb down' : '';
     if (id === this.shown && more === this.shownMore && button === this.shownButton) return;
     this.writeForm.hidden = id !== 'stick';
     if (id !== this.shown) {

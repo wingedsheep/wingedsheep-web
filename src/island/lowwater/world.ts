@@ -18,11 +18,12 @@ import { HEAVE_AT, LEAD, Lead } from './lead';
 import { Curlew } from './curlew';
 import { HORN_FOG, LIGHTSHIP, LIGHTSHIP_SCALE, Lightship } from './lightship';
 import { BOARD, PRAAM, Praam } from './praam';
+import { Deck } from './deck';
 import { Sand } from './sand';
 import { SEAL, SEAL_BANK, SHY, Seal } from './seal';
 import { Shells } from './shells';
 
-export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam';
+export type StationId = 'post' | 'pricken' | 'pool' | 'ring' | 'table' | 'bench' | 'last' | 'wreck' | 'buoy' | 'stick' | 'shells' | 'south' | 'seal' | 'baak' | 'lead' | 'curlew' | 'lightship' | 'praam' | 'deck';
 
 /** What it's doing back on the island, as far as it carries out here. */
 export interface Outside {
@@ -55,6 +56,10 @@ export interface Hooks {
   horn?(near: number, pan: number): void;
   /** A stroke of the praam's oars, out on the deep water (you're in it, so it's right by you). */
   oar?(): void;
+  /** Aboard her (or alongside): her hull creaking at the end of a roll, how near (1 aboard). */
+  creak?(near: number): void;
+  /** A footstep on her deck. */
+  deckStep?(): void;
 }
 
 const ELEVATION = THREE.MathUtils.degToRad(24);
@@ -378,6 +383,9 @@ export class LowWater {
   private praam!: Praam;
   /** Asked to row out from off along the flat: get in once you're there. */
   private boardOnArrival = false;
+  /** Up her ladder and about her deck (deck.ts), and whether you've been up this visit. */
+  private deck = new Deck();
+  private beenAboard = false;
   private ice: THREE.MeshToonMaterial[] = [];
   private sand = new Sand(bankAt);
   /** The stick (where it's stuck in, and the one in your hand while you write), and the line being written. */
@@ -986,6 +994,30 @@ export class LowWater {
     this.praam.row();
   }
 
+  /** Up her ladder from the praam, lying alongside her (or down it again, from her deck). */
+  climb() {
+    if (!this.lightship) return;
+    if (this.deck.onDeck) return this.deck.leave();
+    if (!this.praam.alongside || this.deck.aboard) return;
+    this.keys.clear();
+    this.beenAboard = true;
+    this.lightship.root.updateMatrixWorld(true);
+    this.deck.board(this.lightship.root.worldToLocal(this.praam.seat(new THREE.Vector3())));
+  }
+
+  /** Aboard her (on the ladder or the deck), on deck, and whether you've been up her this visit. */
+  get aboard() {
+    return this.deck.aboard;
+  }
+
+  get onDeck() {
+    return this.deck.onDeck;
+  }
+
+  get wasAboard() {
+    return this.beenAboard;
+  }
+
   /** In the praam, out on the deep water, and whether you're lying alongside her. */
   get afloat() {
     return this.praam.afloat;
@@ -998,6 +1030,9 @@ export class LowWater {
   /** Back on the flat at once (leaving Low Water while out on the water). */
   ashore() {
     if (!this.praam.afloat) return;
+    this.deck.reset();
+    if (this.lightship) this.lightship.aboard = false;
+    this.beenAboard = false;
     this.praam.beach();
     this.land();
   }
@@ -1259,6 +1294,11 @@ export class LowWater {
     copy.traverse((o) => b.push(o));
     this.mirrored[this.mirrored.length - 1].parts = a.map((o, i) => [o, b[i]]);
     this.lightship = new Lightship(g, [lamp, halo, b[a.indexOf(lamp)], b[a.indexOf(halo)]], height);
+    // (her flash, lighting the deck when you're on it; there from the start, so nothing recompiles when it's lit)
+    const light = new THREE.PointLight('#fff1d6', 0, 26, 1);
+    light.position.copy(lamp.position);
+    g.add(light);
+    this.lightship.light = light;
     // what you click is her hull and her lantern mast, not just their paint (and not in the reflection)
     const hidden = new THREE.MeshBasicMaterial({ visible: false });
     const hull = new THREE.Mesh(new THREE.BoxGeometry(15 * k, 2.6 * k, 4.4 * k), hidden);
@@ -1415,6 +1455,13 @@ export class LowWater {
   key(code: string, down: boolean) {
     const k = KEYS[code];
     if (!k) return false;
+    // (on her deck: walking about it; on her ladder, hold on)
+    if (this.deck.aboard) {
+      if (!this.deck.onDeck) return true;
+      if (down) this.keys.add(k), (this.deck.goal = null);
+      else this.keys.delete(k);
+      return true;
+    }
     // (in the boat: no walking; alongside her, any of them rows you back)
     if (this.praam.afloat) {
       if (down && this.praam.alongside) this.praam.row();
@@ -1441,6 +1488,18 @@ export class LowWater {
 
   /** A click on the flat: walk there, or up to the thing clicked and show its card (a stone sounds). */
   click(ndc: THREE.Vector2) {
+    // on her deck: walk to where you clicked on it
+    if (this.deck.onDeck && this.lightship) {
+      const root = this.lightship.root;
+      root.updateMatrixWorld(true);
+      this.ray.setFromCamera(ndc, this.camera);
+      const ray = this.ray.ray.clone().applyMatrix4(root.matrixWorld.clone().invert());
+      const p = new THREE.Vector3();
+      if (ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.deck.plane), p)) this.deck.goal = this.deck.toDeck(p);
+      return;
+    }
+    // alongside: a click on her is a climb up her ladder
+    if (this.praam.alongside && !this.deck.aboard && this.pick(ndc) === 'lightship') return this.climb();
     if (this.praam.afloat) return;
     this.stopWriting();
     this.boardOnArrival = false;
@@ -1600,6 +1659,7 @@ export class LowWater {
     this.under.constant = this.level;
     this.afloatFor(dt);
     if (!this.praam.afloat) this.walk(dt);
+    else if (this.deck.aboard) this.deckWalk(dt);
     this.seal?.update(dt, new THREE.Vector2(this.pos.x, this.pos.z), this.level, bankAt);
     this.animateWalker(still);
     this.heaving(dt);
@@ -1609,6 +1669,8 @@ export class LowWater {
     this.ring(dt);
     this.rock(dt);
     this.lightship?.update(this.time, this.time / TIDE_PERIOD, this.outside.wind);
+    // (aboard, she creaks as she comes to the end of a roll, now and then; alongside, you hear it too)
+    if (this.lightship?.turned && this.praam.alongside && Math.random() < 0.6) this.hooks.creak?.(this.deck.aboard ? 1 : 0.45);
     this.lightship?.fogSignal(this.time, outside.fog, new THREE.Vector2(this.pos.x, this.pos.z), (near, pan) => this.hooks.horn?.(near, pan));
     this.glow(dt);
     this.footprints(dt);
@@ -1682,13 +1744,38 @@ export class LowWater {
     }
   }
 
+  /** About her deck (deck.ts): the keys, turned into her frame, or where you clicked; and down into the boat again. */
+  private deckWalk(dt: number) {
+    const root = this.lightship?.root;
+    if (!root) return;
+    this.lean = Math.max(0, this.lean - dt / 1.6);
+    const move = new THREE.Vector3();
+    if (this.keys.has('up')) move.z -= 1;
+    if (this.keys.has('down')) move.z += 1;
+    if (this.keys.has('left')) move.x -= 1;
+    if (this.keys.has('right')) move.x += 1;
+    // (the keys go by the screen; her frame turns with her)
+    const yaw = new THREE.Vector3(1, 0, 0).applyQuaternion(root.quaternion);
+    move.applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.atan2(-yaw.z, yaw.x));
+    const k = root.scale.x * LIGHTSHIP_SCALE;
+    root.updateMatrixWorld(true);
+    const seat = root.worldToLocal(this.praam.seat(new THREE.Vector3()));
+    const went = this.deck.update(dt, new THREE.Vector2(move.x, move.z), PACE / k, seat) * k;
+    this.speed += (went / Math.max(dt, 1e-3) - this.speed) * (1 - Math.exp(-dt * 8));
+    this.stride += went;
+    if (this.stride - this.lastPrint > 0.42) {
+      this.lastPrint = this.stride;
+      this.hooks.deckStep?.();
+    }
+  }
+
   /** In the praam: you go where it goes, sat on its thwart; and out onto the sand when it's back. */
   private afloatFor(dt: number) {
     if (this.boardOnArrival && !this.goal) this.row();
     const was = this.praam.afloat;
     this.praam.update(dt, this.level, this.time, this.outside.wind);
     if (was && !this.praam.afloat) this.land();
-    if (!this.praam.afloat) return;
+    if (!this.praam.afloat || this.deck.aboard) return;
     const seat = this.praam.seat(new THREE.Vector3());
     this.pos.set(seat.x, 0, seat.z);
     this.heading = this.praam.facing;
@@ -1711,7 +1798,29 @@ export class LowWater {
     const w = this.walker;
     const ground = Math.max(this.level, bankAt(this.pos.x, this.pos.z));
     w.position.set(this.pos.x, this.sitting ? Math.max(0, bankAt(BENCH.x, BENCH.y)) - 0.36 : ground, this.pos.z);
-    w.rotation.y = this.heading;
+    w.rotation.set(0, this.heading, 0);
+    if (this.deck.aboard) {
+      // (where you are aboard is put in after she's moved, in frame())
+      const rung = this.deck.rung;
+      if (rung >= 0) {
+        // on the ladder: a hand up and a foot up, the other side next rung
+        const s = Math.floor(rung) % 2 ? 1 : -1;
+        const r = Math.sin((rung % 1) * Math.PI);
+        this.arms[0].rotation.x = -2.6 + s * 0.5 * r;
+        this.arms[1].rotation.x = -2.6 - s * 0.5 * r;
+        this.legs[0].rotation.x = -0.5 - s * 0.4 * r;
+        this.legs[1].rotation.x = -0.5 + s * 0.4 * r;
+      } else {
+        const swing = Math.sin(this.stride * 7.4) * Math.min(1, this.speed / PACE) * 0.5;
+        this.legs[0].rotation.x = swing;
+        this.legs[1].rotation.x = -swing;
+        this.arms[0].rotation.x = -swing * 0.8;
+        this.arms[1].rotation.x = swing * 0.8;
+      }
+      for (const a of this.arms) a.rotation.z = 0;
+      this.scarfTail.rotation.x = 0.15 + this.outside.wind * 0.9 + this.speed * 0.15;
+      return;
+    }
     if (this.praam.afloat) {
       // on the thwart, facing the stern, pulling
       const seat = this.praam.seat(new THREE.Vector3());
@@ -1745,6 +1854,11 @@ export class LowWater {
     const at = new THREE.Vector2(this.pos.x, this.pos.z);
     if (this.writing) {
       this.card = null;
+      return;
+    }
+    if (this.deck.aboard) {
+      // (her card on deck by the ladder, where you come up and go down; nothing on the ladder)
+      this.card = this.deck.atLadder ? 'deck' : null;
       return;
     }
     if (this.praam.afloat) {
@@ -2076,9 +2190,20 @@ export class LowWater {
       this.baak.position.y = Math.max(0, bankAt(BAAK.x, BAAK.y)) - 0.02 - (1 - rise) * (BAAK_TALL + 0.2);
     }
     // (rowing up to her, she's bigger than she looked from the flat)
-    this.lightship?.loom(1 - THREE.MathUtils.smoothstep(new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(LIGHTSHIP), 5, 16));
+    const aboard = this.deck.aboard;
+    this.lightship?.loom(aboard ? 1 : 1 - THREE.MathUtils.smoothstep(new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(LIGHTSHIP), 5, 16));
     this.lightship?.place(this.level, far.z, SINK);
-    this.shipHaze.value = this.mirrorHaze.value * (this.praam.afloat ? THREE.MathUtils.smoothstep(new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(LIGHTSHIP), 8, 16) : 1);
+    this.shipHaze.value = aboard ? 0 : this.mirrorHaze.value * (this.praam.afloat ? THREE.MathUtils.smoothstep(new THREE.Vector2(this.pos.x, this.pos.z).distanceTo(LIGHTSHIP), 8, 16) : 1);
+    if (this.lightship) this.lightship.aboard = aboard;
+    // aboard, you're where she has you: on her deck, rolling with her
+    if (aboard && this.lightship) {
+      const root = this.lightship.root;
+      root.updateMatrixWorld(true);
+      const at = root.localToWorld(this.deck.where(new THREE.Vector3()));
+      this.walker.position.copy(at);
+      this.walker.quaternion.copy(root.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.deck.heading));
+      this.pos.set(at.x, 0, at.z);
+    }
     // the reflections: everything hung upside down under the water's surface
     const flip = new THREE.Matrix4().makeScale(1, -1, 1).premultiply(new THREE.Matrix4().makeTranslation(0, this.level * 2, 0));
     this.scene.updateMatrixWorld();
@@ -2087,7 +2212,8 @@ export class LowWater {
       // then the haze has them anyway)
       const near = m.src.position.z > far.z + SINK;
       m.src.visible = near;
-      m.copy.visible = near && !(m.src === this.lightship?.root && this.lightship.hullDown);
+      // (and aboard her, your own is behind her hull's)
+      m.copy.visible = near && !(m.src === this.lightship?.root && this.lightship.hullDown) && !(m.src === this.walker && aboard);
       if (m.parts) for (const [a, b] of m.parts) if (a !== m.src) (b.position.copy(a.position), b.quaternion.copy(a.quaternion), b.scale.copy(a.scale), (b.visible = a.visible));
       m.copy.matrix.multiplyMatrices(flip, m.src.matrixWorld);
       m.copy.updateMatrixWorld(true);

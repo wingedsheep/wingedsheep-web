@@ -285,6 +285,7 @@ SHIP_LENGTH = 15.0
 SHIP_BEAM = 4.4
 FREEBOARD = 1.3
 LANTERN_Z = 9.0  # the middle of the lantern's glass, over the waterline
+LADDER_X = -1.2  # where her ladder comes down, on the side you row up to
 
 
 def _ship_half(t: float) -> float:
@@ -321,12 +322,30 @@ def lightship():
     m.plank_line((SHIP_LENGTH / 2 - 0.2, 0.15, FREEBOARD + 0.3), (SHIP_LENGTH / 2 + 2.6, 0.15, -1.2), 0.09, 0.09, IRON)
     # the deckhouse aft, white, its windows dark, and a stovepipe
     hx = -SHIP_LENGTH / 2 + 3.4
-    m.box((3.6, 2.4, 1.3), (hx, 0, FREEBOARD + 0.5), SHIP_WHITE)
-    m.box((3.8, 2.6, 0.12), (hx, 0, FREEBOARD + 1.2), DECK)
+    # (tall enough to stand in, once you're aboard and she's as big as she is)
+    m.box((3.6, 2.4, 1.7), (hx, 0, FREEBOARD + 0.7), SHIP_WHITE)
+    m.box((3.8, 2.6, 0.12), (hx, 0, FREEBOARD + 1.6), DECK)
     for wx in (-1.1, 0.0, 1.1):
         for side in (-1, 1):
-            m.box((0.45, 0.05, 0.4), (hx + wx, side * 1.21, FREEBOARD + 0.65), GLASS)
-    m.cyl(0.12, 0.8, (hx + 1.2, 0.6, FREEBOARD + 1.2), IRON, segs=6)
+            m.box((0.45, 0.05, 0.4), (hx + wx, side * 1.21, FREEBOARD + 0.95), GLASS)
+    # its door, forward, onto the deck
+    m.box((0.05, 0.75, 1.3), (hx + 1.81, 0.4, FREEBOARD + 0.6), TAR)
+    m.cyl(0.12, 0.8, (hx + 1.2, 0.6, FREEBOARD + 1.6), IRON, segs=6)
+    # a rail round her waist, on stanchions, open where the ladder comes up on the near side
+    rail = FREEBOARD + 0.6
+    xs = [-SHIP_LENGTH / 2 + 1.2 + i * 0.9 for i in range(11)]
+    for side in (-1, 1):
+        pts = [(x, side * (_ship_half(x / (SHIP_LENGTH / 2)) - 0.08)) for x in xs]
+        for i, (x, y) in enumerate(pts):
+            m.box((0.07, 0.07, 0.6), (x, y, FREEBOARD + 0.3), SHIP_WHITE)
+            if i and not (side < 0 and pts[i - 1][0] < LADDER_X < x):
+                m.plank_line((pts[i - 1][0], pts[i - 1][1], rail), (x, y, rail), 0.07, 0.07, SHIP_WHITE)
+    # and the ladder down her side there: rope sides and wooden rungs, let down to the water
+    ly = -_ship_half(LADDER_X / (SHIP_LENGTH / 2)) - 0.05
+    for dx in (-0.25, 0.25):
+        m.plank_line((LADDER_X + dx, ly, FREEBOARD + 0.05), (LADDER_X + dx, ly - 0.02, 0.05), 0.05, 0.05, TAR)
+    for k in range(5):
+        m.box((0.62, 0.1, 0.06), (LADDER_X, ly - 0.04, 0.25 + k * 0.26), SAIL)
     # two ventilators, cowls turned aft
     for vx, vy in ((1.9, 1.1), (1.9, -1.1)):
         m.cyl(0.12, 0.7, (vx, vy, FREEBOARD - 0.1), SHIP_WHITE, segs=6)

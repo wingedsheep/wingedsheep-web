@@ -38,6 +38,12 @@ export class Lightship {
   private near = 0;
   /** Where her fog signal's count was last frame (s into its period), or -1 when it's not sounding. */
   private horn = -1;
+  /** Her roll last frame, and which way it was going, for when she reaches the end of one. */
+  private rolled = 0;
+  private rolling = 0;
+  /** Aboard: her lamp's flash lights the deck around you (`light`), and fills the picture. */
+  aboard = false;
+  light?: THREE.PointLight;
 
   /** `lamps` are her lamp and its halo, and their reflections: lit together. */
   constructor(
@@ -54,13 +60,23 @@ export class Lightship {
     this.root.rotation.set(0, HEADING + SWING * Math.cos(tide * Math.PI * 2), 0);
     this.root.rotateX(roll);
     this.root.rotateZ(pitch);
+    const way = Math.sign(roll - this.rolled);
+    this.turned = way !== 0 && way !== this.rolling && this.rolling !== 0;
+    if (way) this.rolling = way;
+    this.rolled = roll;
     this.bob = Math.sin((t / 7.3) * Math.PI * 2 + 1.1) * (0.03 + wind * 0.05);
     const s = t % PERIOD;
     const on = FLASHES.some((f) => s >= f && s < f + FLASH_ON);
     // (and not while she's still under the horizon: the halo would show on the water)
     const up = this.lampHeight - this.sunk > 0.3;
     for (const l of this.lamps) l.visible = on && up;
+    if (this.light) this.light.intensity = on && this.aboard ? 9 : 0;
+    // (and from her deck, the halo's the size of the sky)
+    this.lamps[1].scale.setScalar(this.aboard ? 7 : 2.6);
   }
+
+  /** She's just come to the end of a roll (this frame), and is going back the other way: where a hull creaks. */
+  turned = false;
 
   /**
    * Her horn, while the fog's thick enough: `blast` is given how near she is (1 alongside … 0 out
