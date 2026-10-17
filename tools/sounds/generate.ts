@@ -268,6 +268,8 @@ export const SOUNDS: Sfx[] = [
   // the lightship's bell, struck by whoever has the watch every half hour (one stroke; the pairs are played in code)
   { name: 'lowwater-shipbell', seconds: 3, prompt: 'One single strike of a small polished brass ship\'s bell, struck once by its clapper pulled on a short lanyard, heard from across calm open water at a little distance: a bright clear ding with a long shimmering fade, quiet evening, no waves, no wind, no gulls, no voices, no music' },
   { name: 'lowwater-pencil', seconds: 6, prompt: 'A sharp graphite pencil writing quickly in small joined handwriting on a single sheet of thick paper on a wooden desk, very close up: continuous light dry scratching strokes and tiny ticks as the point lifts and lands, steady, a very quiet room, no voices, no paper rustling, no music' },
+  // the bird hide's blackout curtain, pushed aside going in or out of the dark room (one pass; played both ways)
+  { name: 'lowwater-curtain', seconds: 2, prompt: 'A heavy old wool blackout curtain hanging over a doorway in a small wooden hut, pushed aside by one person walking through it: one soft heavy swish and drag of thick cloth, its curtain rings sliding a little along a wooden pole, then the folds falling back into place with a dull muffled flop, close up, very quiet small room, no footsteps, no door, no voices, no music' },
 ];
 
 const ROOT = process.cwd(); // just runs recipes from the repo root

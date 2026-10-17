@@ -127,8 +127,8 @@ const SFX = {
   costumes: { cackle: 2, vampire: 2 },
   // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
   graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
-  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell
-  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1, 'lowwater-shipbell': 1 },
+  // out on Low Water (src/island/lowwater/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain
+  lowwater: { 'lowwater-bell': 2, 'lowwater-seal': 1, 'lowwater-slip': 1, 'lowwater-lead': 1, 'lowwater-curlew': 2, 'lowwater-horn': 1, 'lowwater-oar': 1, 'lowwater-creak': 1, 'lowwater-geul': 1, 'lowwater-knots': 1, 'lowwater-pencil': 1, 'lowwater-shipbell': 1, 'lowwater-curtain': 1 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
 };
 type SfxSet = keyof typeof SFX;
@@ -139,7 +139,7 @@ type SfxSet = keyof typeof SFX;
 const LEVEL: Record<string, number> = {
   gull: 1.1, chirp: 0.3, hoot: 0.45, quack: 0.45, honk: 0.4, chatter: 0.3, blow: 0.6, breach: 0.75, roar: 0.8,
   purr: 0.55, mew: 0.4, tap: 0.3, 'tap-off': 0.3, lap: 0.3, sip: 0.4, grind: 0.35, brew: 0.3, crunch: 0.35, thunder: 0.9, boom: 0.7, firework: 0.55,
-  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15, 'lowwater-shipbell': 0.4,
+  'lowwater-bell': 0.55, 'lowwater-seal': 0.4, 'lowwater-slip': 0.45, 'lowwater-lead': 0.4, 'lowwater-curlew': 0.45, 'lowwater-horn': 0.6, 'lowwater-oar': 0.35, 'lowwater-creak': 0.4, 'lowwater-geul': 0.5, 'lowwater-knots': 0.5, 'lowwater-pencil': 0.15, 'lowwater-shipbell': 0.4, 'lowwater-curtain': 0.3,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
   dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
@@ -216,6 +216,12 @@ export class Sound {
   private atFlat = false;
   /** Shallow water and air out on the flat. */
   private flat?: { gain: GainNode; filter: BiquadFilterNode };
+  /**
+   * Everything the flat sounds goes out through this, so the hide's walls can come between: in
+   * its dark room, all of it's dull and quiet, and comes from one place (`walled`).
+   */
+  private flatOut?: { gain: GainNode; filter: BiquadFilterNode };
+  private walled = false;
   /** The geul out on the flat, running (geul()). */
   private geulRun?: { gain: GainNode; side: StereoPannerNode };
   /** The knots over the far flat, flying (knots()). */
@@ -1311,13 +1317,20 @@ export class Sound {
   /**
    * Out on the flat (src/island/lowwater/): the island's sea and fire fall away, and all that's
    * left is a hush of air over very shallow water, a little brighter and louder in a wind. The
-   * weather still comes along.
+   * weather still comes along. On the page (`inside` 'page') there's no water at all; in the
+   * hide's dark room ('room') the flat's still all there, through a wall: dull, quiet, and every
+   * sound of it from behind you, where the hole is.
    */
-  lowWater(on: boolean, wind = 0, hushed = false) {
+  lowWater(on: boolean, wind = 0, inside: '' | 'page' | 'room' = '') {
     this.atFlat = on;
     if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
     const ctx = this.ctx;
     if (on) this.load('lowwater');
+    const out = this.flatBus();
+    this.walled = on && inside === 'room';
+    out.gain.gain.setTargetAtTime(this.walled ? 0.45 : 1, ctx.currentTime, 0.15);
+    out.filter.frequency.setTargetAtTime(this.walled ? 380 : 20000, ctx.currentTime, 0.15);
+    const hushed = inside === 'page';
     if (!this.flat) {
       const src = ctx.createBufferSource();
       src.buffer = this.noise;
@@ -1340,7 +1353,7 @@ export class Sound {
       lfo.start();
       const gain = ctx.createGain();
       gain.gain.value = 0;
-      src.connect(low).connect(filter).connect(swell).connect(gain).connect(this.master);
+      src.connect(low).connect(filter).connect(swell).connect(gain).connect(out.gain);
       src.start();
       this.flat = { gain, filter };
     }
@@ -1350,6 +1363,30 @@ export class Sound {
     if (!on || hushed) this.geulRun?.gain.gain.setTargetAtTime(0, t, 0.3);
     if (!on || hushed) this.knotsUp?.gain.gain.setTargetAtTime(0, t, 0.3);
     this.flat.filter.frequency.setTargetAtTime(480 + wind * 900, t, 1);
+  }
+
+  /** Where all the flat's sounds go, on their way out (made once). */
+  private flatBus() {
+    if (this.flatOut) return this.flatOut;
+    const ctx = this.ctx!;
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 20000;
+    filter.Q.value = 0.5;
+    gain.connect(filter).connect(this.master!);
+    return (this.flatOut = { gain, filter });
+  }
+
+  /** In the hide, everything out there comes in at the one hole, behind you: hardly to one side at all. */
+  private side(pan: number) {
+    return this.walled ? pan * 0.15 : pan;
+  }
+
+  /** The hide's curtain, pushed aside going into its dark room or out of it: heavy cloth, close by, at the door on your right. */
+  curtain() {
+    if (!this.enabled || !this.ctx) return;
+    this.play('lowwater-curtain', 1, { air: 9000, pan: 0.35 });
   }
 
   /**
@@ -1417,13 +1454,13 @@ export class Sound {
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
       const side = this.ctx.createStereoPanner();
-      gain.connect(side).connect(this.master);
+      gain.connect(side).connect(this.flatBus().gain);
       this.bed('lowwater-geul', gain, LEVEL['lowwater-geul']);
       g = this.geulRun = { gain, side };
     }
     const t = this.ctx.currentTime;
     g.gain.gain.setTargetAtTime(this.enabled && this.atFlat ? level : 0, t, 0.4);
-    g.side.pan.setTargetAtTime(pan, t, 0.4);
+    g.side.pan.setTargetAtTime(this.side(pan), t, 0.4);
   }
 
   /**
@@ -1438,13 +1475,13 @@ export class Sound {
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
       const side = this.ctx.createStereoPanner();
-      gain.connect(side).connect(this.master);
+      gain.connect(side).connect(this.flatBus().gain);
       this.bed('lowwater-knots', gain, LEVEL['lowwater-knots']);
       k = this.knotsUp = { gain, side };
     }
     const t = this.ctx.currentTime;
     k.gain.gain.setTargetAtTime(this.enabled && this.atFlat ? level : 0, t, 0.8);
-    k.side.pan.setTargetAtTime(pan, t, 0.8);
+    k.side.pan.setTargetAtTime(this.side(pan), t, 0.8);
   }
 
   /** The stones' sour chord, on a phone: its beat, felt faintly for a second or so. */
@@ -1467,11 +1504,11 @@ export class Sound {
     const ctx = this.ctx;
     const t = ctx.currentTime;
     const side = ctx.createStereoPanner();
-    side.pan.value = Math.max(-1, Math.min(1, pan));
+    side.pan.value = Math.max(-1, Math.min(1, this.side(pan)));
     const air = ctx.createBiquadFilter();
     air.type = 'lowpass';
     air.frequency.value = 1800 + near * near * 9000;
-    air.connect(side).connect(this.master);
+    air.connect(side).connect(this.flatBus().gain);
     for (const [k, level, ring] of [[0.5, 0.5, 3.5], [1, 1, 2.2], [1.19, 0.45, 1.6], [1.5, 0.3, 1.2], [2, 0.35, 1], [2.66, 0.12, 0.6]] as const) {
       const osc = ctx.createOscillator();
       osc.frequency.value = 466 * k;
@@ -2839,12 +2876,14 @@ export class Sound {
       air.frequency.value = opts.air;
       out = src.connect(air);
     }
+    // (the flat's sounds go out through its bus, so the hide's walls can come between; the curtain's in there with you)
+    const flat = name.startsWith('lowwater-') && name !== 'lowwater-curtain' && this.flatOut;
     if (opts.pan) {
       const pan = ctx.createStereoPanner();
-      pan.pan.value = Math.max(-1, Math.min(1, opts.pan));
+      pan.pan.value = Math.max(-1, Math.min(1, flat ? this.side(opts.pan) : opts.pan));
       out = out.connect(pan);
     }
-    out.connect(gain).connect(this.master);
+    out.connect(gain).connect(flat ? flat.gain : this.master);
     src.start(ctx.currentTime + (opts.delay ?? 0));
     return true;
   }

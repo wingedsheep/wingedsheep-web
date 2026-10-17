@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 2 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -27,9 +27,9 @@ shadow where you block the light.
    Go in; the room, black at first, the live flat coming up on the back wall upside down as
    your eyes adjust; the picture on the curtain and on your back, your shadow in it; the card;
    Go out. See Done.
-2. **Its sound**: inside, the flat comes in faint through the hole (its wash low-passed and
-   quiet, her bell and horn muffled, from the north); the curtain's heavy swish going in and
-   out; the boards underfoot (the deck's step for now). Nothing else: a dark room is quiet.
+2. **Its sound** (done): inside, everything the flat sounds comes in through a wall, dull and
+   quiet, and from one place, the hole behind you; the curtain's heavy swish going in and out;
+   the boards underfoot (the deck's step). Nothing else: a dark room is quiet. See Done.
 3. **The hole**: a slide over it you can open wider or close down: wide, bright and soft;
    small, sharp and dim. The trade every eye and every lens makes, done by hand. Maybe a line
    about it on the card, if it says something about me (I think it does: how much I let in
@@ -96,6 +96,25 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The dark room, step 2: its sound** (project: The dark room): the flat now goes out through
+  one bus of its own (`flatBus()` in src/island/sound.ts: a gain and a low-pass between the
+  flat's sounds and the master), so the hide's walls can come between. In the room
+  (`lowWater(on, wind, 'room')`, from `runRoom` in src/island/lowwater.ts) the bus is turned down
+  to 0.45 and shut to 380 Hz, and every pan of the flat's is squeezed to 15% (`side()`), because
+  through a pea-sized hole all of it comes in at one place, behind you: the wash (now with the
+  real wind, as outside), the geul running past the hide's bank (it used to cut out inside), the
+  knots, the buoy's bell, her bell and horn, the curlew, the seal. It's the picture's rule said
+  in sound: the room only knows the flat by what comes through the hole. The page is still
+  `'page'` (no water at all). Going in and coming out, the curtain: `lowwater-curtain`, a heavy
+  wool blackout curtain pushed aside (ElevenLabs, 1.5 s, −20 LUFS, a broadband swish in two
+  lumps), played at the door on your right (`curtain()`, at 0.3), when the iris starts to shut
+  either way. Steps on the boards stay the deck's. No words change. Checked by tapping the
+  master (loop-runs/hide-sound.mjs): in a fog at 19:00 a bell struck by hand has its spectral
+  centroid fall from 418 Hz outside to 227 Hz inside (1268 → 355 on the phone run), the bus
+  reads walled at 380 Hz inside and opens again at the door, the curtain plays both ways, no
+  console errors. Nothing visual changed; shots of the room and the door in
+  loop-runs/lowwater-logs/shots/2026-10-17-hide-sound/ (desk/, phone/).
 
 - **The dark room, step 1: the hide and the picture** ("the looking would be more picture";
   project: The dark room): a bird hide of tarred planks on short legs, on a bank of its own east
@@ -870,6 +889,11 @@ lamp close up), not explained.
 
 ## Ideas
 
+- **The hole whistles in a wind**: in a real gale a small hole in a plank wall can sing (an
+  edge tone, a thin note that wavers with the gusts), from behind you in the hide. Only in a
+  strong wind, very quiet, WebAudio; it would be the room's one sound of its own. Maybe with
+  step 3 (the slide changes the hole, so it would change the note).
+
 - **Tidal rhythmites**: every slack water leaves a skin of mud, thick at springs, thin at neaps,
   so a cut bank is a calendar (rock from 620 million years ago, the Elatina in Australia, says a
   year then had ~13 months of ~400 days). "The bank doesn't remember any of those tides; it's made
@@ -927,7 +951,10 @@ lamp close up), not explained.
   shadow is the figure's front-on shape whichever way you face, and its arms don't swing. The
   room's side walls are seen edge on, so it's a wall and a floor in the dark. Outside, at
   normal zoom, the hide's roof is a broad dark slab (reads as a hut; heavy for the flat). The
-  room has no sound of its own yet (step 2), and it's not in the walk script. The hut outside
+  room's not in the walk script. Its sound has never been listened to by a person: the walls'
+  0.45 and 380 Hz are a guess, and the curtain (`lowwater-curtain`) was only checked by
+  spectrogram. Any sound of the flat's that comes in before the bus exists (sound switched on
+  while already in the room) goes straight out, unwalled, until the next frame. The hut outside
   is 4.8 × 3.6 m, the room inside 4.6 × 3.4 (its walls).
 
 - The plate is a few texels at normal zoom (a pale square with a red top on the post); it only

@@ -340,7 +340,7 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0.6;
     if (west >= 1 && !this.crossing) (this.crossing = 'page'), (this.crossDark = false);
     // (and at the hide's door, in, through the dark)
-    if (world.goingIn && !this.crossing) (this.crossing = 'room'), (this.crossDark = true);
+    if (world.goingIn && !this.crossing) (this.crossing = 'room'), (this.crossDark = true), this.ctx.sound.curtain();
     u.uVignette.value = 0.45 + world.lean * 0.3;
     u.uHeat.value = 0;
     this.ctx.sound.lowWater(true, this.ctx.weather.windiness);
@@ -360,10 +360,10 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0.6;
     u.uVignette.value = 0.55;
     u.uHeat.value = 0;
-    // (no wind in here, and the water's a wall away)
-    this.ctx.sound.lowWater(true, 0, true);
+    // (the flat's all still there, a wall away: dull, quiet, and in at the hole behind you)
+    this.ctx.sound.lowWater(true, this.ctx.weather.windiness, 'room');
     this.showRoomCard(room);
-    if (room.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = true);
+    if (room.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = true), this.ctx.sound.curtain();
   }
 
   /** The flat, going on: its weather, its clock, its sky, and the moon. */
@@ -394,7 +394,7 @@ export class LowWaterRoom implements RoomInput {
     u.uTone.value = 0;
     u.uVignette.value = 0.12;
     u.uHeat.value = 0;
-    this.ctx.sound.lowWater(true, 0, true);
+    this.ctx.sound.lowWater(true, 0, 'page');
     this.showPageCard(page);
     if (page.leaving && !this.crossing) (this.crossing = 'flat'), (this.crossDark = false);
   }
