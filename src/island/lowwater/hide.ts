@@ -43,20 +43,21 @@ export function makeHide(m: { tar: THREE.Material; plank: THREE.Material; roof: 
     box(0.06, WALL / rows, DEEP, mat, -WIDE / 2 - out, y, 0);
     box(0.06, WALL / rows, DEEP, mat, WIDE / 2 + out, y, 0);
   }
-  // the roof: one slope, high over the slot side, low over the door, a little overhang all round
+  // the roof: one slope, high over the door, falling away north to the slot side, a little
+  // overhang all round (that way round it's seen nearly edge on from the flat, not as a slab)
   const roof = box(WIDE + 0.3, 0.08, DEEP + 0.5, m.roof, 0, 0, 0);
-  roof.rotation.x = 0.2;
+  roof.rotation.x = -0.2;
   roof.position.set(0, LEGS + WALL + 0.36, 0.05);
-  // (and a pale board along its low edge, where the light catches)
-  const fascia = box(WIDE + 0.3, 0.1, 0.04, m.trim, 0, 0, 0);
-  fascia.rotation.x = 0.2;
-  fascia.position.set(0, LEGS + WALL + 0.36 - Math.sin(0.2) * (DEEP / 2 + 0.27), 0.05 + Math.cos(0.2) * (DEEP / 2 + 0.27));
+  // (and a pale board along its high edge, over the door, where the light catches)
+  const fascia = box(WIDE + 0.3, 0.12, 0.04, m.trim, 0, 0, 0);
+  fascia.rotation.x = -0.2;
+  fascia.position.set(0, LEGS + WALL + 0.36 + Math.sin(0.2) * (DEEP / 2 + 0.27), 0.05 + Math.cos(0.2) * (DEEP / 2 + 0.27));
   // (and the gables under it, so there's no gap: the shape's x runs north as it's turned)
   const gable = new THREE.Shape();
   gable.moveTo(-DEEP / 2, 0);
   gable.lineTo(DEEP / 2, 0);
-  gable.lineTo(DEEP / 2, 0.75);
-  gable.lineTo(-DEEP / 2, 0.04);
+  gable.lineTo(DEEP / 2, 0.04);
+  gable.lineTo(-DEEP / 2, 0.75);
   gable.closePath();
   const gableGeo = new THREE.ExtrudeGeometry(gable, { depth: 0.06, bevelEnabled: false });
   for (const x of [-1, 1]) {
@@ -65,6 +66,8 @@ export function makeHide(m: { tar: THREE.Material; plank: THREE.Material; roof: 
     side.position.set(x * (WIDE / 2) - 0.03, LEGS + 0.05 + WALL, 0);
     g.add(side);
   }
+  // (and the front's top board, under the high edge)
+  box(WIDE, 0.75, 0.06, m.tar, 0, LEGS + 0.05 + WALL + 0.375, DEEP / 2);
   // the door, at the west end of the south side, with its latch, and a plank to step up on
   const doorX = -WIDE / 2 + 0.55;
   box(0.72, 1.72, 0.04, m.door, doorX, LEGS + 0.05 + 0.86, DEEP / 2 + 0.04);

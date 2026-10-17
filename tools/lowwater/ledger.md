@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -98,6 +98,23 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 10** (walked the whole flat at 19:00, in fog at 20:00 and on a phone at 23:30
+  with loop-runs/walk-lowwater.mjs, onto the page and a few steps; then the dark room on its own:
+  in, eyes round, your shadow and out at desktop and phone size (hide-shots.mjs), the long dark
+  and the blind middle (night-eyes.mjs), and each of the slide's holes on a phone
+  (slide-shots.mjs); shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-10/: dusk/, fog/,
+  phone/, hide/ (phone/, night/, slide/, sheet-*.png), after/). The flat, the lightship, the page
+  and the hide still read as one place; no console errors. Fixed: the hide was the heaviest
+  thing on the flat, its roof sloping down towards you so that from the geul and the wreck you
+  saw its whole top, a broad dark slab bigger than its walls. The roof now falls the other way,
+  high over the door and down to the slot side (`makeHide` in src/island/lowwater/hide.ts, with
+  a board filling the front under its high edge), so it's seen nearly edge on and the hut reads
+  as tarred planks under a roof line; the room inside is unchanged. The walk script now goes
+  into the hide, waits for your eyes, and comes out (the old "not in the walk script" issue).
+  Words: the hide's four cards read aloud fine; nothing changed. Nothing cut: the hide is the
+  one place that holds the question of whether anyone's in here, and its four steps each say
+  a different true thing.
 
 - **The dark room, step 4: a long while in the dark** (project: The dark room; the project's
   done): stay in the hide and after 75 s your eyes start going over to their night cells, all the
@@ -1009,9 +1026,9 @@ lamp close up), not explained.
   have them; it's honest to the flat as you see it. Its moon and other lanterns are placed for
   the screen's shape, so on a phone (picture wider than the screen) they sit a little off. Your
   shadow is the figure's front-on shape whichever way you face, and its arms don't swing. The
-  room's side walls are seen edge on, so it's a wall and a floor in the dark. Outside, at
-  normal zoom, the hide's roof is a broad dark slab (reads as a hut; heavy for the flat). The
-  room's not in the walk script. Its sound has never been listened to by a person: the walls'
+  room's side walls are seen edge on, so it's a wall and a floor in the dark. Outside, its
+  roof now falls away from you (since polish 10), so the hut's lighter; in a fog from the wreck
+  it goes to a pale box like everything far. Its sound has never been listened to by a person: the walls'
   0.45 and 380 Hz are a guess, and the curtain (`lowwater-curtain`) was only checked by
   spectrogram. Any sound of the flat's that comes in before the bus exists (sound switched on
   while already in the room) goes straight out, unwalled, until the next frame. The hut outside
