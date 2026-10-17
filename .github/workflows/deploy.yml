@@ -83,6 +83,11 @@ jobs:
             echo "IMAGE_REPO=${{ needs.build.outputs.image_repo }}" > .env
             echo "IMAGE_TAG=${{ github.sha }}" >> .env
             echo "APP_DOMAIN=${{ vars.APP_DOMAIN || 'wingedsheep.com' }}" >> .env
+            # every deploy leaves a ~500MB SHA-tagged image that prune -f never touches, so drop
+            # this site's old ones (never the running one) before pulling; the server is shared
+            keep=$(docker inspect --format '{{.Image}}' "$(docker compose ps -q web)" 2>/dev/null || true)
+            docker images -q --no-trunc "${{ needs.build.outputs.image_repo }}/site" | sort -u | grep -vxF "${keep:-none}" | xargs -r docker rmi -f || true
+            df -h / | tail -1
             docker compose pull
             docker compose up -d --remove-orphans
             running=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q web)")
