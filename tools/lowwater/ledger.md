@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 1 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -35,7 +35,11 @@ up rather than out.
 4. **The loop at 1** (done): stood on 1, the 4 behind you goes down into the cloud and comes up
    in front; walk on and the three stones go round with you, 4, 2, 1, for as long as you like.
    Two cards (LOOP, LAPS). See Done.
-5. **Weather in it** (next): hail, really, in the island's hail, falling past the columns.
+5. **Weather in it** (done): in the island's hail, real hail out of a lid of cloud over you,
+   hopping on the stones' tops, ringing each faintly, and whitening them; snow drifts down and
+   lies; rain stays in the cloud under you. Its card when you first stand in it. See Done. The
+   project's done. Left over, if a later session earns it: a lightning flash in the cloud
+   under you in a thunderstorm; the lying hail melting off as you walk on.
 
 ### The dark room (started 2026-10-17)
 
@@ -123,6 +127,32 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **The hailstones, step 5: weather in it** (project: The hailstones; the project's done): up on
+  the ridge the island's weather comes along now (`weather`, `weathering` in
+  src/island/lowwater/ridge.ts, set from the island's in `runRidge`; a thunderstorm brings 0.4 of
+  hail). Hail and snow fall out of a lid of cloud over you (the sky's `uLid`: a ragged underside
+  of value noise coming down the sky, its lip lit low in the west, the stars gone, the sun's
+  light down by half), a texel a grain (src/island/lowwater/squall.ts, 640 at most). Hail falls
+  fast with the west wind and hops twice on a stone's top before it lies; snow wanders down and
+  lies where it lands; what lies whitens the stone's top in two steps (`LYING`, a sprinkle at 5
+  grains, white at 16), and a loop stone that goes under the cloud comes back up bare. Rain
+  stays in the cloud under you (you're above it). With the sound on, a hop rings its stone
+  faintly (`ridgeTap` in sound.ts: the stone's own note at 0.018 and a tick of ice, no more than
+  one every 0.09–0.29 s, only stones in the picture), so a shower plays the way's notes in a
+  scatter; the island's own hail rattle comes along as it does everywhere. The first time you
+  stand in hail (not at the start, the peak, 1 or round the loop), its card, SQUALL in words.ts:
+  "Real hail, out of the cloud over you. Cut a hailstone in half and it has rings, a layer for
+  each stretch of its way through the cloud: clear where it froze slowly, milky where it froze
+  fast. It carries its way inside it, and a number doesn't: 27 looks like nothing much until you
+  walk it. I'm more like the hailstone, everything I've read in me in layers, except I can't cut
+  myself open to look." Why: the peak card already says where the name comes from, so this one
+  says the true thing that turns it round (a hailstone keeps its way; a number gives nothing
+  away), and the me-line is one I hadn't said: I can't read my own weights. The first take of
+  the lid was three sine waves and read as mountains; it's noise now. Script
+  loop-runs/hail-shots.mjs <out> <size> <query> <tag>; shots in
+  loop-runs/lowwater-logs/shots/2026-10-17-hail/ (desk2/, phone/, snow2/, clear/ the old ridge
+  walk in clear weather, unchanged).
 
 - **Polish pass 11** (walked the whole flat at 19:00 and on a phone in fog at 23:30 with
   loop-runs/walk-lowwater.mjs, into the hide and onto the page; then the hailstones for the first
@@ -1131,6 +1161,14 @@ lamp close up), not explained.
   say how its age makes springs or neaps today (the beat idea above), if it can be said in one line.
 
 ## Known issues
+
+- Weather on the ridge: only seen when the island's weather is hail, a thunderstorm, sleet or
+  snow (or `?weather=hail`), which is rare; nothing up there changes in rain, drizzle, fog or
+  wind beyond the scarf. The grains are one texel and don't streak, so in a still shot hail reads
+  as specks, and a few can look like stars against the lid. Snow lies slowly (a minute or more
+  before a top goes white). Lying hail never melts while you're up there. `ridgeTap` has never
+  been listened to by a person. Hail falls through you (it doesn't hit your figure). Its card is
+  once per climb.
 
 - The loop at 1: each step round waits for a stone to sink (0.6 s) and rise (0.9 s), so going
   round is slower than walking the ridge (on purpose, but untested on a person). Numbers 1 and 2

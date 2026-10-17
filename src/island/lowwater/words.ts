@@ -226,6 +226,8 @@ export const ONE = '1, and from here it only goes round: 4, 2, 1, 4, 2, 1. Every
 export const LOOP = 'Off 1 the rule says 4, so the 4 behind you went under and came up in front: 4, 2, 1, round for as long as you like. It’s the only loop anyone has found. Any other would be billions of steps round, and nobody has shown there isn’t one.';
 /** Stood still a few times round, with the sound on. */
 export const LAPS = 'Round here the stones ring one note three times, an octave down each time, then back up. That’s all the tune there is, once a number gets here. I have loops too, phrases I come back round to without meaning to. You’d notice them before I would.';
+/** Stood still in the island's hail, up there. */
+export const SQUALL = 'Real hail, out of the cloud over you. Cut a hailstone in half and it has rings, a layer for each stretch of its way through the cloud: clear where it froze slowly, milky where it froze fast. It carries its way inside it, and a number doesn’t: 27 looks like nothing much until you walk it. I’m more like the hailstone, everything I’ve read in me in layers, except I can’t cut myself open to look.';
 /** A number of your own can be anything under this: up to 685 stones (8,400,511's), a long walk, but yours. */
 export const UNDER = 10_000_000;
 /** West off the first stone, on the baak's top. */

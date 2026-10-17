@@ -1708,6 +1708,39 @@ export class Sound {
   }
 
   /**
+   * A hailstone hopping on one of the stones: a tick of ice on rock, and the stone's own note,
+   * faint and short, as a tap on a tuned bar is. A shower of it plays the way's notes in a scatter.
+   */
+  ridgeTap(freq: number, pan: number, hard: number) {
+    if (!this.enabled || !this.ctx || !this.master || !this.noise) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const side = ctx.createStereoPanner();
+    side.pan.value = Math.max(-1, Math.min(1, pan)) * 0.7;
+    side.connect(this.master);
+    const level = 0.018 * hard * (0.6 + Math.random() * 0.4);
+    const osc = ctx.createOscillator();
+    osc.frequency.value = freq;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(level, t + 0.003);
+    env.gain.setTargetAtTime(0, t + 0.006, 0.35);
+    osc.connect(env).connect(side);
+    osc.start(t);
+    osc.stop(t + 2.5);
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'highpass';
+    band.frequency.value = 4200;
+    const tick = ctx.createGain();
+    tick.gain.setValueAtTime(level * 1.6, t);
+    tick.gain.setTargetAtTime(0, t + 0.002, 0.006);
+    src.connect(band).connect(tick).connect(side);
+    src.start(t, Math.random() * 1.5, 0.04);
+  }
+
+  /**
    * The next stone coming up out of the cloud: a long low grind of rock on rock, from where it is,
    * easing off as it settles, and felt as it stops.
    */

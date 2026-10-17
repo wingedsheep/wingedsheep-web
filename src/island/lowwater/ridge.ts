@@ -18,6 +18,7 @@
 import * as THREE from 'three';
 import { toon } from '../scene/toon';
 import { makeFigure, type Figure } from './figure';
+import { Squall } from './squall';
 
 const ELEVATION = THREE.MathUtils.degToRad(16);
 const DISTANCE = 120;
@@ -61,13 +62,19 @@ export function ringOf(n: number) {
 
 const STONES = ['#5d5f7c', '#666884', '#5a5873', '#636379'].map((c) => new THREE.Color(c));
 const CUT = new THREE.Color('#d6cbb4');
+/** Hail or snow lying on a stone's top: a sprinkle, then white (how many grains each takes). */
+const LYING = [new THREE.MeshBasicMaterial({ color: '#8d93b6' }), new THREE.MeshBasicMaterial({ color: '#d5dbec' })];
+const SPRINKLE = 5;
+const WHITE = 16;
+/** How hard it has to be hailing for its card (0..1). */
+const HAILING = 0.3;
 const CLOUDS = { lit: new THREE.Color('#c2a9ae'), pale: new THREE.Color('#9893b2'), mid: new THREE.Color('#7a7aa0'), deep: new THREE.Color('#5d6189') };
 
 const KEYS: Record<string, 'east' | 'west'> = {
   KeyD: 'east', ArrowRight: 'east', KeyW: 'east', ArrowUp: 'east', KeyA: 'west', ArrowLeft: 'west', KeyS: 'west', ArrowDown: 'west',
 };
 
-export type RidgeCard = 'hail' | 'tune' | 'peak' | 'one' | 'loop' | 'laps' | 'down';
+export type RidgeCard = 'hail' | 'tune' | 'squall' | 'peak' | 'one' | 'loop' | 'laps' | 'down';
 export type RidgePick = { stone: number } | 'down';
 
 /** A number's way to 1. */
@@ -115,11 +122,16 @@ function column(tall: number) {
 }
 
 interface Stone {
+  /** Which it is along the way, and its number. */
+  i: number;
   n: number;
   top: number;
   /** Made when it's first called up (a long walk is hundreds of them). */
   root?: THREE.Group;
   cut?: THREE.Mesh;
+  /** Hail or snow lying on its top, and how many grains of it. */
+  cap?: THREE.Mesh;
+  lying: number;
   /** Its number's width, in texels. */
   wide: number;
   /** 0 under the cloud … 1 up; −1 not yet called up. */
@@ -143,8 +155,17 @@ export class Ridge {
   onRise?: (pan: number) => void;
   /** A stone ringing its number: as it lands, loud; as you land on it again, softer; and the last, held. */
   onRing?: (freq: number, pan: number, loud: boolean, held: boolean) => void;
+  /** A hailstone hopping on a stone, which rings it, faintly (how hard: 1 the first hop, less after). */
+  onTap?: (freq: number, pan: number, hard: number) => void;
   /** Whether you can hear them (the site's sound on), so the card can speak of it. */
   rings = false;
+  /** The island's weather, as it reaches up here (0..1; the wind's from the west). Its rain stays in the cloud under you. */
+  weather = { hail: 0, snow: 0, wind: 0 };
+  private squall: Squall;
+  /** Its card: not yet, showing (while you stand), seen. */
+  private told = 0;
+  /** When a stone last rang to hail (so they come as a scatter, not a roar). */
+  private tapped = 0;
   /** How many have rung this walk. */
   private rung = 0;
   private wasOn = -1;
@@ -178,6 +199,7 @@ export class Ridge {
   private cloud: THREE.Mesh;
   private cloudU: Record<string, THREE.IUniform>;
   private skyU: Record<string, THREE.IUniform>;
+  private sun: THREE.DirectionalLight;
   private baak = new THREE.Group();
   private pickables: THREE.Object3D[] = [];
 
@@ -188,6 +210,8 @@ export class Ridge {
     const sun = new THREE.DirectionalLight('#ffbf92', 2.4);
     sun.position.set(-40, 12, 16);
     this.scene.add(sun, sun.target);
+    this.sun = sun;
+    this.squall = new Squall(this.scene);
     const skin = toon(new THREE.Color('#3a3348'), { own: true, bare: true });
     this.you = makeFigure({ coat: toon(new THREE.Color('#353352'), { own: true, bare: true }), boots: toon(new THREE.Color('#1b1a2a'), { own: true, bare: true }), scarf: toon(new THREE.Color('#efe2c6'), { own: true, bare: true }), skin });
     this.scene.add(this.you.root);
@@ -202,7 +226,7 @@ export class Ridge {
 
   /** The sky, behind everything: the flat's own bands, the warm one at the horizon broad on the left, and a few stars. */
   private makeSky() {
-    const uniforms = { uHorizon: { value: 0 }, uTexel: { value: 0.003 }, uAspect: { value: 1 }, uDrift: { value: 0 } };
+    const uniforms = { uHorizon: { value: 0 }, uTexel: { value: 0.003 }, uAspect: { value: 1 }, uDrift: { value: 0 }, uLid: { value: 0 } };
     const mat = new THREE.ShaderMaterial({
       uniforms,
       depthWrite: false,
@@ -219,8 +243,10 @@ export class Ridge {
         uniform float uTexel;
         uniform float uAspect;
         uniform float uDrift;
+        uniform float uLid; // a lid of cloud over you, the hail's or the snow's (0..1)
         varying vec2 vAt;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float vnoise(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(hash(vec2(i, 3.1)), hash(vec2(i + 1.0, 3.1)), f); }
         void main() {
           ivec2 p = ivec2(gl_FragCoord.xy);
           float d = (BAYER[(p.x & 3) + (p.y & 3) * 4] + 0.5) / 16.0;
@@ -241,7 +267,15 @@ export class Ridge {
           // a few stars, high up, where the sky's dark enough: fixed in the sky, so they don't walk with you
           vec2 cell = floor(vec2((x * uAspect + uDrift) / uTexel, a / uTexel));
           float s = hash(cell);
-          if (a > 0.26 && s > 0.9993) col = mix(col, vec3(0.78, 0.8, 0.95), 0.35 + 0.65 * step(0.99985, s));
+          if (a > 0.26 && s > 0.9993 && uLid < 0.2) col = mix(col, vec3(0.78, 0.8, 0.95), 0.35 + 0.65 * step(0.99985, s));
+          // under a lid of cloud: its ragged underside coming down the sky, a lip of it lit low in the west
+          float sx = x * uAspect + uDrift * 3.0;
+          float rag = (vnoise(sx * 5.0) - 0.5) * 0.09 + (vnoise(sx * 16.0 + 7.0) - 0.5) * 0.04 + (vnoise(sx * 45.0 + 3.0) - 0.5) * 0.015;
+          float edge = mix(0.8, 0.24, uLid) + rag;
+          float under = a + j * 2.0 - edge;
+          if (uLid > 0.05 && under > 0.0) col = mix(vec3(0.15, 0.15, 0.27), vec3(0.3, 0.24, 0.34), step(d * 0.6 + 0.3, warm));
+          if (uLid > 0.05 && under > 0.03 + rag * 0.4) col = vec3(0.105, 0.108, 0.205);
+          if (uLid > 0.05 && under > 0.13 + rag * 0.6) col = vec3(0.075, 0.078, 0.15);
           gl_FragColor = vec4(col, 1.0);
         }`,
     });
@@ -343,7 +377,7 @@ export class Ridge {
     const ours = new Set(hailstones(FROM));
     const at = this.numbers.findIndex((n) => ours.has(n));
     this.joined = this.from !== FROM && this.numbers.length - at > 20 ? this.numbers[at] : null;
-    this.stones = this.numbers.map((n, i) => ({ n, top: Math.log2(n) * RISE, wide: String(n).length * 4 - 1, up: -1, rang: -9, at: i, to: i }));
+    this.stones = this.numbers.map((n, i) => ({ i, n, top: Math.log2(n) * RISE, wide: String(n).length * 4 - 1, up: -1, rang: -9, at: i, to: i, lying: 0 }));
     this.makeBaak();
   }
 
@@ -359,6 +393,12 @@ export class Ridge {
     const cut = new THREE.Mesh(geometry, this.face);
     cut.position.set(0, s.top - 0.16, FACE);
     root.add(cut);
+    // (what lies on its top: a thin six-sided skin, hidden till something does)
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.97, R * 0.97, 0.05, 6).rotateY(Math.PI / 6), LYING[0]);
+    cap.position.y = s.top + 0.02;
+    cap.visible = false;
+    root.add(cap);
+    s.cap = cap;
     root.position.x = i * GAP;
     this.scene.add(root);
     this.pickables.push(body);
@@ -418,7 +458,9 @@ export class Ridge {
     this.rung = 0;
     // (so 27 rings as you step out onto it)
     this.wasOn = -1;
-    this.stones.forEach((s, i) => ((s.up = -1), (s.rang = -9), (s.at = s.to = i), s.root && ((s.root.visible = false), (s.root.position.x = i * GAP))));
+    this.stones.forEach((s, i) => ((s.up = -1), (s.rang = -9), (s.at = s.to = i), (s.lying = 0), s.root && ((s.root.visible = false), (s.root.position.x = i * GAP), (s.cap!.visible = false))));
+    this.squall.clear();
+    this.told = 0;
     this.call(0);
     this.stones[0].up = 1;
     this.pos.set(-0.5, this.stones[0].top, 0);
@@ -566,7 +608,8 @@ export class Ridge {
       // (round at the end, one that's due somewhere else goes down into the cloud first, and comes up there)
       if (s.to !== s.at) {
         s.up = Math.max(0, s.up - dt / SINKING);
-        if (s.up === 0) (s.at = s.to), (s.root!.position.x = s.at * GAP), this.onRise?.(this.panOf(s.at));
+        // (and what lay on it stays in the cloud)
+        if (s.up === 0) (s.at = s.to), (s.root!.position.x = s.at * GAP), (s.lying = 0), (s.cap!.visible = false), this.onRise?.(this.panOf(s.at));
         return;
       }
       if (s.up >= 1) return;
@@ -585,15 +628,21 @@ export class Ridge {
       if (on + 1 < this.stones.length) this.call(on + 1);
     }
     this.animate(dt);
+    this.weathering(dt);
     // (a number that's highest where it starts, a power of two, has no peak to come to)
     const peak = this.peak < 3 ? -9 : this.peak;
     const last = this.stones.length - 1;
     // (round the loop: its card for the first time round, and again when you stand)
     const round = on - last;
+    // (in hail, the first time you stand, its card; then the others as they'd come)
+    const hailing = this.weather.hail > HAILING;
+    if (this.told === 1 && this.stillFor === 0) this.told = 2;
+    if (this.told === 0 && hailing && this.stillFor > STILL && on > 2 && round <= 0 && on !== last && Math.abs(on - peak) > 2) this.told = 1;
     this.card =
       this.pos.x < -0.2 || this.downClicked ? 'down'
       : on === last ? 'one'
       : round > 0 ? (this.stillFor > STILL ? (this.rings && round > 6 ? 'laps' : 'loop') : round <= 3 ? 'loop' : null)
+      : this.told === 1 ? 'squall'
       : Math.abs(on - peak) <= 2 ? 'peak'
       : on <= 2 ? 'hail'
       : this.stillFor > STILL ? (peak >= 0 && on > peak ? 'peak' : this.rings && this.rung >= 6 ? 'tune' : 'hail')
@@ -645,6 +694,39 @@ export class Ridge {
     const i = Math.max(0, Math.round(x / GAP));
     if (this.firm(i)) return this.standing(i)!.top;
     return this.standing(this.wasOn)?.top ?? this.pos.y;
+  }
+
+  /** Hail and snow, out of the cloud over you, down past the stones; and the lid of it across the sky. */
+  private weathering(dt: number) {
+    const o = this.weather;
+    const lid = Math.min(1, o.hail * 1.2 + o.snow);
+    this.skyU.uLid.value = lid;
+    this.sun.intensity = 2.4 * (1 - lid * 0.45);
+    const h = this.seen / 2;
+    const w = h * this.aspect;
+    const t = this.target;
+    this.squall.update(
+      dt,
+      { hail: o.hail, snow: o.snow, wind: o.wind, left: t.x - w, right: t.x + w, top: t.y + h / Math.cos(ELEVATION) + 1, cloud: CLOUD },
+      (x, z) => {
+        if (Math.abs(z) > R * 0.8) return null;
+        const s = this.standing(Math.round(x / GAP));
+        if (!s?.root?.visible || s.up < 0.95 || s.to !== s.at || Math.abs(x - s.at * GAP) > R * 0.85) return null;
+        return { top: s.root.position.y + s.top, i: s.i };
+      },
+      (i, hard) => {
+        // (a stone rings to a hop now and then, faintly: a scatter of its way's notes)
+        const s = this.stones[i];
+        if (!this.rings || this.time - this.tapped < 0.09 + Math.random() * 0.2 || Math.abs(s.at * GAP - this.target.x) > w) return;
+        this.tapped = this.time;
+        this.onTap?.(ringOf(s.n), this.panOf(s.at), hard);
+      },
+      (i) => {
+        const s = this.stones[i];
+        s.lying++;
+        if (s.lying === SPRINKLE || s.lying === WHITE) (s.cap!.visible = true), (s.cap!.material = LYING[s.lying === WHITE ? 1 : 0]);
+      },
+    );
   }
 
   private animate(dt: number) {
