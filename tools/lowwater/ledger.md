@@ -4,7 +4,7 @@ The loop's memory. Each session reads this, does one thing, and updates it. Newe
 **Done**. Keep **Ideas** as a pool, not a queue: pick what fits the flat best now, and add new ideas
 freely, but strike ones that turn out wrong for the place (with a word on why).
 
-Additions since the last polish pass: 4 (a polish pass is due when this reaches 4)
+Additions since the last polish pass: 0 (a polish pass is due when this reaches 4)
 
 **Every session, just before committing:** `node tools/lowwater/log.mjs "Low Water: <your commit title>"`
 writes the lightship's log (src/island/lowwater/log.json) from git, with your watch's line last.
@@ -43,6 +43,21 @@ lamp close up), not explained.
    looks north, so that one's a big change).
 
 ## Done
+
+- **Polish pass 5** (walked the whole flat clear at 20:00, in fog, at 02:00 and on a phone with
+  loop-runs/walk-lowwater.mjs, rowed out and walked her deck with loop-runs/aboard-shots.mjs, and
+  re-shot the moon with moon-shots.mjs; shots in loop-runs/lowwater-logs/shots/2026-10-17-polish-5/:
+  clear/, fog/, night/, phone/, aboard/, after/ (a fake full moon at 02:00), after-phone/, and a
+  sheet-*.png for each). Fixed: the moon's road was the loudest thing in every picture while the
+  moon was up, a ladder of white bars right down to your feet (on a phone, the whole height of
+  the screen); near you the water gives back less of the sky, so its bright glints now thin out,
+  dithered, over the last half of the way, and only the mid-tone glints reach you
+  (`near` in `moonRoad`). The fata morgana was up two-thirds of the time, which isn't "now and
+  then": it now starts down, comes in a little under half the time, and is well up a fifth of it
+  (`want` in mirage.ts, a 300 s cycle). Read the cards again; nothing cut. The night at 02:00
+  reads as a step down from the blue hour, as meant. Aboard, the deck, flash and name all hold.
+  Still one place: the new things (moon, gauge, night, mirage) sit in it rather than on it.
+  Next additions: the east of the flat, and the island's own moments, are still the open room.
 
 - **The moon** ("everyone gets the whole road"): the real moon, when it's really up over the
   visitor (`moonPosition` from scene/sun.ts, on the island's clock, so `?time=` moves it), as lit
@@ -436,6 +451,8 @@ lamp close up), not explained.
 
 ## Known issues
 
+- The site's own "A new sketch in your wildlife book" toast can sit over a Low Water card for a
+  moment (seen when a walk passes the seal); it's the island's, so left alone.
 - The moon's only there about half the time (when the real one's up, and not in fog or rain),
   and nothing says so but its card. Its position is the flat's own (it can't face south); a
   visitor who knows the moon may notice its face is upside down and its lit side mirrored,

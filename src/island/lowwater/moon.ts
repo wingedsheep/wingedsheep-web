@@ -83,7 +83,10 @@ export const MOON_GLSL = /* glsl */ `
     float still = (1.0 - wind) * (1.0 - smoothstep(uMoon.z * 0.5, uMoon.z * 1.2, abs(a - under))) * step(dx, uMoon.z * 0.7);
     glint += still * 0.45;
     float show = uMoon.w;
-    if (glint > 1.22 - 0.3 * show) return mix(col, vec3(0.92, 0.9, 0.8), show);
+    // near you the water looks down at itself more than at the sky, so it gives back less of
+    // the moon: the bright glints thin out over the last half of the way, dithered
+    float near = smoothstep(0.35, 0.9, t);
+    if (glint > 1.22 - 0.3 * show && d > near) return mix(col, vec3(0.92, 0.9, 0.8), show);
     if (glint > 0.78 - 0.2 * show) return mix(col, vec3(0.5, 0.54, 0.74), show);
     return col;
   }

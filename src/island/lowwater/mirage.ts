@@ -87,7 +87,8 @@ export class Mirage {
    * row traced again from an eye this high above the water (m).
    */
   update(time: number, dt: number, calm: number, eye: number, aspect: number) {
-    const want = THREE.MathUtils.clamp(0.35 - 0.75 * Math.cos((time / 260) * Math.PI * 2) + 0.2 * cycle(time, 97), 0, 1) * calm;
+    // (in a little under half the time and well up a fifth of it, starting down: now and then)
+    const want = THREE.MathUtils.clamp(-0.4 - 1.2 * Math.cos((time / 300) * Math.PI * 2) + 0.2 * cycle(time, 97), 0, 1) * calm;
     this.lift += (want - this.lift) * (1 - Math.exp(-dt / 8));
     // the warm layer: how high, how sharp its bottom edge, and how much warmer than the water
     const height = 12.5 + 1.2 * cycle(time, 170);
