@@ -7,7 +7,7 @@
  */
 import type * as THREE from 'three';
 import { openSketchbook, spotAnimal } from './sketchbook';
-import { BOOKS } from '../data/books';
+import { BOOKS, NOTES, READING_NOW } from '../data/books';
 import { chapters } from '../data/career';
 import { interests } from '../data/interests';
 import { projects } from '../data/projects';
@@ -555,6 +555,24 @@ const WILDLIFE: Record<string, Place> = {
   tallone: sighting('tallone', 'Something in the woods', [
     'Far too tall, and very quiet for its size. It keeps to the woods, mostly.',
     'It doesn’t like being looked at. Which is fair: neither does anyone at the fire.',
+  ]),
+  // and the ones that only come on some nights
+  ghostship: sighting('ghostship', 'A ghost ship', [
+    'A ship in rags of sail, lit green, rolling in a gale nobody else can feel. At the wheel, her captain turns his head, slowly, to look at you.',
+    'Her bell tolls once across the water. When you look again, there’s only the mist.',
+  ]),
+  witch: sighting('witch', 'A witch on a broomstick', [
+    'She sees you wave, and loops the loop, cackling all the way round. The cat on the back hangs on.',
+    'Round again. The cat on the back of the broom does not look as if it chose this.',
+  ]),
+  nazgul: sighting('nazgul', (ctx) => (ctx.journal.has('nazgul') ? 'A Nazgûl' : 'Something on great wings'), [
+    'A Nazgûl on its fell beast, circling. It’s looking for something, and you’d very much rather it looked somewhere else.',
+    'The cry comes down out of the dark, and for a moment even the fire seems to shrink.',
+  ]),
+  grimm: sighting('grimm', (ctx) => (ctx.journal.has('grimm') ? 'The Grimm Troupe' : 'A scarlet tent'), [
+    'Somebody lit the lantern, and the Grimm Troupe has come. The Troupe Master bows to you, very low.',
+    'He bows again. By the door, Brumm doesn’t miss a note.',
+    'The Grimmkin go round and round the tent, flickering. None of them will say what the show is.',
   ]),
   balloon: sighting('balloon', 'A hot-air balloon', [
     'Two people in the basket wave down at you. The burner roars, and up they go.',
@@ -1633,6 +1651,16 @@ const DESK: Place = {
   })(),
 };
 
+/** The book he's reading now, open on his desk (READING_NOW). */
+const readingNow: Place = {
+  label: () => (READING_NOW ? `${READING_NOW.title} · ${READING_NOW.author} · reading now` : ''),
+  activate(ctx) {
+    if (!READING_NOW) return;
+    const note = NOTES[READING_NOW.title] ?? 'Open face down on his desk, to keep his place: he’s reading it now.';
+    ctx.toast(`${READING_NOW.title}, by ${READING_NOW.author}. ${note}`);
+  },
+};
+
 /** Things in the keeper's quarters, inside the lighthouse. */
 export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   companion_watching: {
@@ -1645,6 +1673,7 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
   desk: DESK,
   vincent_coding: DESK,
+  reading_now: readingNow,
   stairs: { label: 'The stairs · up to the lamp' }, // src/island/lighthouse.ts does the climbing
   console: {
     label: () => (telly.film ? 'The telly · Tails of Power'
@@ -2064,7 +2093,8 @@ function readPlace(id: string): Place | undefined {
       const when = book.read
         ? ` Finished in ${new Date(`${book.read}T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`
         : '';
-      ctx.toast(`${book.title}${book.series ? ` (${book.series})` : ''}, by ${book.author}.${when}`);
+      const note = NOTES[book.title] ? ` ${NOTES[book.title]}` : '';
+      ctx.toast(`${book.title}${book.series ? ` (${book.series})` : ''}, by ${book.author}.${note}${when}`);
     },
   };
 }

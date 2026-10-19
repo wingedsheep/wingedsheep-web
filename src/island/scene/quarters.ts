@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { BOOKS } from '../../data/books';
+import { BOOKS, READING_NOW } from '../../data/books';
 import { hash } from '../../data/subjects';
 import { faceRoom, toonIndoors } from './interior';
 import { Particles } from './particles';
@@ -223,6 +223,7 @@ export class QuartersRoom {
     this.scene.add(this.hemi, this.key, this.key.target, this.particles.points);
 
     this.shelve(root, rows);
+    this.openBook();
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values(), ...[...this.spines.values()].map((s) => s.group));
   }
@@ -1176,6 +1177,34 @@ export class QuartersRoom {
       this.spines.set(id, { group, home, cover, color: color.clone(), out: 0 });
       x += w + 0.006;
     });
+  }
+
+  /** The book he's reading now, face down and open on the east end of his desk to keep his place. */
+  private openBook() {
+    const desk = this.named.get('desk');
+    if (!READING_NOW || !desk) return;
+    const h0 = hash(`${READING_NOW.title}|${READING_NOW.author}`);
+    const cover = toonIndoors(new THREE.Color(SPINES[(h0 >> 11) % SPINES.length]));
+    const book = new THREE.Group();
+    const lean = 0.12; // the two halves tip down from the spine, a low tent
+    for (const side of [-1, 1]) {
+      const half = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.008, 0.19), cover);
+      half.position.set(side * 0.064, 0.012, 0);
+      half.rotation.z = -side * lean;
+      const pages = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.18), toonIndoors(new THREE.Color('#efe6d2')));
+      pages.position.set(side * 0.062, 0.004, 0);
+      pages.rotation.z = -side * lean;
+      book.add(half, pages);
+    }
+    const spine = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.012, 0.19), cover);
+    spine.position.y = 0.02;
+    book.add(spine);
+    book.traverse((o) => { o.castShadow = o.receiveShadow = true; });
+    book.position.copy(desk.getWorldPosition(V()).add(V(0.6, 0.74, -0.18)));
+    book.rotation.y = 0.35;
+    book.userData.id = 'reading_now';
+    this.scene.add(book);
+    this.named.set('reading_now', book);
   }
 
   private addLamp(position: THREE.Vector3, x: Record<string, number | string>, halo: THREE.Texture) {
