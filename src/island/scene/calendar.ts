@@ -10,7 +10,7 @@
  *                 (remembrance.ts): the sound fades away and Vincent puts the guitar down
  *   liberation    5 May: the flag right back up, with a bit of bunting on the pole
  *   airborne      the weekend of the third Saturday of September, Arnhem's own: the Airborne
- *                 commemoration, and a few parachutes coming down far off over the water (airborne.ts)
+ *                 commemoration: Dakotas over the island, and a sky full of parachutes (airborne.ts)
  *   sintmaarten   11 November: paper lanterns at dusk, carried round the island by the fair folk (lanterns.ts)
  *   arrival       the Saturday in mid-November when Sinterklaas comes in on his steamboat
  *   steamboat     from then to 5 December: the steamboat tied up at the head of the pier
@@ -317,7 +317,7 @@ export function greeting(): string | null {
     easter: 'Happy Easter! There are eggs hidden in the grass. Beike knows.',
     remembrance: 'It’s the fourth of May. At eight tonight the whole country is quiet for two minutes, and so is the island.',
     liberation: 'Happy Liberation Day! The flag’s back up, with a bit of bunting on it.',
-    airborne: 'It’s the Airborne commemoration this weekend, Arnhem’s own. Watch the sky over the water: they still jump.',
+    airborne: 'It’s the Airborne commemoration this weekend, Arnhem’s own. Keep an eye on the sky: the Dakotas still come over, and they still jump.',
     sintmaarten: 'It’s Sint Maarten. Stay till it gets dark: somebody’s bringing lanterns.',
     halloween: 'Somebody’s been carving pumpkins, and a little graveyard has turned up by the plaza. Something in it moves.',
     christmasday: 'Merry Christmas! There are presents under the tree on the plaza.',

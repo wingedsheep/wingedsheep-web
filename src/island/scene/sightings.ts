@@ -6,6 +6,7 @@ import { Body, headingOf, orient, splash, type Call, type Season } from './fauna
 import type { Island } from './island';
 import type { Particles } from './particles';
 import { Imaginary } from './imaginary';
+import { Fiction } from './fiction';
 import { Monsters } from './monsters';
 import { weekOf } from '../kees';
 import { GRADIENT } from './toon';
@@ -740,6 +741,8 @@ export class Sightings {
   private fisherman?: Fisherman;
   /** The made-up ones, from the blog: see imaginary.ts. */
   readonly imaginary: Imaginary;
+  /** The ones out of his books: see fiction.ts. */
+  readonly fiction: Fiction;
   /** Halloween's: see monsters.ts. */
   private monsters: Monsters;
   private containerWait = LUCK.containerSoon ? 2 : rand(60, 360);
@@ -758,6 +761,8 @@ export class Sightings {
     this.murmuration = new Murmuration(scene);
     this.imaginary = new Imaginary(scene, template, ground, particles, island);
     this.imaginary.onCall = call;
+    this.fiction = new Fiction(scene, template, ground, particles, island);
+    this.fiction.onCall = call;
     this.monsters = new Monsters(scene, template, ground, particles);
     this.monsters.onCall = call;
     const T = template;
@@ -794,7 +799,7 @@ export class Sightings {
 
   /** All of them, for the Picker. */
   get pickables() {
-    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.radioship?.body, this.fisherman?.body, ...this.imaginary.bodies, ...this.monsters.bodies]
+    return [this.balloon?.body, this.seal?.body, this.ferry?.body, this.container?.body, this.tallship?.body, this.radioship?.body, this.fisherman?.body, ...this.imaginary.bodies, ...this.fiction.bodies, ...this.monsters.bodies]
       .filter((b): b is Body => !!b).map((b) => b.root).concat(this.murmuration.hit);
   }
 
@@ -812,6 +817,7 @@ export class Sightings {
     if (id === 'seal') this.seal?.poke();
     if (id === 'fisherman') this.fisherman?.poke();
     this.imaginary.poke(id);
+    this.fiction.poke(id);
     this.monsters.poke(id);
   }
 
@@ -841,6 +847,7 @@ export class Sightings {
     this.seal?.update(dt, o, t);
     this.fisherman?.update(dt, o, t);
     this.imaginary.update(dt, o, t);
+    this.fiction.update(dt, o, t);
     this.monsters.update(dt, o, t);
     const swell = clamp(o.wind / 15, 0, 1);
     this.radioship?.update(dt, o, t, swell);

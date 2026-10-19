@@ -1209,33 +1209,10 @@ def lanterns(t: Terrain):
 
 
 def airborne(t: Terrain):
-    """Things the runtime (airborne.ts) sends over the sea on the day: an old Dakota, and the
-    round parachutes that come out of it. Far off, so built small like the ships on the horizon.
-    Parked under the island; each faces +x."""
-    root = holiday("airborne", "airborne")
-    plane = group("dakota", (0, 0, -30), parent=root, id="dakota")
-    d = Model("dakota")
-    olive, dark = "#5a6040", "#3f4430"
-    d.cyl(0.35, 4.2, (-2.0, 0, 0), olive, segs=8, r_top=0.12, rot=(0, math.pi / 2, 0))   # fuselage, tapering aft
-    d.ball(0.35, (-2.0, 0, 0), olive, subdiv=1, scale=(0.9, 1, 1))                    # the nose
-    d.box((1.1, 6.0, 0.08), (-1.2, 0, -0.1), olive)                                   # wings
-    for s in (-1, 1):
-        d.cyl(0.16, 0.7, (-1.95, s * 1.1, -0.1), dark, segs=6, rot=(0, math.pi / 2, 0))   # engines
-    d.box((0.6, 2.0, 0.06), (1.9, 0, 0.1), olive)                                     # tailplane
-    d.prism([(0, 0), (0.7, 0), (0.6, 0.8), (0.3, 0.8)], 0.06, (1.6, 0, 0.1), olive, rot=(math.pi / 2, 0, 0))  # the fin
-    d.box((0.3, 0.02, 0.6), (-0.2, 0.36, 0.18), "#e8e0cc")                            # invasion stripes
-    d.box((0.3, 0.02, 0.6), (-0.2, -0.36, 0.18), "#e8e0cc")
-    d.build(plane)
-    chute = group("parachute", (0, 0, -40), parent=root, id="parachute")
-    c = Model("parachute")
-    rings = [(0.05, 1.0), (0.55, 0.9), (0.8, 0.65), (0.9, 0.4)]                        # the canopy, a dome
-    for (r0, z0), (r1, z1) in zip(rings, rings[1:]):
-        c.cyl(r1, z0 - z1, (0, 0, z1), "#d8d4c0", segs=10, r_top=r0)
-    for k in range(6):                                                                 # the lines
-        a = k * math.tau / 6
-        c.plank_line((math.cos(a) * 0.85, math.sin(a) * 0.85, 0.4), (0, 0, -0.55), 0.01, 0.01, "#8a8670")
-    c.box((0.14, 0.12, 0.34), (0, 0, -0.72), "#4f5a3a")                               # the jumper
-    c.build(chute)
+    """Things the runtime (airborne.ts) sends over on the day: the Dakotas, and the parachutists
+    who jump from them (airborne.py builds both). Parked under the island."""
+    import airborne as A
+    A.populate(holiday("airborne", "airborne"))
 
 
 def populate(t: Terrain):

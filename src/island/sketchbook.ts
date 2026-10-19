@@ -52,10 +52,18 @@ const SPECIMENS = [
   ['curlew', 'Curlew', 'Heard, not seen. A long rising call from somewhere out on the banks, and the name is that call, written down.'],
   ['knot', 'Knot', 'Thousands at a time, in from the Arctic for the winter. No bird leads the flock; each keeps with the few nearest it, and the whole shape turns at once.'],
   ['lugworm', 'Lugworm', 'Never seen, only its coils of sand, and the dimple a hand away where it eats. It lives in a U between the two.'],
+  ['hippogriff', 'Hippogriff', 'Bowed first, and waited. It looked at me a long while with its orange eye, then bowed back, and let me draw it.'],
+  ['spermwhale', 'Sperm whale', 'Falling, nose first, out of a clear sky. I had about as long to sketch it as it had to wonder what it was.'],
+  ['windspren', 'Windspren', 'Two ribbons of light on the gust, looping round each other and away. Laughing, if a ribbon can.'],
 ] as const;
-/** The atlas is six sketches wide and nine deep; its thirty-sixth sketch is the feather, not an animal. */
+/** The atlas is six sketches wide and nine deep; its thirty-sixth sketch is the feather, not an animal,
+ *  and the eighth row's last page is left blank, so the ninth row starts with the curlew. */
 const FEATHER = 35;
-const tileOf = (specimen: number) => (specimen >= FEATHER ? specimen + 1 : specimen);
+const BLANK = 47;
+const tileOf = (specimen: number) => {
+  const tile = specimen >= FEATHER ? specimen + 1 : specimen;
+  return tile >= BLANK ? tile + 1 : tile;
+};
 export type Animal = typeof SPECIMENS[number][0];
 type Entry = { id: Animal; where: string; date?: string };
 const KEY = 'wingedsheep:sketchbook';

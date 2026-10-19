@@ -137,6 +137,8 @@ interface Lamp {
   flicker: number;
   day: boolean;
   seed: number;
+  /** Its own colour, while something else is tinting it. */
+  own?: THREE.Color;
 }
 
 /**
@@ -233,6 +235,16 @@ export class Sky {
     this.beam.raycast = () => {};
     lantern?.getWorldPosition(this.beam.position);
     scene.add(this.beam);
+  }
+
+  /** Turn the light (and glow) of the lamps right by a point toward another colour, k of the way. */
+  tint(at: THREE.Vector3, color: THREE.Color, k: number) {
+    for (const l of this.lampsList) {
+      if (l.light.position.distanceToSquared(at) > 4 || (!l.own && k <= 0)) continue;
+      l.own ??= l.light.color.clone();
+      l.light.color.copy(l.own).lerp(color, k);
+      (l.halo?.material as THREE.SpriteMaterial | undefined)?.color.copy(l.light.color);
+    }
   }
 
   /** The time it is on the island: now, or the hour ?time= asked for. */

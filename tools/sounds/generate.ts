@@ -242,7 +242,17 @@ export const SOUNDS: Sfx[] = [
   { name: 'giant', seconds: 4, prompt: 'Something enormous breathing slowly in a dark forest at night, a long deep rattling inhale and exhale like wind through a hollow tree, with old wood creaking, eerie and low, no music, no voices' },
   ...[1, 2].map((i) => ({ name: `stomp-${i}`, seconds: 1, prompt: 'One slow heavy footstep of a giant creature on a forest floor, a deep muffled thud with twigs snapping under it, no music, no other sounds' })),
   ...[1, 2].map((i) => ({ name: `wail-${i}`, seconds: 4, prompt: 'A long, eerie, inhuman wail rising out of a dark forest at night, a hollow wavering cry somewhere between a moan and a distant scream, drawn out and echoing between the trees, unsettling, heard from a little way off, no music, no voices, no words' })),
+  // and the ones that come on some nights: the ghost ship, the witch on her broomstick, the Nazgûl, the Grimm Troupe
+  { name: 'ghostship', seconds: 5, prompt: 'An old wooden sailing ship far off across the water at night, her timbers creaking and groaning as she rolls, ropes straining and torn sails flapping in a gale, and once, faintly, a cracked ship\'s bell, ghostly and hollow with a long echo, eerie, no voices, no music' },
+  { name: 'shipbell', seconds: 4, prompt: 'One slow toll of an old cracked ship\'s bell heard across dark water in fog, dull and hollow, with a long ghostly echo fading away, eerie, no waves, no voices, no music' },
+  ...[1, 2].map((i) => ({ name: `flyby-${i}`, seconds: 3, prompt: 'An old witch flying past overhead on a broomstick at night, a high crackly gleeful cackle, hee-hee-hee-hee, rushing in and away again with a whoosh of wind, theatrical and fun rather than scary, no music, no other sounds' })),
+  ...[1, 2].map((i) => ({ name: `screech-${i}`, seconds: 3, prompt: 'A terrible piercing shriek from high in the dark night sky, a huge winged creature and its rider crying out together, a long cold wailing scream that rises and cracks and dies away, heard from far below, chilling, no music, no words' })),
+  { name: 'wingbeat', seconds: 3, prompt: 'Three slow, huge, heavy beats of enormous leathery wings passing overhead at night, deep whooshing thumps of air, no voices, no music' },
+  { name: 'troupe', music: true, seconds: 30, prompt: 'A lone accordion playing a slow, melancholy, slightly sinister waltz in a minor key, like a travelling circus tent at midnight, a little wheezy and out of tune, dark and dreamy, three-four time, accordion only, no other instruments, no vocals' },
+  { name: 'grimm', seconds: 3, prompt: 'A sudden burst of fire whooshing up and a swirl of flame, with a few ghostly bats fluttering away, theatrical, like a magician vanishing in a puff of red fire, no voices, no music' },
 
+  // the Airborne commemoration (src/island/scene/airborne.ts): the Dakotas coming over
+  { name: 'dakota', seconds: 14, prompt: 'An old Second World War Douglas Dakota transport plane flying over low and slow on a calm day, the deep throbbing uneven drone of two big radial piston engines growing louder as it approaches, roaring overhead, then fading away into the distance, outdoors, no music, no voices' },
   // Sinterklaas: his steamboat at the dock, sounding its whistle
   { name: 'steam-whistle', seconds: 3, prompt: 'An old steamboat sounding its steam whistle twice at a harbour, a warm hooting toot toot, with a hiss of steam after, no voices, no music' },
   // Low Water (src/island/commonplace/): the bell buoy out where the deep water starts

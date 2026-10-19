@@ -12,7 +12,7 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 /**
  * What happens on the special days that isn't just a thing put out (holidays.py does those):
  * the Easter egg hunt, the fourth of May's half-mast and silence, the fair folk's Sint
- * Maarten lanterns, and the Airborne commemoration's parachutes. (The New Year's dive is one of
+ * Maarten lanterns, and the Airborne commemoration's Dakotas and parachutists. (The New Year's dive is one of
  * Vincent's spots: dive.ts.) Each does nothing on any other day.
  */
 export class Days {
@@ -32,7 +32,8 @@ export class Days {
     this.remembrance = new Remembrance(island);
     this.lanterns = new Lanterns(scene, island, (s) => fauna.template(s), beike.ground, particles);
     this.lanterns.onCall = (call, at, ambient, loud) => fauna.onCall?.(call, at, ambient, loud);
-    this.airborne = new Airborne(scene, island);
+    this.airborne = new Airborne(scene, island, beike.ground, life.drift);
+    this.airborne.onCall = (call, at, ambient) => fauna.onCall?.(call, at, ambient);
     // the New Year's dive: a splash going in, and another coming up
     life.vincent.diver.onSplash = (at) => {
       fauna.onCall?.('splash', at, true);
@@ -56,6 +57,6 @@ export class Days {
 
   /** Everyone out and about who can be clicked, for the Picker. */
   get pickables() {
-    return this.lanterns.pickables;
+    return [...this.lanterns.pickables, ...this.airborne.pickables];
   }
 }

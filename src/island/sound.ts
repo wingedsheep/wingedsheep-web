@@ -108,7 +108,7 @@ const SFX = {
   island: { sea: 1, fire: 1, rain: 1, wind: 1, cicadas: 1, crickets: 1, birdsong: 1, hail: 1, leaves: 1, gull: 1, chirp: 1, hoot: 1, quack: 1, honk: 1, chatter: 1, blow: 1, breach: 1, roar: 1, purr: 1, mew: 1, tap: 1, 'tap-run': 1, 'tap-off': 1, lap: 2, sip: 1, grind: 1, brew: 1, crunch: 1, thunder: 2, boom: 1, firework: 1, heron: 1, fox: 1, bellow: 1, hind: 1, thump: 1, snuffle: 1, plop: 1, ufo: 1, foghorn: 1,
     rocket: 1, fizz: 1, whistle: 1, staff: 2, tink: 1, bounce: 2, pant: 1, whine: 1, mrrp: 1, dolphin: 3, puff: 2, dip: 2,
     drips: 1, flag: 1, 'door-library': 1, 'door-hut': 1, 'door-lighthouse': 1, bell: 1, hatch: 1, bottle: 1, clink: 1, jump: 1,
-    flurry: 1, stroke: 3, burner: 1, horn: 1, typhon: 1, murmur: 1, seal: 1,
+    flurry: 1, stroke: 3, burner: 1, horn: 1, typhon: 1, murmur: 1, seal: 1, dakota: 1,
     ewa: 2, chat: 13, // the small wanderer's voice: Hornet's own, taken from Silksong rather than made by `just sounds`
     strider: 1, creak: 2, wade: 2, sniff: 2, snooze: 1, squeak: 2, chirrup: 2,
     eagle: 1, boar: 1, moo: 1, // (the river's too, but they turn up here now and then)
@@ -127,8 +127,8 @@ const SFX = {
   festive: { fireworks: 1, 'fw-launch': 2, 'fw-burst': 3, 'fw-crackle': 2, 'steam-whistle': 1 },
   // dressed up for Halloween (scene/wardrobe.ts): the witch's cackle and the vampire's laugh
   costumes: { cackle: 2, vampire: 2 },
-  // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider
-  graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2 },
+  // and its graveyard (tools/models/holidays.py): the dead groaning, the ghost, bats, a spider; and its monsters (scene/monsters.ts)
+  graveyard: { groan: 2, moan: 1, bats: 1, skitter: 1, neigh: 1, gallop: 1, headless: 1, giant: 1, stomp: 2, wail: 2, ghostship: 1, shipbell: 1, flyby: 2, screech: 2, wingbeat: 1, troupe: 1, grimm: 1 },
   // out on Low Water (src/island/commonplace/): the bell buoy past the last twig, the seal on its bank, the lead going in, a curlew, the lightship's horn, the praam's oars, her hull creaking, the knots' wings, the page's pencil, her bell, the hide's curtain and the slide over its hole, the sea's wash in front of the old floor, and in the bookshop the door's bell, the street and Tine's page
   commonplace: { 'commonplace-bell': 2, 'commonplace-seal': 1, 'commonplace-slip': 1, 'commonplace-lead': 1, 'commonplace-curlew': 2, 'commonplace-horn': 1, 'commonplace-oar': 1, 'commonplace-creak': 1, 'commonplace-geul': 1, 'commonplace-knots': 1, 'commonplace-pencil': 1, 'commonplace-shipbell': 1, 'commonplace-curtain': 1, 'commonplace-slide': 1, 'commonplace-wash': 1, 'commonplace-shopbell': 1, 'commonplace-street': 1, 'commonplace-turn': 1 },
   river: { 'river-calm': 1, 'river-white': 1, falls: 1, stroke: 3, hit: 2, bump: 1, splash: 1, capsize: 1, roll: 1, brace: 1, boof: 1, dropin: 1, hole: 1, slap: 1, howl: 2, growl: 2, croak: 1, whoosh: 2, kingfisher: 1, otter: 1, grunt: 2, yeti: 2, raven: 1 },
@@ -145,7 +145,7 @@ const LEVEL: Record<string, number> = {
   'commonplace-shopbell': 0.4, 'commonplace-street': 0.5, 'commonplace-turn': 0.12,
   heron: 0.5, fox: 0.45, bellow: 0.6, hind: 0.5, thump: 0.35, snuffle: 0.35, plop: 0.3, ufo: 0.4, foghorn: 0.8,
   rocket: 0.6, fizz: 0.4, whistle: 0.55, staff: 0.3, tink: 0.3, bounce: 0.3, pant: 0.35, whine: 0.4, mrrp: 0.45,
-  dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
+  dolphin: 0.4, puff: 0.3, dip: 0.3, raven: 0.45, burner: 0.4, horn: 0.55, typhon: 0.8, dakota: 0.75, murmur: 0.5, seal: 0.45, ewa: 0.5, chat: 0.4,
   'door-library': 0.25, 'door-hut': 0.25, 'door-lighthouse': 0.22, bell: 0.25, hatch: 0.25, bottle: 0.5, clink: 0.35, jump: 0.25,
   flurry: 0.45, press: 0.35, engine: 2.5, quill: 0.3, page: 0.35, zap: 0.25, 'robot-servo': 0.35, 'robot-tinker': 0.3,
   'robot-snore': 0.3, 'robot-clank': 0.45, 'robot-beep': 0.35, ding: 0.35, snore: 0.3,
@@ -159,6 +159,7 @@ const LEVEL: Record<string, number> = {
   strider: 0.6, creak: 0.35, wade: 0.4, sniff: 0.25, snooze: 0.25, squeak: 0.4, chirrup: 0.25,
   'fw-launch': 0.3, 'fw-burst': 0.75, 'fw-crackle': 0.35, 'steam-whistle': 0.65, cackle: 0.45, vampire: 0.5,
   groan: 0.5, moan: 0.45, bats: 0.35, skitter: 0.3, neigh: 0.55, gallop: 0.5, headless: 0.55, giant: 0.6, stomp: 0.5, wail: 0.6,
+  ghostship: 0.55, shipbell: 0.5, flyby: 0.5, screech: 0.6, wingbeat: 0.5, troupe: 0.4, grimm: 0.45,
 };
 /**
  * The ones that could make someone jump, browsing late with the volume up: after dark they're
@@ -166,7 +167,7 @@ const LEVEL: Record<string, number> = {
  */
 const STARTLING: Record<string, number> = {
   fox: 0.5, foghorn: 0.6, horn: 0.6, typhon: 0.55, yeti: 0.55, growl: 0.6, roar: 0.6, howl: 0.65, bellow: 0.65, boom: 0.6, firework: 0.65, thunder: 0.65,
-  groan: 0.6, moan: 0.6, neigh: 0.6, headless: 0.6, giant: 0.6, stomp: 0.7, wail: 0.6,
+  groan: 0.6, moan: 0.6, neigh: 0.6, headless: 0.6, giant: 0.6, stomp: 0.7, wail: 0.6, flyby: 0.7, screech: 0.55,
 };
 /** The beds are levelled lower (-24 LUFS) and each gets its own trim into its old volume curve. */
 const BED = { sea: 1.8, fire: 3.5, rain: 3, wind: 2.5, cicadas: 8, falls: 1.6, crickets: 1.5, birdsong: 1.5, hail: 2.5, leaves: 2, drips: 2, flag: 2, fireworks: 1.6 };

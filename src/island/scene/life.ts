@@ -20,6 +20,9 @@ import { windDir } from './grass';
 import { Week } from './week';
 import { showSpread, table } from './meals';
 
+/** The campfire's light and embers when it burns blue (fiction.ts). */
+const COLD_LIGHT = new THREE.Color('#6f95ff');
+const COLD_EMBERS = ['#bcd4ff', '#5a86ff'];
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -360,6 +363,9 @@ export class Life {
       night, season: season.name, wet: this.wet, storm: this.storm, hour: now.getHours() + now.getMinutes() / 60,
       time: this.sky.time, wind: this.wind, drift: this.drift, cloud: this.cloud, fog: this.fog, heat: this.heat,
     });
+    // the campfire's light goes blue with its flames, when the Chandrian are about (fiction.ts)
+    const cold = this.sightings.fiction.blueFire;
+    if (cold.at) this.sky.tint(cold.at, COLD_LIGHT, cold.blue);
     this.visitors(dt, night);
     this.table();
     this.gluhwein(dt, night);
@@ -834,7 +840,7 @@ export class Life {
           wobble: 0.3 + blown * 0.4,
         });
       } else if (e.kind === 'embers' && this.every(key, 0.12, dt)) {
-        p.emit({ position: e.position.clone().add(V(rand(-0.3, 0.3), 0, rand(-0.3, 0.3))), velocity: V(rand(-0.2, 0.2), rand(1.2, 2.2), rand(-0.2, 0.2)), color: ((e.owner === 'campfire' && GREEN_FIRE?.embers) || ['#ffd070', '#ff9a3c'])[rand(0, 1) < 0.5 ? 0 : 1], life: rand(0.8, 1.6), wobble: 0.4 });
+        p.emit({ position: e.position.clone().add(V(rand(-0.3, 0.3), 0, rand(-0.3, 0.3))), velocity: V(rand(-0.2, 0.2), rand(1.2, 2.2), rand(-0.2, 0.2)), color: ((e.owner === 'campfire' && (this.sightings.fiction.blueFire.burning ? COLD_EMBERS : GREEN_FIRE?.embers)) || ['#ffd070', '#ff9a3c'])[rand(0, 1) < 0.5 ? 0 : 1], life: rand(0.8, 1.6), wobble: 0.4 });
       } else if (e.kind === 'sparkle' && this.every(key, 0.3, dt)) {
         // the cairns on the trail: a few golden motes rise round each token, so they catch the eye
         p.emit({ position: e.position.clone().add(V(rand(-0.6, 0.6), rand(-0.2, 0.4), rand(-0.6, 0.6))), velocity: V(rand(-0.1, 0.1), rand(0.4, 0.7), rand(-0.1, 0.1)), color: rand(0, 1) < 0.7 ? '#ffe28a' : '#fffbe6', life: rand(1.4, 2.2), wobble: 0.3 });

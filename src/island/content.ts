@@ -139,6 +139,11 @@ export const SECRETS = {
   tallship: { title: 'Under full sail', hint: 'Very rarely, something from another century passes on the horizon.' },
   fisherman: { title: 'Early bird', hint: 'On some early mornings, someone has the end of the pier to himself.' },
   radio: { title: 'God is in the radio', hint: 'Far out past the lighthouse, a boat that isn’t fishing. Somewhere on the island, a set can pick her up.' },
+  mistborn: { title: 'Out of the mists', hint: 'On a misty night, listen for a coin on a roof.' },
+  hippogriff: { title: 'Mind your manners', hint: 'On a fine day, something grey comes in low over the water. Bow first.' },
+  windspren: { title: 'Riding the gusts', hint: 'On a properly windy day, look for ribbons of light round the buildings.' },
+  chandrian: { title: 'When the fire burns blue', hint: 'Very late, on a still, dry night, keep half an eye on the campfire.' },
+  petunias: { title: 'Oh no, not again', hint: 'Hardly ever, and quite improbably, something falls out of the sky. Two things, in fact.' },
   madeup: { title: 'Off the page', hint: 'Some animals were only ever written down. Now and then, in the right weather, one wanders out.' },
 } as const;
 
@@ -227,6 +232,13 @@ function sighting(id: string, label: Place['label'], lines: string[] | ((ctx: Is
   };
 }
 
+/** The campfire, the night it burns blue: the Chandrian are near (scene/fiction.ts). */
+const COLD_FIRE = [
+  'The fire’s gone blue. A cold blue, every flame standing up straight and still. There’s an old rhyme for this, and it doesn’t say stay.',
+  'The end of the log nearest you has gone grey and soft with rot. It was fine a minute ago.',
+  'Whoever’s near doesn’t want to be talked about. Best to talk about something else, quietly.',
+];
+
 /**
  * One of the fair folk at their revel (scene/revel.ts): whoever you look at glances back. Look a
  * third time and that's a stare, and they're gone (main.ts has the line for that).
@@ -282,6 +294,30 @@ const JACK: Place = {
 
 /** What comes out on the special days (scene/calendar.ts; tools/models/holidays.py). */
 const SPECIAL_DAYS: Record<string, Place> = {
+  // the Airborne commemoration (scene/airborne.ts)
+  dakota: {
+    label: 'A Dakota',
+    activate: (() => {
+      const line = inTurn([
+        'A Dakota, in the black and white stripes painted on for D-Day. More than a hundred of them came over the heath at Ginkel on the 18th of September 1944.',
+        'Two engines and no hurry. You hear it a long time before it’s overhead, and a long time after.',
+      ]);
+      return (ctx: IslandContext) => ctx.toast(line());
+    })(),
+  },
+  parachute: {
+    label: 'A paratrooper',
+    activate: (() => {
+      const line = inTurn([
+        'Every September they jump on the heath at Ginkel, above Arnhem, where the 4th Parachute Brigade came down on the 18th of September 1944.',
+        'He gives you a wave with his free hand. The other one is full of parachute.',
+      ]);
+      return (ctx: IslandContext, at: THREE.Vector3) => {
+        ctx.life.days.airborne.poke(at);
+        ctx.toast(line());
+      };
+    })(),
+  },
   vrijmarkt: {
     label: 'The vrijmarkt · everything must go',
     activate: (() => {
@@ -547,6 +583,32 @@ const WILDLIFE: Record<string, Place> = {
     'A small masked wanderer in a red cloak. It bows, needle raised, and is gone in a dash. It seems to know exactly where it’s going.',
   ], 'wanderer'),
   // the rare sightings (scene/sightings.ts)
+  // out of his books (scene/fiction.ts)
+  hippogriff: sighting('hippogriff', (ctx) => (ctx.journal.has('hippogriff') ? 'Buckbeak' : 'A hippogriff'), (ctx) => {
+    const { down, bows } = ctx.life.sightings.fiction.buckbeak;
+    if (!down && bows === 0) return 'Half eagle, half horse, out over the water. Better to wait till he’s down before you say hello.';
+    if (bows === 1) return 'You bow, low, and don’t blink. He looks at you for a long, long moment. Then he bows back.';
+    if (bows === 2) return 'He lets you come closer. Feathers at the front, then a warm grey coat, like a horse’s. He smells of rain.';
+    return 'He’s off, running at the sea, then low over it with a talon trailing in the water. Showing off, a bit.';
+  }, 'hippogriff'),
+  mistborn: sighting('mistborn', (ctx) => (ctx.journal.has('mistborn') ? 'A Mistborn' : 'Someone in a cloak of ribbons'), [
+    'She drops a coin, and the coin throws her up into the mist. That isn’t how coins work. She knows.',
+    'A mistcloak, all ribbons, and nobody under it you could put a name to. There’s always another secret.',
+    'Somewhere above you in the mist, a coin tinks off a roof.',
+  ], 'mistborn'),
+  windspren: sighting('windspren', (ctx) => (ctx.journal.has('windspren') ? 'Windspren' : 'Ribbons of light'), [
+    'Windspren, out of the Stormlight books: ribbons of light that ride the gusts. One goes right round in a loop, just because you looked.',
+    'They like a strong wind and a joke at someone’s expense. Today they have to make do with the wind.',
+    'Three of them, chasing each other round the buildings and off downwind. They’ll be back with the next gust.',
+  ], 'windspren'),
+  spermwhale: sighting('spermwhale', 'A sperm whale', (ctx) => (ctx.life.sightings.fiction.whaleFalling
+    ? 'A sperm whale, a long way up, and not for much longer. It’s having a great many new ideas about the ground.'
+    : 'Up again, a long way out, and blowing. It seems to be taking it rather well.'), 'petunias'),
+  petunias: sighting('petunias', 'A bowl of petunias', [
+    'A bowl of petunias, the right way up, on the grass where nothing was. If it’s thinking anything, it’s “Oh no, not again.”',
+    'Not a petal out of place. It has clearly done this before.',
+    'Nobody planted them. They’re staying anyway.',
+  ], 'petunias'),
   // Halloween's monsters (scene/monsters.ts)
   horseman: sighting('horseman', 'The Headless Horseman', [
     'Once round the island at a gallop, now and then on a Halloween night, looking for his head. Nobody has the heart to point out the one in his hand.',
@@ -1110,7 +1172,16 @@ export const PLACES: Record<string, Place> = {
   library: { label: 'The library · blog', panel: 'library' },
   workshop: { label: 'The workshop · projects', panel: 'workshop' },
   lighthouse: { label: 'The lighthouse · the keeper’s quarters', panel: 'lighthouse' },
-  campfire: { label: 'The campfire · about me', panel: 'campfire' },
+  campfire: {
+    label: (ctx) => (ctx.life.sightings.fiction.blueFire.burning ? 'The campfire · burning blue' : 'The campfire · about me'),
+    panel: 'campfire',
+    activate(ctx) {
+      // the Chandrian are about (scene/fiction.ts)
+      if (!ctx.life.sightings.fiction.blueFire.burning) return;
+      ctx.toast(COLD_FIRE[Math.floor(Math.random() * COLD_FIRE.length)]);
+      ctx.discover('chandrian');
+    },
+  },
   summit: {
     label: 'The summit',
     panel: 'trail',

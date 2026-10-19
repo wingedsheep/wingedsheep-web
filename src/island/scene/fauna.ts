@@ -45,6 +45,8 @@ export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa'
   // the snorbles': a sniff at the grass, a snore in the sun, a squeak as it jumps, the young ones' chirrups
   | 'sniff' | 'snooze' | 'squeak' | 'chirrup'
   | 'burner' | 'horn' | 'typhon' | 'murmur' | 'seal'
+  // the Airborne commemoration's Dakotas going over (airborne.ts)
+  | 'dakota'
   // over from the river now and then: the eagle, the boar, the Highland cow
   | 'eagle' | 'boar' | 'moo'
   // the week (week.ts): the post boat's horn, the church bell over the water, Beike joining in with the siren
@@ -54,8 +56,9 @@ export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa'
   // out in the snow (snowplay.ts): the snowman rolled, sticks snapped, snowballs scooped, packed, thrown, landing on a coat or
   // in the snow, a laugh (his, hers), a round of applause
   | 'snowroll' | 'twig' | 'scoop' | 'pack' | 'toss' | 'snowhit' | 'snowsplat' | 'laugh' | 'laugh-e' | 'clap'
-  // Halloween's monsters (monsters.ts): the Horseman's horse and his laugh, the tall one's breath, its steps and its cry
-  | 'neigh' | 'gallop' | 'headless' | 'giant' | 'stomp' | 'wail';
+  // Halloween's monsters (monsters.ts): the Horseman's horse and his laugh, the tall one's breath, its steps and its cry;
+  // the ghost ship's timbers and her bell, the witch going over, the Nazgûl's cry and its wings, the Grimm Troupe's accordion and its master vanishing
+  | 'neigh' | 'gallop' | 'headless' | 'giant' | 'stomp' | 'wail' | 'ghostship' | 'shipbell' | 'flyby' | 'screech' | 'wingbeat' | 'troupe' | 'grimm';
 
 /** Friday the 13th (by the visit's calendar): the black sheep can hardly stay away. */
 export const FRIDAY_13 = (() => {

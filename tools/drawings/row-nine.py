@@ -15,12 +15,25 @@ and eight are drawn by row-seven.py). The ninth row, left to right:
            L-shaped burrow between them with the worm in it, head down under the funnel, its fat
            ringed reddish-brown body tufted with red gills, the tail end thin and pale up the tail shaft
 
+and then three out of his books, on the rest of the row:
+
+  hippogriff  a hippogriff side on, standing, storm grey: an eagle's front half, the grey-white
+              feathered head with a hooked beak and an orange eye, the scalloped neck and chest and
+              the front legs scaled and taloned; a horse's dappled hindquarters, hocks and hooves behind,
+              the wings folded along its side, a short tail
+  spermwhale  a sperm whale side on, falling nose down through the sky: the great square head, the
+              narrow jaw dropped open under it, wrinkled dark grey skin, the small flippers splayed and
+              the flukes up; a few speed lines streaming up past it, and nothing at all below
+  windspren   two windspren, ribbons of pale light curling over into a loop and running on with the
+              wind, twisting as they go and thinning to nothing at the ends; a few faint wind lines
+
 The atlas grows to nine rows (in paper) the first time this runs; after that it redraws the same
 pages over themselves.
 
     python3 tools/drawings/row-nine.py
 """
 import importlib.util
+import math
 import os
 import sys
 
@@ -32,7 +45,7 @@ _spec = importlib.util.spec_from_file_location("row_seven", os.path.join(os.path
 sys.modules["row_seven"] = _row_seven = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_row_seven)
 from row_seven import (ATLAS, CELL, PX, N, PAPER, INK, DARK, MID, LIGHT, CREAM, BUFF, SMUDGE, PALE,  # noqa: E402
-                       BROWN, UMBER, HEAD, RED, RED_L, RED_D, PINK, PINK_D, BAYER, hashed, shape, brush, edges,
+                       BROWN, UMBER, HEAD, BEAK, BLUE_L, RED, RED_L, RED_D, PINK, PINK_D, BAYER, hashed, shape, brush, edges,
                        tone, volume, inside_ellipse, inside_poly)
 
 # the curlew's legs, blue-grey, and the wet sand
@@ -49,6 +62,19 @@ WORM = (128, 78, 64)
 WORM_D = (92, 56, 50)
 WORM_L = (160, 106, 84)
 SILT = (168, 160, 150)
+# the hippogriff's storm greys, its orange eye and its horn-coloured beak and legs
+STORM = (128, 130, 138)
+STORM_D = (92, 94, 104)
+STORM_L = (172, 172, 174)
+AMBER = (214, 132, 60)
+AMBER_D = (164, 96, 52)
+HORN = (196, 178, 140)
+# the sperm whale's wrinkled dark grey
+WHALE = (104, 104, 114)
+WHALE_L = (138, 138, 146)
+# the windspren's pale light, and the side of the ribbon turned away
+GLEAM = (246, 248, 240)
+GLEAM_D = (220, 228, 230)
 
 
 def curlew():
@@ -326,11 +352,289 @@ def lugworm():
     return img
 
 
+def hippogriff():
+    img = np.zeros((N, N, 3), np.uint8)
+    img[:] = PAPER
+    ground = 46
+
+    # half eagle and half horse: the horse's barrel and round rump behind, a deep feathered chest in
+    # front, the neck up and forward to an eagle's head
+    barrel = shape(lambda X, Y: inside_ellipse(X, Y, 19, 26, 11, 6.6) or inside_ellipse(X, Y, 10.5, 24.6, 6.2, 6.6))
+    chest = shape(lambda X, Y: inside_ellipse(X, Y, 31.5, 25, 6.4, 8, 0.3))
+    neck = brush([(31, 21), (35.5, 14.5), (38, 10.5)], [5.6, 4.4, 3.6])
+    head = shape(lambda X, Y: inside_ellipse(X, Y, 39.5, 9, 5, 4.4, -0.1))
+    tail = brush([(5, 21.5), (2.8, 25.5), (2.6, 31)], [1.5, 2, 1.3])
+    near = brush([(11, 27), (9.8, 33), (8.4, 37.2)], [5, 3, 1.7]) | brush([(8.4, 37.2), (9.6, 43.6)], [1.4, 1.2])
+    far = brush([(18, 28.5), (17, 33), (15.4, 37.2)], [3.6, 2.6, 1.5]) | brush([(15.4, 37.2), (16.6, 43.6)], [1.3, 1.1])
+    horse = barrel | near | far
+    front = (chest | neck | head) & ~barrel | chest & shape(lambda X, Y: X > 28)
+    beast = horse | front | tail
+    wing = shape(lambda X, Y: inside_ellipse(X, Y, 28.5, 22.6, 6.4, 5.6, -0.15)
+                 or inside_poly(X, Y, [(29, 17.2), (20, 18.2), (11, 20.2), (3.6, 24.4), (8, 26.4), (16, 27), (24, 28.2)]))
+
+    # the horse half, storm grey, the far legs darker, a lighter dapple over the rump
+    tone(img, horse, volume(horse, 4, (-0.4, -0.85, 0.5)), [STORM_D, STORM, STORM, STORM_L], 0.6)
+    img[far & ~barrel] = STORM_D
+    for y, x in np.argwhere(barrel):   # the dapples
+        if (x + 2 * (y // 3)) % 5 == 0 and y % 3 == 1 and hashed(x, y, 41) < 0.6:
+            img[y, x] = STORM_L
+    tone(img, tail, volume(tail, 1.4, (-0.4, -0.85, 0.5)), [DARK, STORM_D, STORM], 0.4)
+    for y, x in np.argwhere(tail):
+        if x % 2 == 0 and y > 24:
+            img[y, x] = DARK   # the strands
+
+    # the eagle half: grey-white feathers, whitest on the head, scalloped down the neck and chest,
+    # the feathers ending in a ragged fringe over the horse's shoulder
+    tone(img, front, volume(chest | neck | head, 3.5, (-0.3, -0.85, 0.6)), [STORM, STORM_L, PALE, HEAD, CREAM], 0.5)
+    for y, x in np.argwhere(front & ~head):
+        r = (x + (y // 2) % 2 * 2) % 4
+        if y % 2 == 0 and r == 0:
+            img[y, x] = STORM_L if y > 14 else PALE
+    for y, x in np.argwhere(horse & ~front):
+        if front[y, min(x + 2, N - 1)] and hashed(x, y, 42) < 0.6 and y < 33:
+            img[y, x] = PALE if y % 2 else STORM_L
+    img[edges(beast)] = INK
+    for y, x in np.argwhere(near & ~barrel):   # the near hind leg, pencilled against the far one
+        if far[y, x - 1] or far[y, x + 1]:
+            img[y, x] = INK
+
+    # the folded wing, laid along its side: grey coverts edged pale at the shoulder, the long flight
+    # feathers behind darker and striped, their tips lying over the rump
+    img[wing] = STORM_L
+    for y, x in np.argwhere(wing):
+        if x > 22:   # the coverts, row on row of rounded little feathers
+            r, ry = (x + (y // 3) % 2 * 2) % 4, y % 3
+            arc = ry == 2 and r in (1, 2) or ry == 1 and r in (0, 3)
+            img[y, x] = STORM if arc else PALE if ry == 0 and BAYER[y % 4][x % 4] > 6 else STORM_L
+        else:
+            stripe = (y - (x - 22) * 0.3) % 2.5
+            img[y, x] = DARK if stripe < 0.8 else STORM_D if stripe < 1.4 and BAYER[y % 4][x % 4] < 8 else STORM
+    img[edges(wing)] = INK
+    for y, x in np.argwhere(wing):   # a pencil line between the coverts and the flight feathers
+        if 22 <= x < 23 and 19 < y < 28:
+            img[y, x] = DARK
+
+    # the head: a pale crown, the eye orange and fierce under a heavy brow
+    img[head & shape(lambda X, Y: Y < 7.6) & ~edges(beast)] = CREAM
+    img[7, 40] = img[7, 41] = img[7, 42] = DARK   # the brow
+    img[8, 41] = AMBER
+    img[8, 40] = INK
+    img[9, 41] = AMBER_D
+    img[9, 40] = STORM_L
+    # the beak: hooked, horn-coloured, darker at the hook
+    bill = shape(lambda X, Y: inside_poly(X, Y, [(42.4, 6.8), (46.5, 7.4), (49.2, 9.4), (49.8, 12.6), (48.6, 14),
+                                                 (47.9, 12), (46, 11.6), (42.6, 12)]))
+    bill &= ~shape(lambda X, Y: inside_ellipse(X, Y, 39.5, 9, 3.4, 3.2))
+    tone(img, bill, volume(bill, 1.5, (-0.3, -0.9, 0.4)), [BEAK, HORN, HORN, HEAD], 0.5)
+    img[edges(bill)] = INK
+    img[bill & shape(lambda X, Y: X > 47.6 and Y > 11.2)] = DARK   # the hook
+    for x in range(43, 47):   # the gape
+        img[11, x] = INK if x > 43 else DARK
+    img[8, 44] = DARK   # the nostril
+
+    # front legs: an eagle's, feathered to the knee, then scaled, ending in spread talons
+    for (x0, y0), (fx, fy), far_side in (((35.6, 30), (37.2, ground - 1), True), ((30.5, 31), (30.6, ground - 1), False)):
+        trouser = brush([(x0, y0), (x0 + 0.4, y0 + 5)], [2.7, 2]) & ~chest
+        img[trouser] = STORM_L if far_side else PALE
+        img[trouser & (np.arange(N)[None, :] % 2 == 1) & (np.arange(N)[:, None] % 2 == 0)] = STORM
+        img[edges(trouser)] = INK
+        leg = brush([(x0 + 0.4, y0 + 5.5), (fx, fy)], [1.0, 0.9]) & ~trouser
+        img[leg] = BEAK if far_side else HORN
+        img[leg & ~np.roll(leg, 1, 1)] = DARK   # pencilled down the back
+        fx = int(fx)
+        for yy in range(int(y0) + 7, ground - 2, 2):   # the scales
+            if leg[yy, fx + 1]:
+                img[yy, fx + 1] = BEAK if not far_side else UMBER
+        for dx in (-3, -2, -1, 0, 1, 2, 3):   # the toes, spread
+            img[ground - 1, fx + dx] = BEAK if far_side else HORN
+        img[ground - 2, fx - 1] = img[ground - 2, fx + 1] = INK
+        for tx in (fx - 4, fx + 4):   # the talons, hooked into the ground
+            img[ground - 1, tx] = INK
+            img[ground, tx] = INK
+    # the hooves
+    for fx in (9, 16):
+        for dx in range(-1, 3):
+            img[ground - 2, fx + dx] = DARK
+            img[ground - 1, fx + dx] = INK
+
+    # ground: a few smudges round the feet
+    for x in range(2, 50):
+        if hashed(x, ground, 43) < 0.45 and img[ground, x].tolist() == list(PAPER):
+            img[ground, x] = SMUDGE
+        if hashed(x, ground + 2, 44) < 0.2:
+            img[ground + 2, x] = SMUDGE
+    return img
+
+
+def spermwhale():
+    img = np.zeros((N, N, 3), np.uint8)
+    img[:] = PAPER
+
+    # nose down, tipped a little: `along` runs from the snout (0) up to the flukes, `across` from the
+    # back (negative, on the right) to the belly and jaw (positive, on the left)
+    cx, cy, lean = 25.5, 25, 0.18
+    nose = (cx + 22 * math.sin(lean), cy + 22 * math.cos(lean))
+
+    def local(X, Y):
+        dx, dy = X - nose[0], Y - nose[1]
+        along = -(dx * math.sin(lean) + dy * math.cos(lean))
+        across = -(dx * math.cos(lean) - dy * math.sin(lean))
+        return along, across
+
+    def to_xy(along, across):
+        return (nose[0] - along * math.sin(lean) - across * math.cos(lean),
+                nose[1] - along * math.cos(lean) + across * math.sin(lean))
+
+    def body_test(X, Y):
+        a, c = local(X, Y)
+        if a < 0 or a > 40:
+            return False
+        if a < 18:   # the great square head, its snout blunt, the underside cut away a little for the jaw
+            r = max(0, 2.6 - a)   # rounding off the snout's corners
+            lo = -8.6 + r * r * 0.5
+            hi = 8.6 - r * r * 0.5 - (1.6 if a > 4 else 1.6 * a / 4)
+            return lo < c < hi
+        t = (a - 18) / 22   # the body behind it, a step narrower, tapering to the tail stock
+        half = 7.2 * (1 - t) ** 0.9 + 1.3 * t
+        mid = -0.9 + 0.9 * t
+        return abs(c - mid) < half
+
+    body = shape(body_test)
+    flukes = shape(lambda X, Y: inside_poly(X, Y, [to_xy(*p) for p in
+                   [(38.5, -1.6), (41.6, -8), (44.8, -11.5), (44.4, -6), (42.8, 0), (44.4, 6), (44.8, 11.5), (41.6, 8), (38.5, 1.6)]]))
+    whale = body | flukes
+    head = body & shape(lambda X, Y: local(X, Y)[0] < 18)
+
+    # dark grey all over, lighter where the light catches the back and the great brow of the head
+    lit = volume(whale, 5, (0.55, -0.35, 0.75))
+    tone(img, whale, lit, [DARK, WHALE, WHALE, WHALE_L, WHALE_L], 0.6)
+    # the wrinkles: wavy lines running round the body behind the head, pencilled darker
+    for y, x in np.argwhere(body & ~head):
+        a, c = local(x + 0.5, y + 0.5)
+        if (a / 2.8 + 0.3 * math.sin(c * 0.9 + a * 0.4)) % 1 < 0.34 and hashed(x // 2, y, 61) < 0.7:
+            img[y, x] = DARK
+    img[edges(whale)] = INK
+
+    # the jaw: long, narrow, slung under the head, dropped wide open as it falls, pale teeth along it
+    hinge = to_xy(16, 7.4)
+    tip = to_xy(2, 15.5)
+    jaw = brush([hinge, tip], [1.8, 1.1]) & ~body
+    img[jaw] = STORM_L
+    img[jaw & shape(lambda X, Y: local(X, Y)[1] < local(*hinge)[1] + (16 - local(X, Y)[0]) * 0.58)] = PALE
+    img[edges(jaw)] = INK
+    for k in range(4, 14, 2):   # the teeth, on the jaw's inner edge
+        x, y = to_xy(k, 7.4 + (16 - k) / 14 * 8.1 - 1.4)
+        x, y = int(x), int(y)
+        if not body[y, x]:
+            img[y, x] = CREAM
+    # the pale mouth along the underside of the head, now the jaw has left it
+    for y, x in np.argwhere(head & ~edges(whale)):
+        a, c = local(x + 0.5, y + 0.5)
+        if 2.5 < a < 15.5 and c > 4.6:
+            img[y, x] = PALE if (x + y) % 2 else CREAM
+    # the eye, small, just above the corner of the mouth
+    ex, ey = to_xy(15.8, 3.6)
+    img[int(ey), int(ex)] = INK
+    img[int(ey), int(ex) + 1] = INK
+    img[int(ey) - 1, int(ex)] = WHALE_L
+    # the blowhole, off at the front of the head, on its back
+    bx, by = to_xy(1.4, -7.4)
+    img[int(by), int(bx)] = INK
+    # small flippers, splayed out behind the head
+    for side, (fa, fc) in ((1, (21, 5)), (-1, (21, -7))):
+        root = to_xy(fa, fc)
+        end = to_xy(fa + 2.5, fc + side * 6)
+        fin = brush([root, to_xy(fa + 1, fc + side * 3.5), end], [1.8, 1.5, 0.8]) & ~body
+        img[fin] = WHALE
+        img[edges(fin)] = INK
+
+    # speed lines streaming up past it, the way it came
+    for c0, a0, length in ((-11.5, 27, 14), (-14.5, 12, 8), (10.5, 28, 13), (14, 8, 6), (5.5, 45, 5), (-6, 46, 4)):
+        for k in range(int(length * 3)):
+            x, y = to_xy(a0 + k / 3, c0)
+            x, y = int(x), int(y)
+            if 0 <= y < N and 0 <= x < N and not whale[y, x]:
+                img[y, x] = LIGHT if k < length * 1.6 or y % 2 else SMUDGE
+    return img
+
+
+def windspren():
+    img = np.zeros((N, N, 3), np.uint8)
+    img[:] = PAPER
+
+    # wind lines first, faint, the ribbons riding them
+    for y0, x0, x1, k in ((5, 27, 47, 51), (34, 2, 15, 52), (49, 17, 39, 53), (28.5, 39, 50, 54)):
+        for x in range(x0, x1):
+            y = int(y0 + 1.2 * math.sin((x - x0) / 4.5))
+            if hashed(x, y, k) < 0.7:
+                img[y, x] = SMUDGE if x - x0 < 3 or x1 - x < 4 or hashed(x, y, k + 1) < 0.4 else LIGHT
+
+    # each ribbon: a curve that runs, loops and runs on, its width twisting as it turns over
+    def ribbon(path, width, twist, phase):
+        idx = np.full((N, N), -1)
+        face = np.zeros((N, N))
+        for i, (x, y, nx, ny, s) in enumerate(path):
+            w = width(s) * (0.25 + 0.75 * abs(math.cos(twist * s + phase)))
+            for u in np.arange(-w, w + 0.01, 0.25):
+                px, py = int(x + nx * u), int(y + ny * u)
+                if 0 <= px < N and 0 <= py < N:
+                    idx[py, px] = i
+                    face[py, px] = math.cos(twist * s + phase)
+        return idx, face
+
+    def sample(points, step=0.2):
+        out, s = [], 0.0
+        pts = [np.array(p, float) for p in points]
+        # a Catmull-Rom spline through the points
+        for i in range(len(pts) - 1):
+            p0, p1, p2, p3 = pts[max(i - 1, 0)], pts[i], pts[i + 1], pts[min(i + 2, len(pts) - 1)]
+            L = np.linalg.norm(p2 - p1)
+            for k in range(int(L / step) + 1):
+                t = k / (int(L / step) + 1)
+                q = 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3)
+                d = 0.5 * ((-p0 + p2) + 2 * (2 * p0 - 5 * p1 + 4 * p2 - p3) * t + 3 * (-p0 + 3 * p1 - 3 * p2 + p3) * t * t)
+                d /= max(np.linalg.norm(d), 1e-6)
+                out.append((q[0], q[1], -d[1], d[0], s + L * t))
+            s += L
+        return out
+
+    ribbons = [
+        (sample([(3, 27), (10, 25), (18, 25.5), (25, 22), (27, 15), (22, 9.5), (16, 13), (18, 20), (26, 24.5), (35, 23),
+                 (42, 17), (49, 13)]),
+         lambda s: 0.6 + 1.9 * math.sin(min(s / 78, 1) * math.pi), 0.13, 0.3),
+        (sample([(8, 45), (16, 42), (24, 41), (30, 37), (30, 31), (25, 30.5), (24, 35), (30, 39.5), (38, 39), (44, 35),
+                 (49, 34)]),
+         lambda s: 0.5 + 1.3 * math.sin(min(s / 62, 1) * math.pi), 0.17, 1.8),
+    ]
+    for path, width, twist, phase in ribbons:
+        idx, face = ribbon(path, width, twist, phase)
+        mask = idx >= 0
+        for y, x in np.argwhere(mask):
+            img[y, x] = GLEAM if face[y, x] > 0 else GLEAM_D
+        # the ribbon's edges, in pencil: where it meets paper, or crosses an earlier stretch of itself
+        pad = np.pad(idx, 1, constant_values=-1)
+        for y, x in np.argwhere(mask):
+            near = [pad[y, x + 1], pad[y + 2, x + 1], pad[y + 1, x], pad[y + 1, x + 2]]
+            if any(n < 0 for n in near):   # fading out at either end, as if it were going thin as air
+                fade = min(idx[y, x], len(path) - idx[y, x]) / 40
+                img[y, x] = (BLUE_L if face[y, x] < 0 else LIGHT) if fade > 1 or hashed(x, y, 57) < fade else SMUDGE
+            elif any(n >= 0 and n < idx[y, x] - 25 for n in near):   # where it passes over itself
+                img[y, x] = LIGHT
+    # a few motes of light shed along the way
+    for x, y in ((9, 21), (32, 12), (44, 22), (13, 38), (37, 45), (6, 9)):
+        img[y, x] = GLEAM
+        img[y - 1, x] = img[y + 1, x] = img[y, x - 1] = img[y, x + 1] = SMUDGE
+    return img
+
+
 # the pages drawn here, by their tile in the atlas (row * 6 + column)
 CELLS = {
     48: curlew,   # the ninth row
     49: knot,
     50: lugworm,
+    51: hippogriff,
+    52: spermwhale,
+    53: windspren,
 }
 
 
