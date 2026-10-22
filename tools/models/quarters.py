@@ -221,9 +221,6 @@ def telly(root):
     m.box((0.36, 0.5, 0.1), (x + 0.02, yc - 0.42, 0.18), "#d9d5cf")
     m.box((0.02, 0.1, 0.04), (x + 0.2, yc - 0.52, 0.19), P.RED)
     m.box((0.02, 0.06, 0.03), (x + 0.2, yc - 0.3, 0.2), "#5f5a66")
-    m.box((0.22, 0.34, 0.07), (x + 1.3, yc - 0.6, 0.035), "#d9d5cf", rot=(0, 0, 0.4))  # controller
-    for dy in (-0.09, 0.09):
-        m.cyl(0.035, 0.03, (x + 1.33, yc - 0.6 + dy, 0.07), P.RED if dy > 0 else P.TILE_BLUE, segs=5)
     m.plank_line((x + 0.2, yc - 0.52, 0.12), (x + 1.2, yc - 0.55, 0.02), 0.02, 0.02, P.INK)
     # the telly: a deep plastic box with a curved-looking screen facing the room (+x)
     m.box((0.8, 1.2, 0.95), (x - 0.02, yc, 0.55 + 0.475), "#34303b")
@@ -231,6 +228,13 @@ def telly(root):
     m.box((0.06, 0.12, 0.05), (x + 0.44, yc - 0.45, 0.66), P.GOLD)                      # knobs
     m.box((0.06, 0.12, 0.05), (x + 0.44, yc - 0.3, 0.66), P.GOLD)
     m.build(g)
+    # the controller on its own, to be picked up: it brings out the box of games
+    pg = group("controller", parent=root, id="controller")
+    pc = Model("controller")
+    pc.box((0.22, 0.34, 0.07), (x + 1.3, yc - 0.6, 0.035), "#d9d5cf", rot=(0, 0, 0.4))
+    for dy in (-0.09, 0.09):
+        pc.cyl(0.035, 0.03, (x + 1.33, yc - 0.6 + dy, 0.07), P.RED if dy > 0 else P.TILE_BLUE, segs=5)
+    pc.build(pg)
     # beside the controller, a second cartridge: masking tape on the front, names in marker,
     # each one crossed out, and a fresh one at the bottom
     cg = group("cartridge", parent=root, id="cartridge")

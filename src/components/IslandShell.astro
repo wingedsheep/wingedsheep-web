@@ -571,6 +571,27 @@ const places = [
   <div id="sketch" class="sketch" hidden role="dialog" aria-modal="true">
     <img class="sketch-page" alt="" draggable="false" />
   </div>
+  <!-- the box of games by the keeper's telly (src/island/games.ts) -->
+  <div id="games" class="games" hidden role="dialog" aria-modal="true" aria-label="A box of games">
+    <div class="games-box">
+      <div class="games-carts">
+        <button class="cart" data-game="arnhem" data-about="GTA Arnhem: a drive round the town where he grew up" style="--tilt: -4deg">
+          <span class="cart-label">
+            <img src="/art/cartridges/arnhem.png" alt="" width="80" height="60" />
+            <strong>GTA Arnhem</strong>
+          </span>
+        </button>
+        <button class="cart" data-game="rustwing" data-about="Rustwing Raiders: a shooter for one, or two with a friend online" style="--tilt: 3deg">
+          <span class="cart-label">
+            <img src="/art/cartridges/rustwing.png" alt="" width="80" height="60" />
+            <strong>Rustwing Raiders</strong>
+          </span>
+        </button>
+      </div>
+      <div class="games-front" aria-hidden="true">GAMES</div>
+    </div>
+    <p class="games-hint" data-games-hint>Pick a cartridge to play · it opens in a new tab</p>
+  </div>
   <div id="tip" class="tip" hidden></div>
   <div class="walkman" data-walkman hidden>
     <div class="walkman-tape" aria-hidden="true">

@@ -66,6 +66,8 @@ export interface IslandContext {
   showDrawing(src: string, alt: string): void;
   /** Put the film on the telly in the keeper's quarters. */
   watch(): void;
+  /** Bring out the box of games by the telly (src/island/games.ts). */
+  games(): void;
   /** Put your eye to the telescope in the lamp room: the island, out of the window. */
   spy(): void;
   /** The set that picks up Radio Alles, once you've tuned it in at the top of the lighthouse. */
@@ -105,7 +107,7 @@ export const SECRETS = {
   travels: { title: 'Pins in the globe', hint: 'Lean in close to the globe in the library.' },
   dreams: { title: 'Lucid', hint: 'Someone at the hut writes things down the moment they wake up.' },
   winds: { title: 'Still being written', hint: 'One book on the keeper’s shelf won’t open.' },
-  arnhem: { title: 'Home town', hint: 'The keeper’s telly has a game about where he grew up.' },
+  arnhem: { title: 'Home town', hint: 'The keeper’s box of games has one about where he grew up.' },
   cartridge: { title: 'Press start', hint: 'Not every cartridge by the telly has a proper label.' },
   beike: { title: 'Beike', hint: 'Someone in the meadow has a ball and all the time in the world.' },
   // the wildlife (src/island/scene/fauna.ts): some come out only at night, some only now and then
@@ -1631,21 +1633,21 @@ const PROGRAMMES: Record<Show, { label: string; text: string; play: string; stay
   murder: {
     label: 'The telly · a British murder mystery',
     text: 'A British murder mystery. A thatched village of forty people, a vicar with a past, and a detective who takes two more deaths than strictly necessary to crack it. Check the sign by the road: at this rate the village is gone by the second series.',
-    play: 'Take the controller (someone will notice) ↗',
+    play: 'Take the controller (someone will notice)',
     stay: 'It was the vicar. Stay and watch',
     her: 'She’s narrowed it down to the vicar or the vicar’s twin. There’s always a twin.',
   },
   location: {
     label: 'The telly · Location, Location, Location',
     text: 'Location, Location, Location. The couple want five bedrooms, a garden, a village pub and a station within walking distance, and a budget that would get you a nice shed. Phil has found them a nice shed. They’ll “have a think”.',
-    play: 'Make an offer on the controller ↗',
+    play: 'Make an offer on the controller',
     stay: 'Keep watching: they’re about to see the kitchen',
     her: '“They’re going to say no to the kitchen.” They say no to the kitchen.',
   },
   bnb: {
     label: 'The telly · B&B vol liefde',
     text: 'B&B vol liefde. A Dutchman has opened a B&B in Provence to find love, and three guests have come to stay. Someone has already cried over a croissant. Someone always cries over a croissant.',
-    play: 'Check out early ↗',
+    play: 'Check out early',
     stay: 'Stay for breakfast',
     her: 'She picked who goes home before the first breakfast was served. She is never wrong.',
   },
@@ -1749,15 +1751,9 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
   console: {
     label: () => (telly.film ? 'The telly · Tails of Power'
       : telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show].label
-      : 'The telly · GTA Arnhem, or a film'),
+      : 'The telly · a game, or a film'),
     activate(ctx) {
-      const play = {
-        label: 'Play ↗',
-        pick() {
-          window.open('https://racer.wingedsheep.com/', '_blank', 'noopener');
-          ctx.discover('arnhem');
-        },
-      };
+      const play = { label: 'Play a game', pick: () => ctx.games() };
       if (telly.film) return ctx.toast('Two cats in armour, a war for the throne, and the music turned right up.');
       const film = { label: 'Watch Tails of Power', pick: () => ctx.watch() };
       const on = telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show] : null;
@@ -1770,9 +1766,13 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
           },
         }, { label: on.stay }]);
       } else {
-        ctx.ask('The console’s plugged in: GTA Arnhem, a drive round the town where Vincent grew up (it opens in a new tab). Or there’s Tails of Power, a fantasy trailer starring two cats, made with AI.', [film, { ...play, label: 'Play GTA Arnhem ↗' }, { label: 'Not now' }]);
+        ctx.ask('The console’s plugged in, with a box of games beside it. Or there’s Tails of Power, a fantasy trailer starring two cats, made with AI.', [film, play, { label: 'Not now' }]);
       }
     },
+  },
+  controller: {
+    label: 'The controller · pick a game',
+    activate: (ctx) => ctx.games(),
   },
   cartridge: {
     label: 'A cartridge with a tape label',

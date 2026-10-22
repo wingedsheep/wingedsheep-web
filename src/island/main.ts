@@ -14,6 +14,7 @@ import { Companion, SHOWS, type Show, type Spot } from './scene/companion';
 import { type Pet, PETS } from './scene/petting';
 import { Vincent, type Whereabouts } from './scene/vincent';
 import { Lighthouse } from './lighthouse';
+import { GameBox } from './games';
 import { CameraRig } from './scene/camera-rig';
 import { Ambience } from './scene/ambience';
 import { Mist } from './scene/mist';
@@ -262,6 +263,7 @@ export async function bootIsland(host: HTMLElement) {
     },
   });
 
+  const gameBox = new GameBox();
   const ctx: IslandContext = {
     island,
     rig,
@@ -283,6 +285,7 @@ export async function bootIsland(host: HTMLElement) {
     showDrawing: (src, alt) => ui.showDrawing(src, alt),
     ask: (text, choices) => ui.ask(text, choices),
     watch: () => lighthouse.watch(),
+    games: () => gameBox.open(ctx),
     spy: () => lighthouse.lookThrough(),
     discover(id) {
       if (!journal.discover(id)) return;
