@@ -418,6 +418,8 @@ export async function bootIsland(host: HTMLElement) {
   // and the week's: ?siren (the siren test, now), ?post (the post boat, on a post day: ?holiday=postday)
   if (params.has('siren')) life.week.soon('siren');
   if (params.has('post')) life.week.soon('post');
+  // in development, a handle on it all from the console (and for screenshots)
+  if (import.meta.env.DEV) Object.assign(window, { __island: { rig, life, scene, THREE } });
   void live();
   setInterval(live, 60 * 1000);
   ui.route(true);
@@ -536,13 +538,15 @@ export async function bootIsland(host: HTMLElement) {
     life.companion.update(dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, chill: life.chill, playing: life.playing, camera: rig.camera, room: indoorsNow,
       yoga: life.vincent.spot === 'yoga' && life.vincent.company ? life.vincent.pose : null,
-      warm: weather.heat.warm, wind: weather.wind,
+      warm: weather.heat.warm, wind: weather.wind, cloud: life.cloud, fog: life.fog, temperature: weather.temperature,
     }, reducedMotion);
     life.vincent.update(dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, rough: weather.blizzard, camera: rig.camera,
       view: rig.view, room: indoorsNow, playing: life.playing, chill: life.chill,
       warm: weather.heat.warm, lying: snowCover.value, raining: weather.now.rain + weather.now.hail,
+      cloud: life.cloud, fog: life.fog, temperature: weather.temperature,
     }, reducedMotion);
+    life.pastimes.update(reducedMotion ? 0 : dt);
     // the special days' goings-on (days.ts), and the two minutes' silence on the fourth of May
     life.days.update(dt, sky.time, { night: sky.lamps, wet, rain: life.rain, wind: weather.wind }, reducedMotion);
     const silence = life.days.remembrance.silence;

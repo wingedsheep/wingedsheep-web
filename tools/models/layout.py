@@ -56,6 +56,8 @@ KAYAK_LOOP = ((9.0, -27.0), 6.0, 3.5)  # where Vincent paddles about: the middle
 PRICKEN = [(22.6, 15.6), (23.0, 16.8), (23.4, 18.0), (23.8, 19.2), (24.2, 20.4), (24.7, 21.6), (25.2, 22.8), (25.8, 24.0), (26.4, 25.2)]
 MEDITATE = (-27.6, -6.6)           # his cushion on the grass below the lighthouse rock, looking out to sea
 YOGA = (9.0, -14.2)                # his yoga mat on the grass above the beach east of the pier; hers is just east of it
+# a hammock slung between two oaks on the lawn north of the lighthouse path (the scatter grows them here)
+HAMMOCK = [(-25.0, -2.2), (-22.1, -1.0)]
 # Up the mountain: from the foot of the trail at the plaza, up the stairs and the switchbacks to
 # the summit flag (and back down the same way)
 CLIMB = [(0.0, -4.0), (0.5, -1.0), (-2.0, 2.5), (-5.0, 5.0), (-6.5, 6.2), (-6.5, 8.2), (0.0, 10.4), (6.0, 11.2),

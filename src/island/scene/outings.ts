@@ -8,6 +8,7 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(xs: readonly T[]) => xs[Math.floor(Math.random() * xs.length)];
 
 const PACE = 0.95; // m/s: a stroll, not a march
+const BRISK = 1.25; // m/s: on their way somewhere
 const STRIDE = 1.0; // seconds a step each foot
 const DECK = 0.84; // the pier's boards (layout.py SHELTER "deck")
 const THIGH = 0.42; // hip to knee, knee to sole (outings.py)
@@ -82,6 +83,8 @@ const ROUTES: Record<string, Route> = {
 };
 export type RouteName = keyof typeof ROUTES;
 export const ROUTE_NAMES = Object.keys(ROUTES) as RouteName[];
+/** Every stroll's points, for the network of ways across the island (ways.ts). */
+export const ROUTE_POINTS = Object.values(ROUTES).map((r) => r.points);
 
 /** On a cold day he asks her out for a walk with a mug of glühwein (vincent.ts asks, companion.ts comes). */
 export const together = { asked: false, joined: false };
@@ -223,6 +226,8 @@ export class Stroll {
   /** A thought rising from over their head. */
   onThought?: (at: THREE.Vector3) => void;
   private poses = [{ ...REST }, { ...REST }];
+  /** m/s: strolling, or on their way somewhere. */
+  private pace = PACE;
 
   constructor(
     private ground: Ground,
@@ -246,6 +251,7 @@ export class Stroll {
   begin(name: RouteName = pick(ROUTE_NAMES)) {
     this.name = name;
     this.route = ROUTES[name];
+    this.pace = PACE;
     this.way = this.route.points.map(([x, y, on]) => (on === 'deck' ? { at: V(x, DECK, -y), fixed: true } : { at: V(x, this.ground.at(x, -y), -y), fixed: false }));
     // some days round the other way
     if (Math.random() < 0.5 && !this.route.points.some((p) => p[2])) {
@@ -276,6 +282,23 @@ export class Stroll {
     this.place(0);
   }
 
+  /**
+   * Not a stroll but on their way somewhere (vincent.ts, companion.ts: from one thing to the
+   * next, along `way` from ways.ts), getting up first if they were sitting (`rise`), facing
+   * `heading` (world yaw) while they do.
+   */
+  go(way: Waypoint[], rise: boolean, heading?: number) {
+    this.route = { points: [], stops: [] };
+    this.pace = BRISK;
+    this.way = way;
+    Object.assign(this, { leg: 1, along: 0, phase: rise ? 'rise' : 'walk', stop: null, topic: 'walk', found: null, t: 0 });
+    this.walker.find = null;
+    this.nextThought = rand(14, 30);
+    if (heading !== undefined) this.walker.heading = heading;
+    else if (way.length > 1) this.walker.heading = Math.atan2(way[1].at.x - way[0].at.x, way[1].at.z - way[0].at.z);
+    this.place(0);
+  }
+
   /** One frame of it (0 holds them where they are). */
   update(dt: number) {
     const w = this.way;
@@ -284,8 +307,8 @@ export class Stroll {
     if (this.phase === 'walk') {
       // a while after the last stop, their mind's on the walk again
       if ((this.sinceStop += dt) > 15) this.topic = 'walk';
-      this.along += PACE * dt;
-      this.stride += (dt / STRIDE) * Math.PI;
+      this.along += this.pace * dt;
+      this.stride += ((dt / STRIDE) * Math.PI * this.pace) / PACE;
       for (;;) {
         const len = w[this.leg - 1].at.distanceTo(w[this.leg].at);
         if (this.along < len) break;

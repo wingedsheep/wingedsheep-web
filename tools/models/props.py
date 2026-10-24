@@ -219,14 +219,60 @@ def summit_flag(root):
 
 
 def boulder(root):
-    """A bouldering block with a couple of coloured problems on it."""
+    """A block of granite, faceted, taller than he is, its south face leaning out over its foot to a
+    lip at the top (the crux of his yellow problem: pastimes.py). Tops weathered pale, the undersides
+    in shadow, lichen on its shoulders, a fallen chunk beside it, and two more problems up the sides
+    (blue on the west, red on the east), every hold set on the rock."""
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    import bmesh
     m = Model("boulder", seed=21)
-    m.ball(1.6, (0, 0, 1.0), P.ROCK[2], subdiv=2, scale=(1.3, 1.0, 0.95), jitter=0.18)
-    for i, c in enumerate(["#e8b24a"] * 5 + ["#43b3d9"] * 4 + ["#e46f5a"] * 4):
-        a = i * 2.4
-        z = 0.5 + (i % 5) * 0.4
-        r = 1.6 * math.sqrt(max(0.1, 1 - ((z - 1.0) / 1.52) ** 2))
-        m.box((0.16, 0.16, 0.12), (math.cos(a) * r * 1.25, math.sin(a) * r * 0.95, z), c)
+    rng = m.rng
+    pts = []
+    # rings from the foot up, each leaning further south (-y), so the face hangs out over the pad
+    # (few points to a ring, each ring turned its own way: big flat faces, no two alike), and a broad top
+    for z, rx, ry, lean, n in ((-0.35, 1.45, 1.2, 0.0, 6), (1.0, 1.6, 1.3, -0.1, 6), (2.3, 1.45, 1.15, -0.35, 6),
+                               (3.15, 1.05, 0.85, -0.45, 5)):
+        turn = rng.uniform(0, math.tau)
+        for i in range(n):
+            a = turn + (i + rng.uniform(-0.2, 0.2)) / n * math.tau
+            k = rng.uniform(0.85, 1.08)
+            pts.append(Vector((math.cos(a) * rx * k, math.sin(a) * ry * k + lean, z + rng.uniform(-0.2, 0.2))))
+    verts = [m.bm.verts.new(p) for p in pts]
+    hull = bmesh.ops.convex_hull(m.bm, input=verts)
+    for g in hull.get("geom_interior", []) + hull.get("geom_unused", []):
+        if isinstance(g, bmesh.types.BMVert) and g.is_valid:
+            m.bm.verts.remove(g)
+    m.bm.faces.ensure_lookup_table()
+    m.bm.normal_update()
+    for f in m.bm.faces:
+        n = f.normal
+        c = f.calc_center_median()
+        if n.z > 0.55:
+            color = P.PEAK_ROCK[3]                                                          # weathered pale on top
+        elif n.z < -0.25:
+            color = P.PEAK_ROCK[0]                                                          # under the lean
+        elif c.z < 0.4:
+            color = P.PEAK_ROCK[0]                                                          # damp round the foot
+        else:
+            color = P.PEAK_ROCK[1] if (f.index * 7) % 3 == 0 else P.PEAK_ROCK[2]
+        f.material_index = m._slot(color, False)
+    tree = BVHTree.FromBMesh(m.bm)
+    # lichen on its shoulders
+    for x, y, z in ((-0.7, 0.3, 4.0), (0.6, 0.5, 4.0), (-1.0, -0.6, 4.0)):
+        hit, normal, _, _ = tree.ray_cast(Vector((x, y, z)), Vector((0, 0, -1)))
+        if hit:
+            m.ball(0.2, tuple(hit), "#9aa86a", subdiv=1, scale=(1.2, 1, 0.25))
+    # the other two problems, a hold at a time up the sides
+    for color, x0, side in (("#43b3d9", -4.0, 1), ("#e46f5a", 4.0, -1)):
+        for i in range(4):
+            y, z = rng.uniform(-0.4, 0.4), 0.6 + i * 0.6
+            hit, normal, _, _ = tree.ray_cast(Vector((x0, y, z)), Vector((side, 0, 0)))
+            if hit:
+                rot = Vector((0, 0, 1)).rotation_difference(normal).to_euler()
+                m.box((0.15, 0.12, 0.07), tuple(hit + normal * 0.02), color, rot=tuple(rot))
+    m.ball(0.6, (-1.55, 0.6, 0.2), P.PEAK_ROCK[1], subdiv=1, scale=(1.2, 1.0, 0.75), jitter=0.1)   # a fallen chunk at its foot
+    m.ball(0.3, (1.4, -0.9, 0.05), P.PEAK_ROCK[2], subdiv=1, scale=(1.1, 1.0, 0.7), jitter=0.06)
     m.build(root)
 
 

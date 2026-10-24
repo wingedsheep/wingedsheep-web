@@ -8,6 +8,27 @@ export const windDir = { value: new THREE.Vector2(1, 0) }; // which way it blows
 export const drought = { value: 0 }; // 0..1: grass bleaching to straw in the heat
 
 const BLADES_PER_M2 = 14;
+const PRESSES = 4;
+
+/** Where something lies on the grass for now (a crash pad, a blanket): world x, z and half its size each way. */
+const pressed = { value: Array.from({ length: PRESSES }, () => new THREE.Vector4(0, 0, 0, 0)) };
+const pressing = new Map<string, number>();
+
+/** Lay something down on the grass (`at` its middle, `half` its half-size in x and z), or (null) pick it up again: no blades through it. */
+export function pressGrass(key: string, at: THREE.Vector3 | null, half = new THREE.Vector2()) {
+  let i = pressing.get(key);
+  if (!at) {
+    if (i !== undefined) pressed.value[i].set(0, 0, 0, 0);
+    pressing.delete(key);
+    return;
+  }
+  if (i === undefined) {
+    i = pressed.value.findIndex((v, k) => v.z === 0 && ![...pressing.values()].includes(k));
+    if (i < 0) return;
+    pressing.set(key, i);
+  }
+  pressed.value[i].set(at.x, at.z, half.x, half.y);
+}
 
 /**
  * Thousands of instanced grass blades on every grassy triangle of the terrain. Blades take the
@@ -71,8 +92,9 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
     shader.uniforms.uWindDir = windDir;
     shader.uniforms.uDry = drought;
     shader.uniforms.uFrost = frostCover;
+    shader.uniforms.uPress = pressed;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSnow;\nuniform float uGust;\nuniform vec2 uWindDir;\nuniform float uFrost;\nvarying float vTip;')
+      .replace('#include <common>', `#include <common>\nuniform vec4 uPress[${PRESSES}];\nuniform float uWind;\nuniform float uSnow;\nuniform float uGust;\nuniform vec2 uWindDir;\nuniform float uFrost;\nvarying float vTip;`)
       .replace(
         '#include <begin_vertex>',
         /* glsl */ `
@@ -87,6 +109,10 @@ export function createGrass(terrain: THREE.Mesh): THREE.InstancedMesh {
         vec3 downwind = vec3(uWindDir.x, 0.0, uWindDir.y) * mat3(instanceMatrix);
         transformed.xz += normalize(downwind.xz) * gust * 0.36 * position.y;
         transformed.y *= 1.0 - uSnow * 0.85; // buried in snow
+        for (int i = 0; i < ${PRESSES}; i++) {
+          vec4 p = uPress[i]; // under something lying on it: flat
+          if (abs(rootW.x - p.x) < p.z && abs(rootW.z - p.y) < p.w) transformed.y = 0.0;
+        }
         `,
       );
     shader.fragmentShader = shader.fragmentShader

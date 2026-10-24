@@ -1032,6 +1032,33 @@ function mealLabel(ctx: IslandContext, who: string) {
   return who === 'Vincent' ? `Vincent · ${what}` : what[0].toUpperCase() + what.slice(1);
 }
 const walking = (ctx: IslandContext) => ctx.life.vincent.spot === 'gluhwein';
+/** On their way to something (vincent.ts, companion.ts `headedFor`): what it is, the way you'd say it. */
+const OFF_TO: Record<string, [string, string]> = { // his, hers
+  guitar: ['back to the guitar', ''],
+  hut: ['up to the hut, out of the wet', ''],
+  asleep: ['up to bed', ''],
+  coding: ['in to work on his game', ''],
+  workshop: ['over to the workshop', ''],
+  kayak: ['down to the kayak', ''],
+  yoga: ['off to his mat', 'off to do yoga'],
+  meditate: ['off to sit for a bit', ''],
+  climb: ['off up the mountain', ''],
+  podcast: ['off with a podcast on', 'down the pier with a podcast'],
+  petting: ['off to give someone a fuss', 'off to give someone a fuss'],
+  swim: ['down for a swim', 'down for a swim'],
+  hammock: ['off for a nap in the hammock', 'off to the hammock with her book'],
+  reading: ['', 'off to read under the blossom tree'],
+  fireside: ['', 'over to the fire'],
+  workout: ['', 'off to work out, not thrilled about it'],
+  baking: ['', 'up to the hut to bake'],
+  watching: ['', 'in to put the telly on'],
+  bed: ['', 'up to bed'],
+};
+const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
+const offTo = (ctx: IslandContext, who: 'v' | 'e') => {
+  const to = who === 'v' ? ctx.life.vincent.headedFor : ctx.life.companion.headedFor;
+  return to ? OFF_TO[to]?.[who === 'v' ? 0 : 1] || 'on the way somewhere' : null;
+};
 // out in the snow, the two of them: a snowman, then snowballs (snowplay.ts)
 const playing = (ctx: IslandContext) => ctx.life.vincent.spot === 'snow';
 const building = (ctx: IslandContext) => ctx.life.vincent.snow.doing === 'building';
@@ -1093,6 +1120,34 @@ function swimLine(ctx: IslandContext, who: 'v' | 'e') {
 }
 const swimLabel = (doing: Doing) => (doing === 'sitting' || doing === 'sunbathing' || doing === 'drying' ? 'drying off in the sun' : 'in for a swim');
 
+const projecting = inTurn([
+  'Sat on his pad, miming the moves with one hand. The rock looks unconvinced.',
+  'Looking up at the yellow problem, working out where it went wrong last time.',
+  'Chalk, a sip of water, another long look up. Bouldering is mostly this.',
+]);
+const onTheRock = inTurn([
+  'Halfway up the yellow problem, toes on a hold the size of a biscuit.',
+  'Reaching for the next hold. Better not to say anything just now.',
+  'Up on the boulder, chalk on his hands and the pad down below.',
+]);
+function boulderingLine(ctx: IslandContext) {
+  const b = ctx.life.vincent.boulder;
+  if (b.doing === 'falling') return 'Off! Down onto the pad. He sits straight back down to work out why.';
+  if (b.doing === 'topped') return b.sent > 1 ? 'Sent it again. Arms up on top, to an audience of pines.' : 'He sent it. Arms up on top of the boulder, to an audience of pines.';
+  if (b.doing === 'climbing') return onTheRock();
+  return b.tries > 3 ? `Go number ${b.tries} coming up. The yellow problem is winning, for now.` : projecting();
+}
+const hisNap = inTurn([
+  'Asleep in the hammock, his book face down on his chest. He’ll say he was resting his eyes.',
+  'Fast asleep. The hammock’s still swinging a little from when he got in.',
+  'A warm afternoon, the oaks overhead, and a chapter he’ll start again from the top next time.',
+]);
+const herHammock = inTurn([
+  'She lowers the book just far enough to see who it is, then goes back in.',
+  'One foot over the side, pushing off the grass now and then to keep it going. The book’s a good one.',
+  'The hammock creaks between the oaks. She turns a page.',
+]);
+
 export const PLACES: Record<string, Place> = {
   vincent_podcast: {
     label: 'Vincent · pacing with a podcast',
@@ -1119,7 +1174,7 @@ export const PLACES: Record<string, Place> = {
   },
   vincent_stroll: {
     label: (ctx) => (playing(ctx) ? (building(ctx) ? 'Vincent · building a snowman' : 'Vincent · a snowball fight')
-      : walking(ctx) ? 'Vincent · a walk, with glühwein' : 'Vincent · out for a stroll'),
+      : walking(ctx) ? 'Vincent · a walk, with glühwein' : offTo(ctx, 'v') ? `Vincent · ${offTo(ctx, 'v')}` : 'Vincent · out for a stroll'),
     activate(ctx, at) {
       ctx.life.burst('hearts', at);
       const s = ctx.life.vincent.stroll;
@@ -1128,11 +1183,11 @@ export const PLACES: Record<string, Place> = {
     },
   },
   companion_stroll: withHer((ctx) => (ctx.life.companion.where === 'snow' ? (building(ctx) ? 'Building a snowman' : 'A snowball fight')
-    : ctx.life.companion.where === 'gluhwein' ? 'A walk, with glühwein' : 'Out for a stroll'), (ctx) => {
+    : ctx.life.companion.where === 'gluhwein' ? 'A walk, with glühwein' : offTo(ctx, 'e') ? capital(offTo(ctx, 'e')!) : 'Out for a stroll'), (ctx) => {
     if (ctx.life.companion.where === 'snow') return building(ctx) ? snowmanMaking() : snowballsHer();
     if (ctx.life.companion.where === 'gluhwein') return gluhweinLine();
     const s = ctx.life.companion.stroll;
-    return thought(ctx, 'e', s.topic, s.found);
+    return thought(ctx, 'e', s.topic, s.found); // (on her way somewhere, the walk's the topic)
   }),
   snowman: {
     label: (ctx) => (playing(ctx) && building(ctx) ? 'A snowman, half built' : snowCover.value < 0.3 ? 'The snowman, thawing' : 'The snowman'),
@@ -1153,6 +1208,17 @@ export const PLACES: Record<string, Place> = {
     const s = swimLabel(ctx.life.companion.bather.doing);
     return s[0].toUpperCase() + s.slice(1);
   }, (ctx) => swimLine(ctx, 'e')),
+  vincent_boulder: {
+    label: (ctx) => ({ thinking: 'Vincent · working out his problem', climbing: 'Vincent · on the boulder', falling: 'Vincent · off the boulder', topped: 'Vincent · on top of the boulder' })[ctx.life.vincent.boulder.doing],
+    activate: (ctx) => ctx.toast(boulderingLine(ctx)),
+  },
+  vincent_hammock: { label: 'Vincent · asleep in the hammock', activate: (ctx) => ctx.toast(hisNap()) },
+  companion_hammock: withHer('In the hammock, with a book', herHammock),
+  hammock: {
+    label: 'A hammock between the oaks',
+    activate: (ctx) => ctx.toast(ctx.life.pastimes.hammock.who ? 'Taken. There’s only room for one, whatever anyone says.'
+      : 'Striped canvas slung between two oaks. Whoever gets there first on a warm afternoon gets it.'),
+  },
   towel_vincent: {
     label: 'A towel on the sand · his',
     activate: say('His towel, his flip-flops, and his tee folded with the shades on top. The water bottle’s already warm.'),
@@ -1471,6 +1537,10 @@ export const PLACES: Record<string, Place> = {
 
 /** Things inside the library. Books are `book:<slug>` and open their post. */
 export const LIBRARY_PLACES: Record<string, Place> = {
+  library_jack: {
+    label: 'A jack-o’-lantern',
+    activate: say('Carried down from the hut and set by the hearth for the week. Between it and the fire, the reading corner has never been so orange.'),
+  },
   wildlife_book: { label: 'Wildlife sketchbook · leaf through your discoveries', activate: () => openSketchbook() },
   piano: {
     label: (ctx) => {
@@ -1537,10 +1607,6 @@ function pinPlace(id: string): Place | undefined {
     activate(ctx) {
       const where = trip.place === trip.country ? trip.place : `${trip.place}, ${trip.country}`;
       ctx.toast(`${where} (${when}). ${trip.note}`.trim());
-  library_jack: {
-    label: 'A jack-o’-lantern',
-    activate: say('Carried down from the hut and set by the hearth for the week. Between it and the fire, the reading corner has never been so orange.'),
-  },
       ctx.discover('travels');
     },
   };
@@ -1587,6 +1653,10 @@ const BOAT_WEEKS = [
 ];
 
 export const WORKSHOP_PLACES: Record<string, Place> = {
+  led_jack: {
+    label: 'A jack-o’-lantern · battery-powered',
+    activate: say('No candle in this one: an LED and a battery pack, wired in over the lid. A candle and a room full of sawdust didn’t seem like a good mix.'),
+  },
   boat_build: {
     label: `The boat · Saturday ${boatStage + 1} of ${BOAT_WEEKS.length}`,
     activate: say(BOAT_WEEKS[boatStage]),
@@ -1653,10 +1723,6 @@ const PROGRAMMES: Record<Show, { label: string; text: string; play: string; stay
     text: 'B&B vol liefde. A Dutchman has opened a B&B in Provence to find love, and three guests have come to stay. Someone has already cried over a croissant. Someone always cries over a croissant.',
     play: 'Check out early',
     stay: 'Stay for breakfast',
-  led_jack: {
-    label: 'A jack-o’-lantern · battery-powered',
-    activate: say('No candle in this one: an LED and a battery pack, wired in over the lid. A candle and a room full of sawdust didn’t seem like a good mix.'),
-  },
     her: 'She picked who goes home before the first breakfast was served. She is never wrong.',
   },
   rail: {
@@ -1979,6 +2045,10 @@ function cameOn(d: Date) {
 }
 
 export const HUT_PLACES: Record<string, Place> = {
+  carving: {
+    label: 'Pumpkin carving · half done',
+    activate: say('Where the island’s jack-o’-lanterns come from: newspaper on the floor, a spoon for the insides and the seeds laid out for roasting. This one has its eyes, and is still deciding on a mouth.'),
+  },
   ...Object.fromEntries(POST_THINGS.map(([name, line], k): [string, Place] => [`post_${k}`, {
     label: () => `${name} · came on the post boat ${shelf.has(k) ? cameOn(shelf.get(k)!) : ''}`.trim(),
     activate: say(line),
@@ -2045,10 +2115,6 @@ export const HUT_PLACES: Record<string, Place> = {
       return (ctx: IslandContext) => {
         ctx.sound.here('snore');
         ctx.toast(lines[n++ % lines.length]);
-  carving: {
-    label: 'Pumpkin carving · half done',
-    activate: say('Where the island’s jack-o’-lanterns come from: newspaper on the floor, a spoon for the insides and the seeds laid out for roasting. This one has its eyes, and is still deciding on a mouth.'),
-  },
       };
     })(),
   },
@@ -2214,7 +2280,7 @@ function dressedUp(places: Record<string, Place>, ids: string[], who: 'vampire' 
   }
 }
 dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike', 'vincent_stroll', 'vincent_meal'], 'vampire');
-dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike', 'companion_stroll', 'companion_meal'], 'witch');
+dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike', 'companion_stroll', 'companion_meal', 'companion_hammock'], 'witch');
 dressedUp(WORKSHOP_PLACES, ['vincent_workshop'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['vincent_coding'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['companion_watching'], 'witch');

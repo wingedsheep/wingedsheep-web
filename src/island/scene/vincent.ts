@@ -17,6 +17,9 @@ import { Eater, courseAt, sitDown, table, tick } from './meals';
 import { ROUTE_NAMES, Stroll, Walker, together } from './outings';
 import { Bather } from './swim';
 import { BARE, SnowPlay, play } from './snowplay';
+import { type Pastimes, hammockWeather, outdoors } from './pastimes';
+import type { Ways } from './ways';
+import { Bouldering } from './bouldering';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -37,7 +40,10 @@ export type Whereabouts = 'guitar' | 'hut' | 'kayak' | 'yoga' | 'climb' | 'podca
   | 'stroll' | 'meal' | 'gluhwein'
   | 'swim'
   | 'snow'
-  | 'meditate';
+  | 'meditate'
+  | 'hammock'
+  | 'boulder'
+  | 'going';
 /** The yoga poses he flows through (characters.py POSES), in order. */
 export const POSES = ['lotus', 'tree', 'dog'] as const;
 export type Pose = (typeof POSES)[number];
@@ -69,6 +75,39 @@ const STAY: Record<Whereabouts, [number, number]> = {
   swim: [180, 360], // and then out, and dry
   snow: [1e9, 1e9], // till they've had enough, or she can't come
   meditate: [150, 300], // when he sees it through (often he doesn't: GIVE_UP)
+  hammock: [240, 480], // a nap, under his book
+  boulder: [300, 540], // a session: a few goes at his problem (and he finishes the go he's on)
+  going: [1e9, 1e9], // till he's there
+};
+/** The parts of his day: up till eleven, the afternoon, the end of it, and the evening. */
+type Part = 'morning' | 'afternoon' | 'later' | 'evening';
+const partOfDay = (hour: number): Part => (hour < 11 ? 'morning' : hour < 16 ? 'afternoon' : hour < 19 ? 'later' : 'evening');
+/** How likely each thing is next, by the part of the day (the weather and the week have the last word: allowed). */
+const DAY: Partial<Record<Whereabouts, Record<Part, number>>> = {
+  guitar: { morning: 1, afternoon: 0.6, later: 0.8, evening: 1.6 },
+  coding: { morning: 1.4, afternoon: 0.9, later: 0.4, evening: 0.8 }, // coffee, and his game
+  petting: { morning: 0.8, afternoon: 0.3, later: 0.3, evening: 0.2 }, // the cats first thing, with the coffee
+  meditate: { morning: 0.15, afternoon: 0, later: 0, evening: 0.08 }, // he means to, every morning
+  podcast: { morning: 0.3, afternoon: 0.35, later: 0.35, evening: 0.3 },
+  kayak: { morning: 0, afternoon: 0.5, later: 0.45, evening: 0 },
+  yoga: { morning: 0.1, afternoon: 0.35, later: 0.35, evening: 0.1 },
+  climb: { morning: 0, afternoon: 0.45, later: 0.25, evening: 0 },
+  workshop: { morning: 0.15, afternoon: 0.25, later: 0.2, evening: 0.02 }, // a Saturday's, mostly (choose)
+  stroll: { morning: 0.15, afternoon: 0.45, later: 0.55, evening: 0.4 },
+  hammock: { morning: 0, afternoon: 0.55, later: 0.35, evening: 0 },
+  boulder: { morning: 0, afternoon: 0.6, later: 0.6, evening: 0.05 },
+};
+
+/** Seconds the next thing has to wait, with you watching, before he gets up and walks over to it. */
+const SETTLE = 3;
+/** Where he gets up from (off a log, a mat, a cushion, his knees, a hammock) rather than just walks off. */
+const SEATED: Whereabouts[] = ['guitar', 'yoga', 'meditate', 'petting', 'hammock', 'boulder'];
+/** The doors to the rooms (Blender x, y, on the ground just outside): where he goes in and comes out. */
+const DOORS: Partial<Record<Whereabouts, [number, number]>> = {
+  coding: [-30.3, -4.9],
+  hut: [13.6, 14.5],
+  asleep: [13.6, 14.5],
+  workshop: [11.5, -7.4],
 };
 /** Seconds he waits at the start of a glühwein walk for her to come before he gives up on it. */
 const COMPANY_WAIT = 90;
@@ -107,6 +146,9 @@ export interface VincentWorld {
   warm?: number; // 0..1: how warm it is (weather.ts)
   lying?: number; // 0..1: snow on the ground (weather.ts)
   raining?: number; // 0..1: rain or hail, not snow
+  cloud?: number; // 0..1
+  fog?: number; // 0..1
+  temperature?: number; // °C
 }
 
 /**
@@ -119,7 +161,7 @@ export interface VincentWorld {
  * never gets up in the middle of a song. The kayak waits for daylight and fair weather.
  */
 export class Vincent {
-  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep', 'stroll', 'meal', 'gluhwein', 'swim', 'snow', 'meditate'];
+  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep', 'stroll', 'meal', 'gluhwein', 'swim', 'snow', 'meditate', 'hammock', 'boulder'];
   spot: Whereabouts = 'guitar';
   private next: Whereabouts | null = null;
   private stay = rand(...STAY.guitar);
@@ -171,6 +213,10 @@ export class Vincent {
   /** In the sea on a hot day, or on his towel (swim.ts). */
   readonly bather: Bather;
   private sitter?: THREE.Object3D;
+  /** On the boulder up on the north-west cliffs (bouldering.ts). */
+  readonly boulder: Bouldering;
+  /** On his way (`going`): where to, and (to pet) who. */
+  private bound: { to: Whereabouts; pet?: Pet } | null = null;
   /** On the cushion: when his mind next wanders off, and how long the eye he opens after it stays open. */
   private sit = { wander: rand(15, 30), peek: 0 };
   /** A thought, over his head, while he's out walking (or sitting still, trying not to have any). */
@@ -182,6 +228,10 @@ export class Vincent {
   constructor(
     island: Island,
     private ground: Ground,
+    /** The hammock between the oaks (pastimes.ts): hers as much as his. */
+    private pastimes: Pastimes,
+    /** The ways across the island, for walking from one thing to the next while you watch. */
+    private ways: Ways,
   ) {
     this.seated = island.get('vincent');
     this.mat = island.get('vincent_yoga');
@@ -197,6 +247,7 @@ export class Vincent {
     this.diver = new Diver(island, ground);
     this.errands = new Errands(island, ground);
     this.walker = new Walker(island, 'vincent_stroll', 'stroll');
+    this.boulder = new Bouldering(island, ground);
     this.solo = new Stroll(ground, this.walker);
     this.pair = new Stroll(ground, this.walker, new Walker(island, 'companion_stroll', 'companion_stroll', true));
     this.pair.mugs = true;
@@ -260,7 +311,12 @@ export class Vincent {
   update(dt: number, w: VincentWorld, still = false) {
     this.clock += dt;
     if (!this.pinned) this.decide(dt, w);
+    if (this.spot === 'going') {
+      this.solo.update(still ? 0 : dt);
+      if (this.solo.done && this.bound) this.move(this.bound.to, this.bound.pet);
+    }
     if (this.spot === 'kayak') this.paddling(still ? 0 : dt);
+    if (this.spot === 'boulder') this.boulder.update(still ? 0 : dt);
     if (this.spot === 'yoga') this.flowing();
     if (this.spot === 'meditate') this.sitting(still ? 0 : dt);
     if (this.spot === 'climb') this.hiking(still ? 0 : dt);
@@ -347,10 +403,11 @@ export class Vincent {
     if (this.spot === 'podcast') return this.pacer?.getObjectByName('pod_head');
     if (this.spot === 'yoga') return this.mat?.getObjectByName(`vincent_yoga_${this.pose}_head`);
     if (this.spot === 'meditate') return this.sitter?.getObjectByName('vincent_meditate_head');
+    if (this.spot === 'boulder') return this.boulder.face;
     if (this.spot === 'petting') return this.kneel.head;
     if (this.spot === 'dive') return this.diver.head;
     if (this.spot === 'post' || this.spot === 'kite') return this.errands.head;
-    if ((this.spot === 'stroll' || this.spot === 'gluhwein' || this.spot === 'snow') && this.walker.visible) return this.walker.head;
+    if ((this.spot === 'stroll' || this.spot === 'gluhwein' || this.spot === 'snow' || this.spot === 'going') && this.walker.visible) return this.walker.head;
     if (this.spot === 'meal' && !table.indoors) return this.eater?.face;
     return undefined;
   }
@@ -363,6 +420,7 @@ export class Vincent {
       this.settling = false;
       if (!allowed.includes(this.spot)) this.move(this.choose(this.spot, w));
     }
+    if (this.spot === 'going') return; // there first, then whatever's next
     this.stay -= dt;
     // the one he's petting has run off: up off his knees and away, rather than kneeling there on his own
     if (this.spot === 'petting' && this.kneel.pet && !petting.there[this.kneel.pet] && this.seen('petting', w)) {
@@ -382,6 +440,7 @@ export class Vincent {
       return;
     }
     if (!due || ((this.spot === 'guitar' || this.spot === 'hut') && w.playing && allowed.includes(this.spot)) || (this.spot === 'dive' && this.diver.busy)
+      || (this.spot === 'boulder' && this.boulder.doing !== 'thinking' && w.rain < 0.3)
       || (this.spot === 'post' && this.errands.busy)) {
       this.waiting = 0;
       return;
@@ -402,6 +461,57 @@ export class Vincent {
       // nor lets dinner go cold
       || (this.next === 'meal' && this.waiting > PATIENCE);
     if (forced || (!this.seen(this.spot, w) && !this.seen(this.next, w))) this.move(this.next);
+    // with you watching: up, and over there on foot (if it's somewhere you can walk to)
+    else if (this.waiting > SETTLE) this.walkTo(this.next);
+  }
+
+  /** Where they're off to, on foot, if they're on their way somewhere. */
+  get headedFor(): Whereabouts | null {
+    return this.spot === 'going' ? (this.bound?.to ?? null) : null;
+  }
+
+  /** Where he'd be standing at a spot: to set off from, or to walk to. Null if it isn't somewhere you walk to. */
+  private placeOf(spot: Whereabouts, pet?: Pet | null): Waypoint | null {
+    const on = (o?: THREE.Object3D | null) => {
+      if (!o) return null;
+      const at = o.getWorldPosition(new THREE.Vector3());
+      at.y = this.ground.at(at.x, at.z);
+      return Number.isNaN(at.y) ? null : { at, fixed: false };
+    };
+    const door = DOORS[spot];
+    if (door) return on(new THREE.Object3D().translateX(door[0]).translateZ(-door[1]));
+    switch (spot) {
+      case 'guitar': return on(this.seated);
+      case 'yoga': return on(this.mat);
+      case 'meditate': return on(this.sitter);
+      case 'hammock': return on(this.pastimes.hammock.root);
+      case 'boulder': return on(this.boulder.pad);
+      case 'petting': return pet ? on(this.kneel.at(pet)) : null;
+      case 'climb': return this.route[0] ?? null;
+      case 'podcast': return this.walk[0] ?? null;
+      case 'swim': return on(new THREE.Object3D().translateX(this.bather.towelAt.x).translateZ(this.bather.towelAt.z));
+      case 'kayak': return { at: new THREE.Vector3(0.3, 0.84, 25.2), fixed: true }; // the end of the pier, where it's tied up
+      case 'going': return { at: this.walker.at.clone(), fixed: false };
+      default: return null;
+    }
+  }
+
+  /** Off on foot to `to`, by the ways across the island (ways.ts); false if there's no walking there from here. */
+  private walkTo(to: Whereabouts) {
+    const pets = petting.open('vincent');
+    const pet = to === 'petting' ? pets[Math.floor(Math.random() * pets.length)] : undefined;
+    const from = this.placeOf(this.spot, this.kneel.pet);
+    const there = this.placeOf(to, pet);
+    const way = from && there && this.ways.between(from, there);
+    if (!way) return false;
+    const rise = SEATED.includes(this.spot);
+    const heading = rise ? new THREE.Euler().setFromQuaternion((this.spot === 'petting' && this.kneel.pet ? this.kneel.at(this.kneel.pet) : this.spot === 'guitar'
+      ? this.seated : this.spot === 'yoga' ? this.mat : this.spot === 'meditate' ? this.sitter : this.spot === 'boulder' ? this.boulder.pad : this.pastimes.hammock.root)?.getWorldQuaternion(new THREE.Quaternion())
+      ?? new THREE.Quaternion(), 'YXZ').y : undefined;
+    this.move('going');
+    this.bound = { to, pet };
+    this.solo.go(way, rise, heading);
+    return true;
   }
 
   /** Up from where he's kneeling and off round the nearest walk. */
@@ -445,15 +555,21 @@ export class Vincent {
     const calm = w.rain < 0.05 && w.storm < 0.1 && w.wind < 9 && (w.chill ?? 0) < 0.5 && (w.lying ?? 0) < 0.2
       && ((hour >= 7 && hour < 10.5) || (hour >= 18 && hour < 21));
     const sit: Whereabouts[] = calm ? ['meditate'] : [];
-    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal, ...swim, ...snow, ...sit];
+    // dry rock, daylight, not freezing: the boulder
+    const rock: Whereabouts[] = w.rain < 0.05 && w.storm < 0.1 && w.wind < 12 && (w.chill ?? 0) < 0.6 && (w.lying ?? 0) < 0.2 && hour >= 11 && hour < 20 ? ['boulder'] : [];
+    // a warm afternoon: the hammock, if she's not in it
+    const out = outdoors(w);
+    const nap: Whereabouts[] = hammockWeather(out) && this.pastimes.hammock.who !== 'companion' ? ['hammock'] : [];
+    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal, ...swim, ...snow, ...sit, ...nap, ...rock];
     // a podcast works in the dark; in the wet the guitar comes in to the hut
     return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), ...week, ...walks, ...meal, ...snow];
   }
 
   /**
-   * Back to the guitar after anything else (at the fire, or by the hut's stove when it's wet);
-   * from the guitar, off to the game more often than the water. Late in the evening the game has
-   * him: he's mostly at it, sometimes till bedtime.
+   * What next, by the time of day (DAY): slow mornings (he's no morning person) with a coffee and
+   * his game, the cats and the guitar; the afternoon for getting out (the water, the mountain);
+   * the evening at the fire. Late in the evening the game has him: he's mostly at it, sometimes
+   * till bedtime. Never the same thing twice running, unless there's nothing else.
    */
   private choose(from: Whereabouts, w: VincentWorld): Whereabouts {
     const allowed = this.allowed(w);
@@ -464,20 +580,20 @@ export class Vincent {
     // Friday evening, it's drinks by the fire (or the stove): nowhere else he'd rather be
     if (fridayEvening(w.time) && allowed.includes(guitar)) return guitar;
     if (late(w.time)) return from === 'coding' && Math.random() < 0.35 && allowed.includes(guitar) ? guitar : 'coding';
-    if (from !== guitar) return guitar;
+    const part = partOfDay(hourOf(w.time));
     const saturday = occasions.has('saturday');
-    const odds: [Whereabouts, number][] = [['coding', saturday ? 0.15 : 0.35], ['kayak', 0.2], ['yoga', 0.25], ['climb', 0.2], ['podcast', 0.25], ['petting', 0.2],
-      ['kite', 1.1], ['workshop', saturday ? 1.4 : 0.06], ['stroll', 0.4], ['gluhwein', 0.6],
-      ['swim', this.bather.other?.swimming ? 3 : 0.9], ['snow', 2.5], // all the more if she's in
-      ['meditate', 0.12]]; // he means to, every morning
-    const open = odds.filter(([spot]) => allowed.includes(spot));
+    const odds: [Whereabouts, number][] = (Object.entries(DAY) as [Whereabouts, Record<Part, number>][]).map(([spot, p]) => [spot, p[part]]);
+    odds.push(['hut', DAY.guitar![part]], ['kite', 1.1], ['gluhwein', 0.6], ['snow', 2.5], ['swim', this.bather.other?.swimming ? 3 : 0.9]); // all the more if she's in
+    const weigh = (spot: Whereabouts, p: number) => (spot === 'workshop' ? (saturday ? p * 6 : p * 0.3) : spot === 'coding' && saturday ? p * 0.5 : p);
+    const open = odds.filter(([spot]) => allowed.includes(spot) && spot !== from).map(([spot, p]): [Whereabouts, number] => [spot, weigh(spot, p)]);
     let r = Math.random() * open.reduce((sum, [, p]) => sum + p, 0);
     for (const [spot, p] of open) if ((r -= p) < 0) return spot;
-    return 'coding';
+    return allowed.includes(guitar) ? guitar : 'coding';
   }
 
   private move(to: Whereabouts, pet?: Pet) {
     this.spot = to;
+    this.bound = null;
     const pets = petting.open('vincent');
     this.kneel.set(to === 'petting' ? (pet ?? pets[Math.floor(Math.random() * pets.length)] ?? 'cats') : null);
     this.next = null;
@@ -511,6 +627,7 @@ export class Vincent {
       together.joined = false;
       this.waitingForHer = 0;
     }
+    this.pastimes.hammock.set('vincent', to === 'hammock');
     if (to === 'workshop' && !occasions.has('saturday')) this.stay *= 0.5; // just a quick job, on a weekday
     this.show();
   }
@@ -526,10 +643,11 @@ export class Vincent {
     this.diver.visible = this.spot === 'dive';
     this.errands.visible = (this.spot === 'post' && this.errands.busy) || this.spot === 'kite';
     const playing = this.spot === 'snow' && this.waitingToPlay < 0;
-    this.walker.visible = this.spot === 'stroll' || (this.spot === 'gluhwein' && this.waitingForHer < 0) || playing;
+    this.walker.visible = this.spot === 'stroll' || this.spot === 'going' || (this.spot === 'gluhwein' && this.waitingForHer < 0) || playing;
     if (this.spot !== 'gluhwein' && !playing) this.herWalker(false);
     if (this.spot !== 'snow') this.snow.stop();
     this.bather.visible = this.spot === 'swim';
+    this.boulder.visible = this.spot === 'boulder';
     const eating = this.spot === 'meal' && !!table.course;
     if (this.meal) this.meal.visible = eating && !table.indoors;
     if (eating && table.indoors) indoors.add('vincent_meal_hut');
@@ -564,6 +682,9 @@ export class Vincent {
     if (spot === 'kite') return at(this.errands.body, 3) || this.near(new THREE.Vector3(6.2, 1, 16.4), 3);
     if (spot === 'yoga') return at(this.mat, 2);
     if (spot === 'meditate') return at(this.sitter, 1.6);
+    if (spot === 'hammock') return at(this.pastimes.hammock.root, 2.4);
+    if (spot === 'going') return at(this.walker.root, 1.5);
+    if (spot === 'boulder') return at(this.boulder.root, 2.6);
     if (spot === 'podcast') return this.spot === 'podcast' ? at(this.pacer, 1.5) : this.walk.some((p) => this.near(p.at, 1.5));
     if (spot === 'petting') {
       const pets = this.spot === 'petting' && this.kneel.pet ? [this.kneel.pet] : petting.open('vincent');

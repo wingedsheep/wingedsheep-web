@@ -16,6 +16,7 @@ import holidays
 import layout as L
 import nature
 import outings
+import pastimes
 import props
 import snowplay
 import week
@@ -331,3 +332,4 @@ def populate(t: Terrain):
     week.populate(t)
     outings.populate(t)
     snowplay.populate(t)
+    pastimes.populate(t)

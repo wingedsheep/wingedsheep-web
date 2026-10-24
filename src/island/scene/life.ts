@@ -16,6 +16,8 @@ import { season } from './season';
 import { Shelter, indoors, type Waypoint } from './shelter';
 import type { Sky } from './sky';
 import { Vincent } from './vincent';
+import { Pastimes } from './pastimes';
+import { Ways } from './ways';
 import { windDir } from './grass';
 import { Week } from './week';
 import { showSpread, table } from './meals';
@@ -101,6 +103,10 @@ export class Life {
   readonly companion: Companion;
   /** Where Vincent is: the guitar, the kayak, his game or bed. See vincent.ts (main.ts drives it). */
   readonly vincent: Vincent;
+  /** The hammock between the oaks, and whoever's in it (pastimes.ts; main.ts runs it). */
+  readonly pastimes: Pastimes;
+  /** Every way across the island, for getting from one thing to the next with someone watching (ways.ts). */
+  readonly ways: Ways;
   /** The gull with its eye on Vincent's dinner: see mischief.ts. */
   readonly mischief: Mischief;
   /** A message in a bottle, now and then: see bottle.ts. */
@@ -184,8 +190,30 @@ export class Life {
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
     this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours());
     if (Math.random() < 0.2) this.beike.hangAbout(anyHangout(), true); // not in his meadow when you arrive
-    this.companion = new Companion(island, this.beike.ground);
-    this.vincent = new Vincent(island, this.beike.ground);
+    this.pastimes = new Pastimes(island);
+    this.ways = new Ways(island, this.beike.ground);
+    // the ways across the island, drawn over it: ?ways
+    if (new URLSearchParams(location.search).has('ways')) {
+      const lines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(this.ways.segments().map((p) => p.clone().setY(p.y + 0.15))),
+        new THREE.LineBasicMaterial({ color: 0xff2266, depthTest: false }));
+      lines.renderOrder = 9;
+      scene.add(lines);
+    }
+    this.pastimes.hammock.onSnore = (at) => this.floaters.add('zzz', at);
+    this.companion = new Companion(island, this.beike.ground, this.pastimes, this.ways);
+    this.vincent = new Vincent(island, this.beike.ground, this.pastimes, this.ways);
+    // a puff of chalk off his hands, and of it off the pad when he lands
+    this.vincent.boulder.onChalk = (at) => {
+      for (let i = 0; i < 3; i++) {
+        this.particles.emit({ position: at.clone().add(V(rand(-0.08, 0.08), rand(0, 0.08), rand(-0.08, 0.08))), velocity: V(rand(-0.25, 0.25), rand(0.1, 0.4), rand(-0.25, 0.25)), color: '#f7f3ea', life: 1.3, size: 1.5 });
+      }
+    };
+    this.vincent.boulder.onLand = (at) => {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        this.particles.emit({ position: at.clone().add(V(Math.cos(a) * 0.3, 0.2, Math.sin(a) * 0.3)), velocity: V(Math.cos(a) * 0.8, rand(0.2, 0.5), Math.sin(a) * 0.8), color: '#f7f3ea', life: 0.9, size: 1.6 });
+      }
+    };
     this.mischief = new Mischief(scene, island, this.fauna.template('gull'));
     this.mischief.onSnatch = (at) => {
       this.fauna.onCall?.('gull', at);
