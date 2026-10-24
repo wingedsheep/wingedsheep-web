@@ -307,7 +307,8 @@ def steamboat(t: Terrain):
 
 # --- Halloween -------------------------------------------------------------------------------
 
-def jack(m: Model, loc, r: float, carved: bool, seed: float):
+def jack(m: Model, loc, r: float, carved: bool, seed: float, light_=CANDLE):
+    """A pumpkin, its face (if it's carved) on the south side, lit from inside in `light_`."""
     x, y, z = loc
     for k in range(6):                                             # ribbed: a ring of squashed lobes
         a = k / 6 * math.tau + seed
@@ -320,11 +321,11 @@ def jack(m: Model, loc, r: float, carved: bool, seed: float):
     f = y - r * 0.93                                               # the face, on the south side
     e = r * 0.3
     for s in (-1, 1):                                              # triangle eyes
-        m.prism([(-e, -e * 0.7), (e, -e * 0.7), (0, e * 0.8)], 0.06, (x + s * r * 0.36, f, z + r * 0.92), CANDLE, glow=True)
-    m.prism([(-e * 0.4, 0), (e * 0.4, 0), (0, e * 0.6)], 0.06, (x, f - 0.005, z + r * 0.68), CANDLE, glow=True)  # the nose
+        m.prism([(-e, -e * 0.7), (e, -e * 0.7), (0, e * 0.8)], 0.06, (x + s * r * 0.36, f, z + r * 0.92), light_, glow=True)
+    m.prism([(-e * 0.4, 0), (e * 0.4, 0), (0, e * 0.6)], 0.06, (x, f - 0.005, z + r * 0.68), light_, glow=True)  # the nose
     grin = [(-1, 0.2), (-0.6, -0.15), (-0.35, 0.0), (-0.1, -0.2), (0.15, 0.0), (0.4, -0.2), (0.65, 0.0), (1, 0.2),
             (0.5, -0.45), (-0.5, -0.45)]
-    m.prism([(gx * r * 0.5, gz * r * 0.5) for gx, gz in grin], 0.06, (x, f + 0.01, z + r * 0.45), CANDLE, glow=True)
+    m.prism([(gx * r * 0.5, gz * r * 0.5) for gx, gz in grin], 0.06, (x, f + 0.01, z + r * 0.45), light_, glow=True)
 
 
 def halloween(t: Terrain):

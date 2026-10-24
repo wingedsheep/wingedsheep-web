@@ -14,6 +14,7 @@ import { haloTexture } from './sky';
 import { GRADIENT } from './toon';
 import { type Outside, Windows } from './windows';
 import { wardrobe } from './wardrobe';
+import { Haunts, undress } from './dressing';
 
 /** One cat's trip to the bowls: hop down, walk over, eat for a while, walk back, hop up. */
 interface Diner {
@@ -170,6 +171,9 @@ export class QuartersRoom {
   onMachine?: (what: 'grind' | 'brew') => void;
   private machineHeard = { grind: false, brew: false };
 
+  /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
+  private haunts: Haunts;
+
   static async load(base = '/models/'): Promise<QuartersRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}lighthouse.glb?v=${__MODELS__}`);
     return new QuartersRoom(gltf.scene);
@@ -177,6 +181,7 @@ export class QuartersRoom {
 
   private constructor(root: THREE.Group) {
     this.scene.add(root);
+    undress(root); // what's put out for a special day, only on the day
     this.scene.background = new THREE.Color('#15111c');
     root.updateMatrixWorld(true);
 
@@ -224,6 +229,7 @@ export class QuartersRoom {
 
     this.shelve(root, rows);
     this.openBook();
+    this.haunts = new Haunts(root, this.scene, this.bounds);
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values(), ...[...this.spines.values()].map((s) => s.group));
   }
@@ -244,6 +250,7 @@ export class QuartersRoom {
   /** `out` is the weather outside (weather.ts `now`): rain on the windows, lightning, a greyer day. */
   update(dt: number, night: number, out?: Outside) {
     this.clock += dt;
+    this.haunts.update(dt, night);
     this.guests.update(dt);
     const t = this.clock;
     for (const l of this.lamps) {
@@ -262,6 +269,7 @@ export class QuartersRoom {
       this.hemi.intensity += out.flash * 1.2;
     }
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
+    this.haunts.gloom(this.hemi, this.key, night);
 
     // the coffee steams while it's still hot, which is to say during the day
     for (const [i, at] of this.steam.entries()) {

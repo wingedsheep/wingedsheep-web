@@ -13,6 +13,7 @@ import { BOAT_STAGES as STAGES, boatStage } from './almanac';
 import { occasions } from './calendar';
 import { indoors } from './shelter';
 import { wardrobe } from './wardrobe';
+import { Haunts, undress } from './dressing';
 
 
 const SKY_DAY = new THREE.Color('#a9dcff');
@@ -73,6 +74,9 @@ export class WorkshopRoom {
   private bench?: THREE.Object3D;
   private strokes = 0;
 
+  /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
+  private haunts: Haunts;
+
   static async load(base = '/models/'): Promise<WorkshopRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}workshop.glb?v=${__MODELS__}`);
     return new WorkshopRoom(gltf.scene);
@@ -80,6 +84,7 @@ export class WorkshopRoom {
 
   private constructor(root: THREE.Group) {
     this.scene.add(root);
+    undress(root); // what's put out for a special day, only on the day
     this.scene.background = new THREE.Color('#15111c');
     root.updateMatrixWorld(true);
 
@@ -125,6 +130,7 @@ export class WorkshopRoom {
     const hum = (name: string, level: number) => this.onHum?.(name, level);
     this.exhibits = new Exhibits({ particles: this.particles, notes: (at) => this.notes(at), exhibit, emitters: this.emitters, sound, hum });
     this.robot = new Robot(this.named.get('robot'), waypoints, { particles: this.particles, float: (_, at) => this.float(ICONS.zzz, at, V(0, 0.4, 0)), exhibit, sound }, () => this.night > 0.6);
+    this.haunts = new Haunts(root, this.scene, this.bounds);
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values());
 
@@ -158,6 +164,7 @@ export class WorkshopRoom {
 
   update(dt: number, night: number) {
     this.clock += dt;
+    this.haunts.update(dt, night);
     this.night = night;
     const t = this.clock;
     for (const l of this.lamps) {
@@ -170,6 +177,7 @@ export class WorkshopRoom {
     this.hemi.intensity = 0.9 + day * 0.5;
     this.key.intensity = 0.35 + day * 0.75;
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
+    this.haunts.gloom(this.hemi, this.key, night);
 
     this.exhibits.playing = this.playing;
     this.exhibits.update(dt);

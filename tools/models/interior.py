@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 
+import dressing
 import palette as P
 from kit import Model, group, light
 
@@ -426,4 +427,5 @@ def build():
     catalogue(root)
     globe(root)
     sconces(root)
+    dressing.library(root)
     return root

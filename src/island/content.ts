@@ -1537,6 +1537,10 @@ function pinPlace(id: string): Place | undefined {
     activate(ctx) {
       const where = trip.place === trip.country ? trip.place : `${trip.place}, ${trip.country}`;
       ctx.toast(`${where} (${when}). ${trip.note}`.trim());
+  library_jack: {
+    label: 'A jack-o’-lantern',
+    activate: say('Carried down from the hut and set by the hearth for the week. Between it and the fire, the reading corner has never been so orange.'),
+  },
       ctx.discover('travels');
     },
   };
@@ -1649,6 +1653,10 @@ const PROGRAMMES: Record<Show, { label: string; text: string; play: string; stay
     text: 'B&B vol liefde. A Dutchman has opened a B&B in Provence to find love, and three guests have come to stay. Someone has already cried over a croissant. Someone always cries over a croissant.',
     play: 'Check out early',
     stay: 'Stay for breakfast',
+  led_jack: {
+    label: 'A jack-o’-lantern · battery-powered',
+    activate: say('No candle in this one: an LED and a battery pack, wired in over the lid. A candle and a room full of sawdust didn’t seem like a good mix.'),
+  },
     her: 'She picked who goes home before the first breakfast was served. She is never wrong.',
   },
   rail: {
@@ -2037,6 +2045,10 @@ export const HUT_PLACES: Record<string, Place> = {
       return (ctx: IslandContext) => {
         ctx.sound.here('snore');
         ctx.toast(lines[n++ % lines.length]);
+  carving: {
+    label: 'Pumpkin carving · half done',
+    activate: say('Where the island’s jack-o’-lanterns come from: newspaper on the floor, a spoon for the insides and the seeds laid out for roasting. This one has its eyes, and is still deciding on a mouth.'),
+  },
       };
     })(),
   },

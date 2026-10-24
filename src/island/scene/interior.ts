@@ -10,6 +10,7 @@ import { RoomCamera } from './room-camera';
 import { haloTexture } from './sky';
 import { GRADIENT } from './toon';
 import { createWildlifeBook } from './wildlife-book';
+import { Haunts, undress } from './dressing';
 
 /** Every row starts with room for its year plate; the books stand to the right of it. */
 const PLATE_SPACE = 0.62;
@@ -183,6 +184,9 @@ export class Interior {
   private beamFrom = V();
   private beamFall = (y: number) => y;
 
+  /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
+  private haunts: Haunts;
+
   static async load(books: BookInfo[], base = '/models/'): Promise<Interior> {
     const gltf = await new GLTFLoader().loadAsync(`${base}library.glb?v=${__MODELS__}`);
     return new Interior(gltf.scene, books);
@@ -191,6 +195,7 @@ export class Interior {
   private constructor(root: THREE.Group, books: BookInfo[]) {
     this.root = root;
     this.scene.add(root);
+    undress(root); // what's put out for a special day, only on the day
     this.scene.background = new THREE.Color('#15111c');
     root.updateMatrixWorld(true);
 
@@ -245,6 +250,7 @@ export class Interior {
     this.named.set('wildlife_book', fieldBook);
     named.push(fieldBook);
     this.shelve(rows, books);
+    this.haunts = new Haunts(root, this.scene, this.bounds);
     this.picker = new Picker(this.camera);
     this.picker.add(...named, ...[...this.books.values()].map((b) => b.group));
   }
@@ -324,6 +330,7 @@ export class Interior {
 
   update(dt: number, night: number) {
     this.clock += dt;
+    this.haunts.update(dt, night);
     const t = this.clock;
 
     for (const [i, f] of this.flames.entries()) {
@@ -341,6 +348,7 @@ export class Interior {
     this.hemi.intensity = 0.9 + day * 0.5;
     this.key.intensity = 0.35 + day * 0.75;
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
+    this.haunts.gloom(this.hemi, this.key, night);
     if (this.beam && this.patch) {
       (this.beam.material as THREE.MeshBasicMaterial).opacity = 0.09 * day;
       (this.patch.material as THREE.MeshBasicMaterial).opacity = 0.14 * day;

@@ -4,6 +4,7 @@ import { faceRoom, toonIndoors } from './interior';
 import { Picker } from './picking';
 import { RoomCamera } from './room-camera';
 import { haloTexture } from './sky';
+import { Haunts, undress } from './dressing';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -52,6 +53,9 @@ export class LampRoom {
   private clock = 0;
   private painting?: THREE.MeshBasicMaterial;
 
+  /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
+  private haunts: Haunts;
+
   static async load(base = '/models/'): Promise<LampRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}lamproom.glb?v=${__MODELS__}`);
     return new LampRoom(gltf.scene);
@@ -59,6 +63,7 @@ export class LampRoom {
 
   private constructor(root: THREE.Group) {
     this.scene.add(root);
+    undress(root); // what's put out for a special day, only on the day
     this.scene.background = new THREE.Color('#15111c');
     root.updateMatrixWorld(true);
 
@@ -124,6 +129,7 @@ export class LampRoom {
     this.key.shadow.normalBias = 0.02;
     this.scene.add(this.hemi, this.key, this.key.target);
 
+    this.haunts = new Haunts(root, this.scene, this.bounds);
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values());
   }
@@ -159,6 +165,7 @@ export class LampRoom {
     if (this.needle) this.needle.o.position.x = this.needle.x + this.tuned * 6 * 0.032;
     if (this.preset) this.preset.o.position.z = this.preset.z - this.tuned * 0.025;
     this.clock += dt;
+    this.haunts.update(dt, night);
     const t = this.clock;
     const day = 1 - night;
     const lit = 0.25 + night * 0.75;
@@ -181,6 +188,7 @@ export class LampRoom {
     this.hemi.intensity = 0.9 + day * 0.5;
     this.key.intensity = 0.35 + day * 0.75;
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
+    this.haunts.gloom(this.hemi, this.key, night);
   }
 
   private addLamp(position: THREE.Vector3, x: Record<string, number | string>, halo: THREE.Texture, lens: boolean) {

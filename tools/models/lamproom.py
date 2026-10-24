@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 
+import dressing
 import palette as P
 from kit import Model, group, light
 
@@ -458,4 +459,5 @@ def build():
     telescope(root)
     upkeep(root)
     easel(root)
+    dressing.lamproom(root)
     return root

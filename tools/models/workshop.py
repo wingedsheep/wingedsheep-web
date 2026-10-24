@@ -30,6 +30,7 @@ from __future__ import annotations
 import math
 
 import characters
+import dressing
 import palette as P
 from kit import Model, emitter, group, light
 
@@ -805,4 +806,5 @@ def build():
     charging_dock(group("robot_dock", (hx, hy, 0), parent=root))
     robot(group("robot", (hx, hy, 0), parent=root, id="robot"))
     boat(root)
+    dressing.workshop(root)
     return root

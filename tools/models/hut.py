@@ -22,6 +22,7 @@ import math
 
 import characters
 import companion
+import dressing
 import outings
 import palette as P
 from kit import Model, emitter, group, light
@@ -742,4 +743,5 @@ def build():
     pancakes(root)
     stool(root)
     guest(root)
+    dressing.hut(root)
     return root

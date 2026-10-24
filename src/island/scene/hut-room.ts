@@ -14,6 +14,7 @@ import { occasions } from './calendar';
 import { post, shelf } from './almanac';
 import { wardrobe } from './wardrobe';
 import { Eater, showSpread, table } from './meals';
+import { Haunts, undress } from './dressing';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
 const SKY_NIGHT = new THREE.Color('#1c2852');
@@ -82,6 +83,9 @@ export class HutRoom {
   /** The blackboard by the stove, and the forecast last chalked on it. */
   private board?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; material: THREE.MeshBasicMaterial; shows?: Forecast | null };
 
+  /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
+  private haunts: Haunts;
+
   static async load(base = '/models/'): Promise<HutRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}hut.glb?v=${__MODELS__}`);
     return new HutRoom(gltf.scene);
@@ -89,6 +93,7 @@ export class HutRoom {
 
   private constructor(root: THREE.Group) {
     this.scene.add(root);
+    undress(root); // what's put out for a special day, only on the day
     this.scene.background = new THREE.Color('#15111c');
     root.updateMatrixWorld(true);
 
@@ -151,6 +156,7 @@ export class HutRoom {
     this.key.shadow.normalBias = 0.02;
     this.scene.add(this.hemi, this.key, this.key.target, this.particles.points);
 
+    this.haunts = new Haunts(root, this.scene, this.bounds);
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values());
     this.week();
@@ -197,6 +203,7 @@ export class HutRoom {
   /** `out` is the weather outside (weather.ts `now`): rain on the windows, lightning, a greyer day. */
   update(dt: number, night: number, out?: Outside) {
     this.clock += dt;
+    this.haunts.update(dt, night);
     this.week();
     this.guests.update(dt);
     const t = this.clock;
@@ -216,6 +223,7 @@ export class HutRoom {
       this.hemi.intensity += out.flash * 1.2;
     }
     this.key.color.set(day > 0.5 ? '#ffe9cc' : '#aab8ff');
+    this.haunts.gloom(this.hemi, this.key, night);
     this.board?.material.color.setScalar(0.8 + day * 0.2);
 
     // the kettle and the soup never come off the stove up here

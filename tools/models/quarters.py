@@ -20,6 +20,7 @@ import beike
 import cats
 import characters
 import companion
+import dressing
 import palette as P
 from kit import Model, emitter, group, light
 
@@ -582,4 +583,5 @@ def build():
     desk(root)
     details(root)
     guests(root)
+    dressing.quarters(root)
     return root
