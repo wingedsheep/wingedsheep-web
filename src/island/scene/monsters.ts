@@ -971,7 +971,6 @@ class Troupe {
   private away = 0;
   private hop = rand(12, 20);
   private bow = 0;
-  private tune = 0;
   private spark = 0;
   private light = new THREE.PointLight('#ff3040', 0, 7, 1.6);
   onCall?: Say;
@@ -982,6 +981,16 @@ class Troupe {
     (window as any).__troupe = this; // DEBUG
     this.haze = new Haze(this.body.root);
     scene.add(this.light);
+  }
+
+  /**
+   * How loud Brumm's waltz is, 0..1, for someone looking at `target` across `view` metres: it
+   * plays for as long as the tent is up, coming and going with the mist, louder the nearer it is.
+   */
+  music(target: THREE.Vector3, view: number) {
+    if (!this.on) return 0;
+    const near = THREE.MathUtils.clamp(1.1 - (this.at.distanceTo(target) / view) * 1.4, 0, 0.8);
+    return near * this.haze.fade.value;
   }
 
   /** Clicked: the Troupe Master bows. */
@@ -1018,7 +1027,6 @@ class Troupe {
       this.stay = rand(110, 170);
       this.mark = 0;
       this.away = 0;
-      this.tune = 2;
       this.haze.fade.value = 0;
       b.show(this.at);
     }
@@ -1131,11 +1139,6 @@ class Troupe {
     }
     this.light.position.copy(this.at).add(V(0, 1.4, 1.5));
     this.light.intensity = 3.5 * fade.value * (0.85 + Math.sin(clock * 9) * 0.08 + Math.sin(clock * 15) * 0.05);
-    // and the waltz, on the accordion, now and again
-    if (!this.leaving && (this.tune -= dt) <= 0) {
-      this.tune = rand(50, 80);
-      this.onCall?.('troupe', this.at.clone(), true);
-    }
   }
 }
 
@@ -1181,6 +1184,11 @@ export class Monsters {
       this.troupe = new Troupe(g, scene, ground, particles);
       this.troupe.onCall = say;
     }
+  }
+
+  /** The Grimm Troupe's waltz, 0..1 (see Troupe.music). */
+  waltz(target: THREE.Vector3, view: number) {
+    return this.troupe?.music(target, view) ?? 0;
   }
 
   /** The Horseman's hooves, 0..1 (see Horseman.hooves). */

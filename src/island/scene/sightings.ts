@@ -821,6 +821,11 @@ export class Sightings {
     this.monsters.poke(id);
   }
 
+  /** How loud the Grimm Troupe's waltz is, for the view (monsters.ts). */
+  waltz(target: THREE.Vector3, view: number) {
+    return this.monsters.waltz(target, view);
+  }
+
   /** How loud the Headless Horseman's hooves are, for the view (monsters.ts). */
   hooves(target: THREE.Vector3, view: number) {
     return this.monsters.hooves(target, view);

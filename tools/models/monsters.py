@@ -30,7 +30,7 @@ import random
 import palette as P
 from holidays import jack
 from kit import Model
-from sightings import _lathe
+from sightings import _lathe, _limb as _taper
 
 HORSE = "#1c1a22"
 HORSE_SHEEN = "#34303e"
@@ -198,6 +198,11 @@ SCARLET = "#c0202e"        # the Grimm Troupe
 SCARLET_DARK = "#7a1020"
 TROUPE = "#1a1418"
 FLAME = "#ff3a3a"
+GRIMM_CLOAK = "#2e2834"     # the Troupe Master: his cloak, a shade off black…
+GRIMM_LINING = "#b02a44"   # …lined in red
+MASK_GRIMM = "#d8ccd0"
+MASK_SHADE = "#a99aa2"
+GRIMM_CLOAK_EDGE = "#4a4050"
 FLAME_CORE = "#ffb0a0"
 SLATE = "#3e4258"          # Brumm, its accordionist
 MASK = "#ece6dc"
@@ -500,41 +505,78 @@ def grimm(root):
     fl.cyl(0.07, 0.25, (0, 0, 0.02), FLAME_CORE, segs=5, r_top=0.0, glow=True)
     fl.build(lantern, loc=(0.55, 0, 1.3))
 
-    m = Model("grimm_master")                                                             # legs like a heron's, pointed feet
+    m = Model("grimm_master")                                                             # legs like needles, down to a point
     for s in (1, -1):
-        _limb(m, (0, s * 0.09, 0.0), (0, s * 0.08, 1.0), 0.1, TROUPE)
-        m.prism([(-0.05, 0), (0.34, 0.0), (0.0, 0.09)], 0.08, (0.0, s * 0.09, 0.0), TROUPE)
+        _taper(m, (0, s * 0.06, 1.0), (0.02, s * 0.08, 0.45), 0.055, 0.035, TROUPE)
+        _taper(m, (0.02, s * 0.08, 0.45), (0.06, s * 0.1, 0.0), 0.035, 0.0, TROUPE)
     master = m.build(root, loc=(1.95, 0.7, 0))
-    o = Model("grimm_torso")                                                              # from the hips: a body thin as a stick
-    o.box((0.24, 0.3, 0.95), (0, 0, 0.47), TROUPE, taper=1.4)
-    for k in range(7):                                                                    # a high collar of spikes, flaring up round the head
-        a = (k - 3) * 0.42
-        o.prism([(-0.05, 0), (0.05, 0), (0.0, 0.45 + 0.08 * (3 - abs(k - 3)))], 0.03,
-                (-0.04 + 0.06 * math.cos(a), 0.16 * math.sin(a), 0.86), TROUPE if k % 2 else SCARLET_DARK, rot=(-math.sin(a) * 0.9, 0, math.pi / 2 + a))
+    o = Model("grimm_torso")                                                              # from the hips: a cloak wrapped tight round a waist…
+    _lathe(o, [(0.04, 0.98), (0.2, 0.86), (0.17, 0.62), (0.09, 0.32), (0.12, 0.1), (0.16, -0.05)], [TROUPE, GRIMM_CLOAK], segs=8)
+    for k in range(11):                                                                   # …and a high collar of spikes, flaring out wide round the head
+        a = math.pi * 0.38 + k / 10 * math.pi * 1.24                                      # round the back and sides, open at the front
+        rise = 0.42 + 0.14 * math.cos((k - 5) / 5 * math.pi / 2)
+        reach = 0.5 + 0.12 * (k % 2)
+        base = (math.cos(a) * 0.12, math.sin(a) * 0.16, 0.8)
+        mid = (math.cos(a) * reach * 0.5, math.sin(a) * reach * 0.6, 0.8 + rise * 0.45)
+        tip = (math.cos(a) * reach * 0.8, math.sin(a) * reach * 1.15, 0.8 + rise)
+        col = TROUPE if k % 2 else GRIMM_LINING                                           # red showing between the black
+        _taper(o, base, mid, 0.07, 0.045, col, segs=4)
+        _taper(o, mid, tip, 0.045, 0.0, col, segs=4)
+    for k in range(7):                                                                    # an inner row, shorter, all lining
+        a = math.pi * 0.5 + k / 6 * math.pi
+        base = (math.cos(a) * 0.1, math.sin(a) * 0.13, 0.82)
+        tip = (math.cos(a) * 0.3, math.sin(a) * 0.42, 1.12 + 0.06 * (k % 2))
+        _taper(o, base, tip, 0.05, 0.0, GRIMM_LINING, segs=4)
+    for k, (z0, z1, turn) in enumerate(((0.82, 0.3, 1.0), (0.7, 0.12, -1.0), (0.55, -0.02, 1.0))):
+        for j in range(6):                                                                # the cloak wound round him, in bands that cross
+            t0, t1 = j / 6, (j + 1) / 6
+            r0, r1 = (0.2 - 0.09 * math.sin(t * math.pi) for t in (t0, t1))
+            a0, a1 = (turn * (t * math.pi * 1.1 - 0.6) for t in (t0, t1))
+            za, zb = z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1
+            _taper(o, (math.cos(a0) * r0, math.sin(a0) * r0, za), (math.cos(a1) * r1, math.sin(a1) * r1, zb), 0.035, 0.035,
+                   GRIMM_CLOAK_EDGE if k % 2 else TROUPE, segs=4)
+    o.box((0.03, 0.04, 0.6), (0.17, 0, 0.5), GRIMM_LINING, taper=0.4)                    # a red seam down his front
     torso = o.build(master, loc=(0, 0, 1.0))
-    h = Model("grimm_head")                                                               # a dark head, a pale mask, great red eyes
-    h.ball(0.21, (0, 0, 0.18), TROUPE, subdiv=1, scale=(0.9, 1.0, 1.25))
-    h.box((0.06, 0.32, 0.34), (0.16, 0, 0.12), "#d2c6ca", taper=0.55, glow=True)           # the mask, narrowing to the chin, pale even in his own red light
-    for s in (1, -1):
-        h.box((0.03, 0.11, 0.12), (0.195, s * 0.075, 0.17), FLAME, glow=True, rot=(s * 0.35, 0, 0))
-    pts = [(0.0, 0, 0.38), (-0.1, 0, 0.6), (-0.14, 0, 0.78), (-0.04, 0, 0.92), (0.08, 0, 0.9)]
-    for k, (a, b_) in enumerate(zip(pts, pts[1:])):                                       # one crest, curling up and over like a flame
-        _limb(h, a, b_, 0.16 - k * 0.03, TROUPE)
+    h = Model("grimm_head")                                                               # a black head like a flame…
+    h.ball(0.19, (0, 0, 0.18), TROUPE, subdiv=2, scale=(0.7, 1.0, 1.2))
+    for a, b_, r0, r1 in (((-0.03, 0, 0.28), (-0.15, 0, 0.5), 0.11, 0.075),              # …its crest curling up, back, and over at the tip
+                          ((-0.15, 0, 0.5), (-0.24, 0, 0.7), 0.075, 0.045),
+                          ((-0.24, 0, 0.7), (-0.13, 0, 0.85), 0.045, 0.0)):
+        _taper(h, a, b_, r0, r1, TROUPE, segs=6)
+    _taper(h, (0.0, -0.08, 0.32), (-0.02, -0.21, 0.5), 0.06, 0.0, TROUPE, segs=5)        # and a little flick off to one side
+    mask = [(-0.15, 0.3), (-0.035, 0.3), (0.0, 0.19), (0.035, 0.3), (0.15, 0.3),           # a pale mask like a shield, the black coming down
+            (0.135, 0.12), (0.06, -0.02), (0.0, -0.07), (-0.06, -0.02), (-0.135, 0.12)]   # into it in a point between the eyes
+    h.prism(mask, 0.04, (0.12, 0, 0.0), MASK_GRIMM, rot=(0, 0, math.pi / 2), glow=True)  # pale even in his own red light
+    shade = [(0.0, 0.19), (0.035, 0.3), (0.15, 0.3), (0.135, 0.12), (0.06, -0.02), (0.0, -0.07)]
+    h.prism([(-y, z) for y, z in shade[::-1]], 0.01, (0.142, 0, 0.0), MASK_SHADE, rot=(0, 0, math.pi / 2), glow=True)  # one cheek in shadow
+    eye = [(0.025, 0.15), (0.075, 0.1), (0.13, 0.15), (0.135, 0.27), (0.08, 0.24)]
+    rim = [(0.012, 0.15), (0.07, 0.085), (0.145, 0.14), (0.15, 0.29), (0.075, 0.26)]
+    for s in (1, -1):                                                                     # great red eyes, slanting up and out, ringed in black
+        h.prism([(-s * y, z) for y, z in (rim if s < 0 else rim[::-1])], 0.01, (0.15, 0, 0.0), P.INK, rot=(0, 0, math.pi / 2))
+        h.prism([(-s * y, z) for y, z in (eye if s < 0 else eye[::-1])], 0.01, (0.158, 0, 0.0), FLAME, rot=(0, 0, math.pi / 2), glow=True)
     h.build(torso, loc=(0.02, 0, 1.0))
     for s, side in ((1, "l"), (-1, "r")):
-        a_ = Model(f"grimm_arm_{side}")                                                   # long thin arms, long thin fingers
-        _limb(a_, (0, 0, 0), (0.05, s * 0.04, -0.75), 0.08, TROUPE)
-        for k in range(3):
-            _limb(a_, (0.05, s * 0.04, -0.75), (0.1 + k * 0.02, s * (0.02 + k * 0.04), -0.98), 0.035, TROUPE)
-        a_.build(torso, loc=(0, s * 0.2, 0.8))
-    c = Model("grimm_cape")                                                               # a cloak of long spikes, flaring out towards the ground
-    for k in range(13):
-        a = math.pi * 0.35 + k / 12 * math.pi * 1.3                                      # round the back and sides, open at the front
-        ln = 1.25 + 0.3 * math.sin(k * 2.3)
-        lean = 0.35 + 0.1 * math.cos(k * 1.7)
-        c.prism([(-0.1, 0), (0.1, 0), (0.0, -ln)], 0.04, (0.06 * math.cos(a), 0.1 * math.sin(a), 0),
-                TROUPE if k % 3 else SCARLET_DARK, rot=(-math.sin(a) * lean, math.cos(a) * lean * 0.9, a + math.pi / 2))
-    c.build(torso, loc=(-0.02, 0, 0.82))
+        a_ = Model(f"grimm_arm_{side}")                                                   # his arms: long sweeps of cloak, red underneath
+        _taper(a_, (0, 0, 0), (0.08, s * 0.16, -0.45), 0.08, 0.06, GRIMM_CLOAK, segs=5)
+        _taper(a_, (0.08, s * 0.16, -0.45), (0.14, s * 0.3, -1.0), 0.06, 0.0, GRIMM_CLOAK, segs=5)
+        _taper(a_, (-0.02, s * 0.02, -0.1), (0.1, s * 0.24, -0.85), 0.04, 0.0, GRIMM_LINING, segs=4)
+        a_.build(torso, loc=(0, s * 0.19, 0.82))
+    c = Model("grimm_cape")                                                               # the cloak below the waist: long twisting strands
+    for k in range(14):
+        a = k / 14 * math.tau
+        ln = 0.62 + 0.18 * math.sin(k * 2.3)
+        out = 0.34 + 0.08 * math.cos(k * 1.7)
+        twist = 0.35
+        mid = (math.cos(a + twist * 0.5) * out * 0.65, math.sin(a + twist * 0.5) * out * 0.65, -ln * 0.5)
+        tip = (math.cos(a + twist) * out, math.sin(a + twist) * out, -ln)
+        col = (GRIMM_CLOAK, TROUPE, GRIMM_LINING)[k % 3]
+        _taper(c, (math.cos(a) * 0.1, math.sin(a) * 0.1, 0.25), mid, 0.075, 0.05, col, segs=4)
+        _taper(c, mid, tip, 0.05, 0.0, col, segs=4)
+    for k in range(9):                                                                    # and under them, shorter, the lining
+        a = (k + 0.5) / 9 * math.tau
+        tip = (math.cos(a + 0.2) * 0.26, math.sin(a + 0.2) * 0.26, -0.45 - 0.08 * (k % 2))
+        _taper(c, (math.cos(a) * 0.08, math.sin(a) * 0.08, 0.2), tip, 0.05, 0.0, GRIMM_LINING, segs=4)
+    c.build(torso, loc=(0, 0, 0.25))
 
     br = Model("grimm_brumm")                                                             # Brumm: bandy hooked legs, a round body…
     for s in (1, -1):

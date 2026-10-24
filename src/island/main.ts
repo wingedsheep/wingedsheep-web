@@ -493,6 +493,7 @@ export async function bootIsland(host: HTMLElement) {
     sound.mosslits = life.sightings.imaginary.mosslitsNear(rig.target, rig.view);
     sound.revel = life.revel.music(rig.target, rig.view);
     if (graves) sound.hum('gallop', sound.outdoors ? life.sightings.hooves(rig.target, rig.view) : 0);
+    sound.hum('troupe', sound.outdoors ? life.sightings.waltz(rig.target, rig.view) : 0); // Brumm's accordion, for as long as the tent's up
     if (graves && (haunting -= dt) < 0) {
       haunting = 14 + Math.random() * 22;
       const near = THREE.MathUtils.clamp(1.3 - graves.distanceTo(rig.target) / 25, 0, 1);
