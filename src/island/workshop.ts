@@ -315,6 +315,7 @@ export class Workshop implements RoomInput {
   /** The canvas below the banner: the room gets the whole width. */
   private freeArea(w: number, h: number) {
     if (w > 760) return { x: 16, y: 84, w: w - 32, h: h - 110 };
+    if (w > h) return { x: 8, y: 60, w: w - 16, h: h - 76 }; // a phone on its side: the banner's in a corner
     return { x: 8, y: 100, w: w - 16, h: h - 170 };
   }
 }

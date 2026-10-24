@@ -29,15 +29,15 @@ const BrandHeading = hasArticle ? 'p' : 'h1';
 // a different one each time, out on the start card)
 // (each with its picture, from tools/drawings/river-tips.py)
 const RIVER_TIPS: [string, string, string][] = [
-  ['tip', 'Tipping over', 'Lean against it. If she keeps going, brace: you’ve one brace in you every few seconds (the balance gauge goes dashed till then), so in big water keep leaning.'],
-  ['roll', 'Upside down', 'Roll when the needle swings into the gap. Miss it and you swim, and your flow goes with you.'],
-  ['big', 'Big water', 'Point straight down it, lean forward and keep paddling. Broadside down a wave train, a leaning crest rolls you: lean into it, or square up.'],
-  ['rocks', 'Rocks ahead', 'Follow the arrows down the dark V between them. A knock costs your flow; steer early, a reverse sweep turns you even when you’re barely moving.'],
-  ['ledge', 'A ledge', 'Paddle hard just as the lip glows gold, to boof it. Too soon or too late and you land flat, or nose first.'],
-  ['falls', 'A waterfall', 'The lip pulls you round: line up well before it and go over straight, leaning forward. Off it sideways throws you hard, and stops you.'],
-  ['hole', 'Stuck in a hole', 'Lean forward and paddle hard till it lets you go.'],
-  ['split', 'The river splits', 'The hero line is quicker and pays more; the sneak is the easier way down.'],
-  ['eddy', 'Need a breather', 'Tuck in behind a rock or inside a bend: an eddy, where the water turns back upstream. Lean into the turn as you cross the eddy line.'],
+  ['tip', 'Tipping over', 'Lean against it, or brace. A brace needs a few seconds to come back.'],
+  ['roll', 'Upside down', 'Roll when the needle swings into the gap.'],
+  ['big', 'Big water', 'Point straight down it and keep paddling.'],
+  ['rocks', 'Rocks ahead', 'Follow the arrows down the dark V. Knocks cost your flow.'],
+  ['ledge', 'A ledge', 'Paddle hard as the lip glows gold, to boof it.'],
+  ['falls', 'A waterfall', 'Line up early, go over straight, lean forward.'],
+  ['hole', 'Stuck in a hole', 'Lean forward and paddle hard.'],
+  ['split', 'The river splits', 'The hero line pays more; the sneak is easier.'],
+  ['eddy', 'Need a breather', 'Tuck in behind a rock: an eddy.'],
 ];
 
 // the library: every post is an index card, filed by year, newest first
@@ -355,30 +355,17 @@ const places = [
         </ul>
       </div>
       <ul class="river-keys">
-        <li data-for="keys"><kbd>W</kbd> paddle · <kbd>A</kbd><kbd>D</kbd> turn · <kbd>Q</kbd><kbd>E</kbd> brake · <kbd>←</kbd><kbd>→</kbd> lean · <kbd>Space</kbd> brace</li>
-        <li data-for="pad"><kbd>L2</kbd><kbd>R2</kbd> paddle (<kbd>✕</kbd> both) · <kbd>L1</kbd><kbd>R1</kbd> brake / brace · stick leans · <kbd>✕</kbd> braces when you're going over</li>
-        <li data-for="touch">Hold both sides of the screen to paddle, one side to turn away from it; low down to brake on that side. Hold Sprint to dig in. Over a waterfall, flick a thumb up the screen to tuck.</li>
+        <li data-for="keys"><kbd>W</kbd> paddle · <kbd>A</kbd><kbd>D</kbd> turn · <kbd>←</kbd><kbd>→</kbd> lean · <kbd>Space</kbd> brace</li>
+        <li data-for="pad"><kbd>L2</kbd><kbd>R2</kbd> paddle · stick leans · <kbd>✕</kbd> braces</li>
+        <li data-for="touch">Hold both sides to paddle, one side to turn</li>
       </ul>
-      <p class="river-pad-tip">Best with a controller: plug one in and press any button. No controller? It plays fine without.</p>
-      <div class="river-tips river-tip-now">
-        <dl>
-          {RIVER_TIPS.map(([art, when, what]) => (
-            <div data-river-tip hidden>
-              <RiverTipArt name={art} />
-              <dt>{when}</dt>
-              <dd>{what}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-      <details class="river-how">
-        <summary>How it works</summary>
-        <p class="river-hint-line" data-for="keys"><kbd>↑</kbd><kbd>↓</kbd> lean forward / back · <kbd>S</kbd> back-paddle · <kbd>Shift</kbd> (hold) sprint · <kbd>P</kbd> or <kbd>Esc</kbd> pause</p>
-        <p class="river-hint-line" data-for="pad"><kbd>□</kbd>, <kbd>L3</kbd> or a trigger squeezed right in (hold) sprint · Options pauses · on the cards, the d-pad moves, <kbd>✕</kbd> picks, <kbd>○</kbd> goes back</p>
-        <p class="river-hint-line">Read the water: long bright streaks are the fast line, and arrows ride down the dark V of a tongue; a ledge's lip glows gold at the moment to boof it; coming to a waterfall, hold the needle in the green to go over straight, then lean forward as it falls into the gold, not before; behind rocks and inside bends it turns back upstream, an eddy to catch. Lean into your turns, or the eddy line trips you. Down a straight the waves stand in a train: a crest leaning across the river rolls you, so lean into it (or square up), and a stroke as you slide down a wave's back pumps you on. Paddle on one side and you turn away from it. A blade planted as a brake only bites as fast as you're moving through the water; a reverse sweep always does. Forward on one side, reverse on the other, in rhythm: that's a 360. Boofs, braces, gates and good lines build your flow; a knock or a swim loses it. Score is distance × flow, up to double for speed; every capsize costs you. Make it to the take-out and it pays again: every second under par (times your flow), every gate and every ball. Every river has three goals of its own, and each pays every time you do it.</p>
-      </details>
+      <p class="river-pad-tip">Plays best with a controller.</p>
       <details class="river-how river-tips">
-        <summary>What to do when…</summary>
+        <summary>How to play</summary>
+        <p class="river-hint-line" data-for="keys"><kbd>Q</kbd><kbd>E</kbd> brake · <kbd>↑</kbd> lean forward · <kbd>Shift</kbd> sprint · <kbd>P</kbd> pause</p>
+        <p class="river-hint-line" data-for="pad"><kbd>L1</kbd><kbd>R1</kbd> brake · <kbd>□</kbd> sprint · Options pauses</p>
+        <p class="river-hint-line" data-for="touch">Low down brakes, or braces when you tip · Sprint digs in · flick up to tuck at a waterfall</p>
+        <p class="river-hint-line">Clean lines, boofs and gates build your flow; a knock or a swim loses it. Score is distance × flow.</p>
         <dl>
           {RIVER_TIPS.map(([art, when, what]) => (
             <div>
@@ -389,9 +376,10 @@ const places = [
           ))}
         </dl>
       </details>
-      <button class="river-calm" role="switch" aria-checked="false" data-river-calm title="Paddle under the sky outside right now (its hour and its weather), or always on a clear day">Sky: <span>The real sky and weather</span></button>
-      <button class="river-calm river-tilt" role="switch" aria-checked="false" data-river-tilt hidden title="Let the paddler keep his own balance, or lean him yourself by turning the phone like a steering wheel">Leaning: <span>The paddler balances</span></button>
+      <button class="river-calm" role="switch" aria-checked="false" data-river-calm title="Paddle under the sky outside right now (its hour and its weather), or always on a clear day">Sky: <span>Real weather</span></button>
+      <button class="river-calm river-tilt" role="switch" aria-checked="false" data-river-tilt hidden title="Let the paddler keep his own balance, or lean him yourself by turning the phone like a steering wheel">Leaning: <span>Auto</span></button>
       <button class="river-go" data-river-go data-autofocus>Push off</button>
+      <p class="river-upright">Best held upright: you see further down the river.</p>
       <p class="river-best-line">Your best: <span data-river-best>0</span> · quickest down: <span data-river-fastest>–</span></p>
       <p class="river-best-line river-spotted" data-river-spotted></p>
     </div>
@@ -403,8 +391,8 @@ const places = [
         <button class="river-back" data-river-rivers>Rivers</button>
       </div>
       <button class="river-leave" data-close>Back to the island</button>
-      <details class="river-how river-tips" open>
-        <summary>What to do when…</summary>
+      <details class="river-how river-tips">
+        <summary>How to play</summary>
         <dl>
           {RIVER_TIPS.map(([art, when, what]) => (
             <div>

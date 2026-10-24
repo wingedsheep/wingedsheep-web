@@ -24,14 +24,14 @@ import type { UI } from './ui';
 const FADE = 0.35; // seconds for the iris to close (and again to open)
 /** How long a card's up before ✕ presses anything on it (a brace mashed as you go over isn't "go again"). */
 const SETTLE = 700;
+/** The sprint button pressed longer than this (ms) was held, not tapped: letting go stops the sprint. */
+const HELD = 400;
 /** The river you picked last time. */
 const PICK = 'wingedsheep:river:pick';
 /** Whether you'd rather paddle on a clear day, whatever the hour and the weather outside. */
 const CALM = 'wingedsheep:river:calm';
 /** The rare ones you've seen, on any river. */
 const SPOTTED = 'wingedsheep:river:spotted';
-/** Which of the tips the start card showed last (one each time, round them all in turn). */
-const TIP_SEEN = 'wingedsheep:river:tip';
 
 /** What the river is like as you come into it, for the banner. */
 function banner(s: Stretch, index: number) {
@@ -48,79 +48,33 @@ function banner(s: Stretch, index: number) {
 }
 
 /**
- * How to deal with each thing, the first time it comes up, for whatever's in your hands. Short:
- * you're busy. [Keys] in brackets show as key caps.
+ * How to deal with each thing, the first time it comes up, for whatever's in your hands. A few
+ * words: you're busy. [Keys] in brackets show as key caps.
  */
 const HINTS: Record<Hint, Record<Device, string>> = {
-  paddle: { keys: 'Hold [W] to paddle', pad: 'Hold [✕], or [L2] and [R2], to paddle', touch: 'Hold both sides of the screen to paddle' },
-  steer: {
-    keys: '[A] or [D] alone turns you. [Q] / [E] brakes, [S] backs up',
-    pad: 'One trigger alone turns you. [L1] / [R1] brakes',
-    touch: 'Hold one side to turn away from it',
-  },
-  lean: { keys: 'She’s tipping: lean against it with [←] / [→]', pad: 'She’s tipping: lean against it with the stick', touch: '' },
-  brace: { keys: 'Going over! [Space] to brace', pad: 'Going over! Tap [✕] or that side’s bumper to brace', touch: 'Going over! Tap low down on that side' },
-  boof: {
-    keys: 'A ledge! Come in paddling, and stroke hard as the lip lights up gold',
-    pad: 'A ledge! Come in paddling, and stroke hard as the lip lights up gold',
-    touch: 'A ledge! Come in paddling, and paddle hard as the lip lights up gold',
-  },
-  falls: {
-    keys: 'A waterfall! Hold the needle in the green to go over straight, then lean forward [↑] as it falls into the gold',
-    pad: 'A waterfall! Hold the needle in the green to go over straight, then stick forward as it falls into the gold',
-    touch: 'A waterfall! Hold the needle in the green to go over it straight, then flick a thumb up the screen as it falls into the gold',
-  },
-  hole: {
-    keys: 'In a hole! Lean forward [↑] and paddle hard',
-    pad: 'In a hole! Stick forward and paddle hard',
-    touch: 'In a hole! Keep paddling',
-  },
-  roll: {
-    keys: 'Upside down! [Space] when the needle’s in the gap',
-    pad: 'Upside down! [✕] when the needle’s in the gap',
-    touch: 'Upside down! Tap when the needle’s in the gap',
-  },
-  tongue: {
-    keys: 'Follow the arrows: the dark V between rocks is the fast line',
-    pad: 'Follow the arrows: the dark V between rocks is the fast line',
-    touch: 'Follow the arrows: the dark V between rocks is the fast line',
-  },
-  eddy: { keys: 'Tuck in behind a rock and stop: an eddy', pad: 'Tuck in behind a rock and stop: an eddy', touch: 'Tuck in behind a rock and stop: an eddy' },
-  sprint: {
-    keys: 'Hold [Shift] to dig in, while your breath lasts',
-    pad: 'Hold [□], or squeeze a trigger right in, to dig in while your breath lasts',
-    touch: 'Hold Sprint to dig in, while your breath lasts',
-  },
-  ball: { keys: 'Beike’s tennis balls! Paddle over them', pad: 'Beike’s tennis balls! Paddle over them', touch: 'Beike’s tennis balls! Paddle over them' },
-  waves: {
-    keys: 'Waves! Lean into each crest with [←] / [→], and stroke down their backs',
-    pad: 'Waves! Lean into each crest with the stick, and stroke down their backs',
-    touch: 'Waves! Stroke as you slide down the back of each one',
-  },
-  big: {
-    keys: 'Big water! Point straight down it and keep paddling. Balance with [←] / [→], and [Space] braces',
-    pad: 'Big water! Point straight down it and keep paddling. Balance with the stick, and [✕] braces',
-    touch: 'Big water! Point straight down it and keep paddling. Tap low down on the side you tip to brace',
-  },
-  rocky: {
-    keys: 'Big water, and rocks in it! Balance with [←] / [→], [Space] braces, and steer round them between the waves',
-    pad: 'Big water, and rocks in it! Balance with the stick, [✕] braces, and steer round them between the waves',
-    touch: 'Big water, and rocks in it! Tap low down on the side you tip to brace, and steer round them between the waves',
-  },
-  peel: {
-    keys: 'Eddy! Lean into the turn on the way out',
-    pad: 'Eddy! Lean into the turn on the way out',
-    touch: 'Eddy! Paddle hard on the way out',
-  },
+  paddle: { keys: 'Hold [W] to paddle', pad: 'Hold [✕] to paddle', touch: 'Hold both sides to paddle' },
+  steer: { keys: '[A] or [D] alone turns you', pad: 'One trigger alone turns you', touch: 'Hold one side to turn' },
+  lean: { keys: 'Tipping! Lean with [←] [→]', pad: 'Tipping! Lean with the stick', touch: '' },
+  brace: { keys: 'Going over! [Space]', pad: 'Going over! [✕]', touch: 'Going over! Tap low down' },
+  boof: { keys: 'Paddle hard as the lip glows gold', pad: 'Paddle hard as the lip glows gold', touch: 'Paddle hard as the lip glows gold' },
+  falls: { keys: 'Waterfall! Line up, then [↑] to tuck', pad: 'Waterfall! Line up, then stick up to tuck', touch: 'Waterfall! Line up, then flick up to tuck' },
+  hole: { keys: 'In a hole! [↑] and paddle', pad: 'In a hole! Stick up and paddle', touch: 'In a hole! Keep paddling' },
+  roll: { keys: 'Upside down! [Space] in the gap', pad: 'Upside down! [✕] in the gap', touch: 'Upside down! Tap in the gap' },
+  tongue: { keys: 'Follow the arrows', pad: 'Follow the arrows', touch: 'Follow the arrows' },
+  eddy: { keys: 'Behind a rock: an eddy, to rest', pad: 'Behind a rock: an eddy, to rest', touch: 'Behind a rock: an eddy, to rest' },
+  sprint: { keys: 'Hold [Shift] to sprint', pad: 'Hold [□] to sprint', touch: 'Tap Sprint to dig in' },
+  ball: { keys: 'Beike’s balls! Paddle over them', pad: 'Beike’s balls! Paddle over them', touch: 'Beike’s balls! Paddle over them' },
+  waves: { keys: 'Waves! Lean into the crests', pad: 'Waves! Lean into the crests', touch: 'Waves! Stroke down their backs' },
+  big: { keys: 'Big water! Straight down, keep paddling', pad: 'Big water! Straight down, keep paddling', touch: 'Big water! Straight down, keep paddling' },
+  rocky: { keys: 'Rocks in the waves! [Space] braces', pad: 'Rocks in the waves! [✕] braces', touch: 'Rocks in the waves! Tap low down to brace' },
+  peel: { keys: 'Lean into the turn out', pad: 'Lean into the turn out', touch: 'Paddle hard on the way out' },
 };
 
 /** …and on a touch screen, leaning by tilting the phone, the ones that change. */
 const TILT_HINTS: Partial<Record<Hint, string>> = {
-  lean: 'She’s tipping: tilt the phone against it',
-  waves: 'Waves! Tilt into each crest, and stroke down their backs',
-  big: 'Big water! Point straight down it and keep paddling. Balance by tilting the phone, and tap low down on the side you tip to brace',
-  rocky: 'Big water, and rocks in it! Balance by tilting, tap low down on the side you tip to brace, and steer round them between the waves',
-  peel: 'Eddy! Tilt into the turn on the way out',
+  lean: 'Tipping! Tilt against it',
+  waves: 'Waves! Tilt into the crests',
+  peel: 'Tilt into the turn out',
 };
 
 /** The waterfall meter's word, and what to press for it: lining up to the lip, then tucking over it. */
@@ -246,14 +200,21 @@ export class River implements RoomInput {
       b.addEventListener('pointerenter', () => this.showChosen(i));
       b.addEventListener('pointerleave', () => this.showChosen(this.pick));
     });
-    // held (a thumb on it while the other paddles, or a finger while both do)
+    // a switch, since both thumbs are busy paddling: a tap digs in and another eases off (or it's
+    // held, and stops as it's let go)
     const go = this.$['sprint-go'];
+    let pressed = { at: 0, on: false };
     go.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       go.setPointerCapture(e.pointerId);
-      this.game?.controls.sprint(true);
+      const controls = this.game?.controls;
+      if (!controls) return;
+      pressed = { at: e.timeStamp, on: !controls.sprintOn };
+      controls.sprint(pressed.on);
     });
-    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) go.addEventListener(type, () => this.game?.controls.sprint(false));
+    for (const type of ['pointerup', 'pointercancel'] as const) go.addEventListener(type, (e) => {
+      if (pressed.on && (type === 'pointercancel' || e.timeStamp - pressed.at > HELD)) this.game?.controls.sprint(false);
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.pause(true);
     });
@@ -288,7 +249,7 @@ export class River implements RoomInput {
     const b = this.el.querySelector<HTMLElement>('[data-river-tilt]');
     if (!b) return;
     b.setAttribute('aria-checked', String(on));
-    b.querySelector('span')!.textContent = on ? 'Tilt the phone' : 'The paddler balances';
+    b.querySelector('span')!.textContent = on ? 'Tilt the phone' : 'Auto';
   }
 
   /** The switch on the start card: out there as it is, or a clear day. */
@@ -296,7 +257,7 @@ export class River implements RoomInput {
     const b = this.el.querySelector<HTMLElement>('[data-river-calm]');
     if (!b) return;
     b.setAttribute('aria-checked', String(this.calm));
-    b.querySelector('span')!.textContent = this.calm ? 'Always a clear day' : 'The real sky and weather';
+    b.querySelector('span')!.textContent = this.calm ? 'Always clear' : 'Real weather';
   }
 
   /** On the start card, the rare ones you've seen so far. */
@@ -306,8 +267,8 @@ export class River implements RoomInput {
     const seen = RARE.filter((r) => this.log.has(r.id)).map((r) => r.name);
     const left = RARE.length - seen.length;
     el.textContent = seen.length
-      ? `Spotted: ${seen.join(', ')}${left ? ` · ${left} still out there` : ' · every one. Now nobody believes you.'}`
-      : 'Keep an eye on the banks: on some runs, something rare is about.';
+      ? `Spotted: ${seen.join(', ')}${left ? ` · ${left} to go` : ''}`
+      : 'Now and then, something rare on the banks.';
   }
 
   private get river(): RiverDef {
@@ -672,7 +633,7 @@ export class River implements RoomInput {
       },
       start: () => this.go(),
       over: (tally) => this.over(tally),
-      say: (text) => this.ctx.toast(text),
+      say: (text) => this.note(text),
       sound: (kind, volume, step) => this.ctx.sound.river(kind, volume, step),
       bark: () => this.ctx.sound.bark(),
       baa: () => this.ctx.sound.baa(),
@@ -685,7 +646,7 @@ export class River implements RoomInput {
           writeLog(this.log);
           this.showLog();
         }
-        this.ctx.toast(first ? `${r.line} · ${this.log.size} of ${RARE.length} spotted` : r.line);
+        this.note(first ? `${r.line} · ${this.log.size} of ${RARE.length} spotted` : r.line);
       },
     };
   }
@@ -748,13 +709,19 @@ export class River implements RoomInput {
     this.bannerTimer = 3.2;
   }
 
+  /** A note from the river: up for less long than on the island, since you're busy paddling. */
+  private note(text: string) {
+    this.ctx.toast(text, Math.min(4500, Math.max(2600, text.length * 40)));
+  }
+
   private hint(text: string) {
     if (!text) return;
     const el = this.$.hint;
     el.replaceChildren(...withKeys(text));
     el.hidden = false;
     this.bounce(el, 'in');
-    this.hintTimer = text.length > 70 ? 6 : 4.5; // the long ones need a moment more
+    this.hintTimer = 3.5;
+    el.style.setProperty('--stay', `${this.hintTimer}s`);
   }
 
   /** A word popping up over the kayak: a boof, a brace, a clean gate (or the flow breaking). */
@@ -816,22 +783,7 @@ export class River implements RoomInput {
       if (!c.hidden) c.scrollTop = 0; // (the tips run long: each time, from the top)
     }
     this.cardAt = performance.now();
-    if (name === 'ready') this.nextTip();
     if (name) this.focus(this.el.querySelector<HTMLElement>(`[data-river-card="${name}"] [data-river-go], [data-river-card="${name}"] [data-river-resume]`));
-  }
-
-  /** Out on the start card, the next of the tips: one at a time, so they sink in. */
-  private nextTip() {
-    const tips = this.el.querySelectorAll<HTMLElement>('[data-river-tip]');
-    let seen = -1;
-    try {
-      seen = Number(localStorage.getItem(TIP_SEEN) ?? -1);
-    } catch {}
-    const at = ((Number.isInteger(seen) ? seen : -1) + 1) % tips.length;
-    tips.forEach((t, i) => (t.hidden = i !== at));
-    try {
-      localStorage.setItem(TIP_SEEN, String(at));
-    } catch {}
   }
 
   private hud(t: Tally) {
@@ -939,8 +891,13 @@ export class River implements RoomInput {
       brace.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y + 60)}px)`;
       brace.style.setProperty('--charge', String(k.braceReady));
     }
-    this.$['sprint-go'].hidden = !running;
-    this.$['sprint-go'].classList.toggle('spent', !k.sprinting && k.wind < 0.2);
+    // (out of breath, the switch goes off: it wants pressing again once you've got some back)
+    if (k.puffed && game.controls.sprintOn) game.controls.sprint(false);
+    const sprintGo = this.$['sprint-go'];
+    sprintGo.hidden = !running;
+    sprintGo.classList.toggle('spent', !k.sprinting && k.wind < 0.2);
+    sprintGo.classList.toggle('on', game.controls.sprintOn);
+    sprintGo.setAttribute('aria-pressed', String(game.controls.sprintOn));
     // the edges of the picture: red, throbbing, as she tips towards going over; warm gold while the
     // flow's running hot
     const danger = running && k.balance !== 'rolling' && k.balance !== 'swimming' ? THREE.MathUtils.clamp((Math.abs(k.tilt) - 0.5) / (TIP - 0.5), 0, 1) : 0;
@@ -995,15 +952,23 @@ export class River implements RoomInput {
     set('[data-river-line]', t.finished ? FINISHES[this.finishes++ % FINISHES.length] : SWIMS[this.swims++ % SWIMS.length]);
     set('[data-over-metres]', t.finished ? 'All the way' : `${round(t.metres)} m`);
     set('[data-over-time]', clock(t.time));
-    set('[data-over-bonus]', t.bonus.time ? `+${round(t.bonus.time)}` : '–');
-    set('[data-over-gates]', t.gates ? `${t.gates} · +${round(t.bonus.gates)}` : '0');
-    set('[data-over-balls]', t.balls ? `${t.balls} · +${round(t.bonus.balls)}` : '0');
-    set('[data-over-sets]', t.sets ? `${t.sets} · +${round(t.setPoints)}` : '0');
-    set('[data-over-sends]', t.sends ? `${t.sends} · +${round(t.sent)}` : '0');
-    set('[data-over-hot]', t.flatOut ? `${Math.floor(t.longest)}s · +${round(t.flatOut)}` : '–');
-    set('[data-over-flips]', t.flips ? `${t.flips} · −${round(t.flips * FLIP)}` : '0');
-    set('[data-over-flow]', `×${t.bestFlow.toFixed(1)}`);
-    set('[data-over-goals]', t.goals.length ? `${t.goals.length} of ${this.river.goals.length} · +${round(t.goalPoints)}` : `0 of ${this.river.goals.length}`);
+    // (only what happened: a row that'd say 0 or – isn't there)
+    const row = (sel: string, text: string | false) => {
+      const dd = this.el.querySelector<HTMLElement>(sel);
+      if (!dd) return;
+      dd.hidden = text === false;
+      (dd.previousElementSibling as HTMLElement).hidden = text === false;
+      if (text !== false) dd.textContent = text;
+    };
+    row('[data-over-bonus]', !!t.bonus.time && `+${round(t.bonus.time)}`);
+    row('[data-over-gates]', !!t.gates && `${t.gates} · +${round(t.bonus.gates)}`);
+    row('[data-over-balls]', !!t.balls && `${t.balls} · +${round(t.bonus.balls)}`);
+    row('[data-over-sets]', !!t.sets && `${t.sets} · +${round(t.setPoints)}`);
+    row('[data-over-sends]', !!t.sends && `${t.sends} · +${round(t.sent)}`);
+    row('[data-over-hot]', !!t.flatOut && `${Math.floor(t.longest)}s · +${round(t.flatOut)}`);
+    row('[data-over-flips]', !!t.flips && `${t.flips} · −${round(t.flips * FLIP)}`);
+    row('[data-over-flow]', t.bestFlow > 1.05 && `×${t.bestFlow.toFixed(1)}`);
+    row('[data-over-goals]', !!t.goals.length && `${t.goals.length} of ${this.river.goals.length} · +${round(t.goalPoints)}`);
     this.goalList(this.el.querySelector('[data-over-goals-list]'), this.river, (i) => (this.newGoals.has(i) ? 'new' : t.goals.includes(i) ? 'done' : ''));
     this.showChosen(this.pick);
     set('[data-over-score]', round(t.score));

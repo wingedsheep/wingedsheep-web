@@ -187,10 +187,18 @@ export class UI {
     el.className = `toast toast-${kind}`;
     el.textContent = text;
     this.toasts.append(el);
-    // longer notes stay up long enough to read; a tap puts one away sooner
-    const stay = duration ?? Math.max(kind === 'secret' ? 4200 : 3400, text.length * 55);
+    this.makeRoom();
+    // longer notes stay up long enough to read, but not all day; a tap puts one away sooner
+    const stay = duration ?? Math.min(7000, Math.max(kind === 'secret' ? 3600 : 3000, text.length * 45));
     const timer = setTimeout(() => this.putAway(el), stay);
     el.addEventListener('click', () => (clearTimeout(timer), this.putAway(el)), { once: true });
+  }
+
+  /** Only a few notes up at once (two on a phone, where they'd cover the island): the oldest go first. */
+  private makeRoom() {
+    const max = matchMedia('(max-width: 760px), (max-height: 500px)').matches ? 2 : 3;
+    const up = [...this.toasts.children].filter((t) => !t.classList.contains('out') && !t.classList.contains('toast-ask'));
+    for (const old of up.slice(0, Math.max(0, up.length - max))) this.putAway(old as HTMLElement);
   }
 
   /** A toast fades out and goes. */

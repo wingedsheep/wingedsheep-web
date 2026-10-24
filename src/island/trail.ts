@@ -160,9 +160,12 @@ export class Trail implements RoomInput {
   resize() {
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
-    // the banner along the top, the card down the left (or along the bottom on a phone)
+    // the banner along the top, the card down the left (or along the bottom on a phone, and down
+    // the left again on a phone on its side)
+    const side = Math.min(340, w * 0.48) + 16;
     const free = w > 760
       ? { x: Math.min(420, w * 0.4), y: 84, w: w - Math.min(420, w * 0.4) - 16, h: h - 100 }
+      : w > h ? { x: side, y: 60, w: w - side - 8, h: h - 120 }
       : { x: 8, y: 100, w: w - 16, h: h * 0.5 - 100 };
     for (const room of this.rooms.values()) room.frame(w, h, free);
   }

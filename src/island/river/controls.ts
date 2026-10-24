@@ -17,11 +17,13 @@
  * buttons, ✕ presses the one picked out and ○ backs out a card; left and right on the start card go
  * through the rivers.
  *
- * Holding sprint (Shift, □ / X or a click of the left stick, or the sprint button on a touch screen) while you paddle digs in:
+ * Holding sprint (Shift, □ / X or a click of the left stick) while you paddle digs in:
  * quicker, harder strokes, on one side or both, for as long as your breath lasts. On a pad a
  * trigger squeezed right in digs in too, since the thumb that would press □ is busy: on ✕ paddling,
  * or free for ✕ to brace, while the other steers and balances on the stick. (Only on triggers that
  * have been seen part way: a pad whose triggers are only on or off would always be sprinting.)
+ * On a touch screen both thumbs are paddling, so the sprint button is a switch: a tap and you
+ * dig in until it's tapped again or your breath runs out (held and let go, it stops as you let go).
  * touch      hold the left or right half of the screen to paddle on that side (both thumbs:
  *            straight on); low down, a reverse sweep (tap) or a planted blade (hold). On a touch
  *            screen the paddler leans for himself, or, with the start card's switch on, you do,
@@ -96,7 +98,7 @@ export class Controls {
   onBack?: () => void;
   private keys = new Set<string>();
   private taps = { left: false, right: false, brace: false, tuck: false };
-  /** The touch screen's sprint button, held. */
+  /** The touch screen's sprint button: on, from a tap till another (or a hold till it's let go). */
   private touchSprint = false;
   private fingers = new Map<number, { side: -1 | 1; back: boolean; x: number; y: number; at: number; flicked: boolean }>();
   /** The kayak's facing the camera, its left on the screen's right: tilting the phone goes by the screen. */
@@ -165,9 +167,14 @@ export class Controls {
     el.addEventListener('pointercancel', up);
   }
 
-  /** The sprint button on a touch screen, pressed or let go. */
+  /** The sprint button on a touch screen, switched on or off. */
   sprint(on: boolean) {
     this.touchSprint = on && this.active;
+  }
+
+  /** Whether the touch screen's sprint is switched on. */
+  get sprintOn() {
+    return this.touchSprint;
   }
 
   /** Listen (or stop listening) for the game. */

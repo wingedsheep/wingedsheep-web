@@ -242,7 +242,7 @@ export class Kayak {
   /** 0..1: getting another brace in you (1: ready). */
   braceReady = 1;
   /** Out of breath: let go of sprint (and wait a moment) before you can go again. */
-  private puffed = false;
+  puffed = false;
   /** How many times you've rolled up this run: each roll gets harder. */
   rolls = 0;
   /** 0..1: how stormy it is (set by the game): a chop on even the flattest water. */
