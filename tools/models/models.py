@@ -7,7 +7,9 @@ import random
 import bpy
 
 import beike
+import boardgames
 import buildings
+import camping
 import cats
 import characters
 import companion
@@ -194,8 +196,12 @@ def trail(t: Terrain):
     place(t, "fingerpost", 1.5, -3.6, props.fingerpost, rot_z=0.0)
 
 
-def scatter(t: Terrain, seed=11):
+def scatter(t: Terrain, seed=11, plan: Terrain | None = None):
+    """The woods, the lone trees, the bushes and rocks, and the flowers, seeded. Where things may grow
+    is judged on `plan` (the island as it was before the headland: terrain.generate), so land added
+    since doesn't reshuffle the rest; they stand on `t`."""
     rng = random.Random(seed)
+    p = plan or t
     taken: list[tuple[float, float, float]] = []    # plants: each keeps its own spacing
     kept: list[tuple[float, float, float]] = []     # clearances around landmarks: nothing grows inside
     for (x, y), r in [(L.LIBRARY, 8.5), (L.WORKSHOP, 7.5), (L.LIGHTHOUSE, 5), (L.CAMPFIRE, 5.5), (L.WELL, 3),
@@ -209,13 +215,13 @@ def scatter(t: Terrain, seed=11):
     def free(x, y, r, levels=(-1, 0, 1)):
         ix = int(round((x - L.EXTENT[0]) / L.CELL))
         iy = int(round((y - L.EXTENT[1]) / L.CELL))
-        if not (2 <= ix < t.height.shape[1] - 2 and 2 <= iy < t.height.shape[0] - 2):
+        if not (2 <= ix < p.height.shape[1] - 2 and 2 <= iy < p.height.shape[0] - 2):
             return False
-        if not t.land[iy, ix] or t.path[iy - 2:iy + 3, ix - 2:ix + 3].any() or t.plaza[iy, ix]:
+        if not p.land[iy, ix] or p.path[iy - 2:iy + 3, ix - 2:ix + 3].any() or p.plaza[iy, ix]:
             return False
-        if t.level[iy, ix] not in levels or t.height[iy, ix] < 0.45:
+        if p.level[iy, ix] not in levels or p.height[iy, ix] < 0.45:
             return False
-        patch = t.height[iy - 3:iy + 4, ix - 3:ix + 4]
+        patch = p.height[iy - 3:iy + 4, ix - 3:ix + 4]
         if patch.max() - patch.min() > 0.6:          # no trees hanging off cliffs
             return False
         if any(math.hypot(x - px, y - py) < pr for px, py, pr in kept):
@@ -303,9 +309,9 @@ def scatter(t: Terrain, seed=11):
     def lawn(x, y):
         ix = int(round((x - L.EXTENT[0]) / L.CELL))
         iy = int(round((y - L.EXTENT[1]) / L.CELL))
-        if not (1 <= ix < t.height.shape[1] - 1 and 1 <= iy < t.height.shape[0] - 1):
+        if not (1 <= ix < p.height.shape[1] - 1 and 1 <= iy < p.height.shape[0] - 1):
             return None
-        if not t.land[iy, ix] or t.path[iy, ix] or t.plaza[iy, ix] or t.height[iy, ix] < 0.45:
+        if not p.land[iy, ix] or p.path[iy, ix] or p.plaza[iy, ix] or p.height[iy, ix] < 0.45:
             return None
         return t.sample(x, y)
 
@@ -325,13 +331,15 @@ def scatter(t: Terrain, seed=11):
     nature.bulbs(group("bulbs"), patches, lawn, seed + 1)
 
 
-def populate(t: Terrain):
+def populate(t: Terrain, plan: Terrain | None = None):
     landmarks(t)
-    scatter(t)
+    scatter(t, plan=plan)
     fauna.populate()
     holidays.populate(t)
     week.populate(t)
     outings.populate(t)
     snowplay.populate(t)
     pastimes.populate(t)
+    camping.populate(t)
+    boardgames.populate(t)
     running.populate(t)

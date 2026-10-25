@@ -14,6 +14,10 @@ ISLAND = [
     (24, 2, 12, 11),      # eastern forest
     (-15, -12, 11, 6),    # south-west meadow
 ]
+# A small headland east of the campfire, past the glade: grass enough to pitch a tent on, looking
+# out to sea (terrain.generate adds it; models.scatter plans the woods as if it weren't there, so
+# nothing else moved when it came)
+HEADLAND = (34, 1, 6, 6)
 
 # Terraces: (ellipses, height of the top surface)
 PLATEAUS = [
@@ -31,6 +35,7 @@ WORKSHOP = (11.5, -4.5)
 CARD_TABLE = (WORKSHOP[0] - 5.2, WORKSHOP[1] - 4.6)
 LIGHTHOUSE = (-31.5, -3)
 CAMPFIRE = (27, -1)
+CAMP = (34.4, 0.4)                # the tent, on the headland, its door to the fire (pastimes.py)
 WELL = (20, -14)
 BENCH = (-17, -11)
 READING = (22.9, -14.0)            # a picnic blanket under the blossom tree, by the well

@@ -13,7 +13,7 @@ import bpy
 import numpy as np
 
 import palette as P
-from layout import CELL, EXTENT, ISLAND, PATHS, PEAK, PLATEAUS, PLAZA, STAIRS, SWITCHBACKS, TRAIL
+from layout import CELL, EXTENT, HEADLAND, ISLAND, PATHS, PEAK, PLATEAUS, PLAZA, STAIRS, SWITCHBACKS, TRAIL
 
 X0, Y0, X1, Y1 = EXTENT
 PEAK_LEVEL = 9  # level id for cells on the mountain peak (terraces are 0, 1; the lighthouse rock is 2)
@@ -116,10 +116,11 @@ class Terrain:
         return int(self.level[int(round((y - Y0) / CELL)), int(round((x - X0) / CELL))])
 
 
-def generate() -> Terrain:
+def generate(headland=True) -> Terrain:
+    """The island; without the `headland` east of the campfire, as it was before (models.scatter plans on that)."""
     n_big, n_mid, n_fine = noise(14, 1, 4), noise(5, 2, 3), noise(1.5, 3, 2)
 
-    land = blob(ISLAND, n_big, 0.3) > 0.02
+    land = blob(ISLAND + ([HEADLAND] if headland else []), n_big, 0.3) > 0.02
     inland = distance(land, 40) * CELL                  # metres from the coast
     sea_d = distance(~land, 40) * CELL
 

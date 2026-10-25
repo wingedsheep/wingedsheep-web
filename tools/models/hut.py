@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import math
 
+import boardgames
 import characters
 import companion
 import dressing
@@ -726,6 +727,13 @@ def guest(root):
     outings.vincent_eating(group("vincent_meal_hut", (tx - 0.65, ty + 1.06, 0), parent=g, id="vincent_meal_hut"), "hut_meal_v", 0.475)
     outings.companion_eating(group("companion_meal_hut", (tx + 0.05, ty + 1.06, 0), parent=g, id="companion_meal_hut"), "hut_meal_e", 0.475)
     outings.spread(g, "meal_spread_hut", (tx - 0.35, ty - 0.1, 0.78))
+    # a board game, when it's no weather for the card table (boardgames.py): him on the north bench,
+    # her across from him on the south one and along to the west, so she isn't between the room's
+    # view and the game; the game between them, on the runner
+    boardgames.vincent_playing(group("vincent_games_hut", (tx + 0.2, ty + 0.925, 0), parent=g, id="vincent_games_hut"), "hut_games_v", 0.475, 0.78, 0.4)
+    boardgames.companion_playing(group("companion_games_hut", (tx - 0.85, ty - 0.925, 0), rot_z=math.pi, parent=g, id="companion_games_hut"),
+                                 "hut_games_e", 0.475, 0.78, 0.4)
+    boardgames.spread(g, "games_hut", (tx - 0.25, ty, 0.795))
 
 
 def build():

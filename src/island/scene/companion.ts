@@ -9,6 +9,7 @@ import { Eater, courseAt, sitDown, table, tick } from './meals';
 import { ROUTE_NAMES, Stroll, Walker, together } from './outings';
 import { Bather } from './swim';
 import { play } from './snowplay';
+import { games } from './boardgames';
 import { type Pastimes, hammockWeather, outdoors } from './pastimes';
 import type { Ways } from './ways';
 import type { Waypoint } from './shelter';
@@ -17,7 +18,7 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const damp = THREE.MathUtils.damp;
 
 /** Where she can be (tools/models/companion.py): out on the island, or in the rooms. */
-export type Spot = 'reading' | 'fireside' | 'workout' | 'podcast' | 'yoga' | 'petting' | 'baking' | 'watching' | 'bed' | 'stroll' | 'meal' | 'gluhwein' | 'swim' | 'snow' | 'hammock' | 'library' | 'painting' | 'going';
+export type Spot = 'reading' | 'fireside' | 'workout' | 'podcast' | 'yoga' | 'petting' | 'baking' | 'watching' | 'bed' | 'stroll' | 'meal' | 'gluhwein' | 'swim' | 'snow' | 'hammock' | 'library' | 'painting' | 'camp' | 'games' | 'going';
 /** Which room each indoor spot is in, and the group the room shows while she's there. */
 const ROOMS: Partial<Record<Spot, { room: Room; group: string }>> = {
   baking: { room: 'hut', group: 'companion_hut' },
@@ -63,7 +64,7 @@ type When = Pick<CompanionWorld, 'time' | 'night' | 'rain' | 'chill' | 'yoga' | 
 const MEAL_WAIT = 60; // seconds she'll wait for nobody to be looking before sitting down to eat anyway
 const SETTLE = 3; // seconds the next thing waits, with you watching, before she gets up and walks over to it
 /** Where she gets up from (rather than just walks off). */
-const SEATED: Spot[] = ['reading', 'fireside', 'podcast', 'yoga', 'petting', 'hammock'];
+const SEATED: Spot[] = ['reading', 'fireside', 'podcast', 'yoga', 'petting', 'hammock', 'games'];
 /** How likely each of hers is next, by the part of the day (up till eleven, the afternoon, the end of it, the evening). */
 const HER_DAY: Partial<Record<Spot, Record<'morning' | 'afternoon' | 'later' | 'evening', number>>> = {
   reading: { morning: 1.3, afternoon: 1.2, later: 1, evening: 0.6 },
@@ -104,7 +105,7 @@ const DOORS: Partial<Record<Spot, [number, number]>> = {
  * all the likelier if he's already in (swim.ts).
  */
 export class Companion {
-  static readonly SPOTS: Spot[] = [...DAYTIME, 'yoga', 'bed', 'stroll', 'meal', 'gluhwein', 'swim', 'snow', 'hammock'];
+  static readonly SPOTS: Spot[] = [...DAYTIME, 'yoga', 'bed', 'stroll', 'meal', 'gluhwein', 'swim', 'snow', 'hammock', 'camp', 'games'];
   private spot: Spot = 'fireside';
   private next: Spot | null = null;
   private stay = rand(...STAY);
@@ -212,6 +213,7 @@ export class Companion {
     this.noticed = 1;
     if (this.eater) this.eater.noticed = 1;
     this.pastimes.hammock.noticed = 1;
+    if (this.pastimes.games.her) this.pastimes.games.her.noticed = 1;
   }
 
   /** Where she is (for the clicks: what she's up to). */
@@ -224,6 +226,7 @@ export class Companion {
     if (this.spot === 'stroll' || this.spot === 'gluhwein' || this.spot === 'snow' || this.spot === 'going') return this.walker.visible ? this.walker.head : undefined;
     if (this.spot === 'meal' && !table.indoors && this.meal?.visible) return this.eater?.face;
     if (this.spot === 'fireside') return this.parts.get('companion_fire_head')?.o;
+    if (this.spot === 'games' && !games.indoors) return this.pastimes.games.her?.face;
     return undefined;
   }
 
@@ -273,7 +276,7 @@ export class Companion {
     const asked = allowed.includes('yoga') && this.spot !== 'yoga'; // he's on his mat and would like company
     if (this.spot === 'stroll' && this.stroll.done) this.stay = -1; // round: on to something else, once nobody's looking
     const mealtime = allowed.includes('meal') && this.spot !== 'meal';
-    const lasting = this.spot === 'bed' || this.spot === 'yoga' || this.spot === 'meal' || this.spot === 'gluhwein' || this.spot === 'snow' || (this.spot === 'stroll' && !this.stroll.done);
+    const lasting = this.spot === 'bed' || this.spot === 'camp' || this.spot === 'games' || this.spot === 'yoga' || this.spot === 'meal' || this.spot === 'gluhwein' || this.spot === 'snow' || (this.spot === 'stroll' && !this.stroll.done);
     if (mealtime) this.next = 'meal';
     // in the sea: out first, and dry, before she's off anywhere
     const inTheSea = this.spot === 'swim' && !this.bather.ashore;
@@ -282,7 +285,7 @@ export class Companion {
       if (!this.next || !allowed.includes(this.next)) this.next = this.choose(this.spot, w);
       this.waiting += dt;
       const forced = (w.rain > 0.1 && this.waiting > RAIN_WAIT && !ROOMS[this.spot])
-        || (this.next === 'bed' && this.waiting > BEDTIME_WAIT)
+        || ((this.next === 'bed' || this.next === 'camp') && this.waiting > BEDTIME_WAIT)
         || (this.next === 'meal' && this.waiting > MEAL_WAIT);
       if (forced || (!this.seen(this.spot, w) && !this.seen(this.next, w))) this.move(this.next);
       // with you watching: up, and over there on foot (if it's somewhere you can walk to)
@@ -324,12 +327,14 @@ export class Companion {
   }
 
   private allowed(w: When): Spot[] {
-    if (w.time && herNight(w.time)) return ['bed'];
+    // to bed up at the hut; or on a camping night, out in the tent (camping.ts)
+    if (w.time && herNight(w.time)) return [this.spot === 'camp' || this.pastimes.camp.bedtime(this.outside(w)) ? 'camp' : 'bed'];
     // breakfast and dinner, with him, whatever the weather (it's the hut's table if it's wet)
     if (w.time && (courseAt(w.time) || (this.spot === 'meal' && table.course))) return ['meal'];
     if (w.yoga) return ['yoga']; // with him, for as long as he's at it
     if (together.asked) return ['gluhwein']; // a walk, and something warm to drink on it
     if (play.asked) return ['snow']; // a snowman, and snowballs
+    if (games.asked) return ['games']; // he's got a game out (boardgames.ts)
     if (w.rain > 0.1) return ['baking', 'watching', 'library', 'painting'];
     if (w.night > 0.5) return ['fireside', 'podcast', 'baking', 'watching', 'library', 'painting']; // the pier's lit
     // a cold day's no excuse; and now and then she's off round the island (twice the odds of anything else)
@@ -354,10 +359,17 @@ export class Companion {
     // otherwise by the part of the day (HER_DAY): anything not in it as likely as ever
     const hour = w.time ? new Date(w.time).getHours() + new Date(w.time).getMinutes() / 60 : 12;
     const part = hour < 11 ? 'morning' : hour < 16 ? 'afternoon' : hour < 19 ? 'later' : 'evening';
-    const weight = (s: Spot) => HER_DAY[s]?.[part] ?? 1;
+    // a camping night: the evening's by the fire, with the tent up beyond it
+    const camping = w.time && this.pastimes.camp.tonight(this.outside(w)) && hour >= 18;
+    const weight = (s: Spot) => (HER_DAY[s]?.[part] ?? 1) * (camping && s === 'fireside' ? 4 : 1);
     let r = Math.random() * options.reduce((sum, s) => sum + weight(s), 0);
     for (const s of options) if ((r -= weight(s)) < 0) return s;
     return options[Math.floor(Math.random() * options.length)] ?? from ?? 'fireside';
+  }
+
+  /** Her world, as far as a night out in the tent goes (camping.ts). */
+  private outside(w: When) {
+    return { time: w.time, night: w.night, rain: w.rain, wind: w.wind ?? 0, temperature: w.temperature ?? 15 };
   }
 
   /** Where they're off to, on foot, if they're on their way somewhere. */
@@ -375,11 +387,16 @@ export class Companion {
       const p = o?.getWorldPosition(new THREE.Vector3());
       return p ? on(p.x, p.z) : null;
     };
-    const door = DOORS[spot];
+    const door = spot === 'games' && this.pastimes.games.inside ? DOORS.baking : DOORS[spot];
     if (door) return on(door[0], -door[1]);
+    if (spot === 'games') return of(this.pastimes.games.her?.root);
     if (spot === 'podcast') return { at: new THREE.Vector3(0.2, 0.84, 21.5), fixed: true }; // along the pier to her seat
     if (spot === 'petting') return pet ? of(this.kneel.at(pet)) : null;
     if (spot === 'hammock') return of(this.pastimes.hammock.root);
+    if (spot === 'camp') {
+      const door = this.pastimes.camp.doorstep;
+      return door ? on(door.x, door.z) : null;
+    }
     if (spot === 'swim') return on(this.bather.towelAt.x, this.bather.towelAt.z);
     if (spot === 'going') return on(this.walker.at.x, this.walker.at.z);
     return of(this.groups.get(spot));
@@ -395,7 +412,7 @@ export class Companion {
     if (!way) return false;
     const rise = SEATED.includes(this.spot);
     const seat = this.spot === 'petting' && this.kneel.pet ? this.kneel.at(this.kneel.pet)
-      : this.spot === 'hammock' ? this.pastimes.hammock.root : this.groups.get(this.spot);
+      : this.spot === 'hammock' ? this.pastimes.hammock.root : this.spot === 'games' ? this.pastimes.games.her?.root : this.groups.get(this.spot);
     const heading = rise && seat ? new THREE.Euler().setFromQuaternion(seat.getWorldQuaternion(new THREE.Quaternion()), 'YXZ').y : undefined;
     this.move('going');
     this.bound = { to, pet };
@@ -410,6 +427,8 @@ export class Companion {
     together.joined = to === 'gluhwein';
     play.joined = to === 'snow';
     this.pastimes.hammock.set('companion', to === 'hammock');
+    this.pastimes.camp.set('companion', to === 'camp');
+    this.pastimes.games.set('companion', to === 'games');
     if (to === 'watching') telly.show = SHOWS[Math.floor(Math.random() * SHOWS.length)];
     const pets = petting.open('companion');
     this.kneel.set(to === 'petting' ? (pet ?? pets[Math.floor(Math.random() * pets.length)] ?? 'cats') : null);
@@ -454,7 +473,7 @@ export class Companion {
 
   /** Whether a spot is on screen: in view of the island camera, or in the room you're in. */
   private seen(spot: Spot, w: CompanionWorld) {
-    const room = ROOMS[spot]?.room;
+    const room = ROOMS[spot]?.room ?? (spot === 'games' && this.pastimes.games.inside ? 'hut' : null);
     if (room) return w.room === room;
     if (w.room) return false;
     this.matrix.multiplyMatrices(w.camera.projectionMatrix, w.camera.matrixWorldInverse);
@@ -466,6 +485,8 @@ export class Companion {
     };
     if (spot === 'meal') return w.room === 'hut' || inView(this.meal);
     if (spot === 'hammock') return inView(this.pastimes.hammock.root);
+    if (spot === 'camp') return inView(this.pastimes.camp.root);
+    if (spot === 'games') return inView(this.pastimes.games.table);
     if (spot === 'going') return inView(this.walker.root);
     if (spot === 'stroll' && this.spot === 'stroll') return inView(this.walker.root);
     if (spot === 'gluhwein' || spot === 'snow') return this.walker.visible && inView(this.walker.root);

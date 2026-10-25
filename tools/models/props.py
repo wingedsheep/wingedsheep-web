@@ -282,12 +282,15 @@ def card_table(root):
     for x in (-0.7, 0.7):
         for y in (-0.4, 0.4):
             m.box((0.08, 0.08, 0.8), (x, y, 0.4), P.WOOD_DARK)
-    for i, c in enumerate(["#e8d7a8", "#5b7fd1", P.RED, "#e8d7a8", "#3d7a4a"]):
-        m.box((0.16, 0.22, 0.02), (-0.55 + i * 0.27, -0.15 + (i % 2) * 0.2, 0.85), c, rot=(0, 0, 0.1 * i))
-    m.box((0.2, 0.28, 0.12), (0.5, 0.3, 0.9), "#6b3f8c")                    # the library (deck)
     for x in (-1.1, 1.1):                                                   # two stools
         m.cyl(0.25, 0.5, (x, 0, 0), P.WOOD, segs=6)
     m.build(root)
+    # the game of Magic on it, cleared away while there's a board game out (boardgames.py)
+    g = Model("card_table_magic")
+    for i, c in enumerate(["#e8d7a8", "#5b7fd1", P.RED, "#e8d7a8", "#3d7a4a"]):
+        g.box((0.16, 0.22, 0.02), (-0.55 + i * 0.27, -0.15 + (i % 2) * 0.2, 0.85), c, rot=(0, 0, 0.1 * i))
+    g.box((0.2, 0.28, 0.12), (0.5, 0.3, 0.9), "#6b3f8c")                    # the library (deck)
+    g.build(root)
 
 
 def fire_wrap(root):

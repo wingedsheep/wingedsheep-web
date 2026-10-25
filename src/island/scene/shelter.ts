@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { games } from './boardgames';
 import type { Beike, Ground } from './beike';
 import type { Island } from './island';
 import { petting } from './petting';
@@ -123,7 +124,7 @@ function liking(n: Nook, hour: number, hot: number): number {
   switch (n) {
     case 'bench': return 2.6;
     case 'library': return hour >= 7 && hour < 12 ? 1.4 : 0.6;
-    case 'cards': return hour >= 12 && hour < 19 ? 1.1 : 0.5;
+    case 'cards': return games.game && !games.indoors ? 0 : hour >= 12 && hour < 19 ? 1.1 : 0.5; // not with a game on it
     case 'fire': return evening ? 2 : 0;
     case 'doorstep': return 0.8;
     case 'hearth': return (0.5 + (1 - hot) * 0.6) * (indoors.has('companion_library') || indoors.has('vincent_library') ? 4 : 1);

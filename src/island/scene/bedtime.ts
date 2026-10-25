@@ -14,7 +14,7 @@ export function hourOf(time: number) {
 }
 
 /** A number in 0..1 that stays the same all night (one runs noon to noon), a different one per `salt`. */
-function nightly(time: number, salt: number) {
+export function nightly(time: number, salt: number) {
   const d = new Date(time - 12 * 3600e3);
   const n = d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate();
   const x = Math.sin(n * 12.9898 + salt * 78.233) * 43758.5453;

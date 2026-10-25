@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { hourOf } from './bedtime';
+import { Games } from './boardgames';
 import { visitDate } from './calendar';
+import { Camp, type CampWorld } from './camping';
 import type { Island } from './island';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -148,12 +150,20 @@ export class Hammock {
 /** The pastimes they share the places for (life.ts makes them, vincent.ts and companion.ts use them, main.ts runs them). */
 export class Pastimes {
   readonly hammock: Hammock;
+  /** The tent on the headland, for a night out (camping.ts). */
+  readonly camp: Camp;
+  /** A board game, at the card table or up at the hut (boardgames.ts). */
+  readonly games: Games;
 
   constructor(island: Island) {
     this.hammock = new Hammock(island);
+    this.camp = new Camp(island);
+    this.games = new Games(island);
   }
 
-  update(dt: number) {
+  update(dt: number, w: CampWorld) {
     this.hammock.update(dt);
+    this.camp.update(dt, w);
+    this.games.update(dt, w);
   }
 }

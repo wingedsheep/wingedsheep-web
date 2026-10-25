@@ -139,7 +139,7 @@ def build_island(a):
     terrain.save_shore(t, str(OUT / "shore.png"))
 
     import models  # noqa: E402  (after the terrain exists: models sit on it)
-    models.populate(t)
+    models.populate(t, plan=terrain.generate(headland=False))
 
     export("island.glb")
     x0, y0, x1, y1 = EXTENT

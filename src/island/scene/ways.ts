@@ -22,6 +22,7 @@ const PATHS: [number, number, 'deck'?][][] = [
   [[3.6, -9.5], [9, -11], [15, -10.5], [21, -6], [25, -2.5]], // -> campfire
   [[-11, -7.2], [-14, -7.5], [-20, -5.5], [-26, -4]], // library -> lighthouse
   [[4, -10], [12, -13], [18.5, -14]], // -> well
+  [[25, -2.5], [29.5, -2.4], [32.6, -1.6]], // across the glade from the fire, to where the tent goes up (layout.py CAMP)
 ];
 /** Two ways meet where their points come this close (metres). */
 const JOIN = 2.6;

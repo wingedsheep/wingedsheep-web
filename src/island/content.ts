@@ -14,6 +14,7 @@ import { projects } from '../data/projects';
 import { travels, yearsOf } from '../data/travels';
 import { fridayEvening, fridayNight, hourOf } from './scene/bedtime';
 import { table } from './scene/meals';
+import { GAME_NAMES, type Game, games } from './scene/boardgames';
 import type { Find, Topic } from './scene/outings';
 import type { Doing } from './scene/swim';
 import { season } from './scene/season';
@@ -1037,6 +1038,40 @@ function mealLine(ctx: IslandContext, who: 'v' | 'e') {
   if (c.dish === 'pizza' && fridayEvening(ctx.sky.time)) return 'Friday: pizza by the fire, and the crate close at hand.';
   return DINNERS[who][c.dish]();
 }
+// a board game, the two of them, at the card table or up at the hut (boardgames.ts)
+const GAME_LINES: Record<Game, string[]> = {
+  agricola: [
+    'Agricola. Two fields ploughed, a fence half built, and the harvest is next round.',
+    'Agricola: every action he wanted, she took first. Her farm is mostly sheep.',
+  ],
+  root: [
+    'Root. His cats have sawmills all over the woods; her birds hold the north and won’t give it up.',
+    'Root: a long look at one clearing, and whose it’s going to be.',
+  ],
+  dune: [
+    'Dune: Imperium. Agents out, spice counted, and both of them eyeing the conflict.',
+    'Dune: Imperium: a hand of cards, and a plan that needs the Fremen to go along with it.',
+  ],
+  star: [
+    'Star Realms: quick, and not very kind. Best of three, then best of five.',
+    'Star Realms. Authority’s low on both sides; it comes down to the next draw.',
+  ],
+  wingspan: [
+    'Wingspan. Her wetland’s filling up with eggs; he’s gone all in on the forest.',
+    'Wingspan: a roll of the birdfeeder, and a long look at the bird tray.',
+  ],
+};
+function gameLine() {
+  const g = games.game;
+  if (!g) return 'It’s going back in the box.';
+  if (!games.joined) return `He’s setting up ${GAME_NAMES[g]}, with an eye out for her.`;
+  const lines = GAME_LINES[g];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
+function gameLabel(who: 'v' | 'e') {
+  const name = games.game ? GAME_NAMES[games.game] : 'a game';
+  return who === 'e' ? `Playing ${name}` : games.joined ? `Vincent · playing ${name}` : `Vincent · setting up ${name}`;
+}
 function mealLabel(ctx: IslandContext, who: string) {
   const c = table.course;
   const what = !c ? 'at the table' : c.dish === 'breakfast' ? (who === 'Vincent' ? `breakfast, ${FILLINGS[c.filling]} sandwiches` : 'breakfast, yoghurt') : `dinner, ${{ pasta: 'pasta', miso: 'miso soup', curry: 'curry', risotto: 'risotto', pizza: 'pizza' }[c.dish]}`;
@@ -1060,6 +1095,7 @@ const OFF_TO: Record<string, [string, string]> = { // his, hers
   hammock: ['off for a nap in the hammock', 'off to the hammock with her book'],
   run: ['up to the hut to change for a run', ''],
   sofa: ['in to the sofa in the lighthouse', ''],
+  games: ['off to set up a game', 'off for a game with him'],
   reading: ['', 'off to read under the blossom tree'],
   fireside: ['', 'over to the fire'],
   workout: ['', 'off to work out, not thrilled about it'],
@@ -1132,6 +1168,19 @@ function swimLine(ctx: IslandContext, who: 'v' | 'e') {
   return SWIM_LINES[who][me.doing]();
 }
 const swimLabel = (doing: Doing) => (doing === 'sitting' || doing === 'sunbathing' || doing === 'drying' ? 'drying off in the sun' : 'in for a swim');
+
+/** The tent on the headland (camping.ts), up for a night out. */
+const pitched = inTurn([
+  'Pitched for the night, the door to the fire. Two sleeping bags, a lantern, and the sea for a view.',
+  'Their tent, up for a night out. Shoes off at the door: house rules, even out here.',
+]);
+function campLine(ctx: IslandContext) {
+  const c = ctx.life.pastimes.camp;
+  if (!c.in.size) return pitched();
+  if (c.glowing) return c.in.size > 1 ? 'Both in, the lantern still on. One more chapter, she says.' : 'She’s reading by the lantern. He’ll be along once the fire’s burnt down.';
+  if (ctx.sky.lamps > 0.3) return ctx.life.rain > 0.1 ? 'Rain on the canvas. They’re dry in there, and fast asleep.' : 'Lights out in the tent. Just the sea, and the fire ticking as it cools.';
+  return c.in.has('vincent') && !c.in.has('companion') ? 'He’s still in there. She’s been up for ages; he’s not a morning person.' : 'Still in the tent, the sun on the canvas. Nobody’s in a hurry.';
+}
 
 const projecting = inTurn([
   'Sat on his pad, miming the moves with one hand. The rock looks unconvinced.',
@@ -1235,6 +1284,8 @@ export const PLACES: Record<string, Place> = {
     },
   },
   vincent_meal: { label: (ctx) => mealLabel(ctx, 'Vincent'), activate: (ctx) => { ctx.life.vincent.notice(); ctx.toast(mealLine(ctx, 'v')); } },
+  vincent_games: { label: () => gameLabel('v'), activate: (ctx) => { ctx.life.vincent.notice(); ctx.toast(gameLine()); } },
+  companion_games: withHer(() => gameLabel('e'), gameLine),
   companion_meal: withHer((ctx) => mealLabel(ctx, 'her'), (ctx) => mealLine(ctx, 'e')),
   vincent_swim: {
     label: (ctx) => `Vincent · ${swimLabel(ctx.life.vincent.bather.doing)}`,
@@ -1250,6 +1301,13 @@ export const PLACES: Record<string, Place> = {
   },
   vincent_hammock: { label: 'Vincent · asleep in the hammock', activate: (ctx) => ctx.toast(hisNap()) },
   companion_hammock: withHer('In the hammock, with a book', herHammock),
+  camp: {
+    label: (ctx) => {
+      const c = ctx.life.pastimes.camp;
+      return !c.in.size ? 'A tent on the headland' : c.glowing ? 'A light on in the tent' : ctx.sky.lamps > 0.3 ? 'The tent · lights out' : 'The tent · someone’s still in';
+    },
+    activate: (ctx) => ctx.toast(campLine(ctx)),
+  },
   hammock: {
     label: 'A hammock between the oaks',
     activate: (ctx) => ctx.toast(ctx.life.pastimes.hammock.who ? 'Taken. There’s only room for one, whatever anyone says.'
@@ -1446,8 +1504,12 @@ export const PLACES: Record<string, Place> = {
     },
   },
   card_table: {
-    label: 'A game of Magic',
+    label: () => (games.game && !games.indoors ? `A game of ${GAME_NAMES[games.game]}` : 'A game of Magic'),
     activate(ctx) {
+      if (games.game && !games.indoors) {
+        ctx.toast(gameLine());
+        return;
+      }
       ctx.toast('Someone left mid-turn with two Islands untapped. Suspicious.');
       ctx.discover('magic');
       ctx.ask('Take their seat and keep playing?', [
@@ -2178,6 +2240,8 @@ export const HUT_PLACES: Record<string, Place> = {
   companion_baking: { label: 'Tea, while the pie bakes', activate: (ctx) => ctx.toast(waiting()) },
   vincent_meal_hut: { label: (ctx) => mealLabel(ctx, 'Vincent'), activate: (ctx) => ctx.toast(mealLine(ctx, 'v')) },
   companion_meal_hut: { label: (ctx) => mealLabel(ctx, 'her'), activate: (ctx) => ctx.toast(mealLine(ctx, 'e')) },
+  vincent_games_hut: { label: () => gameLabel('v'), activate: (ctx) => ctx.toast(gameLine()) },
+  companion_games_hut: { label: () => gameLabel('e'), activate: (ctx) => ctx.toast(gameLine()) },
   vincent_guitar: {
     label: (ctx) => (ctx.sound.playing ? `Vincent · playing ${ctx.sound.playing.title}` : 'Vincent · ask for a song'),
     activate(ctx) {
@@ -2393,13 +2457,13 @@ function dressedUp(places: Record<string, Place>, ids: string[], who: 'vampire' 
     };
   }
 }
-dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike', 'vincent_stroll', 'vincent_meal'], 'vampire');
-dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike', 'companion_stroll', 'companion_meal', 'companion_hammock'], 'witch');
+dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike', 'vincent_stroll', 'vincent_meal', 'vincent_games'], 'vampire');
+dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike', 'companion_stroll', 'companion_meal', 'companion_hammock', 'companion_games'], 'witch');
 dressedUp(WORKSHOP_PLACES, ['vincent_workshop'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['vincent_coding'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['companion_watching'], 'witch');
-dressedUp(HUT_PLACES, ['vincent_guitar', 'vincent_meal_hut'], 'vampire');
-dressedUp(HUT_PLACES, ['companion_baking', 'companion_meal_hut'], 'witch');
+dressedUp(HUT_PLACES, ['vincent_guitar', 'vincent_meal_hut', 'vincent_games_hut'], 'vampire');
+dressedUp(HUT_PLACES, ['companion_baking', 'companion_meal_hut', 'companion_games_hut'], 'witch');
 dressedUp(LIBRARY_PLACES, ['vincent_library'], 'vampire');
 dressedUp(LIBRARY_PLACES, ['companion_library'], 'witch');
 dressedUp(WORKSHOP_PLACES, ['companion_workshop'], 'witch');

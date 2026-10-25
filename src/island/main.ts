@@ -546,7 +546,9 @@ export async function bootIsland(host: HTMLElement) {
       warm: weather.heat.warm, lying: snowCover.value, raining: weather.now.rain + weather.now.hail,
       cloud: life.cloud, fog: life.fog, temperature: weather.temperature,
     }, reducedMotion);
-    life.pastimes.update(reducedMotion ? 0 : dt);
+    life.pastimes.update(reducedMotion ? 0 : dt, {
+      time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, temperature: weather.temperature, camera: rig.camera,
+    });
     // the special days' goings-on (days.ts), and the two minutes' silence on the fourth of May
     life.days.update(dt, sky.time, { night: sky.lamps, wet, rain: life.rain, wind: weather.wind }, reducedMotion);
     const silence = life.days.remembrance.silence;

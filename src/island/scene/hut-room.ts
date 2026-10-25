@@ -14,6 +14,7 @@ import { occasions } from './calendar';
 import { post, shelf } from './almanac';
 import { wardrobe } from './wardrobe';
 import { Eater, showSpread, table } from './meals';
+import { Player, games, showGame } from './boardgames';
 import { Haunts, undress } from './dressing';
 
 const SKY_DAY = new THREE.Color('#a9dcff');
@@ -80,6 +81,9 @@ export class HutRoom {
   private eaters: Eater[] = [];
   private spread?: THREE.Object3D;
   private soup?: THREE.Object3D;
+  /** A board game at the long table, when it's no weather for the card table (boardgames.ts), and the two of them at it. */
+  private players: Player[] = [];
+  private game?: THREE.Object3D;
   /** The blackboard by the stove, and the forecast last chalked on it. */
   private board?: { canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; material: THREE.MeshBasicMaterial; shows?: Forecast | null };
 
@@ -144,6 +148,11 @@ export class HutRoom {
       if (o) this.eaters.push(new Eater(o, prefix, who));
     }
     this.spread = root.getObjectByName('meal_spread_hut');
+    for (const [id, prefix, who] of [['vincent_games_hut', 'hut_games_v', 'v'], ['companion_games_hut', 'hut_games_e', 'e']] as const) {
+      const o = root.getObjectByName(id);
+      if (o) this.players.push(new Player(o, prefix, who));
+    }
+    this.game = root.getObjectByName('games_hut');
     this.soup = this.named.get('soup');
     for (const a of this.guests.animals) this.named.set(a.userData.id, a);
     this.windows = new Windows(this.scene, panes, this.glass, this.bounds);
@@ -247,11 +256,13 @@ export class HutRoom {
   /** At the table: a mouthful now and then, the dish of the day in front of them, and its pot or board between them. */
   private dinner(dt: number) {
     for (const e of this.eaters) if (shown(e.root)) e.update(dt, table.course);
+    for (const p of this.players) if (shown(p.root)) p.update(dt);
+    showGame(this.game, 'games_hut', games.game);
     if (!this.spread) return;
     const on = this.spread.visible; // the guests decide that (it's in the indoors set while they eat up here)
     showSpread(this.spread, 'meal_spread_hut', table.course?.dish ?? null);
     this.spread.visible = on;
-    if (this.soup) this.soup.visible = !on;
+    if (this.soup) this.soup.visible = !on && !(games.game && games.indoors); // cleared away for a game
   }
 
   /** The Walkman: the reels turn while it plays, and now and then a few notes drift up. */
