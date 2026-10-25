@@ -167,6 +167,8 @@ export class Sky {
   alt = 0;
   /** The real moon's light on the ground (lux, clear sky): its phase and how high it is. */
   moonlight = 0;
+  /** Where the real moon is (degrees up, radians round from the south towards the west) and how much of it is lit. */
+  moon = { alt: 0, az: 0, lit: 0 };
   /** Whether the sun is climbing: morning rather than evening. */
   rising = true;
   readonly sun = new THREE.DirectionalLight();
@@ -276,6 +278,7 @@ export class Sky {
     this.alt = alt;
     const moon = moonPosition(now, lat, lon);
     this.moonlight = moonLux(moon.alt, moon.phase);
+    this.moon = { alt: moon.alt, az: moon.az, lit: moon.lit };
     this.rising = climb > 0;
 
     // the sun where it really is (south = +z, east = +x), kept lowish for long, readable shadows;

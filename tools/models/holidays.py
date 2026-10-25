@@ -834,41 +834,66 @@ def grave_candles(graves):
     light(graves, (-0.3, -0.25, 0.4), CANDLE, 2.5, 0.6, flicker=1.0, halo=False)
 
 
-def wisps(t: Terrain, root, taken, period=14.0):
-    """Will-o'-the-wisps: three cold little lights wandering low over the meadow by the coffin,
-    bobbing, drawing close and slipping apart (`wisps_idle`); out only after dark (`wisps`)."""
-    x, y = open_spot(t, -11.4, -13.2, 1.0, taken)
-    ring = group("wisps", (x, y, t.sample(x, y) + 0.7), parent=root, id="wisps")
-    light(ring, (0, 0, 0), "#8ff0dc", 3, 0.5, flicker=0.6, halo=False)              # (lights stay put: one for the lot)
+def _through_the_woods(t: Terrain, centre=(27.0, 3.5), radii=(7.0, 5.6), n=240):
+    """A way round through the eastern woods, weaving between the trunks: a wobbly loop round the
+    middle of them, nudged off every trunk it comes near and away from the campfire's clearing,
+    kept on the low ground among the trees, and smoothed. Points (x, y), evenly spaced, closed."""
+    trees = [(o.location.x, o.location.y) for o in bpy.data.objects
+             if o.parent is None and o.name.startswith("tree") and math.hypot(o.location.x - centre[0], o.location.y - centre[1]) < 14]
+    cx, cy = centre
+    pts = []
+    for k in range(n):
+        a = k / n * math.tau
+        r = 1 + 0.22 * math.sin(3 * a + 0.7) + 0.12 * math.sin(5 * a + 2.1)
+        pts.append([cx + math.cos(a) * radii[0] * r, cy + math.sin(a) * radii[1] * r])
+    fx, fy = L.CAMPFIRE
+    for _ in range(80):
+        for p in pts:
+            for tx, ty in trees:                                                  # round the trunks…
+                dx, dy = p[0] - tx, p[1] - ty
+                d = math.hypot(dx, dy) or 1e-3
+                if d < 1.1:
+                    p[0] += dx / d * (1.1 - d) * 0.5
+                    p[1] += dy / d * (1.1 - d) * 0.5
+            dx, dy = p[0] - fx, p[1] - fy                                         # …not through the fire…
+            d = math.hypot(dx, dy) or 1e-3
+            if d < 4.2:
+                p[0] += dx / d * (4.2 - d) * 0.5
+                p[1] += dy / d * (4.2 - d) * 0.5
+            ix, iy = int(round((p[0] - L.EXTENT[0]) / L.CELL)), int(round((p[1] - L.EXTENT[1]) / L.CELL))
+            if not t.land[iy, ix] or t.level[iy, ix] != -1 or t.height[iy, ix] < 0.5:  # …nor out over the sea or up the cliffs
+                p[0] += (cx - p[0]) * 0.08
+                p[1] += (cy - p[1]) * 0.08
+        pts = [[(pts[i - 1][0] + 2 * pts[i][0] + pts[(i + 1) % n][0]) / 4, (pts[i - 1][1] + 2 * pts[i][1] + pts[(i + 1) % n][1]) / 4]
+               for i in range(n)]
+    seg = [math.dist(pts[i], pts[(i + 1) % n]) for i in range(n)]               # evened out along its length
+    total = sum(seg)
+    out, at, i, run = [], 0.0, 0, 0.0
+    for k in range(n):
+        want = k / n * total
+        while run + seg[i] < want:
+            run += seg[i]
+            i += 1
+        f = (want - run) / seg[i]
+        a_, b_ = pts[i], pts[(i + 1) % n]
+        out.append((a_[0] + (b_[0] - a_[0]) * f, a_[1] + (b_[1] - a_[1]) * f))
+    return out, total
+
+
+def wisps(t: Terrain, root):
+    """Will-o'-the-wisps: three cold little lights going round through the eastern woods, low
+    between the trunks, in and out of sight under the trees. Their way round is worked out here
+    (`way` on the group: x, y and the ground's height, every so often along it); the runtime
+    (life.ts) takes them along it, dawdling and darting, and gives them a light of their own."""
+    way, _ = _through_the_woods(t)
+    ring = group("wisps", (0, 0, 0), parent=root, id="wisps",
+                 way=";".join(f"{x:.2f},{y:.2f},{t.sample(x, y):.2f}" for x, y in way))
     for k in range(3):
-        w = group(f"wisp_{k}", (0, 0, 0), parent=ring)
-        o = Model(f"wisp_glow_{k}")
-        o.ball(0.16, (0, 0, 0), "#d8fff4", subdiv=1, glow=True)
+        o = Model(f"wisp_{k}")
+        o.ball(0.16 - k * 0.02, (0, 0, 0), "#d8fff4", subdiv=1, glow=True)
         o.ball(0.1, (0.24, 0.05, -0.04), "#8ff0dc", subdiv=1, glow=True)                        # its trail
         o.ball(0.06, (0.42, 0.1, -0.08), "#5fd8c4", subdiv=1, glow=True)
-        o.build(w)
-        ph = k * math.tau / 3
-
-        def path(u, ph=ph, k=k):
-            a = u * math.tau
-            return (1.6 * math.sin(a + ph) + 0.4 * math.sin(3 * a + k), 1.1 * math.sin(2 * a + ph * 1.3),
-                    0.35 * math.sin(4 * a + ph) + 0.1 * math.sin(9 * a + k))
-
-        looped(w, "wisps_idle", "location", path, period, step=0.25)
-
-        def facing(u, path=path):                                                               # the trail streaming behind
-            a, b = path(u), path(u + 0.01)
-            return (0, 0, math.atan2(-(b[1] - a[1]), -(b[0] - a[0])))
-
-        looped(w, "wisps_idle", "rotation_euler", facing, period, step=0.25)
-    for fc in _fcurves(_CLIPS["wisps_idle"]):                                                   # (no spin the long way round)
-        prev = None
-        for kp in fc.keyframe_points:
-            if prev is not None and fc.array_index == 2 and fc.data_path == "rotation_euler":
-                d = kp.co[1] - prev
-                kp.co[1] -= round(d / math.tau) * math.tau
-            prev = kp.co[1]
-        fc.update()
+        o.build(ring)
 
 
 def roosting_bats(tree, branches, period=9.0):
@@ -907,7 +932,7 @@ def big_props(t: Terrain, root, taken):
     graves = next(o for o in root.children_recursive if o.name.startswith("graves") and o.get("id") == "graves")
     watchful_crows(graves)
     grave_candles(graves)
-    wisps(t, root, taken)
+    wisps(t, root)
     archway(t, root)
 
     # a pumpkin the size of a shed, carved, by the path to the campfire

@@ -419,7 +419,7 @@ const SPECIAL_DAYS: Record<string, Place> = {
     label: 'Will-o’-the-wisps',
     activate(ctx) {
       ctx.sound.haunt('moan', 0.5);
-      ctx.toast('Little cold lights out over the meadow after dark. Follow them and you only ever end up back at the coffin.');
+      ctx.toast('Little cold lights, going round through the woods after dark, low between the trunks. Follow them in and you only ever come out where you started.');
     },
   },
   graves: {
@@ -662,6 +662,10 @@ const WILDLIFE: Record<string, Place> = {
   tallone: sighting('tallone', 'Something in the woods', [
     'Far too tall, and very quiet for its size. It keeps to the woods, mostly.',
     'It doesn’t like being looked at. Which is fair: neither does anyone at the fire.',
+  ]),
+  werewolf: sighting('werewolf', (ctx) => (ctx.journal.has('werewolf') ? 'The werewolf' : 'Something out of the wood'), [
+    'A werewolf, in what’s left of a pair of jeans. He looks at you, lips back off his teeth, and then he’s off into the trees.',
+    'Whoever he is the rest of the month, he’s kept the jeans. That says something about him, and you’d rather not ask what.',
   ]),
   // and the ones that only come on some nights
   ghostship: sighting('ghostship', 'A ghost ship', [

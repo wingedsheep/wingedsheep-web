@@ -110,10 +110,11 @@ export async function bootIsland(host: HTMLElement) {
   const right = new THREE.Vector3();
   // some of what's heard on the island, Kees hears too, out on Radio Alles (radio.ts)
   const NEWS: Partial<Record<Call, string>> = { horn: 'ferry', typhon: 'container', blow: 'whale', dolphin: 'dolphins', ufo: 'ufo', firework: 'fireworks' };
-  const heard = (call: Call, at: THREE.Vector3, ambient = false, loud = 1) => {
+  const heard = (call: Call, at: THREE.Vector3, ambient = false, loud = 1, carry = 1) => {
     if (NEWS[call]) ctx.radio.notice(NEWS[call]);
     const off = at.distanceTo(rig.target) / rig.view;
-    const volume = ambient ? THREE.MathUtils.clamp(1.1 - off * 1.4, 0, 0.8) : THREE.MathUtils.clamp(1.2 - off, 0.15, 1);
+    // (something that carries, like a howl, fades out over that many times the distance, and close to it is at its loudest)
+    const volume = ambient ? THREE.MathUtils.clamp(1.1 - (off * 1.4) / carry, 0, carry > 1 ? 1 : 0.8) : THREE.MathUtils.clamp(1.2 - off, 0.15, 1);
     if (ambient && (volume < 0.05 || !sound.outdoors)) return;
     right.setFromMatrixColumn(rig.camera.matrixWorld, 0);
     const pan = (at.clone().sub(rig.target).dot(right) / (rig.view * (host.clientWidth / host.clientHeight) * 0.5)) * 0.8;

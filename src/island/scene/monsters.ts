@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Ground } from './beike';
 import { occasions } from './calendar';
 import { Body, headingOf, orient, type Call } from './fauna';
+import type { Island } from './island';
 import type { Particles } from './particles';
 import type { Outlook } from './sightings';
 
@@ -11,8 +12,9 @@ import type { Outlook } from './sightings';
  * tall wandering the eastern woods, now and then stepping out of them to look at you. And on
  * some nights, not all: a ghost ship out of the mist offshore, a witch on her broomstick, a
  * Nazgûl on its fell beast, and the Grimm Troupe's tent on the grass (each visit gets at least
- * one of those four). `?animal=horseman` (or `tallone`, `ghostship`, `witch`, `nazgul`, `grimm`)
- * brings one along soon, whatever the day.
+ * one of those four). And a werewolf in the oak wood behind the library, if the moon's for it.
+ * `?animal=horseman` (or `tallone`, `ghostship`, `witch`, `nazgul`, `grimm`, `werewolf`) brings
+ * one along soon, whatever the day.
  */
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -31,7 +33,7 @@ const ASKED = (() => {
   }
 })();
 /** Whether there are monsters about at all on this visit. */
-export const haunted = occasions.has('halloween') || ['horseman', 'tallone', 'ghostship', 'witch', 'nazgul', 'grimm'].includes(ASKED ?? '');
+export const haunted = occasions.has('halloween') || ['horseman', 'tallone', 'ghostship', 'witch', 'nazgul', 'grimm', 'werewolf'].includes(ASKED ?? '');
 
 /**
  * Which of the rarer ones are out on this visit: each a bit under one visit in two, and never
@@ -44,7 +46,8 @@ const ABOUT = (() => {
   return out;
 })();
 
-type Say = (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
+/** A sound from one of them; `carry` (1 by default) is how much further than most it's heard from. */
+type Say = (call: Call, at: THREE.Vector3, ambient?: boolean, carry?: number) => void;
 
 /** The lighthouse and its keeper's house (layout.py LIGHTHOUSE, buildings.py), and how wide a berth they get. */
 const LIGHTHOUSE = V(-30.6, 0, 2.6);
@@ -1142,6 +1145,335 @@ class Troupe {
   }
 }
 
+/** The werewolf's gaits (monsters.py W_PROWL, W_LOPE), m/s: it goes at just the speed its clip was made for, so its paws stay put on the ground. */
+const PROWL = 0.85;
+const LOPE = 5.0;
+/** The oak wood behind the library (layout.py: round (-18, 0)), where it keeps to the trees. */
+const WOOD = { x: -18, z: 0, rx: 8, rz: 5 };
+/** Out on the open lawn in front of the wood, where he comes to howl: between the lighthouse and the library, below the path. */
+const CLEARINGS = [V(-22.6, 0, 9.2), V(-25.2, 0, 7.4), V(-15.8, 0, 7.4)];
+type WolfAct = 'prowl' | 'lope' | 'sniff' | 'howl' | 'snarl' | 'shake';
+/** When in his howl (monsters.py HOWL_AT) each call starts, and how long the whole of it takes, seconds. */
+const HOWL_AT = [3.0, 5.7];
+const HOWL_LENGTH = 12.1;
+
+/**
+ * A werewolf in the oak wood behind the library, on Halloween nights when the moon's for it (the
+ * fuller it is, the likelier he's out). He pads about among the trees, nose down; now and then
+ * he lopes out onto the grass, casts about for a scent, rears up on his hind legs and howls,
+ * at the moon if it's up and not behind cloud, gives himself a shake and goes back in. He's
+ * gone by dawn. Clicked, he snarls at you and is off into the trees. His clips are baked in
+ * Blender (monsters.py) and played here; this only moves him about.
+ */
+class Werewolf {
+  readonly body: Body;
+  private mixer: THREE.AnimationMixer;
+  private acts = new Map<WolfAct, THREE.AnimationAction>();
+  private playing?: WolfAct;
+  private out = false;
+  /** Whether he's about on this visit at all: decided the first night it could be. */
+  private tonight?: boolean;
+  private wait = ASKED === 'werewolf' ? 2 : rand(15, 70);
+  private at = V();
+  private heading = 0;
+  private to?: THREE.Vector3;
+  private gait: 'prowl' | 'lope' = 'prowl';
+  /** What he does when he gets there, and how long he's been at it. */
+  private then: 'sniff' | 'howl' | 'linger' | 'hide' = 'sniff';
+  private doing: WolfAct | 'wait' = 'wait';
+  private t = 0;
+  private hold = 0;
+  /** How many more trees he'll nose round before he comes out again. */
+  private rounds = 0;
+  private trees: THREE.Vector3[] = [];
+  /** Every tree on the island, to keep his wanders on the lawn out in the open. */
+  private all: THREE.Vector3[] = [];
+  /** Out on the lawn: how many more things he'll do there before he goes back in, how many times he's howled, and whether he's had his shake. */
+  private stay = 0;
+  private howls = 0;
+  private shook = false;
+  /** Which of the howl's calls have been heard yet. */
+  private calls = 0;
+  private hidden: (p: THREE.Vector3) => boolean;
+  private breath = 0;
+  /** The moonlight catching his coat, so he can be made out against the dark grass (his own, never added or taken away). */
+  private sheen = new THREE.PointLight('#c8d4ff', 0, 5, 1.2);
+  private lit = 0;
+  onCall?: Say;
+
+  constructor(template: THREE.Object3D, scene: THREE.Scene, private ground: Ground, private particles: Particles, island: Island) {
+    this.body = new Body('werewolf', template, scene);
+    scene.add(this.sheen);
+    this.mixer = new THREE.AnimationMixer(this.body.root);
+    for (const name of ['prowl', 'lope', 'sniff', 'howl', 'snarl', 'shake'] as WolfAct[]) {
+      const clip = island.clips.find((c) => c.name === `werewolf_${name}`);
+      if (!clip) continue;
+      const act = this.mixer.clipAction(clip);
+      if (!['prowl', 'lope', 'sniff'].includes(name)) {
+        act.setLoop(THREE.LoopOnce, 1);
+        act.clampWhenFinished = true;
+      }
+      this.acts.set(name, act);
+    }
+    for (const o of island.root.children) {
+      if (!/^tree/.test(o.name)) continue;
+      const p = o.getWorldPosition(V());
+      this.all.push(p);
+      if (((p.x - WOOD.x) / (WOOD.rx + 1)) ** 2 + ((p.z - WOOD.z) / (WOOD.rz + 1)) ** 2 < 1) this.trees.push(p);
+    }
+    // under the treetops, where the camera (south, looking down at 35°) can't see the ground
+    const cover = island.canopies.filter((c) => c.position.y > 1.5 && this.trees.some((t) => Math.hypot(t.x - c.position.x, t.z - c.position.z) < 1.5));
+    this.hidden = (p) =>
+      cover.some((c) => {
+        const north = c.position.z - p.z;
+        return Math.abs(p.x - c.position.x) < c.radius * 0.8 && north > -c.radius * 0.6 && north < c.position.y * 1.2;
+      });
+  }
+
+  private onGround(p: THREE.Vector3) {
+    const h = this.ground.at(p.x, p.z);
+    p.y = Number.isNaN(h) ? 0 : h;
+    return p;
+  }
+
+  /** Somewhere among the oaks: beside one of them, out of the way of its trunk. */
+  private inTheWood(hiddenOnly = false) {
+    for (let i = 0; i < 40; i++) {
+      const tree = this.trees.length ? pick(this.trees) : V(WOOD.x, 0, WOOD.z);
+      const a = rand(0, Math.PI * 2);
+      const p = V(tree.x + Math.cos(a) * 1.4, 0, tree.z + Math.sin(a) * 1.4);
+      if (Number.isNaN(this.ground.at(p.x, p.z)) || this.trees.some((t) => Math.hypot(t.x - p.x, t.z - p.z) < 1.0)) continue;
+      if (hiddenOnly && !this.hidden(p)) continue;
+      return this.onGround(p);
+    }
+    return this.onGround(V(WOOD.x, 0, WOOD.z - 2));
+  }
+
+  private play(name: WolfAct, fade = 0.3) {
+    if (this.playing === name) return;
+    const next = this.acts.get(name);
+    if (!next) return;
+    const prev = this.playing ? this.acts.get(this.playing) : undefined;
+    next.reset().setEffectiveWeight(1).play();
+    if (prev) prev.crossFadeTo(next, fade, false);
+    this.playing = name;
+  }
+
+  /** A few steps off across the lawn from where he is, out in the open. */
+  private onTheLawn() {
+    for (let i = 0; i < 30; i++) {
+      const a = rand(0, Math.PI * 2);
+      const d = rand(2, 4);
+      const p = V(this.at.x + Math.cos(a) * d, 0, this.at.z + Math.sin(a) * d);
+      if (Number.isNaN(this.ground.at(p.x, p.z)) || this.all.some((t) => Math.hypot(t.x - p.x, t.z - p.z) < 2.2)) continue;
+      if (Math.min(...CLEARINGS.map((c) => Math.hypot(c.x - p.x, c.z - p.z))) > 3.5 || this.hidden(p)) continue;
+      return this.onGround(p);
+    }
+    return this.onGround(pick(CLEARINGS).clone());
+  }
+
+  private go(to: THREE.Vector3, gait: 'prowl' | 'lope', then: 'sniff' | 'howl' | 'linger' | 'hide') {
+    this.to = to;
+    this.gait = gait;
+    this.then = then;
+    this.doing = gait;
+    this.play(gait, gait === 'lope' ? 0.2 : 0.4);
+  }
+
+  /** Clicked: he turns on you with a snarl, and then he's off into the trees. */
+  poke() {
+    if (!this.out || this.doing === 'snarl') return;
+    this.doing = 'snarl';
+    this.t = 0;
+    this.to = undefined;
+    this.play('snarl', 0.15);
+    this.onCall?.('snarl', this.at.clone().add(V(0, 0.8, 0)));
+  }
+
+  update(dt: number, o: Outlook, clock: number) {
+    const b = this.body;
+    const night = ASKED === 'werewolf' || (occasions.has('halloween') && o.night > 0.75 && o.storm < 0.6);
+    this.sheen.intensity = 0;
+    if (!this.out) {
+      if (!night || (this.wait -= dt) > 0) return;
+      // the fuller the moon, the likelier: one visit in five at the new moon, nearly every one at the full
+      this.tonight ??= ASKED === 'werewolf' || chance(0.2 + 0.7 * o.moon.lit);
+      if (!this.tonight || !this.acts.size) return;
+      this.out = true;
+      this.at = this.inTheWood(true);
+      this.heading = rand(0, Math.PI * 2);
+      this.rounds = ASKED === 'werewolf' ? 0 : Math.floor(rand(1, 4));
+      b.show(this.at);
+      this.then = 'sniff';
+      this.doing = 'wait';
+      this.hold = 0.5;
+      this.play('sniff', 0);
+    }
+    if (!night && this.then !== 'hide') {
+      // dawn: back into the trees at a run, and gone
+      this.go(this.inTheWood(true), 'lope', 'hide');
+    }
+
+    this.t += dt;
+    switch (this.doing) {
+      case 'prowl':
+      case 'lope': {
+        const to = this.to!;
+        const d = V(to.x - this.at.x, 0, to.z - this.at.z);
+        const left = d.length();
+        const want = headingOf(d.x, d.z);
+        const turn = Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading));
+        this.heading += turn * (1 - Math.exp(-(this.doing === 'lope' ? 4 : 2.5) * dt));
+        // round towards where he's going before he sets off at speed
+        const speed = (this.doing === 'lope' ? LOPE : PROWL) * clamp(Math.cos(turn) * 1.2, 0.2, 1);
+        this.acts.get(this.doing)!.timeScale = speed / (this.doing === 'lope' ? LOPE : PROWL);
+        const step = Math.min(left, speed * dt);
+        this.at.x += Math.cos(this.heading) * step;
+        this.at.z -= Math.sin(this.heading) * step;
+        this.onGround(this.at);
+        // the leaves kicked up at a run
+        if (this.doing === 'lope' && chance(dt * 14)) {
+          this.particles.emit({
+            position: this.at.clone().add(V(rand(-0.3, 0.3), 0.05, rand(-0.3, 0.3))), velocity: V(rand(-0.6, 0.6), rand(0.6, 1.4), rand(-0.6, 0.6)),
+            color: pick(['#8a5a2a', '#b06a2a', '#5a4030']), life: rand(0.5, 0.9), gravity: 2,
+          });
+        }
+        if (left < 0.25 || step >= left) this.arrive();
+        break;
+      }
+      case 'sniff':
+        if (this.t >= this.hold) {
+          if (this.then === 'howl') {
+            this.doing = 'howl';
+            this.t = 0;
+            this.calls = 0;
+            this.play('howl', 0.35);
+          } else if (this.then === 'linger') this.linger();
+          else this.next();
+        }
+        break;
+      case 'howl': {
+        // round towards the moon, if there's one to see, or else whichever way he was facing; but
+        // never head-on to you (the camera's off to the south), or his head back is lost against him
+        const moon = o.moon.alt > 2 && o.cloud < 0.75;
+        const toYou = headingOf(0, 1);
+        let want = moon ? headingOf(-Math.sin(o.moon.az), Math.cos(o.moon.az)) : this.heading;
+        const off = Math.atan2(Math.sin(want - toYou), Math.cos(want - toYou));
+        if (Math.abs(off) < 1.3 || Math.abs(off) > Math.PI - 0.9) want = toYou + (off < 0 ? -1 : 1) * (Math.abs(off) < 1.3 ? 1.3 : Math.PI - 0.9);
+        if (this.t < 1.2) this.heading += Math.atan2(Math.sin(want - this.heading), Math.cos(want - this.heading)) * (1 - Math.exp(-2.5 * dt));
+        // each call heard as his jaws open on it
+        if (this.calls < HOWL_AT.length && this.t > HOWL_AT[this.calls] - 0.05) {
+          // (a howl carries: you hear it from anywhere on the island, if not so loud from the far side)
+          this.onCall?.(this.calls === 0 ? 'werecall' : 'werehowl', this.at.clone().add(V(0, 2, 0)), true, 3);
+          this.calls++;
+        }
+        // a cold night: his breath goes up in a plume with it
+        const calling = (this.t > HOWL_AT[0] && this.t < HOWL_AT[0] + 1.9) || (this.t > HOWL_AT[1] && this.t < HOWL_AT[1] + 3.2);
+        if (calling && o.heat < 0.4 && (this.breath -= dt) <= 0) {
+          this.breath = 0.06;
+          const head = b.part('head');
+          if (head) {
+            const snout = head.localToWorld(V(0.5, 0, 0));
+            this.particles.emit({ position: snout, velocity: V(rand(-0.1, 0.1), rand(0.5, 0.9), rand(-0.1, 0.1)), color: '#c8ccd8', life: rand(0.6, 1.1), gravity: -0.1, size: chance(0.3) ? 2 : 1 });
+          }
+        }
+        if (this.t >= HOWL_LENGTH) {
+          this.howls++;
+          this.linger();
+        }
+        break;
+      }
+      case 'shake':
+        if (this.t >= 1.6) this.linger();
+        break;
+      case 'snarl':
+        // round to face you (the camera's off to the south), down low and growling, then gone
+        if (this.t < 0.4) this.heading += Math.atan2(Math.sin(headingOf(0, 1) - this.heading), Math.cos(headingOf(0, 1) - this.heading)) * (1 - Math.exp(-8 * dt));
+        if (this.t >= 2.3) {
+          this.stay = 0;
+          this.go(this.inTheWood(), 'lope', 'sniff');
+        }
+        break;
+      case 'wait':
+        if ((this.hold -= dt) <= 0) this.next();
+        break;
+    }
+    b.root.position.copy(this.at);
+    orient(b.root, this.heading);
+    this.mixer.update(dt);
+    // brighter out on the open grass than under the trees, and the more of a moon the more of it
+    this.lit = damp(this.lit, this.hidden(this.at) ? 0.25 : 1, 2, dt);
+    this.sheen.position.copy(this.at).add(V(0.6, 2.6, 1.2));
+    this.sheen.intensity = o.night * this.lit * (2.2 + 2.8 * o.moon.lit * clamp(o.moon.alt / 20, 0, 1) * (1 - o.cloud * 0.6));
+  }
+
+  private arrive() {
+    this.t = 0;
+    if (this.then === 'hide') {
+      // into the trees, out of sight: gone till tomorrow night
+      this.out = false;
+      this.body.hide();
+      this.wait = rand(30, 90);
+      this.mixer.stopAllAction();
+      this.playing = undefined;
+      this.to = undefined;
+      return;
+    }
+    this.doing = 'sniff';
+    this.hold = this.then === 'howl' ? rand(2.5, 4) : rand(2, 6);
+    this.play('sniff', this.gait === 'lope' ? 0.25 : 0.5);
+  }
+
+  /**
+   * Out on the lawn, after a howl: a few more things before he goes back in. He pads off a few
+   * steps and noses about, stands and sniffs the air, gives himself a shake, and now and then
+   * he goes up and howls again.
+   */
+  private linger() {
+    this.t = 0;
+    if (this.stay-- <= 0) {
+      if (!this.shook && chance(0.6)) return this.shakeOff();
+      return this.next(true);
+    }
+    const r = Math.random();
+    if (this.howls < 2 && r < 0.3) {
+      this.doing = 'sniff';
+      this.then = 'howl';
+      this.hold = rand(1.5, 3);
+      this.play('sniff', 0.4);
+    } else if (!this.shook && r < 0.45) this.shakeOff();
+    else if (r < 0.8) this.go(this.onTheLawn(), 'prowl', 'linger');
+    else {
+      this.doing = 'sniff';
+      this.then = 'linger';
+      this.hold = rand(3, 6);
+      this.play('sniff', 0.4);
+    }
+  }
+
+  private shakeOff() {
+    this.shook = true;
+    this.doing = 'shake';
+    this.t = 0;
+    this.play('shake', 0.2);
+  }
+
+  /** On to the next tree, or out onto the grass to howl, or (just been) back into the wood. */
+  private next(back = false) {
+    if (back || this.rounds > 0) {
+      if (!back) this.rounds--;
+      else this.rounds = Math.floor(rand(1, 3));
+      this.go(this.inTheWood(), back ? 'lope' : 'prowl', 'sniff');
+      return;
+    }
+    this.stay = Math.floor(rand(3, 6));
+    this.howls = 0;
+    this.shook = false;
+    const near = [...CLEARINGS].sort((a, b) => a.distanceTo(this.at) - b.distanceTo(this.at)).slice(0, 3);
+    this.go(this.onGround(pick(near).clone().add(V(rand(-0.8, 0.8), 0, rand(-0.8, 0.8)))), 'lope', 'howl');
+  }
+}
+
 export class Monsters {
   private horseman?: Horseman;
   private tallone?: TallOne;
@@ -1149,11 +1481,12 @@ export class Monsters {
   private witch?: Witch;
   private nazgul?: Nazgul;
   private troupe?: Troupe;
+  private werewolf?: Werewolf;
   onCall?: Say;
 
-  constructor(scene: THREE.Scene, template: (species: string) => THREE.Object3D | undefined, ground: Ground, particles: Particles) {
+  constructor(scene: THREE.Scene, template: (species: string) => THREE.Object3D | undefined, ground: Ground, particles: Particles, island: Island) {
     if (!haunted) return;
-    const say: Say = (c, at, ambient) => this.onCall?.(c, at, ambient);
+    const say: Say = (c, at, ambient, carry) => this.onCall?.(c, at, ambient, carry);
     const h = template('horseman');
     if (h) {
       this.horseman = new Horseman(h, scene, ground, particles);
@@ -1184,6 +1517,11 @@ export class Monsters {
       this.troupe = new Troupe(g, scene, ground, particles);
       this.troupe.onCall = say;
     }
+    const f = template('werewolf');
+    if (f) {
+      this.werewolf = new Werewolf(f, scene, ground, particles, island);
+      this.werewolf.onCall = say;
+    }
   }
 
   /** The Grimm Troupe's waltz, 0..1 (see Troupe.music). */
@@ -1197,7 +1535,7 @@ export class Monsters {
   }
 
   get bodies() {
-    return [this.horseman?.body, this.tallone?.body, this.ghostship?.body, this.witch?.body, this.nazgul?.body, this.troupe?.body].filter((b): b is Body => !!b);
+    return [this.horseman?.body, this.tallone?.body, this.ghostship?.body, this.witch?.body, this.nazgul?.body, this.troupe?.body, this.werewolf?.body].filter((b): b is Body => !!b);
   }
 
   poke(id: string) {
@@ -1207,6 +1545,7 @@ export class Monsters {
     if (id === 'witch') this.witch?.poke();
     if (id === 'nazgul') this.nazgul?.poke();
     if (id === 'grimm') this.troupe?.poke();
+    if (id === 'werewolf') this.werewolf?.poke();
   }
 
   update(dt: number, o: Outlook, clock: number) {
@@ -1216,5 +1555,6 @@ export class Monsters {
     this.witch?.update(dt, o, clock);
     this.nazgul?.update(dt, o, clock);
     this.troupe?.update(dt, o, clock);
+    this.werewolf?.update(dt, o, clock);
   }
 }

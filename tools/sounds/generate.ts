@@ -250,6 +250,11 @@ export const SOUNDS: Sfx[] = [
   { name: 'wingbeat', seconds: 3, prompt: 'Three slow, huge, heavy beats of enormous leathery wings passing overhead at night, deep whooshing thumps of air, no voices, no music' },
   { name: 'troupe', music: true, seconds: 30, prompt: 'A lone accordion playing a slow, melancholy, slightly sinister waltz in a minor key, like a travelling circus tent at midnight, a little wheezy and out of tune, dark and dreamy, three-four time, accordion only, no other instruments, no vocals' },
   { name: 'grimm', seconds: 3, prompt: 'A sudden burst of fire whooshing up and a swirl of flame, with a few ghostly bats fluttering away, theatrical, like a magician vanishing in a puff of red fire, no voices, no music' },
+  // the werewolf out of the oak wood behind the library
+  // (two takes of one prompt: the shorter is his first call, the longer the long howl after it)
+  { name: 'werecall', seconds: 6, prompt: 'One lone werewolf howling at the full moon at night from the edge of a dark oak wood, a long deep howl that swells and climbs and breaks at the top into something almost human, then dies away, echoing a little over the open grass, eerie, no other wolves, no music, no words' },
+  { name: 'werehowl', seconds: 6, prompt: 'One lone werewolf howling at the full moon at night from the edge of a dark oak wood, a long deep howl that swells and climbs and breaks at the top into something almost human, then dies away, echoing a little over the open grass, eerie, no other wolves, no music, no words' },
+  { name: 'snarl', seconds: 2.5, prompt: 'A huge wolf-like beast right in front of you crouching low and snarling, a deep rattling growl through bared teeth rising into a vicious snap of its jaws, then a huff, close and menacing, no music, no words' },
 
   // the Airborne commemoration (src/island/scene/airborne.ts): the Dakotas coming over
   { name: 'dakota', seconds: 14, prompt: 'An old Second World War Douglas Dakota transport plane flying over low and slow on a calm day, the deep throbbing uneven drone of two big radial piston engines growing louder as it approaches, roaring overhead, then fading away into the distance, outdoors, no music, no voices' },

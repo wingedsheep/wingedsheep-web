@@ -27,6 +27,7 @@ import { showSpread, table } from './meals';
 /** The campfire's light and embers when it burns blue (fiction.ts). */
 const COLD_LIGHT = new THREE.Color('#6f95ff');
 const COLD_EMBERS = ['#bcd4ff', '#5a86ff'];
+const WISP_MOTES = ['#c8ffe0', '#8ff0dc', '#e8fff0'];
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -98,8 +99,14 @@ export class Life {
   private nextUfo = rand(20, 60);
   /** On Halloween, bats round the lighthouse lamp (holidays.py): out only after dark, and not in a storm. */
   private bats?: THREE.Object3D;
-  /** On Halloween, will-o'-the-wisps over the meadow (holidays.py): after dark only, and not in a storm. */
+  /** On Halloween, will-o'-the-wisps going round through the eastern woods (holidays.py): after dark only, and not in a storm. */
   private wisps?: THREE.Object3D;
+  /** Their cold light on the trunks, going along with them (the island's own lights stay put). */
+  private wispLight = new THREE.PointLight('#8ff0dc', 0, 6, 1.4);
+  /** Their way round through the trees (holidays.py works it out), and how far along it they've come, in metres. */
+  private wispWay: THREE.Vector3[] = [];
+  private wispLength = 0;
+  private wispS = 0;
   private mixer: THREE.AnimationMixer;
   private idles = new Map<string, THREE.AnimationAction>();
   readonly beike: Beike;
@@ -199,6 +206,16 @@ export class Life {
     if (this.ufo) this.ufo.visible = false;
     this.bats = island.get('bats');
     this.wisps = island.get('wisps');
+    if (this.wisps) {
+      scene.add(this.wispLight);
+      const way = String(this.wisps.userData.way ?? '');
+      this.wispWay = way ? way.split(';').map((p) => {
+        const [x, y, h] = p.split(',').map(Number);
+        return V(x, h, -y);
+      }) : [];
+      this.wispWay.forEach((p, i, all) => (this.wispLength += p.distanceTo(all[(i + 1) % all.length])));
+      this.wispS = rand(0, this.wispLength);
+    }
     this.beike = new Beike(island);
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
     this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours(), this.fauna.template('mouse'));
@@ -244,7 +261,7 @@ export class Life {
     this.revel = new Revel(scene, (s) => this.fauna.template(s), this.beike.ground, this.particles);
     this.revel.onCall = (call, at, ambient, loud) => this.fauna.onCall?.(call, at, ambient, loud);
     this.sightings = new Sightings(scene, island, (s) => this.fauna.template(s), this.beike.ground, this.particles);
-    this.sightings.onCall = (call, at, ambient) => this.fauna.onCall?.(call, at, ambient);
+    this.sightings.onCall = (call, at, ambient, carry) => this.fauna.onCall?.(call, at, ambient, 1, carry);
     this.days = new Days(scene, island, this);
     this.week = new Week(scene, island, this.beike.ground, this.fauna.template('gull'), this.particles);
     this.vincent.errands.onTake = () => this.week.boat?.take();
@@ -387,7 +404,7 @@ export class Life {
     if (cat) cat.scale.set(1, 1 + Math.sin(t * 1.8) * 0.04, 1);
 
     if (this.bats) this.bats.visible = night > 0.5 && this.storm < 0.5;
-    if (this.wisps) this.wisps.visible = night > 0.4 && this.storm < 0.5;
+    if (this.wisps) this.wander(dt, t, night);
     this.mixer.update(dt);
     this.flinch();
     this.hutFlag();
@@ -416,7 +433,7 @@ export class Life {
     const now = new Date(this.sky.time);
     this.sightings.update(dt, {
       night, season: season.name, wet: this.wet, storm: this.storm, hour: now.getHours() + now.getMinutes() / 60,
-      time: this.sky.time, wind: this.wind, drift: this.drift, cloud: this.cloud, fog: this.fog, heat: this.heat,
+      time: this.sky.time, wind: this.wind, drift: this.drift, cloud: this.cloud, fog: this.fog, heat: this.heat, moon: this.sky.moon,
     });
     // the campfire's light goes blue with its flames, when the Chandrian are about (fiction.ts)
     const cold = this.sightings.fiction.blueFire;
@@ -734,6 +751,65 @@ export class Life {
     const p = from.clone().multiplyScalar(u * u).addScaledVector(via, 2 * u * k).addScaledVector(to, k * k);
     p.y += Math.sin(k * Math.PI * 6) * 0.8; // rising and dipping with the wingbeats
     return p;
+  }
+
+  /** The will-o'-the-wisps through the woods: their light goes with them, and they shed a cold glimmer as they go. */
+  /** A point `s` metres round the wisps' way, and which way it runs there. */
+  private wispAt(s: number, out: THREE.Vector3, dir: THREE.Vector3) {
+    const way = this.wispWay;
+    const n = way.length;
+    const step = this.wispLength / n; // (the points are evenly spaced)
+    const f = (((s % this.wispLength) + this.wispLength) % this.wispLength) / step;
+    const i = Math.floor(f) % n;
+    const a = way[i];
+    const b = way[(i + 1) % n];
+    out.lerpVectors(a, b, f - Math.floor(f));
+    dir.subVectors(b, a).setY(0).normalize();
+    return out;
+  }
+
+  /**
+   * The will-o'-the-wisps going round through the woods: dawdling and darting, strung out one
+   * behind another and bunching up again, now and then swirling round each other; bobbing and
+   * dipping low between the trunks. Their light goes with them, and they shed a cold glimmer as they go.
+   */
+  private wander(dt: number, t: number, night: number) {
+    const out = night > 0.4 && this.storm < 0.5 && this.wispWay.length > 2;
+    this.wisps!.visible = out;
+    this.wispLight.intensity = 0;
+    if (!out) return;
+    // a dawdle, then a dart: never quite still
+    this.wispS += dt * 0.55 * Math.max(0.15, 1 + 0.75 * Math.sin(t * 0.37) + 0.35 * Math.sin(t * 1.1 + 2));
+    const mid = V();
+    const at = V();
+    const dir = V();
+    let n = 0;
+    for (const w of this.wisps!.children) {
+      const k = Number(/^wisp_(\d)/.exec(w.name)?.[1] ?? -1);
+      if (k < 0) continue;
+      const ph = (k * Math.PI * 2) / 3;
+      const gap = k * 0.9 * (0.55 + 0.45 * Math.sin(t * 0.21 + ph));
+      this.wispAt(this.wispS - gap, at, dir);
+      // off to one side and the other of the way, and every so often round each other in a ring
+      const swirl = 0.45 * Math.max(0, Math.sin(t * 0.13 + 0.4)) ** 2;
+      const side = 0.35 * Math.sin(t * 0.5 + ph * 2) + swirl * Math.cos(t * 1.9 + ph);
+      at.x += -dir.z * side;
+      at.z += dir.x * side;
+      at.y += 0.75 + 0.25 * Math.sin(t * 0.6 + k) + 0.12 * Math.sin(t * 1.4 + ph) + 0.6 * swirl * Math.sin(t * 1.9 + ph);
+      w.position.copy(at);
+      w.rotation.set(0, Math.atan2(dir.z, -dir.x), 0); // its trail (its +x) streaming out behind
+      mid.add(at);
+      n++;
+      if (Math.random() < 0.06) {
+        this.particles.emit({
+          position: at.clone().add(V(rand(-0.06, 0.06), rand(-0.06, 0.06), rand(-0.06, 0.06))), velocity: V(rand(-0.05, 0.05), rand(0.02, 0.12), rand(-0.05, 0.05)),
+          color: WISP_MOTES[Math.floor(Math.random() * WISP_MOTES.length)], life: rand(0.6, 1.2), fadeIn: 0,
+        });
+      }
+    }
+    if (!n) return;
+    this.wispLight.position.copy(mid.divideScalar(n));
+    this.wispLight.intensity = 3.2 * THREE.MathUtils.smoothstep(night, 0.4, 0.7) * (0.85 + Math.sin(t * 2.3) * 0.1 + Math.sin(t * 5.1) * 0.05);
   }
 
   private flySheep(dt: number) {

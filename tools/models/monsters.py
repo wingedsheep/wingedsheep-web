@@ -18,6 +18,10 @@ And the ones that only turn up on some nights of the week (the runtime makes sur
             the hood, on a great featherless thing with leathery wings, a long neck and a longer tail.
   grimm     the Grimm Troupe (Hollow Knight): a scarlet-and-black tent with its lantern lit, the
             Troupe Master in his cloak, and three of his little flames, the Grimmkin.
+  werewolf  out of the oak wood behind the library, on the nights the moon is up for it: shaggy and
+            hunched, yellow eyes, what's left of his jeans and a rag of checked shirt. Unlike the
+            others it's animated in Blender: its clips (`werewolf_lope`, `_prowl`, `_sniff`,
+            `_howl`, `_snarl`, `_shake`) are baked here and played by the runtime.
 
 Templates like the wildlife (fauna.py merges ALL into its own): facing +x, y to their left, z = 0
 the ground. The parts the runtime moves are their own objects, named `<species>_<part>`.
@@ -29,7 +33,7 @@ import random
 
 import palette as P
 from holidays import jack
-from kit import Model
+from kit import Model, animate
 from sightings import _lathe, _limb as _taper
 
 HORSE = "#1c1a22"
@@ -626,6 +630,448 @@ def grimm(root):
         fl.cyl(0.15, 0.36, (0, 0, 0), "#e0405a", segs=7, r_top=0.0, glow=True, rot=(0, -0.35, 0))
         fl.build(kin, loc=(0, 0, 0.08))
 
+# --- the werewolf ----------------------------------------------------------------------------
+
+WOLF = "#6a6266"           # the werewolf: shaggy and grey, to catch the moon…
+WOLF_DARK = "#433b40"      # …darker down its back and on its paws…
+WOLF_LIGHT = "#968c8c"     # …paler on its muzzle and belly
+WOLF_PALE = "#c4b8ac"
+WOLF_EYE = "#ffd23a"
+CLAW = "#e8dfc8"
+GUMS = "#8a2a34"
+MOUTH = "#3a1418"
+JEANS = "#3e4c66"          # what's left of his clothes
+JEANS_PALE = "#62729a"
+CHECK = "#9a3030"
+
+# Its bones, in metres. Every limb part is built hanging straight down from its joint, so a part's
+# pitch is just the angle it swings away from straight down (forwards is a negative rotation).
+W_THIGH, W_SHIN, W_META = 0.44, 0.46, 0.30
+W_ARM, W_FORE, W_HAND = 0.46, 0.44, 0.15
+W_WAIST = (0.32, 0.06)      # the chest's pivot, in the pelvis's frame (forward, up)
+W_SHOULDER = (0.50, -0.06)  # the shoulders, in the chest's
+W_NECK = (0.80, 0.30)       # the head's pivot, in the chest's
+W_PAW = 0.05                # the ankle's and the wrist's height off the ground with the paw flat
+W_HIP = 0.95                # the hips' height on all fours
+# How fast it goes in each of its gaits (the runtime moves it at just this speed, so its paws
+# stay planted), and how long a stride takes.
+W_PROWL = (0.85, 1.4)
+W_LOPE = (5.0, 0.6)
+
+
+def _yrot(p, r):
+    """(forward, up) turned by a pitch of r, as Blender's rotation about y turns it."""
+    x, z = p
+    return (x * math.cos(r) + z * math.sin(r), -x * math.sin(r) + z * math.cos(r))
+
+
+def _reach(a, b, l1, l2, bend):
+    """Two bones from a to b (forward, up): the angle of each away from straight down, forwards
+    positive. bend +1 puts the middle joint forward of the line (a knee), -1 behind it (an elbow)."""
+    dx, dz = b[0] - a[0], b[1] - a[1]
+    d = min(max(math.hypot(dx, dz), abs(l1 - l2) + 1e-4), l1 + l2 - 1e-4)
+    base = math.atan2(dx, -dz)
+    a1 = base + bend * math.acos((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))
+    m = (a[0] + l1 * math.sin(a1), a[1] - l1 * math.cos(a1))
+    return a1, math.atan2(b[0] - m[0], -(b[1] - m[1]))
+
+
+def _shoulder(z, rb, rc):
+    w = _yrot(W_WAIST, rb)
+    s = _yrot(W_SHOULDER, rb + rc)
+    return (w[0] + s[0], z + w[1] + s[1])
+
+
+def _arms_to(z, rb, rc, wrist, hand):
+    """A front leg's angles to put its wrist at `wrist` (forward, up), the hand at `hand`."""
+    return (*_reach(_shoulder(z, rb, rc), wrist, W_ARM, W_FORE, -1), hand)
+
+
+def _wolf_pose(q):
+    """One frame of the werewolf, from a few numbers, as each part's (location, rotation).
+
+      z, rb, rc     the hips' height, the pelvis's pitch (-ve rears up) and the chest's on top of it
+      roll, croll   the pelvis's and the chest's roll (a shake)
+      head          the head's pitch in the world (0 level, -ve up), its turn and its tilt
+      jaw           how far its mouth is open
+      hind          per side (l, r): its paw (forward, up) and the angle of the foot above it
+      front         per side: the arm's, the forearm's and the hand's angles from straight down
+      tail          the tail's lift and its swing
+      spread        the arms held out from its sides
+      breath        how full its chest is (a breath in before a howl, panting after a run)
+    """
+    z, rb, rc = q["z"], q["rb"], q.get("rc", 0.0)
+    hp, hy, hr = q.get("head", (0.2, 0.0, 0.0))
+    b = q.get("breath", 0.0)
+    out = {
+        "body": ((0, 0, z), (q.get("roll", 0.0), rb, q.get("yaw", 0.0))),
+        "chest": (None, (q.get("croll", 0.0), rc, q.get("cyaw", 0.0)), (1 + 0.4 * b, 1 + 0.7 * b, 1 + b)),
+        "head": (None, (hr, hp - rb - rc, hy)),
+        "jaw": (None, (0, -q.get("jaw", 0.0), 0)),
+        "tail": (None, (0, q.get("tail", (0.0, 0.0))[0], q.get("tail", (0.0, 0.0))[1])),
+    }
+    for side in ("l", "r"):
+        (px, pz), meta = q["hind"][side]
+        hock = (px - W_META * math.sin(meta), pz + W_META * math.cos(meta))
+        t, s = _reach((0, z), hock, W_THIGH, W_SHIN, 1)
+        out[f"thigh_{side}"] = (None, (0, -t - rb, 0))
+        out[f"shin_{side}"] = (None, (0, -s + t, 0))
+        out[f"foot_{side}"] = (None, (0, -meta + s, 0))
+        u, f, h = q["front"][side]
+        sp = q.get("spread", 0.0) * (1 if side == "l" else -1)
+        out[f"arm_{side}"] = (None, (-sp, -u - rb - rc, 0))
+        out[f"forearm_{side}"] = (None, (0, -f + u, 0))
+        out[f"hand_{side}"] = (None, (0, -h + f, 0))
+    return out
+
+
+def _stride(p, duty, length, lift):
+    """Where a paw is, a fraction p through its stride: how far ahead of where it's planted in the
+    middle, how high, and how far through its stance (0..1) or its swing (1..2)."""
+    p -= math.floor(p)
+    if p < duty:
+        u = p / duty
+        return length * (0.5 - u), 0.0, u
+    u = (p - duty) / (1 - duty)
+    ease = u * u * (3 - 2 * u)
+    return length * (ease - 0.5), math.sin(math.pi * u ** 0.8) * lift, 1 + u
+
+
+def _hind_angle(phase):
+    """The foot above a hind paw: tipped forward as it lands, back as it pushes off, folded up behind in the air."""
+    if phase < 1:
+        return 0.35 - 0.75 * phase
+    u = phase - 1
+    return -0.4 - 0.6 * math.sin(math.pi * min(1, u * 1.4)) + 0.75 * max(0.0, (u - 0.5) / 0.5) ** 1.5
+
+
+def _hand_angle(phase):
+    """A front paw: flat on the ground, rolling up onto its toes, flicked back in the air, reaching to land."""
+    if phase < 1:
+        return 1.35 - 0.9 * max(0.0, (phase - 0.55) / 0.45) ** 1.5
+    u = phase - 1
+    return 0.45 - 1.4 * math.sin(math.pi * min(1, u * 1.6)) * (1 - u) + 0.9 * max(0.0, (u - 0.45) / 0.55) ** 1.2
+
+
+def _stand(**over):
+    """On all fours, standing still."""
+    q = dict(z=W_HIP, rb=0.02, rc=0.06, head=(0.25, 0, 0), jaw=0.04, tail=(-0.45, 0.0), breath=0.0)
+    q.update(over)
+    hx = q.pop("hx", -0.08)
+    fx = q.pop("fx", 0.06)
+    q.setdefault("hind", {"l": ((hx, W_PAW), 0.25), "r": ((hx, W_PAW), 0.25)})
+    sx = _shoulder(q["z"], q["rb"], q["rc"])[0]
+    q.setdefault("front", {s: _arms_to(q["z"], q["rb"], q["rc"], (sx + fx, W_PAW + 0.03), 1.35) for s in ("l", "r")})
+    return q
+
+
+def _gait(u, speed, period, phases, duty, lift, centre, body):
+    """One frame of a walk or a run, `u` 0..1 through the stride: each paw planted and carried
+    along at the speed the body goes, picked up, swung forward and put down again."""
+    q = body(u)
+    sx = _shoulder(q["z"], q["rb"], q["rc"])[0]
+    q["hind"], q["front"] = {}, {}
+    for leg, ph in phases.items():
+        front = leg[0] == "f"
+        d = duty[1] if front else duty[0]
+        x, up, at = _stride(u - ph, d, speed * period * d, lift[1] if front else lift[0])
+        if front:
+            hand = _hand_angle(at)
+            q["front"][leg[1]] = _arms_to(q["z"], q["rb"], q["rc"], (sx + centre[1] + x, W_PAW + 0.03 + up), hand)
+        else:
+            q["hind"][leg[1]] = ((centre[0] + x, W_PAW + up), _hind_angle(at))
+    return q
+
+
+def _lerp_pose(a, b, k):
+    """Partway from one pose to the next (nested tuples and dicts of numbers)."""
+    if isinstance(a, dict):
+        return {key: _lerp_pose(a[key], b.get(key, a[key]), k) for key in a} | {key: b[key] for key in b if key not in a}
+    if isinstance(a, (tuple, list)):
+        return tuple(_lerp_pose(x, y, k) for x, y in zip(a, b))
+    return a + (b - a) * k
+
+
+_EASE = {
+    "io": lambda k: k * k * (3 - 2 * k),                     # in and out
+    "out": lambda k: 1 - (1 - k) ** 3,                        # off fast, slowing into it: a snap
+    "in": lambda k: k ** 2.2,                                 # slow away, then quick: a drop
+    "back": lambda k: 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2,  # a touch past it, and back: a settle
+}
+
+
+def _keyed(poses, t):
+    """The pose at t seconds between keyed poses [(seconds, pose[, ease]), …]; a key's ease (io by
+    default, see _EASE) is how the pose before it gets there."""
+    for a, b in zip(poses, poses[1:]):
+        (t0, p0), (t1, p1) = a[:2], b[:2]
+        if t <= t1:
+            k = (t - t0) / (t1 - t0) if t1 > t0 else 1
+            return _lerp_pose(p0, p1, _EASE[b[2] if len(b) > 2 else "io"](k))
+    return poses[-1][1]
+
+
+def _bake(parts, clip, length, pose_at, step=1 / 24):
+    """Key every part of the werewolf for `clip`, sampling pose_at(seconds) through it."""
+    n = max(2, round(length / step))
+    frames = [(k * length / n, _wolf_pose(pose_at(k * length / n))) for k in range(n + 1)]
+    for name, obj in parts.items():
+        if frames[0][1][name][0] is not None:
+            animate(obj, clip, "location", [(t, f[name][0]) for t, f in frames], rest=(0, 0, 0))
+        animate(obj, clip, "rotation_euler", [(t, f[name][1]) for t, f in frames], rest=(0, 0, 0))
+        if len(frames[0][1][name]) > 2:
+            animate(obj, clip, "scale", [(t, f[name][2]) for t, f in frames], rest=(0, 0, 0))
+
+
+def _tuft(m: Model, at, length, color, heading=math.pi, lean=0.5, width=0.07):
+    """A shaggy point of fur sticking out from `at`, swept back."""
+    x, y, z = at
+    m.prism([(-width, 0), (width, 0), (-length * math.sin(lean) - width, length * math.cos(lean))], 0.05, (x, y, z), color,
+            rot=(0, 0, heading - math.pi))
+
+
+def _shag(m: Model, rng, x0, x1, z0, z1, rise, n):
+    """Fur standing up along the spine from x0 to x1 (rising from z0 to z1 and back), in uneven
+    tufts swept back, some dark and some not, some splayed a little to either side."""
+    for k in range(n):
+        u = k / max(1, n - 1)
+        x = x0 + (x1 - x0) * u
+        z = z0 + (z1 - z0) * math.sin(u * math.pi * 0.8)
+        ln = rise * rng.uniform(0.6, 1.25)
+        w = rng.uniform(0.04, 0.07)
+        m.prism([(-w, 0), (w, 0), (-ln * 0.9 - w, ln * 0.55)], rng.uniform(0.06, 0.12), (x, rng.uniform(-0.04, 0.04), z),
+                WOLF_DARK if rng.random() < 0.65 else WOLF, rot=(rng.uniform(-0.35, 0.35), 0, 0))
+
+
+def werewolf(root):
+    rng = random.Random(41)
+    b = Model("werewolf_body", seed=41)                                                    # the pelvis: hips in his old jeans
+    b.ball(0.24, (0.2, 0, 0.06), WOLF, subdiv=2, scale=(1.3, 0.8, 0.85), jitter=0.02)
+    b.ball(0.13, (0.2, 0, -0.1), WOLF_LIGHT, subdiv=1, scale=(1.4, 0.9, 0.6))             # the belly, paler
+    b.ball(0.24, (-0.02, 0, 0.02), JEANS, subdiv=2, scale=(1.0, 1.12, 0.95))
+    for k in range(9):                                                                     # the waistband, torn through
+        a = k / 9 * math.tau
+        b.box((0.07, 0.07, 0.07 + 0.06 * (k % 3)), (0.12 + 0.05 * math.cos(a), 0.25 * math.sin(a), 0.0), JEANS_PALE)
+    _shag(b, rng, 0.02, 0.4, 0.2, 0.22, 0.09, 6)                                           # the hackles start here…
+    body = b.build(root, loc=(0, 0, W_HIP))
+
+    t = Model("werewolf_tail", seed=42)                                                    # bushy, from the base of the spine
+    for k in range(5):
+        r = 0.1 - k * 0.01
+        t.ball(r, (-0.08 - k * 0.12, 0, -0.02 * k), WOLF_DARK if k < 3 else WOLF, subdiv=1, scale=(1.4, 1, 1), jitter=0.02)
+    t.ball(0.05, (-0.66, 0, -0.1), WOLF_PALE, subdiv=1)
+    tail = t.build(body, loc=(-0.22, 0, 0.12))
+
+    c = Model("werewolf_chest", seed=43)                                                   # a great barrel of a chest, hunched up at the shoulders
+    c.ball(0.3, (0.28, 0, 0.0), WOLF, subdiv=2, scale=(1.3, 0.85, 1.05), jitter=0.025)
+    c.ball(0.2, (0.48, 0, 0.17), WOLF_DARK, subdiv=1, scale=(1.25, 1.15, 0.8), jitter=0.02)
+    c.ball(0.13, (0.56, 0, -0.1), WOLF_PALE, subdiv=1, scale=(0.7, 1.1, 1.2), jitter=0.03)    # the ruff on its chest
+    c.ball(0.15, (0.2, 0, -0.18), WOLF_LIGHT, subdiv=1, scale=(1.6, 0.8, 0.6))
+    _shag(c, rng, -0.02, 0.7, 0.25, 0.32, 0.13, 12)                                      # …and run all the way up its back, standing on end
+    for k in range(6):                                                                     # a ragged fringe under its belly
+        for s in (1, -1):
+            c.prism([(-0.05, 0), (0.05, 0), (-0.09, -0.1 - 0.05 * rng.random())], 0.03, (0.05 + k * 0.09, s * 0.2, -0.2), WOLF, rot=(-s * 0.3, 0, 0))
+    _taper(c, (0.55, 0, 0.08), (W_NECK[0] + 0.02, 0, W_NECK[1]), 0.18, 0.13, WOLF)          # a thick neck
+    c.ball(0.16, (0.72, 0, 0.27), WOLF_DARK, subdiv=1, scale=(1.1, 1.2, 1.0), jitter=0.03)  # with a mane on it
+    for s in (1, -1):                                                                      # a rag of checked shirt, round one shoulder and across
+        c.box((0.09, 0.05, 0.3), (0.5, s * 0.24, 0.0), CHECK, rot=(s * 0.25, 0.2, 0))
+        c.box((0.03, 0.055, 0.3), (0.5, s * 0.245, 0.0), "#d8c8b0", rot=(s * 0.25, 0.2, 0))
+    c.box((0.32, 0.06, 0.07), (0.34, 0.27, -0.12), CHECK, rot=(0, -0.5, 0))
+    chest = c.build(body, loc=(W_WAIST[0], 0, W_WAIST[1]))
+
+    h = Model("werewolf_head", seed=44)                                                    # a long wolf's head on a man's neck
+    h.ball(0.15, (0.06, 0, 0.04), WOLF, subdiv=2, scale=(1.25, 1.05, 0.95), jitter=0.012)
+    for s in (1, -1):
+        h.ball(0.08, (0.02, s * 0.12, -0.03), WOLF_LIGHT, subdiv=1, jitter=0.02)            # cheek ruffs
+        _tuft(h, (-0.02, s * 0.15, -0.02), 0.14, WOLF_LIGHT, heading=math.pi + s * 0.6, lean=1.0, width=0.05)
+    h.box((0.28, 0.14, 0.1), (0.3, 0, 0.01), WOLF, taper=0.8)                              # the muzzle
+    h.box((0.2, 0.1, 0.04), (0.32, 0, -0.05), WOLF_LIGHT)
+    h.box((0.06, 0.08, 0.06), (0.45, 0, 0.03), P.INK)                                      # its nose
+    for s in (1, -1):
+        h.box((0.025, 0.025, 0.07), (0.4, s * 0.045, -0.08), CLAW)                         # fangs
+        h.box((0.04, 0.045, 0.03), (0.17, s * 0.068, 0.08), WOLF_EYE, glow=True)            # yellow eyes…
+        h.box((0.07, 0.06, 0.025), (0.17, s * 0.065, 0.11), WOLF_DARK, rot=(0, -0.3, s * 0.3))   # …under a heavy brow
+        h.prism([(-0.06, 0), (0.05, 0), (-0.04, 0.22)], 0.035, (-0.02, s * 0.09, 0.14), WOLF_DARK, rot=(s * 0.25, 0, 0))   # tall ears
+        h.prism([(-0.03, 0.02), (0.03, 0.02), (-0.025, 0.15)], 0.02, (0.0, s * 0.09, 0.15), "#6a4a4a", rot=(s * 0.25, 0, 0))
+    head = h.build(chest, loc=(W_NECK[0], 0, W_NECK[1]))
+
+    j = Model("werewolf_jaw")                                                              # the lower jaw, hinged under its ears
+    j.box((0.26, 0.11, 0.05), (0.13, 0, -0.025), WOLF_LIGHT, taper=1.0)
+    j.box((0.2, 0.08, 0.02), (0.13, 0, 0.005), MOUTH)
+    j.box((0.16, 0.06, 0.02), (0.11, 0, 0.012), GUMS)                                      # its tongue
+    for s in (1, -1):
+        j.box((0.022, 0.022, 0.05), (0.23, s * 0.035, 0.03), CLAW)
+    jaw = j.build(head, loc=(0.16, 0, -0.06))
+
+    parts = {"body": body, "chest": chest, "head": head, "jaw": jaw, "tail": tail}
+    for s, side in ((1, "l"), (-1, "r")):
+        a = Model(f"werewolf_arm_{side}", seed=45)                                         # long arms, the shoulders shaggy
+        a.ball(0.12, (0, 0, -0.02), WOLF_DARK, subdiv=1, jitter=0.02)
+        _taper(a, (0, 0, 0), (0, 0, -W_ARM), 0.1, 0.075, WOLF)
+        _tuft(a, (-0.05, 0, -W_ARM + 0.04), 0.12, WOLF_DARK, lean=1.2)                    # elbows
+        arm = a.build(chest, loc=(W_SHOULDER[0], s * 0.22, W_SHOULDER[1]))
+        f = Model(f"werewolf_forearm_{side}", seed=46)
+        _taper(f, (0, 0, 0), (0, 0, -W_FORE), 0.078, 0.055, WOLF)
+        f.ball(0.065, (0, 0, -W_FORE + 0.02), WOLF_DARK, subdiv=1)
+        fore = f.build(arm, loc=(0, 0, -W_ARM))
+        n = Model(f"werewolf_hand_{side}", seed=47)                                        # hands that are paws that are hands
+        n.box((0.09, 0.13, 0.11), (0, 0, -0.06), WOLF_DARK)
+        for k in range(4):                                                                 # four claws, hooked
+            y = (k - 1.5) * 0.032
+            n.plank_line((0.0, y, -0.1), (-0.015, y * 1.15, -0.16), 0.02, 0.02, WOLF_DARK)
+            n.plank_line((-0.015, y * 1.15, -0.16), (-0.05, y * 1.2, -0.2), 0.016, 0.016, CLAW)
+        n.plank_line((0.03, s * 0.06, -0.05), (0.0, s * 0.09, -0.12), 0.016, 0.016, CLAW)    # and a thumb
+        hand = n.build(fore, loc=(0, 0, -W_FORE))
+        g = Model(f"werewolf_thigh_{side}", seed=48)                                       # haunches in the jeans…
+        _taper(g, (0, 0, 0.04), (0, 0, -W_THIGH + 0.04), 0.15, 0.11, JEANS)
+        for k in range(8):                                                                 # …torn off ragged above the knee
+            a_ = k / 8 * math.tau
+            g.box((0.06, 0.05, 0.06 + 0.07 * rng.random()), (0.11 * math.cos(a_), 0.11 * math.sin(a_), -W_THIGH + 0.03), JEANS_PALE)
+        g.ball(0.1, (0.02, 0, -W_THIGH), WOLF, subdiv=1, jitter=0.02)
+        thigh = g.build(body, loc=(0, s * 0.17, 0))
+        sh = Model(f"werewolf_shin_{side}", seed=49)
+        _taper(sh, (0, 0, 0), (0, 0, -W_SHIN), 0.085, 0.055, WOLF)
+        _tuft(sh, (-0.04, 0, -0.12), 0.12, WOLF_DARK, lean=1.1)
+        shin = sh.build(thigh, loc=(0, 0, -W_THIGH))
+        ft = Model(f"werewolf_foot_{side}", seed=50)                                       # long feet: it walks on its toes
+        _taper(ft, (0, 0, 0), (0, 0, -W_META), 0.055, 0.045, WOLF_DARK)
+        ft.ball(0.07, (0.06, 0, -W_META), WOLF_DARK, subdiv=1, scale=(1.6, 1.0, 0.6))
+        for k in range(3):
+            ft.box((0.05, 0.02, 0.025), (0.16, (k - 1) * 0.035, -W_META - 0.03), CLAW)
+        foot = ft.build(shin, loc=(0, 0, -W_SHIN))
+        parts |= {f"arm_{side}": arm, f"forearm_{side}": fore, f"hand_{side}": hand, f"thigh_{side}": thigh, f"shin_{side}": shin, f"foot_{side}": foot}
+    _werewolf_clips(parts)
+
+
+def _werewolf_clips(parts):
+    stand = _stand()
+
+    # padding along on all fours, nose down, sniffing the way
+    def prowl_body(u):
+        w = math.tau * u
+        return _stand(z=W_HIP + 0.02 * math.cos(2 * w), rb=0.04 + 0.02 * math.sin(2 * w), rc=0.1, roll=0.03 * math.sin(w),
+                      croll=-0.04 * math.sin(w), head=(0.55 + 0.05 * math.sin(2 * w + 0.6), 0.12 * math.sin(w + 0.4), 0),
+                      tail=(-0.55 + 0.05 * math.sin(2 * w), 0.18 * math.sin(w + 1)), jaw=0.03)
+    speed, period = W_PROWL
+    _bake(parts, "werewolf_prowl", period, lambda t: _gait(t / period, speed, period, {"hl": 0.0, "fl": 0.25, "hr": 0.5, "fr": 0.75},
+                                                              (0.66, 0.62), (0.12, 0.16), (-0.06, 0.08), prowl_body))
+
+    # flat out: a gallop, back flexing and stretching, the hind feet reaching up past the front
+    def lope_body(u):
+        w = math.tau * u
+        return _stand(z=W_HIP - 0.04 + 0.07 * math.sin(w - 0.9), rb=-0.08 * math.sin(w - 0.6), rc=0.17 * math.cos(w - 0.3),
+                      head=(0.08 + 0.06 * math.sin(w + 0.4), 0, 0), jaw=0.28 + 0.08 * math.sin(2 * w), breath=0.05 * math.sin(w - 0.3),
+                      tail=(0.05 + 0.15 * math.sin(w + 1.2), 0.08 * math.sin(w)))
+    speed, period = W_LOPE
+    _bake(parts, "werewolf_lope", period, lambda t: _gait(t / period, speed, period, {"hl": 0.0, "hr": 0.08, "fl": 0.5, "fr": 0.6},
+                                                             (0.4, 0.36), (0.3, 0.36), (-0.02, 0.18), lope_body), step=1 / 48)
+
+    # stood still, nose to the ground, casting about for a scent, the tail swinging slowly
+    def sniff(t):
+        u = t / 4.0
+        w = math.tau * u
+        jerk = max(0.0, math.sin(math.tau * 9 * u)) ** 3
+        return _stand(rb=0.1, rc=0.16, z=W_HIP - 0.04, head=(0.8 + 0.06 * jerk, 0.55 * math.sin(w), 0.1 * math.sin(w)),
+                      jaw=0.02 + 0.02 * jerk, tail=(-0.4, 0.25 * math.sin(2 * w)), roll=0.02 * math.sin(w), breath=0.03 * math.sin(w * 2))
+    _bake(parts, "werewolf_sniff", 4.0, sniff, step=1 / 24)
+
+    # The howl: nose up to test the air, a crouch and up onto its hind legs, and two calls at the
+    # moon, a shorter one and then the long one, each on a big breath in, head back and climbing as
+    # it swells and sinking as it dies away; then it pants, looks round and drops back down. The
+    # runtime starts a howl's sound at each HOWL_AT (monsters.ts has the same numbers).
+    HOWL_AT = (3.0, 5.7)
+
+    def up(**over):
+        q = dict(z=W_HIP + 0.06, rb=-1.22, rc=-0.12, head=(-0.7, 0, 0), jaw=0.08, tail=(0.9, 0.0), spread=0.1, breath=0.0,
+                 hind={"l": ((-0.02, W_PAW), 0.2), "r": ((-0.02, W_PAW), 0.2)},
+                 front={"l": (0.25, 0.55, 0.45), "r": (0.25, 0.55, 0.45)})
+        q.update(over)
+        return q
+    air = _stand(z=W_HIP + 0.02, rb=-0.06, rc=-0.04, head=(-0.35, 0, 0), tail=(-0.3, 0.0), breath=0.02)
+    gather = _stand(z=W_HIP - 0.14, rb=0.12, rc=0.14, head=(0.25, 0, 0), tail=(-0.55, 0), breath=0.0)
+    drawn = {"l": (0.35, 0.95, 0.9), "r": (0.35, 0.95, 0.9)}                                 # arms in, claws curled
+    flung = {"l": (0.55, 1.15, 1.3), "r": (0.55, 1.15, 1.3)}                               # arms out, elbows bent, claws up
+    wide = {"l": (0.75, 1.45, 1.6), "r": (0.75, 1.45, 1.6)}                                # and wider again, for the long one
+    sunk = {"l": (0.3, 0.7, 0.6), "r": (0.3, 0.7, 0.6)}
+    c1, c2 = HOWL_AT
+    howl_keys = [
+        (0.0, stand),
+        (0.6, air),                                                                         # nose up: something on the air
+        (1.2, gather, "io"),                                                                # down on its haunches…
+        (1.9, up(rb=-1.3, rc=-0.06, head=(-0.25, 0, 0), spread=0.2), "out"),                # …and up, all in one go
+        (2.25, up(rb=-1.2, rc=-0.08, head=(-0.35, 0, 0), spread=0.2), "back"),
+        (c1 - 0.15, up(rc=-0.26, head=(-0.5, 0, 0), jaw=0.03, spread=0.3, breath=0.12, front=drawn)),   # a breath in, head down a little
+        (c1 + 0.25, up(rb=-1.24, rc=-0.32, head=(-0.95, 0.05, 0.05), jaw=0.62, spread=0.7, breath=0.06, front=flung), "out"),  # the first call
+        (c1 + 1.3, up(rb=-1.25, rc=-0.33, head=(-1.02, 0.02, 0.04), jaw=0.66, spread=0.75, breath=-0.02, front=flung)),
+        (c1 + 2.1, up(rb=-1.2, rc=-0.2, head=(-0.6, 0, 0), jaw=0.2, spread=0.45, breath=-0.04, front=sunk), "in"),  # dying away
+        (c2 - 0.2, up(rb=-1.2, rc=-0.3, head=(-0.42, -0.04, 0), jaw=0.02, spread=0.3, breath=0.16, front=drawn)),   # a bigger breath…
+        (c2 + 0.3, up(rb=-1.3, rc=-0.4, head=(-1.08, -0.05, -0.05), jaw=0.78, spread=0.95, breath=0.08, front=wide), "out"),  # …and the long one
+        (c2 + 1.8, up(rb=-1.32, rc=-0.42, head=(-1.18, -0.08, -0.06), jaw=0.8, spread=1.0, breath=-0.02, front=wide)),
+        (c2 + 3.4, up(rb=-1.2, rc=-0.18, head=(-0.5, 0, 0), jaw=0.12, spread=0.35, breath=-0.06, front=sunk), "in"),
+        (c2 + 4.1, up(head=(-0.15, 0.6, 0.12), jaw=0.18, spread=0.2, breath=0.05)),       # panting, and a look round
+        (c2 + 4.8, up(head=(-0.2, -0.4, -0.05), jaw=0.15, spread=0.2, breath=0.02)),
+        (c2 + 5.4, _stand(z=W_HIP - 0.1, rb=0.1, rc=0.12, fx=0.2, head=(0.25, -0.2, 0), jaw=0.15), "in"),   # down onto its hands
+        (c2 + 5.9, _stand(jaw=0.12), "back"),
+        (c2 + 6.4, stand),
+    ]
+    howl_length = c2 + 6.4
+
+    def calling(t):
+        """How far into a call it is, 0..1 (0 when it isn't calling)."""
+        for c, n in ((c1, 1.9), (c2, 3.2)):
+            if c <= t <= c + n:
+                return min(1.0, (t - c) / 0.25) * min(1.0, (c + n - t) / 0.6)
+        return 0.0
+
+    def howl(t):
+        q = _keyed(howl_keys, t)
+        lag = _keyed(howl_keys, max(0.0, t - 0.12))                                         # the head a beat behind the body…
+        tail = _keyed(howl_keys, max(0.0, t - 0.3))                                         # …and the tail behind that
+        k = calling(t)
+        hp, hy, hr = lag["head"]
+        q["head"] = (hp + 0.025 * k * math.sin(t * 47), hy + 0.05 * k * math.sin(t * 1.9), hr)   # its throat trembling with it
+        q["jaw"] = q["jaw"] + 0.05 * k * math.sin(t * 29)
+        q["tail"] = (tail["tail"][0] + 0.12 * k, tail["tail"][1] + 0.35 * k * math.sin(t * 2.3))
+        q["roll"] = 0.05 * k * math.sin(t * 1.6)                                            # swaying with it
+        if t > c2 + 3.6:                                                                    # and after, out of breath
+            q["breath"] = q.get("breath", 0.0) + 0.05 * math.sin(t * 14)
+            q["jaw"] += 0.04 * math.sin(t * 14)
+        return q
+    _bake(parts, "werewolf_howl", howl_length, howl)
+
+    # clicked: down low, hackles up, and a snarl with a snap of the jaws, a paw stamped down
+    low = _stand(z=W_HIP - 0.16, rb=0.14, rc=0.16, fx=0.16, hx=-0.18, head=(0.0, 0, 0), jaw=0.45, tail=(-0.75, 0))
+    stamp = _stand(z=W_HIP - 0.16, rb=0.14, rc=0.16, fx=0.16, hx=-0.18, head=(-0.05, 0, 0), jaw=0.2, tail=(-0.75, 0))
+    sx = _shoulder(stamp["z"], stamp["rb"], stamp["rc"])[0]
+    stamp["front"] = dict(stamp["front"], l=_arms_to(stamp["z"], stamp["rb"], stamp["rc"], (sx + 0.35, W_PAW + 0.28), 0.9))
+    snarl_keys = [(0.0, stand), (0.3, low), (0.7, dict(low, jaw=0.55, head=(0.05, 0.1, 0))), (0.85, stamp),
+                  (1.0, dict(low, jaw=0.6)), (1.15, dict(low, jaw=0.1, head=(-0.08, 0, 0))), (1.3, dict(low, jaw=0.55)),
+                  (1.8, dict(low, jaw=0.45, head=(0.0, -0.1, 0))), (2.3, stand)]
+
+    def snarl(t):
+        q = _keyed(snarl_keys, t)
+        k = max(0.0, min(1.0, t / 0.3)) * max(0.0, min(1.0, (2.2 - t) / 0.4))
+        q["head"] = (q["head"][0] + 0.02 * k * math.sin(t * 40), q["head"][1], q["head"][2])   # the growl in its chest
+        q["roll"] = 0.015 * k * math.sin(t * 37)
+        return q
+    _bake(parts, "werewolf_snarl", 2.3, snarl)
+
+    # a wet-dog shake, nose to tail
+    def shake(t):
+        env = math.sin(math.pi * min(1, t / 1.4)) ** 2
+        w = math.tau * 5.5 * t
+        return _stand(roll=0.22 * env * math.sin(w - 1.2), croll=0.32 * env * math.sin(w - 0.6),
+                      head=(0.25, 0.25 * env * math.sin(w + 0.4), 0.7 * env * math.sin(w)), jaw=0.04,
+                      tail=(-0.2 * env - 0.45 * (1 - env), 0.7 * env * math.sin(w - 1.8)), yaw=0.08 * env * math.sin(w - 1.5))
+    _bake(parts, "werewolf_shake", 1.6, shake)
+
+    # and between clips, stood as it is on all fours
+    for name, (loc, rot, *_) in _wolf_pose(stand).items():
+        if loc is not None:
+            parts[name].location = loc
+        parts[name].rotation_euler = rot
+
+
 ALL = {
     "horseman": (horseman, 1.0),
     "tallone": (tallone, 1.0),
@@ -633,4 +1079,5 @@ ALL = {
     "witch": (witch, 1.3),
     "nazgul": (nazgul, 1.0),
     "grimm": (grimm, 1.0),
+    "werewolf": (werewolf, 1.0),
 }

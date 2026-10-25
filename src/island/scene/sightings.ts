@@ -39,6 +39,8 @@ export interface Outlook {
   fog: number;
   /** How hot it is, 0..1. */
   heat: number;
+  /** The real moon: how high (degrees), which way (the sun's convention, sky.ts), and how much of it is lit (0 new … 1 full). */
+  moon: { alt: number; az: number; lit: number };
 }
 
 /** Who's about on this visit. `?animal=<name>` brings one along soon, whatever the hour. */
@@ -753,17 +755,17 @@ export class Sightings {
   private ferryStart = -1;
   private clock = 0;
   private now = 0;
-  /** A sound from one of them (the island plays it if it's in earshot). */
-  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean) => void;
+  /** A sound from one of them (the island plays it if it's in earshot); `carry` for one heard from further off than most. */
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean, carry?: number) => void;
 
   constructor(scene: THREE.Scene, island: Island, template: (species: string) => THREE.Object3D | undefined, ground: Ground, private particles: Particles) {
-    const call = (c: Call, at: THREE.Vector3, ambient?: boolean) => this.onCall?.(c, at, ambient);
+    const call = (c: Call, at: THREE.Vector3, ambient?: boolean, carry?: number) => this.onCall?.(c, at, ambient, carry);
     this.murmuration = new Murmuration(scene);
     this.imaginary = new Imaginary(scene, template, ground, particles, island);
     this.imaginary.onCall = call;
     this.fiction = new Fiction(scene, template, ground, particles, island);
     this.fiction.onCall = call;
-    this.monsters = new Monsters(scene, template, ground, particles);
+    this.monsters = new Monsters(scene, template, ground, particles, island);
     this.monsters.onCall = call;
     const T = template;
     const balloon = T('balloon');

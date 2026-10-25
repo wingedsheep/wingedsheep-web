@@ -59,8 +59,10 @@ export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa'
   // in the snow, a laugh (his, hers), a round of applause
   | 'snowroll' | 'twig' | 'scoop' | 'pack' | 'toss' | 'snowhit' | 'snowsplat' | 'laugh' | 'laugh-e' | 'clap'
   // Halloween's monsters (monsters.ts): the Horseman's horse and his laugh, the tall one's breath, its steps and its cry;
-  // the ghost ship's timbers and her bell, the witch going over, the Nazgûl's cry and its wings, the Grimm Troupe's accordion and its master vanishing
-  | 'neigh' | 'gallop' | 'headless' | 'giant' | 'stomp' | 'wail' | 'ghostship' | 'shipbell' | 'flyby' | 'screech' | 'wingbeat' | 'troupe' | 'grimm';
+  // the ghost ship's timbers and her bell, the witch going over, the Nazgûl's cry and its wings, the Grimm Troupe's accordion and its master vanishing,
+  // the werewolf's first call and his long howl, and his snarl
+  | 'neigh' | 'gallop' | 'headless' | 'giant' | 'stomp' | 'wail' | 'ghostship' | 'shipbell' | 'flyby' | 'screech' | 'wingbeat' | 'troupe' | 'grimm'
+  | 'werecall' | 'werehowl' | 'snarl';
 
 /** Friday the 13th (by the visit's calendar): the black sheep can hardly stay away. */
 export const FRIDAY_13 = (() => {
@@ -2384,8 +2386,8 @@ export class Fauna {
   private ground: Ground;
   /** Every clone, so clicks can find the nearest of a species. */
   private all: Critter[] = [];
-  /** An animal made a sound at `at`: `ambient` when it called out on its own, unasked; `loud` scales it. */
-  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean, loud?: number) => void;
+  /** An animal made a sound at `at`: `ambient` when it called out on its own, unasked; `loud` scales it; `carry` is how much further than most it's heard from. */
+  onCall?: (call: Call, at: THREE.Vector3, ambient?: boolean, loud?: number, carry?: number) => void;
   /** When each voice next calls out on its own. */
   private due = new Map<Call, number>();
   /** Each species' model, as Blender made it (fauna.py), for anyone else who needs a copy. */
