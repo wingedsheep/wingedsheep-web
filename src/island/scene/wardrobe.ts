@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { occasions, visitDate } from './calendar';
+import { occasions } from './calendar';
 import { season } from './season';
 import { GRADIENT, toon } from './toon';
 import type { Weather } from './weather';
@@ -17,8 +17,8 @@ import type { Weather } from './weather';
  * with caps (and his shades) only when the sun's high and out on a warm day, and in the cold
  * or the snow their muts, his dark green, hers bright green with the scarf to match. Indoors the hats
  * come off. From St Nicholas to Twelfth Night
- * (calendar `christmas`) they wear their Christmas jumpers, and from the 29th of October to Halloween
- * itself they're dressed up: Vincent as a steampunk vampire, Eef as a witch in a red dress. Their sports things (his
+ * (calendar `christmas`) they wear their Christmas jumpers, and all through Halloween week
+ * they're dressed up: Vincent as a steampunk vampire, Eef as a witch in a red dress. Their sports things (his
  * kayak, hiking and yoga, her workout and yoga) only follow the weather.
  *
  * Slots: v_top v_arm v_neck v_legs v_shin v_face, and vs_* for his sports things; e_top e_arm
@@ -118,8 +118,7 @@ function preview(): OutfitName | null {
 export function outfitFor(temperature: number): OutfitName {
   const asked = preview();
   if (asked) return asked;
-  const d = visitDate();
-  if (d.getMonth() === 9 && d.getDate() >= 29) return 'halloween'; // the last few days, for the parties
+  if (occasions.has('halloween')) return 'halloween';
   if (occasions.has('christmas')) return 'christmas';
   if (temperature >= 17) return 'summer';
   if (temperature >= 9) return season.name === 'spring' || season.name === 'summer' ? 'spring' : 'autumn';
