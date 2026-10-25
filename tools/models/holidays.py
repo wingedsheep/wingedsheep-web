@@ -435,11 +435,15 @@ def tombstone(m: Model, loc, rot_z: float, lean: float, w: float, h: float):
     m.box((w * 0.4, 0.02, 0.04), (fx, fy, z + h * 0.45), P.STONE_DARK, rot=rot)
 
 
+# west of the oak south of the plaza's lamp, so its crown doesn't hang over the graves
+GRAVES = (-9.4, -10.1)
+
+
 def graveyard(t: Terrain, root):
     """A little graveyard on the grass between the plaza and the library: the unfinished
     projects, a grave still open for the next one, a scarecrow with a pumpkin for a head
     keeping watch, and a bedsheet ghost drifting over it all (`ghost_idle`)."""
-    gx, gy = -7.6, -10.6
+    gx, gy = GRAVES
     g = group("graves", (gx, gy, t.sample(gx, gy)), rot_z=0.05, parent=root, id="graves")
     g.scale = (1.35,) * 3
     m = Model("graves", seed=13)
@@ -459,9 +463,10 @@ def graveyard(t: Terrain, root):
     m.box((0.42, 0.08, 0.08), (-2.0, -0.1, 0.55), P.WOOD_DARK, rot=(0.0, 0.18, 0))
     m.build(g)
 
-    # the scarecrow: a pumpkin head, a stick cross in an old coat, straw at the cuffs
+    # the scarecrow: a pumpkin head, a stick cross in an old coat, straw at the cuffs; at the
+    # west end, behind the cross
     s = Model("pumpkinhead", seed=8)
-    sx, sy = 2.3, 0.6
+    sx, sy = -2.6, 0.8
     s.box((0.08, 0.08, 1.6), (sx, sy, 0.8), P.WOOD_DARK)
     s.box((1.1, 0.07, 0.07), (sx, sy, 1.3), P.WOOD_DARK)
     s.box((0.5, 0.32, 0.6), (sx, sy, 1.12), "#4a5a3a", taper=0.85)                       # the coat
@@ -720,13 +725,13 @@ def walker(t: Terrain, parent, a, b):
 
 
 def spooky(t: Terrain, root):
-    taken = [(-7.6, -10.6, 3.6)]                                     # the graveyard
+    taken = [(*GRAVES, 3.6)]                                         # the graveyard
     for (x, y), r in [(L.WORKOUT, 2.2), (L.YOGA, 2.2), (L.BENCH, 2.5), (L.BEIKE, 3.0), (L.READING, 1.8),
                       (L.SIGNPOST, 1.2), (L.WELL, 2.0), (L.SETT, 2.0), (L.CAMPFIRE, 4.0)]:
         taken.append((x, y, r))
     rng = random.Random(1031)
     trees = []
-    for k, (tx, ty) in enumerate([(-11.2, -11.6), (-4.6, -9.8), (-19.5, -14.8), (15.5, -8.6), (-15.0, -5.6)]):
+    for k, (tx, ty) in enumerate([(-14.2, -10.6), (-4.6, -9.8), (-19.5, -14.8), (15.5, -8.6), (-15.0, -5.6)]):
         x, y = open_spot(t, tx, ty, 1.2, taken)
         g = group("dead_tree", (x, y, t.sample(x, y)), rot_z=rng.uniform(0, math.tau), parent=root)
         m = Model(f"dead_tree_{k}", seed=k)
