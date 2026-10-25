@@ -46,6 +46,7 @@ NL_BLUE = "#2a4f9a"
 PUMPKIN = "#e8741c"
 PUMPKIN_DARK = "#b8520f"
 CANDLE = "#ffb640"
+CUT = "#4a1c08"                # the wall of a cut in a pumpkin, in its own shadow
 
 
 def holiday(name: str, occasion: str, loc=(0, 0, 0), rot_z=0.0, **extras):
@@ -310,22 +311,34 @@ def steamboat(t: Terrain):
 def jack(m: Model, loc, r: float, carved: bool, seed: float, light_=CANDLE):
     """A pumpkin, its face (if it's carved) on the south side, lit from inside in `light_`."""
     x, y, z = loc
+    body = set()
     for k in range(6):                                             # ribbed: a ring of squashed lobes
         a = k / 6 * math.tau + seed
-        m.ball(r * 0.62, (x + math.cos(a) * r * 0.4, y + math.sin(a) * r * 0.4, z + r * 0.72),
-               PUMPKIN if k % 2 else PUMPKIN_DARK, subdiv=1, scale=(1, 1, 1.05))
-    m.ball(r * 0.8, (x, y, z + r * 0.72), PUMPKIN, subdiv=2, scale=(1.1, 1.1, 0.9))
+        body |= m.ball(r * 0.62, (x + math.cos(a) * r * 0.4, y + math.sin(a) * r * 0.4, z + r * 0.72),
+                       PUMPKIN if k % 2 else PUMPKIN_DARK, subdiv=1, scale=(1, 1, 1.05))
+    body |= m.ball(r * 0.8, (x, y, z + r * 0.72), PUMPKIN, subdiv=2, scale=(1.1, 1.1, 0.9))
     m.cyl(r * 0.12, r * 0.35, (x, y, z + r * 1.35), "#4d5a2a", segs=5, r_top=r * 0.08, rot=(0.2, 0.1, 0))
     if not carved:
         return
-    f = y - r * 0.93                                               # the face, on the south side
+
+    def hole(points, cx, cz, cuts=2):
+        """Cut into the skin on the south side: the dark wall of the cut, and through it the lit
+        inside, seen a little from above, so more of the wall shows along the top."""
+        xs, zs = [p[0] for p in points], [p[1] for p in points]
+        w, h = max(xs) - min(xs), max(zs) - min(zs)
+        lip = r * 0.05
+        sx, sz = 1 - 2 * lip / w, 1 - 2 * lip / h
+        at = (x + cx, y - r * 2, z + cz)
+        m.drape(points, at, CUT, body, r * 0.025, cuts)
+        m.drape([(px * sx, pz * sz - lip * 0.6) for px, pz in points], at, light_, body, r * 0.05, cuts, glow=True)
+
     e = r * 0.3
     for s in (-1, 1):                                              # triangle eyes
-        m.prism([(-e, -e * 0.7), (e, -e * 0.7), (0, e * 0.8)], 0.06, (x + s * r * 0.36, f, z + r * 0.92), light_, glow=True)
-    m.prism([(-e * 0.4, 0), (e * 0.4, 0), (0, e * 0.6)], 0.06, (x, f - 0.005, z + r * 0.68), light_, glow=True)  # the nose
+        hole([(-e, -e * 0.7), (e, -e * 0.7), (0, e * 0.8)], s * r * 0.36, r * 0.92)
+    hole([(-e * 0.4, 0), (e * 0.4, 0), (0, e * 0.6)], 0, r * 0.7)  # the nose
     grin = [(-1, 0.2), (-0.6, -0.15), (-0.35, 0.0), (-0.1, -0.2), (0.15, 0.0), (0.4, -0.2), (0.65, 0.0), (1, 0.2),
             (0.5, -0.45), (-0.5, -0.45)]
-    m.prism([(gx * r * 0.5, gz * r * 0.5) for gx, gz in grin], 0.06, (x, f + 0.01, z + r * 0.45), light_, glow=True)
+    hole([(gx * r * 0.5, gz * r * 0.5) for gx, gz in grin], 0, r * 0.5, cuts=3)
 
 
 def halloween(t: Terrain):

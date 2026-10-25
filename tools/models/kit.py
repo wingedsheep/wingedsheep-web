@@ -18,6 +18,7 @@ import random
 import bmesh
 import bpy
 from mathutils import Euler, Matrix, Vector
+from mathutils.bvhtree import BVHTree
 
 
 # --- materials ------------------------------------------------------------------
@@ -182,6 +183,39 @@ class Model:
         d = b - a
         rot = Vector((0, 0, 1)).rotation_difference(d.normalized()).to_euler()
         return self.box((width, thick, d.length), (a + b) / 2, color, rot=rot)
+
+    def drape(self, points, loc, color, onto, lift: float, cuts=2, glow=False):
+        """Lay a 2D polygon (in the XZ plane, round loc) onto `onto` (faces of this model), seen
+        from the front: a skin `lift` proud of the surface that follows its curve, for something
+        cut or painted into it. loc's y is a point in front of the surface, to look from."""
+        verts = list({v for f in onto for v in f.verts})
+        index = {v: i for i, v in enumerate(verts)}
+        tree = BVHTree.FromPolygons([v.co.copy() for v in verts], [[index[v] for v in f.verts] for f in onto])
+        lx, ly, lz = loc
+        corners = [self.bm.verts.new((lx + x, ly, lz + z)) for x, z in points]
+        tris = bmesh.ops.triangulate(self.bm, faces=[self.bm.faces.new(corners)])["faces"]
+        cut = bmesh.ops.subdivide_edges(self.bm, edges=list({e for f in tris for e in f.edges}), cuts=cuts, use_grid_fill=True)
+        seed = next(g for g in cut["geom"] if isinstance(g, bmesh.types.BMVert) and g.is_valid)
+        skin, stack = {seed}, [seed]                               # all of it, from one vertex
+        while stack:
+            for e in stack.pop().link_edges:
+                for w in e.verts:
+                    if w not in skin:
+                        skin.add(w)
+                        stack.append(w)
+        for v in skin:                                             # pressed back onto the surface
+            hit = tree.ray_cast(Vector((v.co.x, ly, v.co.z)), Vector((0, 1, 0)))[0]
+            if hit:
+                v.co.y = hit.y - lift
+        bmesh.ops.triangulate(self.bm, faces=list({f for v in skin for f in v.link_faces}))
+        faces = {f for v in skin for f in v.link_faces}
+        idx = self._slot(color, glow)
+        for f in faces:
+            f.normal_update()
+            if f.normal.y > 0:                                     # facing out, towards loc
+                f.normal_flip()
+            f.material_index = idx
+        return faces
 
     # --- output -----------------------------------------------------------------------
     def build(self, parent: bpy.types.Object | None = None, loc=(0, 0, 0), rot_z=0.0, **props) -> bpy.types.Object:
