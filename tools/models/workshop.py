@@ -31,6 +31,7 @@ import math
 
 import cats
 import characters
+import companion
 import dressing
 import palette as P
 from kit import Model, emitter, group, light
@@ -575,6 +576,78 @@ def lazy_corner(root):
         make(c)
 
 
+# --- her corner: the paint by numbers ----------------------------------------------------
+
+PAINT = (-5.4, -4.25)               # her desk, against the low front wall: the south-west corner is hers
+PAINTS = ["#3b6fd1", "#6aa75a", "#e8c640", "#d9503a", "#f2eee4", "#2f4a3c"]
+
+
+def paint_corner(root):
+    """Her desk for her paint by numbers, the current one left out on it between her turns: a
+    landscape about half in colour, the rest pale shapes with their numbers in, a row of pots, a
+    jar of water with brushes, the key to the numbers, a lamp and a mug of tea. And her, in the
+    chair behind it facing the room, when she's in (`companion_workshop`, companion.ts)."""
+    tx, ty = PAINT
+    g = group("paint_by_numbers", (tx, ty, 0), parent=root, id="paint_by_numbers")
+    r = Model("paint_rug", seed=70)                                                        # a rug, so the corner's hers
+    r.box((2.7, 1.9, 0.02), (0, 0.6, 0.01), "#3f6a8a")
+    r.box((2.5, 1.7, 0.024), (0, 0.6, 0.012), "#d9c79a")
+    r.box((2.1, 1.3, 0.028), (0, 0.6, 0.014), "#5a8aa8")
+    r.build(root, loc=(tx, ty, 0))
+    m = Model("paint_desk", seed=71)
+    top, w, d = 0.76, 1.8, 0.8
+    m.box((w, d, 0.06), (0, 0, top - 0.03), P.WALNUT)
+    for sx in (-w / 2 + 0.06, w / 2 - 0.06):
+        for sy in (-d / 2 + 0.06, d / 2 - 0.06):
+            m.box((0.07, 0.07, top - 0.06), (sx, sy, (top - 0.06) / 2), P.WOOD_DARK)
+    m.box((0.5, d - 0.1, 0.16), (w / 2 - 0.32, 0, top - 0.14), P.WOOD)                     # a drawer
+    m.box((0.12, 0.02, 0.03), (w / 2 - 0.32, d / 2 - 0.04, top - 0.14), P.GOLD)
+    # the board, flat in front of her (she sits on the +y side), its far edge up a little
+    face = Model("paint_board", seed=72)
+    face.box((0.62, 0.46, 0.015), (0, 0, 0), PARCHMENT)
+    cols, rows = 7, 5
+    for i in range(cols):
+        for j in range(rows):
+            x = -0.26 + i * 0.087
+            y = 0.17 - j * 0.085
+            sky, hill = j >= 3, j < 2
+            done = i < 4 or (i == 4 and j > 1)                                              # about half of it in colour
+            if done:
+                c = ("#8fc3e0" if (i + j) % 2 else "#a9d4ec") if sky else ("#4f9a3f" if (i + j) % 2 else "#6aa75a") if hill else ("#e8c640" if i % 3 == 0 else "#7ab36a")
+                face.box((0.084, 0.082, 0.004), (x, y, 0.009), c)
+            else:
+                face.box((0.014, 0.014, 0.003), (x, y, 0.009), P.INK)                        # its number
+    f = face.build(g, loc=(-0.05, 0.08, top + 0.03))
+    f.rotation_euler = (-0.12, 0, 0)
+    for i, c in enumerate(PAINTS):                                                          # the pots, lids off
+        x, y = 0.38 + (i % 3) * 0.09, 0.12 - (i // 3) * 0.09
+        m.cyl(0.035, 0.05, (x, y, top), P.WHITE, segs=6)
+        m.cyl(0.03, 0.005, (x, y, top + 0.05), c, segs=6)
+    m.cyl(0.07, 0.16, (0.62, 0.1, top), "#bcd4e0", segs=8)                                  # the jar of water…
+    m.cyl(0.065, 0.005, (0.62, 0.1, top + 0.12), "#8fa8b8", segs=8)
+    for k in range(2):                                                                     # …and its brushes
+        m.plank_line((0.62 + k * 0.02, 0.09, top + 0.05), (0.59 + k * 0.08, 0.05, top + 0.32), 0.02, 0.02, P.WOOD_DARK)
+    m.box((0.24, 0.32, 0.01), (-0.55, 0.05, top + 0.005), P.WHITE, rot=(0, 0, 0.15))         # the key to the numbers
+    m.box((0.36, 0.26, 0.08), (0.5, -0.22, top + 0.04), "#3b6fd1")                          # the kit's box
+    m.cyl(0.06, 0.1, (-0.6, -0.25, top), P.TILE_BLUE, segs=8)                               # her tea
+    m.cyl(0.05, 0.005, (-0.6, -0.25, top + 0.1), P.COFFEE, segs=8)
+    m.cyl(0.08, 0.03, (-0.7, 0.25, top), P.IRON, segs=6)                                    # a desk lamp, bent over the work
+    m.plank_line((-0.7, 0.25, top + 0.03), (-0.62, 0.2, top + 0.42), 0.03, 0.03, P.IRON)
+    m.plank_line((-0.62, 0.2, top + 0.42), (-0.4, 0.12, top + 0.48), 0.03, 0.03, P.IRON)
+    m.cyl(0.09, 0.12, (-0.36, 0.1, top + 0.36), P.IRON, segs=6, r_top=0.04)
+    # her chair, pulled up behind it
+    cy = d / 2 + 0.35
+    m.box((0.48, 0.46, 0.06), (0, cy, 0.47), P.WOOD)
+    m.box((0.48, 0.06, 0.55), (0, cy + 0.22, 0.78), P.WOOD)
+    for sx in (-0.2, 0.2):
+        for sy in (-0.19, 0.19):
+            m.box((0.05, 0.05, 0.47), (sx, cy + sy, 0.235), P.WOOD_DARK)
+    m.build(g)
+    light(g, (-0.36, 0.1, top + 0.25), P.WARM_LIGHT, 2.5, 0.8)
+    # and her, in the chair (the runtime shows her only while she's in)
+    companion.painting(group("companion_workshop", (0, cy - 0.02, 0), parent=g, id="companion_workshop"))
+
+
 # --- the robot -----------------------------------------------------------------------------
 
 def robot(root):
@@ -663,7 +736,7 @@ EXHIBITS = [
     ("carcassonne", -1.2, 0.6, 0.0, carcassonne),
     ("lazyhttp", 4.6, -2.4, 0.0, lazy_corner),
     ("music", -0.9, -3.8, 0.2, gramophone),
-    ("talespinner", -4.9, -2.7, 0.35, quill_desk),
+    ("talespinner", -2.5, -3.95, 0.0, quill_desk),         # along the front, out of her corner
 ]
 
 # the robot's walking graph: a ring round the game table, and a stand at every exhibit
@@ -681,7 +754,7 @@ WAYPOINTS = {
     "carcassonne": ((-1.2, -0.8), "E F"),
     "lazyhttp": ((2.4, -3.1), "E D"),
     "music": ((-0.9, -2.6), "E F"),
-    "talespinner": ((-3.9, -1.9), "F"),
+    "talespinner": ((-2.5, -2.8), "E F"),
     "home": ((1.5, -3.5), "E"),
 }
 
@@ -813,5 +886,6 @@ def build():
     charging_dock(group("robot_dock", (hx, hy, 0), parent=root))
     robot(group("robot", (hx, hy, 0), parent=root, id="robot"))
     boat(root)
+    paint_corner(root)
     dressing.workshop(root)
     return root

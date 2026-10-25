@@ -444,7 +444,7 @@ def workshop(root):
     b.build(led)
     clockwork_spider(h, "clockwork_spider", (4.85, R.Y1 - 0.85, 1.06), 1.3, size=2.0)
     pumpkin_lights(h, "pumpkin_lights", (-4.6, R.Y1 - 0.3, 4.2), (2.3, R.Y1 - 0.3, 4.2), 17, sag=0.55, size=1.5)
-    heap(h, "workshop_heap", (-3.0, R.Y0 + 0.9, 0), 0.6, 12)
+    heap(h, "workshop_heap", (R.X0 + 0.75, -0.8, 0), 0.6, 12)                         # by the door
 
 
 def quarters(root):

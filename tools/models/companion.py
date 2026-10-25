@@ -438,6 +438,32 @@ def curled_up_reading(root, seat: float):
     head(root, "companion_chair_head", (0, 0.02, 1.37 + up), rot=(0.35, 0, 0))
 
 
+def painting(root):
+    """In the chair at her desk in the workshop (workshop.py `paint_corner`), doing her paint
+    by numbers: her seat is at z = 0.5, the board in front of her (-y) on the table. Her left hand
+    steadies the board; `companion_brush` is her right forearm with the brush, from the elbow,
+    which the runtime dabs at the board and dips in a pot now and then, and `companion_paint_head`
+    bends over the work."""
+    m = Model("companion_paint_body")
+    _seated(m, 0.5, root)
+    up = 0.5 - 0.56
+    for s in (-1, 1):
+        sh, el = (s * 0.28, 0.03, 1.27 + up), (s * 0.29, -0.1, 1.0 + up)
+        mid = tuple(a_ + (b_ - a_) * 0.35 for a_, b_ in zip(sh, el))
+        _limb(m, sh, mid, 0.14, P.E_TOP)
+        _limb(m, mid, el, 0.12, P.E_ARM)
+    _limb(m, (0.29, -0.1, 1.0 + up), (0.2, -0.42, 0.8), 0.11, P.E_ARM)              # left hand on the board's edge
+    m.box((0.09, 0.11, 0.07), (0.19, -0.45, 0.79), P.FAIR)
+    m.build(root)
+    g = Model("companion_brush")                                                    # right forearm, from the elbow
+    _limb(g, (0, 0, 0), (0.1, -0.3, -0.16), 0.11, P.E_ARM)
+    g.box((0.09, 0.11, 0.08), (0.11, -0.33, -0.17), P.FAIR)
+    g.plank_line((0.11, -0.3, -0.13), (0.13, -0.5, -0.24), 0.025, 0.025, P.WOOD_DARK)    # the brush
+    g.box((0.03, 0.05, 0.03), (0.135, -0.52, -0.255), "#3b6fd1")                       # blue on its tip
+    g.build(root, loc=(-0.29, -0.1, 1.0 + up))
+    head(root, "companion_paint_head", (0, 0.02, 1.37 + up), rot=(0.45, 0, 0))
+
+
 def on_the_sofa(parent, loc, rot_z):
     """Her, in the lighthouse, under a group the runtime shows only while she's there."""
     g = group("companion_lighthouse", parent=parent)

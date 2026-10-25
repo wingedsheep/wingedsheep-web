@@ -74,6 +74,11 @@ export class WorkshopRoom {
   /** Vincent at his boat (workshop.py `vincent_workshop`), when he's in (vincent.ts), and his plane's stroke. */
   private bench?: THREE.Object3D;
   private strokes = 0;
+  /** Her at her paint by numbers (workshop.py `companion_workshop`), when she's in (companion.ts), and her brush. */
+  private painter?: THREE.Object3D;
+  private brush?: { o: THREE.Object3D; rest: THREE.Euler };
+  private paintHead?: { o: THREE.Object3D; rest: THREE.Euler };
+  private dip = { t: -1, next: rand(6, 12) };
 
   /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
   private haunts: Haunts;
@@ -149,6 +154,13 @@ export class WorkshopRoom {
     const fresh = root.getObjectByName('sawdust_fresh');
     if (fresh) fresh.visible = occasions.has('saturday');
     this.bench = this.named.get('vincent_workshop');
+    this.painter = this.named.get('companion_workshop');
+    const part = (name: string) => {
+      const o = root.getObjectByName(name);
+      return o && { o, rest: o.rotation.clone() };
+    };
+    this.brush = part('companion_brush');
+    this.paintHead = part('companion_paint_head');
     // Patch Tuesday: it's installing its updates when you come in (in the daytime, at least)
     const hour = hourOf(Date.now());
     if (occasions.has('patchday') && hour >= 8 && hour < 22) this.robot.install();
@@ -190,6 +202,7 @@ export class WorkshopRoom {
     this.exhibits.update(dt);
     this.robot.update(dt);
     this.guests.update(dt);
+    this.painting(dt);
     this.planing(dt);
     this.particles.update(dt);
     this.updateFloaters(dt);
@@ -231,6 +244,33 @@ export class WorkshopRoom {
     sprite.visible = age >= 0;
     this.scene.add(sprite);
     this.floaters.push({ sprite, velocity, age });
+  }
+
+  /**
+   * Her, if she's in (companion.ts `painting`): small dabs at the board, filling in one number at
+   * a time, her head bent over it; every so often the brush goes over to a pot for more paint (or
+   * into the jar to rinse), and she sits back for a look at how it's coming on.
+   */
+  private painting(dt: number) {
+    const me = this.painter;
+    if (!me) return;
+    me.visible = indoors.has('companion_workshop');
+    if (!me.visible || !this.brush || !this.paintHead) return;
+    const t = this.clock;
+    const d = this.dip;
+    if (d.t < 0 && (d.next -= dt) <= 0) d.t = 0;
+    let reach = 0;
+    if (d.t >= 0) {
+      d.t += dt / 1.8;
+      reach = Math.sin(Math.min(1, d.t) * Math.PI);
+      if (d.t >= 1) Object.assign(d, { t: -1, next: rand(6, 14) });
+    }
+    const dab = (1 - reach) * Math.max(0, Math.sin(t * 7)) ** 2 * 0.12; // little strokes, filling a shape in
+    const b = this.brush;
+    b.o.rotation.set(b.rest.x - dab + reach * 0.35, b.rest.y, b.rest.z - reach * 0.55);
+    const back = Math.max(0, Math.sin(t * 0.13)) ** 8; // sitting back to look at it
+    const h = this.paintHead;
+    h.o.rotation.set(h.rest.x - back * 0.35 - reach * 0.1, h.rest.y + Math.sin(t * 0.4) * 0.06 + reach * 0.25, h.rest.z);
   }
 
   /**

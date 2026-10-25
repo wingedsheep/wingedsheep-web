@@ -1717,6 +1717,16 @@ const BOAT_WEEKS = [
 ];
 
 export const WORKSHOP_PLACES: Record<string, Place> = {
+  // her paint by numbers (companion.ts `painting`): she's at it, or it's left out for next time
+  companion_workshop: withHer('At her paint by numbers', inTurn([
+    'Number seven is a blue she swears is two different blues. She paints it anyway.',
+    'No decisions, only patience: she says it’s the most restful thing she does, and then frowns very hard at number twelve.',
+    'She sits back to look at it, decides it’s coming on, and leans back in for the next little shape.',
+  ])),
+  paint_by_numbers: {
+    label: 'Her paint by numbers · about half done',
+    activate: say('A landscape, about half of it in colour. The rest is pale little shapes with numbers in, waiting their turn.'),
+  },
   // in for a nap in the hammock (shelter.ts): shown, and clickable, only while they're in here
   charlie_workshop: indoorPet('Charlie · in the hammock', [
     'The hammock rocks. Charlie lets it. He hasn’t opened his eyes once.',
@@ -2392,6 +2402,7 @@ dressedUp(HUT_PLACES, ['vincent_guitar', 'vincent_meal_hut'], 'vampire');
 dressedUp(HUT_PLACES, ['companion_baking', 'companion_meal_hut'], 'witch');
 dressedUp(LIBRARY_PLACES, ['vincent_library'], 'vampire');
 dressedUp(LIBRARY_PLACES, ['companion_library'], 'witch');
+dressedUp(WORKSHOP_PLACES, ['companion_workshop'], 'witch');
 
 export function workshopPlaceFor(id: string): Place | undefined {
   return WORKSHOP_PLACES[id];

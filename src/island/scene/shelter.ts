@@ -115,8 +115,8 @@ export const beds: Record<'charlie' | 'george', Nook> = { charlie: 'bench', geor
 /**
  * How much each would rather sleep there, at `hour`: the bench most of all; the library step in
  * the morning sun; the fire only of an evening; the library hearth on a cold day; and wherever
- * someone's in, for the company (Vincent at the boat in the workshop, either of them reading in
- * the library).
+ * someone's in, for the company (him at the boat or her at her painting in the workshop, either
+ * of them reading in the library).
  */
 function liking(n: Nook, hour: number, hot: number): number {
   const evening = hour >= 18 || hour < 1;
@@ -127,7 +127,7 @@ function liking(n: Nook, hour: number, hot: number): number {
     case 'fire': return evening ? 2 : 0;
     case 'doorstep': return 0.8;
     case 'hearth': return (0.5 + (1 - hot) * 0.6) * (indoors.has('companion_library') || indoors.has('vincent_library') ? 4 : 1);
-    case 'workshop': return 0.5 * (indoors.has('vincent_workshop') ? 5 : 1);
+    case 'workshop': return 0.5 * (indoors.has('vincent_workshop') || indoors.has('companion_workshop') ? 5 : 1);
   }
 }
 
