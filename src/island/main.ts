@@ -381,7 +381,7 @@ export async function bootIsland(host: HTMLElement) {
   // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep|stroll|meditate (and ?time=00:30 to see who's up)
   const where = params.get('vincent') as Whereabouts | null;
   if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where, fuss);
-  // the two of them at a meal: ?meal=breakfast|pasta|miso|curry|risotto|pizza (&where=hut|fire, otherwise
+  // the two of them at a meal: ?meal=breakfast|pasta|miso|curry|risotto|pizza|gourmet (&where=hut|fire, otherwise
   // the weather decides), or out for a walk with a mug of glühwein each: ?walk=gluhwein
   if (params.has('meal')) {
     life.vincent.put('meal');

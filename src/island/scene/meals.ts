@@ -10,12 +10,13 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
  * (her favourite), miso soup with a little Japanese spread, a curry or a risotto (his), and now and
  * then a pizza, most often on a Friday. Outside on the logs by the fire when the weather's fit for
  * it, otherwise up at the hut's long table (outings.py, hut.py). Sunday mornings there are
- * pancakes instead (hut-room.ts).
+ * pancakes instead (hut-room.ts). On Christmas Day it's gourmetten, up at the hut, and it goes on
+ * all evening.
  *
- * To preview: ?meal=breakfast|pasta|miso|curry|risotto|pizza (&where=hut or &where=fire).
+ * To preview: ?meal=breakfast|pasta|miso|curry|risotto|pizza|gourmet (&where=hut or &where=fire).
  */
-export type Dish = 'breakfast' | 'pasta' | 'miso' | 'curry' | 'risotto' | 'pizza';
-export const DISHES: Dish[] = ['breakfast', 'pasta', 'miso', 'curry', 'risotto', 'pizza'];
+export type Dish = 'breakfast' | 'pasta' | 'miso' | 'curry' | 'risotto' | 'pizza' | 'gourmet';
+export const DISHES: Dish[] = ['breakfast', 'pasta', 'miso', 'curry', 'risotto', 'pizza', 'gourmet'];
 export type Filling = 'pate' | 'pb' | 'egg';
 
 export interface Course {
@@ -26,6 +27,7 @@ export interface Course {
 
 const BREAKFAST: [number, number] = [8, 9.25];
 const DINNER: [number, number] = [18.25, 19.5];
+const GOURMET: [number, number] = [18, 21.5]; // a gourmet takes its time
 
 const preview = (() => {
   try {
@@ -46,6 +48,7 @@ function daily(d: Date, salt: number) {
 
 /** What's for dinner on a day. */
 export function dinnerOn(d: Date): Exclude<Dish, 'breakfast'> {
+  if (d.getMonth() === 11 && d.getDate() === 25) return 'gourmet'; // Christmas Day
   const r = daily(d, 1);
   const day = d.getDay();
   if (day === 5 && r < 0.7) return 'pizza'; // Friday: pizza by the fire, mostly
@@ -76,7 +79,9 @@ export function courseAt(time: number): Course | null {
   const hour = hourOf(time);
   let c: Course | null = null;
   if (d.getDay() !== 0 && hour >= BREAKFAST[0] && hour < BREAKFAST[1]) c = { key: `${ymd}:b`, dish: 'breakfast', filling };
-  if (hour >= DINNER[0] && hour < DINNER[1]) c = { key: `${ymd}:d`, dish: dinnerOn(d), filling };
+  const dish = dinnerOn(d);
+  const [from, to] = dish === 'gourmet' ? GOURMET : DINNER;
+  if (hour >= from && hour < to) c = { key: `${ymd}:d`, dish, filling };
   return c && !table.done.has(c.key) ? c : null;
 }
 
@@ -90,6 +95,7 @@ export interface TableWeather {
 /** Whether it's no weather for eating out. */
 function inside(w: TableWeather, dish: Dish) {
   if (preview?.where != null) return preview.where;
+  if (dish === 'gourmet') return true; // it wants a table and a socket
   return w.rain > 0.08 || w.chill > 0.05 || w.wind > 11 || (dish === 'breakfast' && w.night > 0.5);
 }
 
@@ -97,7 +103,7 @@ function inside(w: TableWeather, dish: Dish) {
 export function sitDown(c: Course, time: number, w: TableWeather) {
   if (table.course?.key === c.key) return;
   table.course = c;
-  table.until = time + rand(6, 9) * 60e3;
+  table.until = time + (c.dish === 'gourmet' ? rand(100, 140) : rand(6, 9)) * 60e3;
   table.indoors = inside(w, c.dish);
 }
 
@@ -115,7 +121,7 @@ export function tick(time: number, w: TableWeather) {
 /** The part of a dish that's in front of them, and what's in the hand, for each of them. */
 function parts(dish: Dish, filling: Filling, who: 'v' | 'e') {
   if (dish === 'breakfast') return who === 'v' ? { lap: `sandwich_${filling}`, hand: `sandwich_${filling}` } : { lap: 'yoghurt', hand: 'spoon' };
-  const hand = { pasta: 'fork', miso: 'chopsticks', curry: who === 'v' ? 'fork' : 'spoon', risotto: 'spoon', pizza: 'pizza' }[dish];
+  const hand = { pasta: 'fork', miso: 'chopsticks', curry: who === 'v' ? 'fork' : 'spoon', risotto: 'spoon', pizza: 'pizza', gourmet: 'fork' }[dish];
   return { lap: dish, hand };
 }
 

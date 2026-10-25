@@ -1019,13 +1019,14 @@ const breakfastHer = inTurn([
   'Yoghurt, eaten slowly, looking out at the day.',
   'She’s scraping the last of the yoghurt out of the bowl. Every last bit.',
 ]);
-const DINNERS: Record<'v' | 'e', Record<'pasta' | 'miso' | 'curry' | 'risotto' | 'pizza', () => string>> = {
+const DINNERS: Record<'v' | 'e', Record<'pasta' | 'miso' | 'curry' | 'risotto' | 'pizza' | 'gourmet', () => string>> = {
   v: {
     pasta: inTurn(['Pasta tonight, her favourite. He got the bit of the pot with the most sauce, and isn’t mentioning it.', 'Pasta. He twirls it on his fork with great concentration.']),
     miso: inTurn(['Miso soup, rice and a few little dishes. They both love this one: nobody’s talking.', 'He’s getting better with the chopsticks. The tofu is still winning.']),
     curry: inTurn(['Curry, his choice. He went easy on the chilli. Well. Easier.', 'Curry and naan. He mops up the last of it with the bread.']),
     risotto: inTurn(['His risotto, stirred for twenty minutes without once leaving the pan. He’s proud of this one.', 'Risotto, and he’s waiting to hear what she thinks.']),
     pizza: inTurn(['Pizza, straight out of the box. No plates were harmed.', 'A slice of pizza in each hand. He says it’s for balance.']),
+    gourmet: inTurn(['Gourmetten for Christmas, the little pans lined up. He’s keeping track of whose mushroom is whose.', 'Christmas dinner on the gourmet set. His pan is always nearly done.']),
   },
   e: {
     pasta: inTurn(['Pasta, her pick. She’d have it every night if it were up to her. Tonight it is.', 'Pasta, and extra parmesan. She doesn’t look up.']),
@@ -1033,6 +1034,7 @@ const DINNERS: Record<'v' | 'e', Record<'pasta' | 'miso' | 'curry' | 'risotto' |
     curry: inTurn(['His curry. She’s reaching for the water, and says it’s lovely.', 'Curry tonight. She’s picking the peppers out, one by one.']),
     risotto: inTurn(['His risotto. She asks for more parmesan, and then a bit more.', 'Risotto. She tells him it’s his best yet. He’ll hear that for days.']),
     pizza: inTurn(['Pizza out of the box, the crust saved for last.', 'Pizza. She’s eyeing the last slice. So is he.']),
+    gourmet: inTurn(['Gourmetten for Christmas. She’s building something careful in her little pan.', 'Gourmetten, and the evening’s barely begun. Nobody’s in a hurry.']),
   },
 };
 function mealLine(ctx: IslandContext, who: 'v' | 'e') {
@@ -1078,7 +1080,7 @@ function gameLabel(who: 'v' | 'e') {
 }
 function mealLabel(ctx: IslandContext, who: string) {
   const c = table.course;
-  const what = !c ? 'at the table' : c.dish === 'breakfast' ? (who === 'Vincent' ? `breakfast, ${FILLINGS[c.filling]} sandwiches` : 'breakfast, yoghurt') : `dinner, ${{ pasta: 'pasta', miso: 'miso soup', curry: 'curry', risotto: 'risotto', pizza: 'pizza' }[c.dish]}`;
+  const what = !c ? 'at the table' : c.dish === 'breakfast' ? (who === 'Vincent' ? `breakfast, ${FILLINGS[c.filling]} sandwiches` : 'breakfast, yoghurt') : `dinner, ${{ pasta: 'pasta', miso: 'miso soup', curry: 'curry', risotto: 'risotto', pizza: 'pizza', gourmet: 'gourmetten' }[c.dish]}`;
   return who === 'Vincent' ? `Vincent · ${what}` : what[0].toUpperCase() + what.slice(1);
 }
 const walking = (ctx: IslandContext) => ctx.life.vincent.spot === 'gluhwein';

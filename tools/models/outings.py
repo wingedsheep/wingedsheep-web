@@ -59,6 +59,11 @@ GLUHWEIN = "#5a1424"
 MUG = "#b8303a"
 STEEL = P.TUNER
 CHOPSTICK = "#c8a070"
+GRILL = "#2a2830"                       # the gourmet set: a black hotplate, little pans under it
+MUSHROOM = "#c8b090"
+PEPPER = ["#d0402a", "#e8c040", "#4a8a3a"]
+ONION = "#e8dcc0"
+GOURMET_SAUCES = ["#f2eed8", "#e8a040", "#c0402a"]    # garlic, curry, cocktail
 
 
 def _y_up(v: Vector):
@@ -256,6 +261,12 @@ def _lap_dishes(parent, prefix: str, at, who: str):
                  rot=(math.pi / 2, 0, a))
         m.box((0.03, 0.03, 0.012), (x + math.cos(a) * 0.06, y + math.sin(a) * 0.06, z + 0.045), TOMATO)
     dishes["pizza"] = m
+    m = Model(f"{prefix}_lap_gourmet")
+    _plate(m, (x, y, z), r=0.14)
+    for i, (dx, dy) in enumerate(((-0.05, 0.02), (0.0, 0.05), (0.05, 0.0), (-0.02, -0.04), (0.06, -0.05))):
+        m.box((0.035, 0.035, 0.02), (x + dx, y + dy, z + 0.03), (MUSHROOM, PEPPER[0], ONION, PEPPER[2], PEPPER[1])[i])
+    m.ball(0.03, (x + 0.07, y + 0.06, z + 0.025), GOURMET_SAUCES[1 if who == "v" else 0], subdiv=1, scale=(1, 1, 0.4))  # a dab of sauce
+    dishes["gourmet"] = m
     for m in dishes.values():
         m.build(parent)
 
@@ -352,7 +363,8 @@ def companion_eating(root, prefix: str, seat: float):
 
 def spread(parent, prefix: str, at, rot_z=0.0):
     """What's on the go between them (one shown at a time): the breakfast board, the pasta pot, a
-    little Japanese spread with the miso, the curry pot and naan, the risotto pan, the pizza box."""
+    little Japanese spread with the miso, the curry pot and naan, the risotto pan, the pizza box,
+    and at Christmas the gourmet set, plugged in, with everything chopped up to go on it."""
     g = group(prefix, at, rot_z=rot_z, parent=parent)
     m = Model(f"{prefix}_breakfast")
     m.box((0.42, 0.26, 0.03), (0, 0, 0.015), BOARD)                                    # the bread board
@@ -406,6 +418,30 @@ def spread(parent, prefix: str, at, rot_z=0.0):
     for a in range(5):
         m.box((0.04, 0.04, 0.01), (math.cos(a * 1.3) * 0.09, math.sin(a * 1.3) * 0.09, 0.057), CHEESE)
     m.prism([(0, 0), (0.19, 0.08), (0.19, -0.08)], 0.04, (0, 0, 0.03), "#d8b888", rot=(math.pi / 2, 0, 0.9))  # two slices gone
+    m.build(g)
+    m = Model(f"{prefix}_gourmet")
+    m.box((0.56, 0.32, 0.1), (0, 0.02, 0.07), GRILL)                                    # the set: the hotplate on top,
+    m.box((0.52, 0.28, 0.012), (0, 0.02, 0.126), "#3e3a44")
+    for i, (dx, dy) in enumerate(((-0.16, 0.06), (0.05, 0.0), (0.18, 0.08), (-0.05, -0.05))):  # something sizzling on it
+        m.box((0.05, 0.045, 0.02), (dx, dy, 0.14), (MUSHROOM, PEPPER[0], ONION, PEPPER[1])[i])
+    for dx in (-0.22, 0.22):
+        for dy in (-0.11, 0.15):
+            m.box((0.03, 0.03, 0.03), (dx, dy, 0.015), GRILL)
+    for k, dx in enumerate((-0.18, -0.06, 0.06, 0.18)):                                  # four little pans under it, handles out
+        m.box((0.09, 0.08, 0.012), (dx, -0.08, 0.04), "#4a4650")
+        m.box((0.018, 0.14, 0.014), (dx, -0.2, 0.045), "#1e1c22")
+    m.box((0.06, 0.04, 0.03), (0.3, 0.12, 0.05), "#e8e2d4")                             # the dial
+    m.plank_line((0.3, 0.14, 0.05), (0.42, 0.3, 0.0), 0.015, 0.015, P.INK)              # and the lead, off to the socket
+    for i, (dx, dy, c) in enumerate(((-0.36, -0.12, MUSHROOM), (0.4, -0.1, PEPPER[0]), (-0.42, 0.14, ONION),
+                                     (0.44, 0.08, PEPPER[2]))):                          # plates of it all, chopped
+        m.cyl(0.09, 0.015, (dx, dy, 0), P.WHITE, segs=10)
+        for k in range(5):
+            m.box((0.03, 0.03, 0.02), (dx + math.cos(k * 1.3) * 0.04, dy + math.sin(k * 1.3) * 0.04, 0.02),
+                  c if k % 2 else PEPPER[(i + k) % 3])
+    for i, c in enumerate(GOURMET_SAUCES):                                              # three sauces
+        m.cyl(0.035, 0.04, (-0.1 + i * 0.1, 0.27, 0), P.WHITE, segs=8)
+        m.cyl(0.03, 0.01, (-0.1 + i * 0.1, 0.27, 0.035), c, segs=8)
+    m.box((0.32, 0.08, 0.07), (0.25, 0.32, 0.035), BREAD, rot=(0, 0, 0.2))             # stokbrood
     m.build(g)
     return g
 

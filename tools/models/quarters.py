@@ -414,13 +414,18 @@ def gear(root):
     rug.cyl(1.3, 0.035, (tx, ty, 0), P.RUG_ROUND_DARK, segs=16)
     rug.build(root)
 
+    # (at Christmas it goes upstairs to the lamp room, and the tree has the room: dressing.py)
+    potted_plant(group("plant", parent=root, holiday="!christmas"), X1 - 0.6, Y0 + 0.7)
+
+
+def potted_plant(parent, px: float, py: float):
+    """The pot plant in a terracotta pot."""
     plant = Model("plant", seed=68)
-    px, py = X1 - 0.6, Y0 + 0.7
     plant.cyl(0.28, 0.5, (px, py, 0), P.RUST_ROOF, segs=8, r_top=0.33)
     for k, (dx, dy, z, r) in enumerate([(0, 0, 1.3, 0.45), (-0.25, 0.1, 0.95, 0.35), (0.25, -0.1, 0.9, 0.33)]):
         plant.ball(r, (px + dx, py + dy, z), P.LEAF[1 + k % 3], subdiv=1, scale=(1, 1, 0.85), jitter=0.05)
     plant.cyl(0.04, 1.0, (px, py, 0.4), P.BARK, segs=4)
-    plant.build(root)
+    plant.build(parent)
 
 
 def details(root):

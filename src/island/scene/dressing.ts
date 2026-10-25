@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { type Occasion, occasions } from './calendar';
+import { clog, type Occasion, occasions } from './calendar';
 import { haloTexture } from './sky';
 
 /**
@@ -16,21 +16,29 @@ import { haloTexture } from './sky';
  *   crawler a clockwork spider, ticking along the bench, stopping, turning round, the key going
  *   bulb    a string of pumpkin lights running in a slow chase
  *   bubbles what's in the cauldron, coming up in bubbles that swell and pop
+ *   twinkle a fairy light, glowing up and down on its own, slowly
  *
  * And over Halloween the room itself goes dim and lilac, the candles carrying it, with a low mist
- * drifting across the floor (`gloom`, which the room calls after it has set its own lights).
+ * drifting across the floor (`gloom`, which the room calls after it has set its own lights). In
+ * the Sinterklaas weeks it's warmer in here, the light gone amber by the evening; at Christmas
+ * warmer still, and a touch darker after dark, so the fairy lights carry it.
  */
 export function undress(root: THREE.Object3D) {
   const off: THREE.Object3D[] = [];
   root.traverse((o) => {
     const tag = o.userData.holiday as string | undefined;
     if (tag && occasions.has(tag.replace('!', '') as Occasion) === tag.startsWith('!')) off.push(o);
+    if (o.userData.clog && o.userData.clog !== clog) off.push(o); // in the shoe only what's in it today
   });
   for (const o of off) o.removeFromParent();
   root.updateMatrixWorld(true);
 }
 
 const LILAC = new THREE.Color('#9c8cc8');
+const AMBER = new THREE.Color('#ffb874');
+const HONEY = new THREE.Color('#ffc890');
+/** December's warmth indoors: how far towards which colour, by day and after dark. */
+const COSY = occasions.has('christmas') ? { color: HONEY, day: 0.2, night: 0.4, dim: 0.18 } : occasions.has('shoe') ? { color: AMBER, day: 0.12, night: 0.3, dim: 0.08 } : null;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const smooth = (x: number) => x * x * (3 - 2 * x);
 /** Where a spider sits, curled up at the top of its thread. */
@@ -108,6 +116,7 @@ export class Haunts {
   private ravens: Raven[] = [];
   private crawlers: Crawler[] = [];
   private bulbs: { material: THREE.MeshToonMaterial; index: number }[] = [];
+  private twinkles: { material: THREE.MeshToonMaterial; phase: number; speed: number }[] = [];
   private wisps: Wisp[] = [];
   private bubbles: { o: THREE.Object3D; base: THREE.Vector3; phase: number; speed: number }[] = [];
   private clock = Math.random() * 100;
@@ -170,6 +179,14 @@ export class Haunts {
         });
       } else if (x.spook === 'bubbles') {
         for (const [i, b] of o.children.entries()) this.bubbles.push({ o: b, base: b.position.clone(), phase: i / o.children.length, speed: rand(0.6, 0.9) });
+      } else if (x.spook === 'twinkle') {
+        o.traverse((m) => {
+          const mesh = m as THREE.Mesh;
+          const mat = mesh.isMesh ? (mesh.material as THREE.MeshToonMaterial) : null;
+          if (!mat?.emissive) return;
+          mesh.material = mat.clone();
+          this.twinkles.push({ material: mesh.material as THREE.MeshToonMaterial, phase: (x.index ?? 0) * 2.39, speed: rand(0.5, 1.3) });
+        });
       } else if (x.spook === 'bulb') {
         o.traverse((m) => {
           const mesh = m as THREE.Mesh;
@@ -188,6 +205,14 @@ export class Haunts {
    * shadows, so what's lit by candle stands out; and the mist on the floor.
    */
   gloom(hemi: THREE.HemisphereLight, key: THREE.DirectionalLight, night: number) {
+    if (COSY && !this.haunted) {
+      this.hemiColor ??= hemi.color.clone();
+      hemi.color.copy(this.hemiColor).lerp(COSY.color, COSY.day + night * (COSY.night - COSY.day));
+      key.color.lerp(COSY.color, 0.15 + night * 0.25);
+      hemi.intensity *= 1 - night * COSY.dim;
+      key.intensity *= 1 - night * COSY.dim;
+      return;
+    }
     if (!this.haunted) return;
     this.hemiColor ??= hemi.color.clone();
     hemi.color.copy(this.hemiColor).lerp(LILAC, 0.45 + night * 0.35);
@@ -255,6 +280,12 @@ export class Haunts {
     for (const { material, index } of this.bulbs) {
       const wave = 0.5 + 0.5 * Math.sin(t * 2.2 - index * 0.9);
       material.emissiveIntensity = 0.35 + wave * 0.9;
+    }
+    for (const w of this.twinkles) {
+      // each on its own slow breath, and now and then a quick sparkle
+      const breath = 0.5 + 0.5 * Math.sin(t * w.speed + w.phase);
+      const sparkle = Math.max(0, Math.sin(t * 3.1 * w.speed + w.phase * 1.7)) ** 12;
+      w.material.emissiveIntensity = 0.55 + breath * 0.5 + sparkle * 0.6 + night * 0.2;
     }
     for (const b of this.bubbles) {
       // up through the brew, swelling, and pop

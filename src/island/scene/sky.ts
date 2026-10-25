@@ -32,7 +32,19 @@ const DUSK: Mood = { sun: '#e07a9a', sunI: 1.1, sky: '#7a6ab4', ground: '#3a2c50
 // deep blue and violet, shadows leaning lilac, every candle orange
 const SPOOK_DAY: Mood = { sun: '#ffd6b0', sunI: 2.0, sky: '#a89cc8', ground: '#6a6a60', hemiI: 1.05, fog: '#9098b4', lamps: 0, grade: [0.84, 1.06, 0.97], shade: '#c0bce0', light: '#ffdcb8' };
 const SPOOK_NIGHT: Mood = { sun: '#b4c4f0', sunI: 1.5, sky: '#6a50a0', ground: '#2a2c48', hemiI: 1.25, fog: '#121a30', lamps: 1, grade: [0.92, 1.12, 0.98], shade: '#c4b8f0', light: '#ffc488' };
+// The Sinterklaas weeks: short brown-grey November days, and evenings that come early and stay
+// amber, every window and lamp a deep warm gold
+const SINT_DAY: Mood = { sun: '#ffe2c0', sunI: 2.2, sky: '#c4c0cc', ground: '#7a7060', hemiI: 1.1, fog: '#b8b4b4', lamps: 0, grade: [0.9, 1.04, 1.0], shade: '#d0c8e0', light: '#ffe8cc' };
+const SINT_NIGHT: Mood = { sun: '#c0b0d8', sunI: 1.45, sky: '#6a5a88', ground: '#4a3030', hemiI: 1.25, fog: '#24182a', lamps: 1, grade: [0.98, 1.08, 1.0], shade: '#d8c0e0', light: '#ffb878' };
+// Christmas: crisp, pale, cold-looking days, and deep blue nights with every string of lights
+// honey-gold against them
+const XMAS_DAY: Mood = { sun: '#fff2e4', sunI: 2.35, sky: '#d4e0f4', ground: '#8a9088', hemiI: 1.2, fog: '#c8dcec', lamps: 0, grade: [0.93, 1.05, 1.03], shade: '#c8d8ff', light: '#fff4e4' };
+const XMAS_NIGHT: Mood = { sun: '#a8c0ff', sunI: 1.5, sky: '#4a62b4', ground: '#28305a', hemiI: 1.3, fog: '#101c3c', lamps: 1, grade: [1.0, 1.08, 1.0], shade: '#b8c8ff', light: '#ffd49a' };
 const spooky = occasions.has('halloween');
+/** A special time of year's own light, laid over the hour's: its day and night moods, and how much. */
+const festive: [Mood, Mood, number] | null = spooky
+  ? [SPOOK_DAY, SPOOK_NIGHT, 0.55]
+  : occasions.has('christmas') ? [XMAS_DAY, XMAS_NIGHT, 0.4] : occasions.has('shoe') ? [SINT_DAY, SINT_NIGHT, 0.5] : null;
 
 // keyed by the sun's elevation in degrees; mornings and evenings get different colours
 const RISING: [number, Mood][] = [[-10, NIGHT], [0, DAWN], [10, DAY]];
@@ -259,7 +271,7 @@ export class Sky {
     const { alt, az } = sunPosition(now, lat, lon);
     const climb = sunPosition(now + 6e5, lat, lon).alt - sunPosition(now - 6e5, lat, lon).alt;
     let m = moodFor(alt, climb);
-    if (spooky) m = { ...blend(m, blend(SPOOK_DAY, SPOOK_NIGHT, m.lamps), 0.55), lamps: m.lamps };
+    if (festive) m = { ...blend(m, blend(festive[0], festive[1], m.lamps), festive[2]), lamps: m.lamps };
     this.lamps = m.lamps;
     this.alt = alt;
     const moon = moonPosition(now, lat, lon);
