@@ -318,13 +318,39 @@ def bottle(root):
     m.build(root)
 
 
+# a hardshell case's outline from above, x along it (body at -x, headstock at +x): the upper
+# half from the tail round to the head, mirrored, and run counter-clockwise for slab
+_CASE = [(-0.52, 0.0), (-0.5, 0.2), (-0.41, 0.34), (-0.25, 0.39), (-0.08, 0.37), (0.04, 0.29),
+         (0.15, 0.3), (0.3, 0.31), (0.43, 0.26), (0.5, 0.15), (0.56, 0.1), (1.1, 0.09),
+         (1.18, 0.13), (1.42, 0.13), (1.47, 0.0)]
+_CASE = (_CASE + [(x, -y) for x, y in reversed(_CASE[1:-1])])[::-1]
+CASE_SHELL = "#2a2630"
+CASE_PLUSH = "#b0343f"
+CASE_PLUSH_DARK = "#7c2430"
+
+
 def guitar_case(root):
+    """Open, the guitar out of it: a black hardshell lying on the grass, red plush inside, and the
+    lid swung up and back on its hinges along the far side, its lining and guitar outline facing
+    you over the grass."""
+    inner = [(x * 0.94 + 0.03, y * 0.8) for x, y in _CASE]
     m = Model("guitar_case")
-    m.ball(0.5, (0, 0, 0.08), "#1f1a26", subdiv=1, scale=(1.8, 0.8, 0.25))
-    m.ball(0.44, (0, 0, 0.12), "#8c2f39", subdiv=1, scale=(1.8, 0.75, 0.12))
-    for x in (-0.3, 0.1, 0.4):
-        m.cyl(0.05, 0.02, (x, 0.05, 0.18), P.GOLD, segs=6)
+    m.slab(_CASE, 0, 0.2, CASE_SHELL)
+    m.slab(inner, 0.19, 0.215, CASE_PLUSH)
+    m.box((0.06, 0.15, 0.04), (0.6, 0, 0.225), CASE_PLUSH_DARK)                         # neck rest
+    m.box((0.26, 0.13, 0.03), (0.86, 0, 0.225), CASE_PLUSH_DARK)                        # the pocket's flap
+    for x, y in ((-0.35, -0.36), (0.1, -0.3), (0.85, -0.1)):
+        m.box((0.08, 0.04, 0.07), (x, y - 0.02, 0.17), P.TUNER)                         # latches
+    m.box((0.2, 0.05, 0.05), (0.3, -0.34, 0.1), CASE_SHELL)                             # handle
     m.build(root)
+    hinge = 0.39
+    lid = Model("guitar_case_lid")
+    lid.slab([(x, y - hinge) for x, y in _CASE], 0, 0.07, CASE_SHELL)
+    lid.slab([(x, y - hinge) for x, y in inner], -0.015, 0.005, CASE_PLUSH)
+    for x, y in ((-0.35, -0.36), (0.1, -0.3), (0.85, -0.1)):
+        lid.box((0.08, 0.03, 0.05), (x, y - hinge - 0.015, 0.03), P.TUNER)
+    obj = lid.build(root, loc=(0, hinge, 0.2))
+    obj.rotation_euler = (-1.83, 0, 0)                                                  # a little past upright
 
 
 def ufo(root):

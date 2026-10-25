@@ -134,6 +134,7 @@ export class Workshop implements RoomInput {
       .then((room) => this.pixels.warm(room.scene, room.camera).then(() => room))
       .then((room) => {
         this.room = room;
+        this.ctx.life.days.easter.adopt(room.named);
         room.onSound = (name, volume) => this.inside && this.ctx.sound.here(name, volume);
         room.onHum = (name, level) => this.ctx.sound.hum(name, this.inside ? level : 0);
         this.ctx.workshop = room;
@@ -149,6 +150,7 @@ export class Workshop implements RoomInput {
 
   /** Go in (or out). `instant` skips the iris closing, e.g. coming straight from another room. */
   enter(inside: boolean, instant = false) {
+    this.ctx.life.days.easter.indoors('workshop', inside);
     if (inside) void this.load();
     if (inside !== this.want) this.showList(!narrow(), false); // the list is out on each visit, unless the screen is tight
     if (!inside && this.want) this.select(null);

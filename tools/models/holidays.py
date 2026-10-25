@@ -308,15 +308,59 @@ def steamboat(t: Terrain):
 
 # --- Halloween -------------------------------------------------------------------------------
 
-def jack(m: Model, loc, r: float, carved: bool, seed: float, light_=CANDLE):
-    """A pumpkin, its face (if it's carved) on the south side, lit from inside in `light_`."""
+def oval(rx: float, rz: float, n=8, squash=0.0):
+    """A rough oval round (0, 0), as a carving knife goes round one; `squash` flattens its top."""
+    return [(math.cos(k / n * math.tau) * rx, math.sin(k / n * math.tau) * rz * (1 - squash * (math.sin(k / n * math.tau) > 0)))
+            for k in range(n)]
+
+
+def face(kind: str, r: float):
+    """A jack-o'-lantern's face, as holes: [(outline, x, z, cuts)], the outline round (0, 0)."""
+    e = r * 0.3
+    tri = [(-e, -e * 0.7), (e, -e * 0.7), (0, e * 0.8)]
+    nose = ([(-e * 0.4, 0), (e * 0.4, 0), (0, e * 0.6)], 0, r * 0.7, 2)
+    u = lambda pts, k=0.5: [(gx * r * k, gz * r * k) for gx, gz in pts]  # noqa: E731
+    if kind == "surprised":                                          # round eyes, and an O
+        return [(oval(e * 0.75, e * 0.85), s * r * 0.36, r * 0.95, 2) for s in (-1, 1)] + [(oval(e * 0.6, e * 0.8, 10), 0, r * 0.5, 2)]
+    if kind == "fangs":                                              # eyes slanted in, and two fangs hanging into the grin
+        eyes = [([(-e * s, -e * 0.5), (e * s, -e * 0.5), (e * s, e * 0.7)][::s], s * r * 0.36, r * 0.92, 2) for s in (-1, 1)]
+        grin = [(-1, 0.3), (-0.5, 0.08), (-0.36, -0.4), (-0.22, 0.04), (0.22, 0.04), (0.36, -0.4), (0.5, 0.08), (1, 0.3),
+                (0.65, -0.45), (0, -0.62), (-0.65, -0.45)]
+        return eyes + [nose, (u(grin), 0, r * 0.5, 3)]
+    if kind == "wink":                                               # one eye shut in a slit, a lopsided smile
+        shut = [(-e, -e * 0.05), (0, e * 0.5), (e, -e * 0.05), (0, e * 0.18)]
+        smile = [(-0.9, 0.05), (-0.3, -0.25), (0.4, -0.2), (1, 0.35), (0.6, -0.4), (-0.2, -0.5)]
+        return [(tri, -r * 0.36, r * 0.92, 2), (shut, r * 0.36, r * 0.88, 2), nose, (u(smile), 0, r * 0.5, 3)]
+    if kind == "ghastly":                                            # long drooping eyes, a mouth turned down and jagged
+        eye = [(-e * 0.5, e * 0.6), (e * 0.5, e * 0.6), (e * 0.3, -e * 0.9), (-e * 0.3, -e * 0.6)]
+        frown = [(-0.95, -0.45), (-0.55, 0.12), (-0.28, -0.04), (0, 0.3), (0.28, -0.04), (0.55, 0.12), (0.95, -0.45),
+                 (0.45, -0.18), (0, -0.08), (-0.45, -0.18)]
+        return [([(px * s, pz) for px, pz in eye][::s], s * r * 0.36, r * 0.9, 2) for s in (-1, 1)] + [(u(frown), 0, r * 0.48, 3)]
+    if kind == "toothy":                                             # square eyes, and a big grin all teeth, top and bottom
+        sq = [(-e * 0.7, -e * 0.6), (e * 0.7, -e * 0.6), (e * 0.7, e * 0.6), (-e * 0.7, e * 0.6)]
+        top = [(-1, 0.35), (-0.72, -0.05), (-0.55, 0.22), (-0.3, -0.12), (-0.1, 0.16), (0.1, -0.12), (0.3, 0.16), (0.55, -0.12), (0.72, 0.22), (1, 0.35)]
+        bottom = [(0.7, -0.4), (0.45, -0.12), (0.25, -0.6), (0.05, -0.2), (-0.2, -0.65), (-0.4, -0.2), (-0.65, -0.5)]
+        return [(sq, s * r * 0.36, r * 0.92, 2) for s in (-1, 1)] + [(u(top + bottom, 0.55), 0, r * 0.48, 3)]
+    grin = [(-1, 0.2), (-0.6, -0.15), (-0.35, 0.0), (-0.1, -0.2), (0.15, 0.0), (0.4, -0.2), (0.65, 0.0), (1, 0.2),
+            (0.5, -0.45), (-0.5, -0.45)]
+    return [(tri, s * r * 0.36, r * 0.92, 2) for s in (-1, 1)] + [nose, (u(grin), 0, r * 0.5, 3)]
+
+
+FACES = ["classic", "fangs", "surprised", "wink", "toothy", "ghastly"]
+GOURDS = {"orange": (PUMPKIN, PUMPKIN_DARK), "white": ("#ece6d6", "#cdc6b2"), "pale": ("#e8b46a", "#cc9550")}
+
+
+def jack(m: Model, loc, r: float, carved: bool, seed: float, light_=CANDLE, kind="classic", skin="orange"):
+    """A pumpkin, its face (if it's carved) on the south side, lit from inside in `light_`: one of
+    FACES, and of the GOURDS' skins."""
     x, y, z = loc
+    light_skin, dark_skin = GOURDS[skin]
     body = set()
     for k in range(6):                                             # ribbed: a ring of squashed lobes
         a = k / 6 * math.tau + seed
         body |= m.ball(r * 0.62, (x + math.cos(a) * r * 0.4, y + math.sin(a) * r * 0.4, z + r * 0.72),
-                       PUMPKIN if k % 2 else PUMPKIN_DARK, subdiv=1, scale=(1, 1, 1.05))
-    body |= m.ball(r * 0.8, (x, y, z + r * 0.72), PUMPKIN, subdiv=2, scale=(1.1, 1.1, 0.9))
+                       light_skin if k % 2 else dark_skin, subdiv=1, scale=(1, 1, 1.05))
+    body |= m.ball(r * 0.8, (x, y, z + r * 0.72), light_skin, subdiv=2, scale=(1.1, 1.1, 0.9))
     m.cyl(r * 0.12, r * 0.35, (x, y, z + r * 1.35), "#4d5a2a", segs=5, r_top=r * 0.08, rot=(0.2, 0.1, 0))
     if not carved:
         return
@@ -332,13 +376,8 @@ def jack(m: Model, loc, r: float, carved: bool, seed: float, light_=CANDLE):
         m.drape(points, at, CUT, body, r * 0.025, cuts)
         m.drape([(px * sx, pz * sz - lip * 0.6) for px, pz in points], at, light_, body, r * 0.05, cuts, glow=True)
 
-    e = r * 0.3
-    for s in (-1, 1):                                              # triangle eyes
-        hole([(-e, -e * 0.7), (e, -e * 0.7), (0, e * 0.8)], s * r * 0.36, r * 0.92)
-    hole([(-e * 0.4, 0), (e * 0.4, 0), (0, e * 0.6)], 0, r * 0.7)  # the nose
-    grin = [(-1, 0.2), (-0.6, -0.15), (-0.35, 0.0), (-0.1, -0.2), (0.15, 0.0), (0.4, -0.2), (0.65, 0.0), (1, 0.2),
-            (0.5, -0.45), (-0.5, -0.45)]
-    hole([(gx * r * 0.5, gz * r * 0.5) for gx, gz in grin], 0, r * 0.5, cuts=3)
+    for points, cx, cz, cuts in face(kind, r):
+        hole(points, cx, cz, cuts)
 
 
 def halloween(t: Terrain):
@@ -355,16 +394,16 @@ def halloween(t: Terrain):
     for (px, py, r, carved) in [(hx + 1.3, front - 0.05, 0.28, True), (hx - 0.8, front - 0.1, 0.34, False)]:
         g = group("pumpkin_small", (px, py, t.sample(px, py)), rot_z=-0.2, parent=root)
         s = Model("pumpkin_small", seed=int(px * 10))
-        jack(s, (0, 0, 0), r, carved, 0.5)
+        jack(s, (0, 0, 0), r, carved, 0.5, kind="surprised", skin="orange" if carved else "white")
         s.build(g)
         if carved:
             light(g, (0, -0.2, 0.2), CANDLE, 2, 0.6, flicker=1.0, halo=False)
     # and a pair on the library's doorstep, down where everybody passes
     lx, ly = L.LIBRARY
-    for i, (px, py, r, rot) in enumerate([(lx + 1.45, ly - 3.9, 0.52, 0.1), (lx - 1.4, ly - 3.85, 0.42, -0.25)]):
+    for i, (px, py, r, rot, kind) in enumerate([(lx + 1.45, ly - 3.9, 0.52, 0.1, "fangs"), (lx - 1.4, ly - 3.85, 0.42, -0.25, "wink")]):
         g = group("pumpkin", (px, py, t.sample(px, py)), rot_z=rot, parent=root, id=f"pumpkin_{i}")
         s = Model("pumpkin", seed=int(px * 10))
-        jack(s, (0, 0, 0), r, True, rot)
+        jack(s, (0, 0, 0), r, True, rot, kind=kind)
         s.build(g)
         light(g, (0, -0.3, 0.3), CANDLE, 3, 0.8, flicker=1.0, halo=r > 0.5)
 
@@ -376,7 +415,7 @@ def halloween_dressing(t: Terrain):
     for i, (px, py, r) in enumerate([(1.15, -16.6, 0.26), (-1.2, -14.5, 0.3), (1.2, -13.7, 0.24), (-1.2, -12.6, 0.28)]):
         g = group("path_pumpkin", (px, py, t.sample(px, py)), rot_z=-0.3 * px, parent=root)
         s = Model("path_pumpkin", seed=i + 50)
-        jack(s, (0, 0, 0), r, True, i * 0.7)
+        jack(s, (0, 0, 0), r, True, i * 0.7, kind=["toothy", "surprised", "ghastly", "wink"][i], skin=["orange", "white", "orange", "pale"][i])
         s.build(g)
         light(g, (0, -0.2, 0.2), CANDLE, 2, 0.5, flicker=1.0, halo=False)
     graveyard(t, root)
@@ -543,11 +582,12 @@ def curl(m: Model, at, r0: float, turns: float, z_turn: float, width: float, col
 
 
 def dead_tree(m: Model, rng: random.Random, h: float):
-    """A bare black tree, leaning, its branches curling up at the ends."""
+    """A bare black tree, leaning, its branches curling up at the ends. Returns the branches, (base, tip)."""
     lean = rng.uniform(-0.25, 0.25)
     trunk = [(0, 0, 0), (lean * 0.3, 0.05, h * 0.35), (lean * 0.8, -0.05, h * 0.7), (lean * 1.4, 0.1, h)]
     for k, (a, b) in enumerate(zip(trunk, trunk[1:])):
         m.plank_line(a, b, 0.3 - k * 0.07, 0.3 - k * 0.07, DEAD_WOOD)
+    branches = []
     for k in range(5):
         base = trunk[1 + k % 3]
         side = 1 if k % 2 else -1
@@ -555,8 +595,10 @@ def dead_tree(m: Model, rng: random.Random, h: float):
         ln = rng.uniform(0.7, 1.2) * h * 0.35
         tip = (base[0] + math.cos(heading) * ln, base[1] + math.sin(heading) * ln, base[2] + ln * 0.7)
         m.plank_line(base, tip, 0.1, 0.1, DEAD_WOOD)
+        branches.append((base, tip))
         curl(m, (tip[0], tip[1], tip[2] + 0.2), 0.22, 1.3, heading + math.pi / 2, 0.06, DEAD_WOOD, start=-math.pi / 2 * side)
     curl(m, (trunk[-1][0], trunk[-1][1], trunk[-1][2] + 0.28), 0.3, 1.5, 0.3, 0.08, DEAD_WOOD, start=-math.pi / 2)
+    return branches
 
 
 def web(m: Model, centre, r: float, z_turn: float):
@@ -689,13 +731,20 @@ def spooky(t: Terrain, root):
         g = group("dead_tree", (x, y, t.sample(x, y)), rot_z=rng.uniform(0, math.tau), parent=root)
         m = Model(f"dead_tree_{k}", seed=k)
         h = rng.uniform(2.6, 3.4)
-        dead_tree(m, rng, h)
+        branches = dead_tree(m, rng, h)
         if k in (0, 3):                                              # a web in the fork, with its spider
             web(m, (0.0, -0.1, h * 0.55), 0.55, 0.0)
         m.build(g)
         trees.append((g, h))
-        if k in (1, 2, 4):
-            dangling(g, f"spider_{k}", (0.6, -0.3, h * 0.82), 1.1, 0.12, k * 0.4)
+        if k in (2, 3):                                              # bats asleep in it, upside down
+            roosting_bats(g, branches)
+        if k in (1, 2, 4):                                           # from the lowest branch reaching well out, clear of the rest
+            reach = lambda b: math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1])  # noqa: E731
+            (bx, by, bz), (tx, ty, tz) = min((b for b in branches if reach(b) > 0.6), key=lambda b: b[0][2] + b[1][2],
+                                             default=max(branches, key=reach))
+            f = 0.6
+            at = (bx + (tx - bx) * f, by + (ty - by) * f, bz + (tz - bz) * f - 0.05)  # under the branch, not in it
+            dangling(g, f"spider_{k}", at, min(1.1, at[2] - 0.9), 0.12, k * 0.4)
     # the big one, in a web hung between the first tree and a stake, by the graves
     g0, h0 = trees[0]
     big = group("spider", (0, -0.1, h0 * 0.55), parent=g0, id="spider")
@@ -717,16 +766,6 @@ IRON = "#1a1820"
 BONE_SIGN = "#d8d0bc"
 
 
-def crow(m: Model, at, heading: float):
-    """A crow perched, hunched, its beak to `heading`."""
-    x, y, z = at
-    c, s = math.cos(heading), math.sin(heading)
-    m.ball(0.11, (x, y, z + 0.1), P.INK, subdiv=1, scale=(1.3, 0.9, 1.0))
-    m.ball(0.07, (x + c * 0.12, y + s * 0.12, z + 0.2), P.INK, subdiv=1)
-    m.box((0.09, 0.03, 0.03), (x + c * 0.2, y + s * 0.2, z + 0.19), "#3a3440", rot=(0, 0, heading))
-    m.box((0.14, 0.05, 0.03), (x - c * 0.16, y - s * 0.16, z + 0.06), P.INK, rot=(0, 0.4, heading))
-
-
 def archway(t: Terrain, parent):
     """Over the path up from the pier: a black iron arch, curls on top, a big pumpkin at its crown
     and lanterns swinging from it."""
@@ -746,7 +785,7 @@ def archway(t: Terrain, parent):
     m.build(g)
     light(g, (0, -0.3, h - 0.6), CANDLE, 3, 0.7, flicker=0.6)
     p = Model("archway_pumpkin", seed=6)
-    jack(p, (0, 0, 0), 0.38, True, 0.2)
+    jack(p, (0, 0, 0), 0.38, True, 0.2, kind="fangs")
     p.build(g, loc=(0, 0, h + 0.35))
     light(g, (0, -0.35, h + 0.65), CANDLE, 3, 0.8, flicker=1.0)
     b = Model("archway_bats")
@@ -757,43 +796,126 @@ def archway(t: Terrain, parent):
     b.build(g)
 
 
+def watchful_crows(graves, period=7.0):
+    """Crows on the headstones and the spade, each turning its head in quick looks about (`crows_idle`)."""
+    rng = random.Random(3)
+    for k, (at, hd) in enumerate([((-1.3, 0.35, 0.8), -1.2), ((0.85, -1.05, 0.2), 2.4), ((0.4, 0.4, 0.95), 0.4)]):
+        g = group(f"crow_{k}", at, rot_z=hd, parent=graves)
+        b = Model(f"crow_body_{k}")
+        b.ball(0.11, (0, 0, 0.1), P.INK, subdiv=1, scale=(1.3, 0.9, 1.0))
+        b.box((0.14, 0.05, 0.03), (-0.16, 0, 0.06), P.INK, rot=(0, 0.4, 0))                  # the tail
+        b.build(g)
+        h = Model(f"crow_head_{k}")
+        h.ball(0.07, (0, 0, 0), P.INK, subdiv=1)
+        h.box((0.09, 0.03, 0.03), (0.08, 0, -0.01), "#3a3440")                                # the beak
+        head = h.build(g, loc=(0.12, 0, 0.2))
+        keys, at_ = [(0, 0)], 0.0                                                               # a look, held, another
+        while (at_ := at_ + rng.uniform(0.6, 1.6)) < period - 0.6:
+            keys += [(at_, keys[-1][1]), (at_ + 0.08, rng.choice([-1.1, -0.6, 0.0, 0.5, 1.0]))]
+        keys += [(period - 0.1, keys[-1][1]), (period, 0)]
+        animate(head, "crows_idle", "rotation_euler", [(t_, (0, 0, a)) for t_, a in keys])
+
+
+def grave_candles(graves):
+    """Stubs of candle on the graves and the headstones, burning down, a light among them."""
+    c = Model("grave_candles", seed=21)
+    for (x, y, z, h) in [(-1.15, -0.2, 0.06, 0.16), (-1.45, -0.35, 0.06, 0.1), (-0.3, -0.1, 0.06, 0.12), (0.62, -0.15, 0.06, 0.2),
+                         (1.1, -0.3, 0.06, 0.09), (-1.95, -0.35, 0.0, 0.14)]:
+        c.cyl(0.035, h, (x, y, z), "#e8e0c8", segs=6)
+        c.box((0.012, 0.012, 0.03), (x, y, z + h + 0.01), P.INK)
+        c.ball(0.03, (x, y, z + h + 0.05), CANDLE, subdiv=1, scale=(0.8, 0.8, 1.5), glow=True)
+        c.cyl(0.05, 0.02, (x, y, z), "#d8d0b8", segs=6)                                        # wax run down round it
+    c.build(graves)
+    light(graves, (-0.3, -0.25, 0.4), CANDLE, 2.5, 0.6, flicker=1.0, halo=False)
+
+
+def wisps(t: Terrain, root, taken, period=14.0):
+    """Will-o'-the-wisps: three cold little lights wandering low over the meadow by the coffin,
+    bobbing, drawing close and slipping apart (`wisps_idle`); out only after dark (`wisps`)."""
+    x, y = open_spot(t, -11.4, -13.2, 1.0, taken)
+    ring = group("wisps", (x, y, t.sample(x, y) + 0.7), parent=root, id="wisps")
+    light(ring, (0, 0, 0), "#8ff0dc", 3, 0.5, flicker=0.6, halo=False)              # (lights stay put: one for the lot)
+    for k in range(3):
+        w = group(f"wisp_{k}", (0, 0, 0), parent=ring)
+        o = Model(f"wisp_glow_{k}")
+        o.ball(0.16, (0, 0, 0), "#d8fff4", subdiv=1, glow=True)
+        o.ball(0.1, (0.24, 0.05, -0.04), "#8ff0dc", subdiv=1, glow=True)                        # its trail
+        o.ball(0.06, (0.42, 0.1, -0.08), "#5fd8c4", subdiv=1, glow=True)
+        o.build(w)
+        ph = k * math.tau / 3
+
+        def path(u, ph=ph, k=k):
+            a = u * math.tau
+            return (1.6 * math.sin(a + ph) + 0.4 * math.sin(3 * a + k), 1.1 * math.sin(2 * a + ph * 1.3),
+                    0.35 * math.sin(4 * a + ph) + 0.1 * math.sin(9 * a + k))
+
+        looped(w, "wisps_idle", "location", path, period, step=0.25)
+
+        def facing(u, path=path):                                                               # the trail streaming behind
+            a, b = path(u), path(u + 0.01)
+            return (0, 0, math.atan2(-(b[1] - a[1]), -(b[0] - a[0])))
+
+        looped(w, "wisps_idle", "rotation_euler", facing, period, step=0.25)
+    for fc in _fcurves(_CLIPS["wisps_idle"]):                                                   # (no spin the long way round)
+        prev = None
+        for kp in fc.keyframe_points:
+            if prev is not None and fc.array_index == 2 and fc.data_path == "rotation_euler":
+                d = kp.co[1] - prev
+                kp.co[1] -= round(d / math.tau) * math.tau
+            prev = kp.co[1]
+        fc.update()
+
+
+def roosting_bats(tree, branches, period=9.0):
+    """Bats hanging upside down from a dead tree's branches, wrapped in their wings, sleeping the
+    day off: they turn a little on their feet in the breeze, and one stretches a wing out and
+    folds it back (`roost_idle`)."""
+    rng = random.Random(len(branches) * 7 + int(tree.location.x * 10))
+    for k, (base, tip) in enumerate(branches[:3]):
+        f = rng.uniform(0.45, 0.8)
+        at = tuple(base[i] + (tip[i] - base[i]) * f for i in range(3))
+        g = group(f"roost_{tree.name}_{k}", (at[0], at[1], at[2] - 0.05), rot_z=rng.uniform(0, math.tau), parent=tree)
+        b = Model(f"roost_body_{tree.name}_{k}")
+        b.box((0.02, 0.02, 0.06), (0.02, 0, -0.03), P.INK)                                         # feet, gripping
+        b.box((0.02, 0.02, 0.06), (-0.02, 0, -0.03), P.INK)
+        b.ball(0.09, (0, 0, -0.17), P.INK, subdiv=1, scale=(0.9, 0.8, 1.5))                       # wrapped in its wings
+        b.ball(0.06, (0, -0.01, -0.3), "#2a2430", subdiv=1)                                       # the head, at the bottom
+        for s in (-1, 1):
+            b.prism([(0, 0), (0.03, -0.08), (0.06, 0)], 0.02, (s * 0.04 - 0.03, 0, -0.33), P.INK)   # ears, pointing down
+        body = b.build(g)
+        sway = rng.uniform(0, math.tau)
+        looped(body, "roost_idle", "rotation_euler", lambda u, sway=sway: (0.12 * math.sin(u * math.tau * 2 + sway), 0, 0.3 * math.sin(u * math.tau + sway)),
+               period, step=0.5)
+        if k == 0:                                                                                 # the one who stretches
+            w = Model(f"roost_wing_{tree.name}")
+            w.prism([(0, 0), (0.22, 0.02), (0.3, -0.08), (0.2, -0.06), (0.12, -0.12), (0, -0.2)], 0.015, (0, 0, 0), P.INK)
+            wing = w.build(body, loc=(0.06, 0, -0.1))
+
+            def stretch(u):
+                v = (u - 0.55) / 0.2
+                return 0.001 if not 0 <= v <= 1 else max(0.001, math.sin(v * math.pi))
+
+            looped(wing, "roost_idle", "scale", lambda u: (stretch(u),) * 3, period, step=0.25)
+
+
 def big_props(t: Terrain, root, taken):
     graves = next(o for o in root.children_recursive if o.name.startswith("graves") and o.get("id") == "graves")
-    cr = Model("crows", seed=3)
-    for at, hd in [((-1.3, 0.35, 0.8), -1.2), ((0.85, -1.05, 0.2), 2.4), ((0.4, 0.4, 0.95), 0.4)]:
-        crow(cr, at, hd)
-    cr.build(graves)
+    watchful_crows(graves)
+    grave_candles(graves)
+    wisps(t, root, taken)
     archway(t, root)
 
     # a pumpkin the size of a shed, carved, by the path to the campfire
     x, y = open_spot(t, 6.0, -12.6, 1.3, taken)
     g = group("giant_pumpkin", (x, y, t.sample(x, y)), rot_z=0.2, parent=root, id="giant_pumpkin")
     m = Model("giant_pumpkin", seed=8)
-    jack(m, (0, 0, 0), 1.0, True, 0.3)
+    jack(m, (0, 0, 0), 1.0, True, 0.3, kind="toothy")
     m.build(g)
     light(g, (0, -0.8, 0.8), CANDLE, 6, 1.1, flicker=1.0)
 
-    # a witch's cauldron on three legs over a fire, bubbling over
+    # a witch's cauldron over a fire, bubbling over
     x, y = open_spot(t, -3.6, -4.8, 0.9, taken)
-    g = group("cauldron", (x, y, t.sample(x, y)), parent=root, id="cauldron")
-    m = Model("cauldron", seed=4)
-    for k in range(3):
-        a = k * math.tau / 3
-        m.plank_line((math.cos(a) * 0.6, math.sin(a) * 0.6, 0), (math.cos(a) * 0.15, math.sin(a) * 0.15, 1.5), 0.07, 0.07, P.WOOD_DARK)
-    m.ball(0.5, (0, 0, 0.7), IRON, subdiv=2, scale=(1, 1, 0.8))
-    m.cyl(0.42, 0.06, (0, 0, 1.02), IRON, segs=12)
-    m.cyl(0.38, 0.02, (0, 0, 1.05), "#c070e0", segs=12, glow=True)                 # the brew, glowing violet
-    for k in range(4):
-        a = k * 1.7
-        m.ball(0.07, (math.cos(a) * 0.2, math.sin(a) * 0.2, 1.1), "#d8a0f0", subdiv=1, glow=True)
-    for k in range(5):
-        a = k * math.tau / 5
-        m.plank_line((math.cos(a) * 0.35, math.sin(a) * 0.35, 0.03), (math.cos(a + 2) * 0.3, math.sin(a + 2) * 0.3, 0.08), 0.09, 0.09, P.WOOD)
-    m.box((0.3, 0.3, 0.2), (0, 0, 0.12), "#ff9a30", glow=True)
-    m.build(g)
-    light(g, (0, 0, 0.3), "#ff9a30", 3, 0.9, flicker=1.0, halo=False)
-    light(g, (0, 0, 1.25), "#c070e0", 3, 0.6, flicker=0.3)
-    emitter(g, (0, 0, 1.15), "steam")
+    cauldron(group("cauldron", (x, y, t.sample(x, y)), parent=root, id="cauldron"))
 
     # an old coffin propped against a tree, its lid off and leant beside it
     x, y = open_spot(t, -12.6, -9.6, 0.9, taken)
@@ -823,6 +945,116 @@ def big_props(t: Terrain, root, taken):
         m.plank_line((k * 0.18, 0.12, 0.6), (k * 0.25, -0.1, 0.3), 0.04, 0.04, BONE_SIGN)  # arms in its lap
     m.box((0.06, 0.05, 0.03), (0.0, -0.06, 0.73), P.INK)
     m.build(g)
+
+
+BREW = "#3cc040"            # the witch's brew, glowing green
+BREW_DARK = "#24862e"
+BREW_FROTH = "#a6ec6a"
+FLAME = ["#ff9a30", "#ffd060", "#ff6a20"]
+
+
+def looped(obj, clip: str, path: str, f, period: float, step=1 / 12):
+    """Keyframe `path` from f(u), u running 0..1 once round the loop (f(1) should be f(0))."""
+    n = round(period / step)
+    animate(obj, clip, path, [(k * period / n, f(k / n)) for k in range(n + 1)])
+
+
+def cauldron(g, period=6.0):
+    """A fat black pot on three stubby legs over a crackling fire, full to the brim with something
+    green (`cauldron_idle`): the brew swirls round, a ladle stirs it with nobody holding it,
+    bubbles swell up out of it and pop, and now and then it slops over the rim and runs down the
+    side; the flames lick up round the pot's belly, and green fumes rise off it (`brew`)."""
+    belly = lambda z: 0.56 * math.sqrt(max(0.0, 1 - ((z - 0.66) / 0.414) ** 2))  # noqa: E731  (its radius at a height)
+    m = Model("cauldron", seed=4)
+    for k in range(3):                                                                  # stubby legs, splayed
+        a = k * math.tau / 3 + 0.5
+        m.plank_line((math.cos(a) * 0.32, math.sin(a) * 0.32, 0.45), (math.cos(a) * 0.5, math.sin(a) * 0.5, 0.0), 0.1, 0.1, IRON)
+    m.ball(0.56, (0, 0, 0.66), IRON, subdiv=2, scale=(1, 1, 0.74))                      # the belly
+    m.cyl(0.5, 0.1, (0, 0, 0.97), IRON, segs=14)                                        # its thick rim
+    m.cyl(0.54, 0.05, (0, 0, 0.99), "#2c2934", segs=14)                                 # the lip, catching the light
+    for k in (-1, 1):                                                                   # ring handles
+        m.box((0.05, 0.16, 0.16), (k * 0.6, 0, 0.88), "#2c2934")
+    for k in range(5):                                                                  # logs, crossed under it
+        a = k * math.tau / 5
+        m.plank_line((math.cos(a) * 0.55, math.sin(a) * 0.55, 0.05), (math.cos(a + 2.4) * 0.15, math.sin(a + 2.4) * 0.15, 0.12), 0.11, 0.11,
+                     P.WOOD_DARK if k % 2 else P.WOOD)
+    m.box((0.36, 0.36, 0.12), (0, 0, 0.12), "#ffb040", glow=True)                       # the embers' heart
+    for k in range(5):                                                                  # the slop that's already run down
+        a, z1 = k * 1.31 + 0.3, 0.86 - (k % 3) * 0.1
+        c, s = math.cos(a), math.sin(a)
+        m.plank_line((c * 0.51, s * 0.51, 0.99), (c * (belly(z1) + 0.02), s * (belly(z1) + 0.02), z1), 0.08, 0.04, BREW_DARK)
+    m.build(g)
+
+    clip = "cauldron_idle"
+    # the brew: a disc filling the rim, swirling round once a loop, its froth streaks going with it
+    swirl = group("cauldron_swirl", (0, 0, 1.1), parent=g)                       # (well clear of the rim's top)
+    b = Model("cauldron_brew")
+    b.cyl(0.47, 0.03, (0, 0, -0.02), BREW, segs=14, glow=True)
+    for k in range(3):
+        a = k * math.tau / 3
+        b.plank_line((math.cos(a) * 0.1, math.sin(a) * 0.1, 0.015), (math.cos(a + 0.9) * 0.36, math.sin(a + 0.9) * 0.36, 0.015), 0.07, 0.01, BREW_FROTH)
+    b.build(swirl)
+    looped(swirl, clip, "rotation_euler", lambda u: (0, 0, -u * math.tau), period)
+    # the ladle, stuck in it and leaning on the rim, going round with the swirl, bobbing as it goes
+    lad = group("cauldron_ladle", (0.24, 0, 0), parent=swirl)
+    ld = Model("cauldron_ladle")
+    ld.plank_line((0, 0, -0.15), (0.3, -0.08, 0.8), 0.06, 0.06, P.WOOD)
+    ld.box((0.1, 0.1, 0.08), (0.31, -0.08, 0.83), P.WOOD_DARK)
+    ladle = ld.build(lad)
+    looped(ladle, clip, "location", lambda u: (0, 0, 0.04 * math.sin(u * math.tau * 3)), period)
+
+    # bubbles: each swells up out of the brew, wobbles, and pops, then a while till the next
+    rng = random.Random(44)
+    for k in range(7):
+        a, d = rng.uniform(0, math.tau), rng.uniform(0.08, 0.34)
+        r = rng.uniform(0.05, 0.09)
+        bub = Model(f"cauldron_bubble_{k}")
+        bub.ball(r, (0, 0, 0), BREW_FROTH if k % 4 == 0 else BREW, subdiv=2, glow=True)
+        o = bub.build(g, loc=(math.cos(a) * d, math.sin(a) * d, 1.1))
+        phase, life = k / 7 + rng.uniform(-0.04, 0.04), rng.uniform(0.28, 0.4)
+
+        def grow(u, phase=phase, life=life):
+            w = ((u - phase) % 1.0) / life                         # 0..1 through its life, >1 waiting
+            return 0.0 if w > 1 else (w / 0.85) ** 0.7 if w < 0.85 else 1.25 * (1 - (w - 0.85) / 0.15)
+
+        looped(o, clip, "scale", lambda u, grow=grow: (max(grow(u), 0.001),) * 3, period)
+        looped(o, clip, "location", lambda u, grow=grow: (0, 0, 0.02 + grow(u) * r * 0.4), period)
+
+    # slop running over the rim and down the belly, a drop at a time
+    for k, a in enumerate((0.9, 3.6)):
+        c, s = math.cos(a), math.sin(a)
+        drip = Model(f"cauldron_drip_{k}")
+        drip.ball(0.05, (0, 0, 0), BREW, subdiv=1, scale=(1, 1, 1.5), glow=True)
+        o = drip.build(g, loc=(c * 0.52, s * 0.52, 1.0))
+
+        def ooze(u, k=k, c=c, s=s):
+            w = (u + k * 0.5) % 1.0
+            if w > 0.6:
+                return None
+            z = 1.0 - 0.42 * (w / 0.6) ** 1.6                                    # slow over the lip, then faster
+            out = min(0.52, belly(z) + 0.04) - 0.52                              # hugging the belly's curve
+            return (c * out, s * out, z - 1.0)
+
+        looped(o, clip, "location", lambda u, ooze=ooze: ooze(u) or (0, 0, 0), period)
+        looped(o, clip, "scale", lambda u, ooze=ooze: (1,) * 3 if ooze(u) else (0.001,) * 3, period)
+
+    # the flames, licking up round the pot from under it
+    for k in range(5):
+        a = k * math.tau / 5 + 0.3
+        fl = Model(f"cauldron_flame_{k}")
+        h = 0.24 + (k % 2) * 0.08
+        fl.prism([(-0.07, 0), (0.07, 0), (0.025, h * 0.6), (0, h), (-0.03, h * 0.55)], 0.06, (0, 0, 0), FLAME[k % 3], glow=True)
+        o = fl.build(g, loc=(math.cos(a) * 0.36, math.sin(a) * 0.3, 0.1), rot_z=a + math.pi / 2)
+        o.rotation_euler.x = 0.3                                                        # leaning out, round the belly
+        phase = k * 0.37
+        looped(o, clip, "scale", lambda u, phase=phase: (1, 1, 0.75 + 0.35 * abs(math.sin((u * 12 + phase) * math.pi))), period, step=1 / 24)
+
+    for fc in _fcurves(_CLIPS[clip]):
+        for kp in fc.keyframe_points:
+            kp.interpolation = "LINEAR"
+    light(g, (0, 0, 0.2), "#ff9a30", 2, 0.8, flicker=1.0, halo=False)
+    light(g, (0, 0, 1.3), BREW, 3, 0.7)
+    emitter(g, (0, 0, 1.18), "brew")
 
 
 def _fcurves(act):
@@ -1100,44 +1332,97 @@ def liberation(t: Terrain):
 
 EGG_COLOURS = [("#f2b8c6", "#fff4d8"), ("#a8d8f0", "#f2c440"), ("#f7e08a", "#e86a6a"), ("#b8e0a0", "#f2ece2"),
                ("#d0b8f0", "#fff4d8"), ("#f5a860", "#2f6fb0")]
-# One out in the open in Beike's meadow, so you know what you're looking for; the rest hidden all
-# over the island, in the same order as easter.ts's hints: (x, y, scale, height if not the ground)
+# All over the island, in the same order as easter.ts's HIDES: (x, y, scale, height if not the ground).
+# Each shows from the default camera, past the grass; the rooms' eggs follow on (dressing.py)
 EGGS = [
-    (-11.2, -11.6, 4.5, None),     # in plain sight, in Beike's meadow
-    (-16.85, -11.45, 1.7, None),   # peeking out from under the bench, beneath the cats
-    (-0.2, -26.5, 1.6, 0.78),      # at the end of the pier, beside the dock cat
-    (20.3, -13.2, 1.7, None),      # round the back of the well
-    (16.1, 15.3, 1.6, None),       # at the end of the mountain hut's woodpile
-    (5.0, 18.5, 1.5, "summit"),    # tied to the summit flagpole, under the flag
-    (28.1, -5.7, 1.6, None),       # at the mouth of the badgers' sett
-    (-30.0, -5.3, 1.7, None),      # in the rocks at the lighthouse's foot
-    (-12.1, 12.4, 1.7, None),      # behind the bouldering rock
-    (24.6, -1.6, 1.6, None),       # by the campfire, against a log
-    (23.4, -11.4, 1.6, None),      # among the blossom tree's roots
-    (-2.3, -15.7, 1.6, None),      # at the foot of the signpost
+    (-14.3, -13.5, 2.0, None),     # in Beike's meadow, at its edge among the crocuses
+    (-16.85, -11.45, 1.9, None),   # peeking out from under the bench, beneath the cats
+    (-0.2, -26.5, 1.8, 0.78),      # at the end of the pier, beside the dock cat
+    (20.9, -15.0, 2.2, None),      # at the foot of the well, on the side facing you
+    (16.1, 15.3, 1.9, None),       # at the end of the mountain hut's woodpile
+    (5.0, 18.5, 2.2, "summit"),    # tied to the summit flagpole, under the flag
+    (28.1, -5.7, 2.0, None),       # at the mouth of the badgers' sett
+    (-30.0, -5.3, 2.0, None),      # in the rocks at the lighthouse's foot
+    (-11.6, 9.3, 2.2, None),       # at the foot of the bouldering rock
+    (26.1, -2.6, 2.2, None),       # by the campfire, against a log
+    (23.9, -15.3, 2.2, None),      # in the petals at the blossom tree's edge
+    (-2.3, -15.7, 1.9, None),      # at the foot of the signpost
+    (-12.6, -7.6, 2.0, None),      # on the library's doorstep
+    (-23.4, -2.5, 2.0, None),      # in the grass under the hammock
+    (6.45, -9.4, 1.6, "table"),    # on the card table, by the cards
+    (-31.08, -4.07, 1.8, "gallery"),  # up on the lighthouse's gallery, inside the railing
+    (24.2, 20.4, 1.7, "twig"),     # out at sea, on top of one of the birch twigs
 ]
+EGG_GOLD = ("#f2c440", "#fff4d8")
+
+
+def painted_egg(parent, i: int, at, size: float, rng: random.Random, colours=None, name=None, glow=False, clickable=True):
+    """One painted egg standing at `at`, a little on its side: a pastel shell, a band round its
+    middle and three dots (`egg_<i>`, so it can be found and taken away)."""
+    shell, band = colours or EGG_COLOURS[i % len(EGG_COLOURS)]
+    name = name or f"egg_{i}"
+    g = group(name, at, rot_z=rng.uniform(0, math.tau), parent=parent, **({"id": name} if clickable else {}))
+    g.scale = (size, size, size)
+    m = Model(name)
+    tip = rng.uniform(-0.5, 0.5)                                     # lying a little on its side
+    m.ball(0.085, (0, 0, 0.1), shell, subdiv=2, scale=(1, 1, 1.3), rot=(tip, 0, 0), glow=glow)
+    m.cyl(0.088, 0.035, (0, 0, 0.1), band, segs=10, rot=(tip, 0, 0))
+    for k in range(3):                                               # dots
+        a = k * math.tau / 3
+        m.ball(0.018, (math.cos(a) * 0.08, math.sin(a) * 0.08, 0.15), band, subdiv=1)
+    m.build(g)
+    return g
+
+
+WICKER, WICKER_DARK, STRAW = "#c8955a", "#8f6236", "#ecd27a"
+BASKET = (-10.2, -12.6)                                              # in Beike's meadow
+
+
+def egg_basket(t: Terrain, root, n: int):
+    """The basket you put what you find in (easter.ts): out in Beike's meadow once you've found
+    the first egg, with straw in it, a little egg on the pile for each one you've found
+    (`basket_egg_<k>`, shown as they come), and on top, once you've found them all, the golden egg."""
+    x, y = BASKET
+    g = group("egg_basket", (x, y, t.sample(x, y)), rot_z=0.25, parent=root, id="egg_basket")
+    m = Model("egg_basket")
+    m.cyl(0.36, 0.3, (0, 0, 0), WICKER, segs=12, r_top=0.42)
+    for z in (0.06, 0.15, 0.24):                                     # the weave
+        m.cyl(0.37 + z * 0.2, 0.03, (0, 0, z), WICKER_DARK, segs=12)
+    m.cyl(0.44, 0.05, (0, 0, 0.28), WICKER_DARK, segs=12)            # the rim
+    m.cyl(0.39, 0.06, (0, 0, 0.26), STRAW, segs=12)                  # straw, up to the rim
+    arc = [(math.cos(a) * 0.4, 0, 0.3 + math.sin(a) * 0.42) for a in (math.pi * k / 8 for k in range(9))]
+    for a, b in zip(arc, arc[1:]):                                   # the handle
+        m.plank_line(a, b, 0.04, 0.04, WICKER_DARK)
+    m.build(g)
+    rng = random.Random(9)
+    for k in range(n):                                               # a mound of them, from the bottom up
+        a = k * 2.4
+        r = 0.3 * (1 - k / n) ** 0.7
+        z = 0.24 + 0.17 * k / n
+        e = painted_egg(g, k, (math.cos(a) * r, math.sin(a) * r, z), 0.75, rng, name=f"basket_egg_{k}", clickable=False)
+        e["basket"] = k
+    gold = painted_egg(g, 0, (0.02, -0.04, 0.42), 1.25, rng, EGG_GOLD, name="basket_gold", glow=True, clickable=False)
+    gold["basket"] = "gold"
 
 
 def easter(t: Terrain):
     """Painted eggs for the Easter egg hunt (easter.ts), each its own part (egg_<i>) so it can be
-    found and taken away. The first sits out in the open; the others are tucked away round the
-    island, small, behind and under things."""
+    found and taken away. They're tucked away round the island, small, by and under things, but
+    always where you can see them. And the basket."""
     root = holiday("easter", "easter")
     rng = random.Random(4)
     for i, (x, y, size, z) in enumerate(EGGS):
-        shell, band = EGG_COLOURS[i % len(EGG_COLOURS)]
         if z == "summit":                                            # tied to the flagpole under the flag (the peak's rocks hide its foot)
             z = t.sample(*L.SUMMIT) + 1.95
-        g = group(f"egg_{i}", (x, y, t.sample(x, y) if z is None else z), rot_z=rng.uniform(0, math.tau), parent=root, id=f"egg_{i}")
-        g.scale = (size, size, size)
-        m = Model(f"egg_{i}")
-        tip = rng.uniform(-0.5, 0.5)                                 # lying a little on its side
-        m.ball(0.085, (0, 0, 0.1), shell, subdiv=2, scale=(1, 1, 1.3), rot=(tip, 0, 0))
-        m.cyl(0.088, 0.035, (0, 0, 0.1), band, segs=10, rot=(tip, 0, 0))
-        for k in range(3):                                           # dots
-            a = k * math.tau / 3
-            m.ball(0.018, (math.cos(a) * 0.08, math.sin(a) * 0.08, 0.15), band, subdiv=1)
-        m.build(g)
+        elif z == "table":                                           # the card table's top
+            z = t.sample(*L.CARD_TABLE) + 0.84
+        elif z == "gallery":                                         # the gallery's floor (buildings.lighthouse)
+            z = t.sample(*L.LIGHTHOUSE) + 9.22
+        elif z == "twig":                                            # in the splayed top of a twig (models.py's pricken)
+            z = max(t.sample(x, y) + 1.2, 1.1) - 0.02
+        painted_egg(root, i, (x, y, t.sample(x, y) if z is None else z), size, rng)
+    import dressing                                                  # the rooms' eggs, for the basket's count
+    egg_basket(t, root, len(EGGS) + sum(dressing.ROOM_EGGS.values()))
 
 
 # --- the New Year's dive ------------------------------------------------------------------------------

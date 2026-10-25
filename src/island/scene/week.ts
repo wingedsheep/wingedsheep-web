@@ -28,8 +28,8 @@ export interface WeekWorld {
   rain: number; // 0..1
   wind: number; // m/s
   windDir: THREE.Vector2; // which way it blows (world x, z; unit)
-  /** Vincent, when he's on the beach with the kite: whose hands the line runs from. */
-  flyer: THREE.Object3D | null;
+  /** Whoever's on the beach with the kite: whose hands the line runs from (`hand`, in their own frame). */
+  flyer: { body: THREE.Object3D; hand: THREE.Vector3 } | null;
 }
 
 export type WeekSound = 'toot' | 'gull' | 'toll' | 'toll-low' | 'aroo';
@@ -37,7 +37,7 @@ export type WeekSound = 'toot' | 'gull' | 'toll' | 'toll-low' | 'aroo';
 /**
  * The island's week (scene/calendar.ts has the days): the washing out on a Monday, the post boat on
  * Tuesdays and Fridays, a trawler working offshore on a Wednesday with every gull on the island
- * after it, drinks by the fire on a Friday evening, a kite on a windy Sunday and the church bell
+ * after it, drinks by the fire on a Friday evening, a kite on any windy day and the church bell
  * across the water before ten; and at noon on the first Monday of the month, the siren test.
  * Vincent's part in it (fetching the post, flying the kite, the Saturday at his workbench) is in
  * vincent.ts; the lie-ins are in bedtime.ts.
@@ -64,7 +64,7 @@ export class Week {
     if (occasions.has('washday')) this.laundry = new Laundry(island);
     if (occasions.has('postday')) this.boat = new PostBoat(island, particles);
     if (occasions.has('trawler')) this.trawler = new Trawler(scene, island, gull, particles);
-    if (occasions.has('sunday')) this.kite = new Kite(island);
+    this.kite = new Kite(island);
     for (const id of ['borrel', 'borrel_mug']) {
       const o = island.get(id);
       if (o) this.borrel.push(o);
@@ -432,14 +432,21 @@ class Trawler {
   }
 }
 
-// --- Sunday: the kite ---------------------------------------------------------------------------------
+// --- A windy day: the kite -------------------------------------------------------------------------------
 
-const HAND = V(0, 1.95, 0.25); // a little in front of his raised hands, in the flyer's own frame
+/** A little in front of his raised hands, in his own frame (hers is companion.ts's). */
+export const HIS_HAND = V(0, 1.95, 0.25);
 const REACH = 11; // metres of line out
 
+/** A windy, dry day, by day: kite weather (vincent.ts, companion.ts). */
+export const kiteWeather = (hour: number, night: number, rain: number, wind: number) =>
+  hour >= 10 && hour < 17.5 && night < 0.4 && rain < 0.1 && wind >= 4 && wind < 14;
+/** There's the one kite: whether he or she has it out (or is on the way down to the beach with it). */
+export const kiteOut = { vincent: false, companion: false };
+
 /**
- * The kite (week.py `kite`), when Vincent's out on the beach with it on a windy Sunday: up
- * downwind of him on its line, ducking and climbing in the gusts, its tail snaking about under it.
+ * The kite (week.py `kite`), when he or she is out on the beach with it on a windy day: up
+ * downwind of them on its line, ducking and climbing in the gusts, its tail snaking about under it.
  */
 class Kite {
   private kite?: THREE.Object3D;
@@ -457,7 +464,7 @@ class Kite {
     const kite = this.kite;
     const line = this.line;
     if (!kite || !line) return;
-    const flying = !!w.flyer?.visible;
+    const flying = !!w.flyer?.body.visible;
     this.up = flying ? Math.min(1, this.up + dt / 6) : 0;
     kite.visible = line.visible = flying;
     if (!flying || !w.flyer) {
@@ -466,8 +473,8 @@ class Kite {
       return;
     }
     const t = performance.now() / 1000;
-    const hand = w.flyer.localToWorld(HAND.clone());
-    // downwind of him, up at an angle that climbs as it goes up and the wind holds it
+    const hand = w.flyer.body.localToWorld(w.flyer.hand.clone());
+    // downwind of them, up at an angle that climbs as it goes up and the wind holds it
     const down = V(w.windDir.x, 0, w.windDir.y).normalize();
     const lift = 0.35 + this.up * 0.5 + Math.min(0.2, w.wind / 60) + Math.sin(t * 0.7) * 0.06 + Math.sin(t * 2.3) * 0.03;
     const across = V(-down.z, 0, down.x).multiplyScalar(Math.sin(t * 0.4) * 2.5 + Math.sin(t * 1.7) * 0.6);
@@ -482,7 +489,7 @@ class Kite {
       this.tail.rotation.x = Math.sin(t * 2.1) * 0.3;
       this.tail.rotation.z = Math.sin(t * 1.6 + 1) * 0.4;
     }
-    // the line: a thread from his hands to the kite
+    // the line: a thread from their hands to the kite
     const d = at.clone().sub(hand);
     line.position.copy(hand);
     line.quaternion.setFromUnitVectors(V(0, 1, 0), d.clone().normalize());

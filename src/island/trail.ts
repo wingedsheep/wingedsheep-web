@@ -10,7 +10,7 @@ import type { IslandContext } from './content';
 import type { RoomInput } from './scene/camera-rig';
 import { Diorama } from './scene/diorama';
 import type { PixelRenderer } from './scene/pixel-renderer';
-import type { UI } from './ui';
+import { type UI, keepQuery } from './ui';
 
 const FADE = 0.35; // seconds for the iris to close (and again to open)
 const NO_SHIFT = new THREE.Vector2();
@@ -110,7 +110,7 @@ export class Trail implements RoomInput {
     const next = Math.min(Math.max(index, 0), chapters.length - 1);
     if (next === this.index && this.open) return;
     this.index = next;
-    if (this.open) history.replaceState(null, '', `/#trail/${this.chapter.id}`);
+    if (this.open) history.replaceState(null, '', keepQuery(`/#trail/${this.chapter.id}`));
     this.show(instant);
   }
 

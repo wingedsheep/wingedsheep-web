@@ -1047,15 +1047,16 @@ export class Sound {
 
   /**
    * Halloween's graveyard: one of the dead groaning, the ghost's long wooo, the bats squeaking
-   * round the lamp, a spider skittering. `volume` falls off with distance; `pan` is across the
+   * round the lamp, a spider skittering, the witch's cauldron blubbing. `volume` falls off with distance; `pan` is across the
    * screen. Until the recordings are in, a synthesised stand-in.
    */
-  haunt(kind: 'groan' | 'moan' | 'bats' | 'skitter', volume = 1, pan = 0) {
+  haunt(kind: 'groan' | 'moan' | 'bats' | 'skitter' | 'bubble', volume = 1, pan = 0) {
     if (!this.enabled || !this.outdoors || this.play(kind, volume, { pan }) || !this.ctx) return;
     const t = this.ctx.currentTime;
     if (kind === 'groan') this.tone(t, 'sawtooth', [[0, 110], [0.5, 92], [1.3, 70]], 0.05 * volume, 1.5, 500);
     else if (kind === 'moan') this.tone(t, 'sine', [[0, 330], [0.8, 520], [1.8, 300]], 0.05 * volume, 2.2);
     else if (kind === 'bats') for (let i = 0; i < 5; i++) this.tone(t + i * 0.11 + Math.random() * 0.05, 'sine', [[0, 5200], [0.04, 3800]], 0.02 * volume, 0.06);
+    else if (kind === 'bubble') for (let i = 0; i < 6; i++) this.tone(t + i * 0.13 + Math.random() * 0.08, 'sine', [[0, 180 + Math.random() * 120], [0.07, 520 + Math.random() * 300]], 0.05 * volume, 0.09);
     else for (let i = 0; i < 8; i++) this.tone(t + i * 0.035, 'square', [[0, 2600 + Math.random() * 900]], 0.012 * volume, 0.02, 4000);
   }
 

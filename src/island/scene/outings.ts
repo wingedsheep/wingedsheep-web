@@ -101,9 +101,14 @@ export interface Pose {
   hold: number; // 0..1: the left hand up in front, looking at what's in it
   mug: boolean;
   sip: number; // 0..1
+  /** On the phone (her): the right arm up, the phone at her ear (companion.ts). */
+  phone?: boolean;
+  /** 0..1: both hands up on a kite's line (her, companion.ts), with a tug on it (0..1). */
+  line?: number;
+  tug?: number;
 }
 
-const REST: Pose = { walk: 0, phase: 0, crouch: 0, lean: 0, look: 0, turn: 0, behind: 0, reach: 0, hold: 0, mug: false, sip: 0 };
+export const REST: Pose = { walk: 0, phase: 0, crouch: 0, lean: 0, look: 0, turn: 0, behind: 0, reach: 0, hold: 0, mug: false, sip: 0 };
 
 /** Someone on their feet (outings.py `vincent_walker`, `companion_walker`), posed part by part. */
 export class Walker {
@@ -169,17 +174,25 @@ export class Walker {
     // arms: swinging, or behind the back / folded, the left reaching down or holding something
     // up, the right with the mug (kept upright in the hand) and up to the mouth for a sip
     const behind = p.behind * (1 - p.walk);
+    const line = p.line ?? 0;
+    const pull = line * (2.3 + (p.tug ?? 0) * 0.35);
     const fold = this.folded ? -0.55 : 0.4;
     const inward = this.folded ? 0.45 : 0.25;
     const left = this.part('arm_l');
     if (left) {
-      const free = -s * 0.8 * (1 - p.hold) * (1 - p.reach);
-      left.rotation.set(free + behind * fold - p.reach * 0.7 - p.hold * 1.35 - p.crouch * 0.3, 0, -behind * inward - p.hold * 0.25);
+      const free = -s * 0.8 * (1 - p.hold) * (1 - p.reach) * (1 - line);
+      left.rotation.set(free + behind * fold - p.reach * 0.7 - p.hold * 1.35 - p.crouch * 0.3 - pull, 0, -behind * inward - p.hold * 0.25 - line * 0.15);
     }
     const right = this.part('arm_r');
+    const call = this.part('arm_phone');
+    if (call) {
+      call.visible = !!p.phone;
+      call.rotation.set(p.crouch * -0.3, 0, 0);
+    }
+    if (right) right.visible = !p.phone || !call;
     if (right) {
-      const carry = p.mug ? -0.75 - p.sip * 1.55 : s * 0.8 + behind * fold;
-      right.rotation.set(carry, 0, (p.mug ? 0.12 + p.sip * 0.25 : behind * inward));
+      const carry = p.mug ? -0.75 - p.sip * 1.55 : s * 0.8 * (1 - line) + behind * fold - pull;
+      right.rotation.set(carry, 0, (p.mug ? 0.12 + p.sip * 0.25 : behind * inward + line * 0.15));
       const mug = this.part('mug');
       if (mug) {
         mug.visible = p.mug;

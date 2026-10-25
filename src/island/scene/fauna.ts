@@ -37,6 +37,8 @@ const daylit = (e: Env) => e.night < 0.35;
 export type Call = 'chirp' | 'gull' | 'hoot' | 'quack' | 'honk' | 'blow' | 'baa' | 'chatter' | 'splash' | 'chord' | 'boom' | 'firework' | 'roar' | 'mew' | 'tap' | 'lap' | 'sip' | 'grind' | 'brew' | 'crunch'
   | 'heron' | 'fox' | 'bellow' | 'hind' | 'thump' | 'snuffle' | 'plop' | 'ufo' | 'rocket' | 'fizz' | 'whistle' | 'staff' | 'tink' | 'dolphin' | 'puff' | 'dip'
   | 'bounce' | 'pant' | 'whine' | 'mrrp' | 'flurry' | 'clink' | 'stroke' | 'jump' | 'bottle'
+  // the workshop robot, out on an odd job (chores.ts): setting off, a beep, a clank as it trips
+  | 'robot-servo' | 'robot-beep' | 'robot-clank'
   // the small wanderer: her call as she dashes off, and a word now and then by the fire
   | 'ewa' | 'chat'
   | 'twinkle' | 'shimmer' | 'reel' | 'giggle' | 'hush'

@@ -31,7 +31,7 @@ export interface CanopyMarker {
 }
 
 export interface Emitter {
-  kind: 'smoke' | 'embers' | 'petals' | 'sparkle';
+  kind: 'smoke' | 'embers' | 'petals' | 'sparkle' | 'brew';
   position: THREE.Vector3;
   owner?: string; // id of the named thing it belongs to (e.g. "hut", for its chimney)
 }

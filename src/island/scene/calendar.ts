@@ -3,7 +3,7 @@
  * (tools/models/holidays.py builds them, each under a root tagged with its occasion, and
  * Island drops the ones that aren't today's):
  *
- *   easter        Easter Sunday and Monday: eggs hidden in the grass, and Beike after them (easter.ts)
+ *   easter        Easter Sunday and Monday: an egg hunt all over the island and indoors, and Beike after them (easter.ts)
  *   kingsday      27 April (the 26th when the 27th is a Sunday), and Koningsnacht before it: orange
  *                 bunting, a vrijmarkt
  *   remembrance   4 May: the summit flag at half-mast from six, and at eight two minutes' silence
@@ -36,7 +36,7 @@
  *   trawler       Wednesdays: a trawler working offshore, and every gull on the island after it
  *   friday        Friday evening: drinks by the fire, and nobody in a hurry to go to bed
  *   saturday      Saturdays: Vincent at the workbench, and sawdust on the workshop floor
- *   sunday        Sundays: a lie-in, pancakes, a church bell across the water, a kite if it's windy
+ *   sunday        Sundays: a lie-in, pancakes, a church bell across the water
  *
  * To preview: ?holiday=kingsday (any of the above), or ?date=2026-12-05.
  */
@@ -314,7 +314,7 @@ export function greeting(): string | null {
     sinterklaas: 'It’s pakjesavond: there are presents on the pier, and something in the clog by the fire.',
     arrival: 'Sinterklaas has arrived! His steamboat came in this morning and is tied up at the pier.',
     dive: 'Happy New Year! At noon Vincent is going into the sea. He says so every year.',
-    easter: 'Happy Easter! There are eggs hidden in the grass. Beike knows.',
+    easter: 'Happy Easter! There are eggs hidden all over the island, indoors too. Beike knows.',
     remembrance: 'It’s the fourth of May. At eight tonight the whole country is quiet for two minutes, and so is the island.',
     liberation: 'Happy Liberation Day! The flag’s back up, with a bit of bunting on it.',
     airborne: 'It’s the Airborne commemoration this weekend, Arnhem’s own. Keep an eye on the sky: the Dakotas still come over, and they still jump.',

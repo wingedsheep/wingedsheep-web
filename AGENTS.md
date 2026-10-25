@@ -26,8 +26,10 @@
   visuals in the browser, at normal zoom and zoomed in.
 - Preview a moment with query params: `?time=`, `?season=`, `?date=`, `?holiday=`,
   `?weather=` (and `&k=`, `&wind=`, `&temp=`), `?animal=`, `?vincent=`, `?companion=` (`=stroll` for a walk),
-  `?meal=` (`breakfast`, `pasta`, `miso`, `curry`, `risotto`, `pizza`, `gourmet`; `&where=hut|fire`), `?walk=gluhwein`,
-  `?play=snow` (a snowman, then snowballs; it brings its own snow), `?swim` (both in the sea: `scene/swim.ts`; `&beike=swim` and he comes in too), `?outfit=` (what they wear: `scene/wardrobe.ts`).
+  `?meal=` (`breakfast`, `pasta`, `miso`, `curry`, `risotto`, `pizza`, `gourmet`; `&where=hut|fire`), `?walk=gluhwein` (`=together` for a walk without), `?coffee` (the two of them on the bench),
+  `?play=snow` (a snowman, then snowballs; it brings its own snow), `?swim` (both in the sea: `scene/swim.ts`; `&beike=swim` and he comes in too), `?outfit=` (what they wear: `scene/wardrobe.ts`),
+  `?vincent=surf` (on his board at the break east of the pier, with a swell of its own: `scene/surf.ts`),
+  `?robot=` (the workshop robot out at a job, `leaves`, `sweep`, `shovel`, `beach`, `water`, `mow`, or its own time, `sea`, `stones`, `dance`: `scene/chores.ts`).
 - Visitor progress lives in `localStorage` under `wingedsheep:*` (the journal is
   `wingedsheep:found`). When testing in the user's browser, put it back afterwards.
 - `just sounds` reads the ElevenLabs key from `config.yaml`, which stays out of git.

@@ -2028,7 +2028,8 @@ def pumpkins():
         root = _root(f"pumpkin_{i}")
         m = Model(f"pumpkin_{i}", seed=2700 + i)
         for k, (x, y, r, carved) in enumerate(set_):
-            jack(m, (x, y, 0), r, carved, i * 0.9 + k * 0.6)
+            jack(m, (x, y, 0), r, carved, i * 0.9 + k * 0.6, kind=["fangs", "classic", "surprised", "toothy", "wink"][(i + k * 2) % 5],
+                 skin="white" if (i, k) == (1, 1) else "orange")
             if carved:
                 light(root, (x, y - r * 0.6, r * 0.7), CANDLE, 2.5 if r > 0.3 else 1.5, 0.6, flicker=1.0, halo=r > 0.3)
         m.build(root)

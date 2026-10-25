@@ -124,6 +124,7 @@ export class Hut implements RoomInput {
       .then((room) => this.pixels.warm(room.scene, room.camera).then(() => room))
       .then((room) => {
         this.room = room;
+        this.ctx.life.days.easter.adopt(room.named);
         room.onSound = (name, volume) => this.inside && this.ctx.sound.here(name, volume);
         if (room.guitarist) this.ctx.life.guitarists.add(room.guitarist); // strums along with the song
         this.resize();
@@ -138,6 +139,7 @@ export class Hut implements RoomInput {
 
   /** Go in (or out). `instant` skips the iris closing, e.g. coming straight from another room. */
   enter(inside: boolean, instant = false) {
+    this.ctx.life.days.easter.indoors('hut', inside);
     if (inside) void this.load();
     this.want = inside;
     if (instant) this.fade = inside === this.inside ? 0 : 1;

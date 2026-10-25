@@ -32,7 +32,10 @@ from __future__ import annotations
 import math
 
 import palette as P
-from holidays import CANDLE, PUMPKIN, PUMPKIN_DARK, WEB, jack, spider
+import random
+
+import holidays
+from holidays import CANDLE, PUMPKIN, PUMPKIN_DARK, WEB, jack, painted_egg, spider
 from kit import Model, group, light
 
 PAPER = "#1d1a24"           # black paper bats
@@ -438,6 +441,9 @@ def library(root):
     cauldron(h, "library_cauldron", (R.X0 + 0.9, R.HEARTH_Y, 0.12))
     heap(h, "library_heap", (1.1, R.Y0 + 0.9, 0), 0.5, 11)
     december_library(root)
+    easter(root, "library", [(R.PIANO_X + 0.55, R.Y1 - 0.3, 1.69, 1.5),          # on the piano's lid
+                              (R.WINDOW_X + 0.25, R.Y1 - 0.2, 1.5, 1.4),          # on the window sill
+                              (R.X0 + 0.85, R.HEARTH_Y + 0.55, 1.92, 1.4)])       # on the mantel, under the winged sheep
 
 
 def workshop(root):
@@ -456,6 +462,10 @@ def workshop(root):
     pumpkin_lights(h, "pumpkin_lights", (-4.6, R.Y1 - 0.3, 4.2), (2.3, R.Y1 - 0.3, 4.2), 17, sag=0.55, size=1.5)
     heap(h, "workshop_heap", (R.X0 + 0.75, -0.8, 0), 0.6, 12)                         # by the door
     december_workshop(root)
+    px, py = R.PAINT
+    easter(root, "workshop", [(4.45, R.Y1 - 0.75, 1.06, 1.5),                     # on his workbench, by the robot's spare head
+                              (px + 0.62, py - 0.18, 0.76, 1.4),                  # on her paint-by-numbers desk
+                              (R.X0 + 0.25, -1.7, 2.23, 1.4)])                    # on the shelf, by the clock with its insides out
 
 
 def quarters(root):
@@ -477,6 +487,10 @@ def quarters(root):
     w.build(h)
     dangling_spider(h, "lighthouse_spider", (R.X0 + 0.32, -1.0, R.H - 0.22), 2.6, wait=2.0)
     december_quarters(root)
+    dx, dy = R.DESK
+    easter(root, "quarters", [(dx + 0.62, dy - 0.12, 0.74, 1.4),                  # on the end of his desk
+                              (R.CASE_X1 - 0.35, R.Y1 - 0.25, top, 1.5),          # on top of the bookcase
+                              (2.55, R.Y1 - 0.325, 0.96, 1.4)])                   # in the kitchen sink
 
 
 def lamproom(root):
@@ -491,6 +505,8 @@ def lamproom(root):
     corner_web(w, (ca * (R.R - 0.15), sa * (R.R - 0.15), R.H - 0.15), (sa, -ca, 0), (-sa, ca, 0), 0.9)
     w.build(h)
     december_lamproom(root)
+    a = math.pi * 0.68
+    easter(root, "lamproom", [(math.cos(a) * (R.R + 0.1), math.sin(a) * (R.R + 0.1), R.KNEE, 1.5)])  # on the sill under the glass
 
 
 def hut(root):
@@ -513,6 +529,28 @@ def hut(root):
     broom(b, R.X0 + 0.25, -3.2, 0.2)
     b.build(h)
     december_hut(root)
+    sx, sy, step, shelf = R.POST_SHELF
+    easter(root, "hut", [(0.2, R.Y1 - 0.17, 3.75 - 0.25 - 0.09, 1.3),            # on the gable window's sill
+                         (sx + 0.12, sy + 5.2 * step, shelf, 1.3),                 # at the end of the post shelf over the coats
+                         (R.X1 - 1.15, -2.98, 0.455, 1.4)])                        # on the chopping block, by the axe
+
+
+# --- Easter: eggs hidden indoors too -------------------------------------------------------------
+
+# How many eggs each room hides: they're numbered on from the island's (holidays.EGGS), room by
+# room in this order, the same as easter.ts's HIDES
+ROOM_EGGS = {"library": 3, "workshop": 3, "quarters": 3, "lamproom": 1, "hut": 3}
+
+
+def easter(root, room: str, spots):
+    """The room's eggs for the Easter egg hunt, at (x, y, z, scale): out on things, where you can
+    see them from the door."""
+    assert len(spots) == ROOM_EGGS[room]
+    first = len(holidays.EGGS) + sum(n for r, n in ROOM_EGGS.items() if list(ROOM_EGGS).index(r) < list(ROOM_EGGS).index(room))
+    h = group(f"{room}_easter", parent=root, holiday="easter")
+    rng = random.Random(first)
+    for k, (x, y, z, size) in enumerate(spots):
+        painted_egg(h, first + k, (x, y, z), size, rng)
 
 
 # --- December: Sinterklaas, then Christmas --------------------------------------------------------

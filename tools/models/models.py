@@ -5,6 +5,7 @@ import math
 import random
 
 import bpy
+import numpy as np
 
 import beike
 import boardgames
@@ -12,6 +13,7 @@ import buildings
 import camping
 import cats
 import characters
+import chores
 import companion
 import fauna
 import holidays
@@ -20,11 +22,13 @@ import nature
 import outings
 import pastimes
 import props
+import routines
 import running
 import snowplay
+import surf
 import week
 from kit import group
-from terrain import Terrain
+from terrain import GX, GY, Terrain
 
 
 def place(t: Terrain, name: str, x: float, y: float, build, rot_z=0.0, z=None, **extras):
@@ -32,6 +36,41 @@ def place(t: Terrain, name: str, x: float, y: float, build, rot_z=0.0, z=None, *
     root = group(name, (x, y, t.sample(x, y) if z is None else z), rot_z=rot_z, **extras)
     build(root)
     return root
+
+
+def round_the_island(t: Terrain, spacing=2.0):
+    """The kayak's way round: KAYAK_OFFSHORE out from the coast, the pier and the birch twigs, all the
+    way round anticlockwise from the put-in, a point every `spacing` metres (the runtime smooths it).
+    Out from the middle in every direction to the last water that close in, then evened out."""
+    pier = np.hypot(np.maximum(np.abs(GX - L.DOCK[0]) - 1.1, 0),
+                    np.maximum(GY - (L.DOCK[1] + 1.0), 0) + np.maximum(L.DOCK[1] + 1.0 - L.DOCK_LEN - GY, 0))
+    twigs = np.min([np.hypot(GX - x, GY - y) for x, y in L.PRICKEN], axis=0)
+    near = np.minimum(np.minimum(t.shore * 14.0, pier), twigs) <= L.KAYAK_OFFSHORE
+    X0, Y0, X1, Y1 = L.EXTENT
+    cx, cy = 0.0, -1.0
+    ring = []
+    for k in range(360):
+        a = math.radians(k)
+        out = (cx, cy)
+        for r in np.arange(1.0, 60.0, 0.1):
+            x, y = cx + r * math.cos(a), cy + r * math.sin(a)
+            ix, iy = int(round((x - X0) / L.CELL)), int(round((y - Y0) / L.CELL))
+            if not (0 <= ix < GX.shape[1] and 0 <= iy < GX.shape[0]):
+                break
+            if near[iy, ix]:
+                out = (x, y)
+        ring.append(out)
+    ring = np.array(ring)
+    for _ in range(3):
+        ring = (np.roll(ring, 1, 0) + 2 * ring + np.roll(ring, -1, 0)) / 4
+    # from the put-in, evenly spaced
+    start = int(np.argmin(np.hypot(*(ring - L.KAYAK_PUT_IN).T)))
+    ring = np.roll(ring, -start, 0)
+    ring = np.vstack([ring, ring[:1]])
+    along = np.concatenate([[0], np.cumsum(np.hypot(*np.diff(ring, axis=0).T))])
+    n = int(along[-1] / spacing)
+    at = np.linspace(0, along[-1], n, endpoint=False)
+    return list(zip(np.interp(at, along, ring[:, 0]), np.interp(at, along, ring[:, 1])))
 
 
 def landmarks(t: Terrain):
@@ -55,9 +94,11 @@ def landmarks(t: Terrain):
     # Vincent sits on the far side of the fire, facing it and the default camera, clear of the trees
     place(t, "vincent", cx + 0.2, cy + 2.2, characters.vincent, rot_z=-0.1, id="vincent")
     place(t, "log", cx + 0.2, cy + 2.2, characters.log, rot_z=-0.1)                  # his seat, there when he isn't
-    # out in the kayak (the runtime paddles him round the loop, and hides the moored one)
-    (kx, ky), rx, ry = L.KAYAK_LOOP
-    place(t, "vincent_kayak", kx, ky, characters.vincent_kayak, z=0.05, id="vincent_kayak", loop_rx=rx, loop_ry=ry)
+    # out in the kayak (the runtime paddles him round the island, and hides the moored one)
+    way = round_the_island(t)
+    place(t, "vincent_kayak", *way[0], characters.vincent_kayak, z=0.05, id="vincent_kayak")
+    for i, (x, y) in enumerate(way):
+        group(f"route_kayak_{i}", (x, y, 0.05), route="kayak", step=i, fixed=1)
     # doing yoga on the grass by the beach, sometimes with her on the next mat
     # (facing east, side-on to the default camera, so you can see a downward dog for what it is)
     place(t, "vincent_yoga", *L.YOGA, characters.vincent_yoga, rot_z=math.pi / 2, id="vincent_yoga")
@@ -130,7 +171,7 @@ def shelter(t: Terrain):
     the island till then) and the routes they and Beike take indoors, as markers."""
     white = dict(coat=cats.P.CAT_WHITE, patch=cats.P.GINGER, cap=cats.P.GINGER, tail=cats.P.GINGER, socks=cats.P.CAT_WHITE)
     cats.walker(group("charlie_walk", (0, 0, -20)), "charlie", size=0.9, **white)
-    cats.walker(group("george_walk", (0, 0, -20)), "george", size=1.2, eyes="#c9b560", **white)
+    cats.walker(group("george_walk", (0, 0, -20)), "george", size=1.05, eyes="#c9b560", **white)
     cats.walker(group("cat_walk", (0, 0, -20)), "cat", coat=cats.P.CAT, patch=None, cap=cats.P.CAT, tail=cats.P.CAT,
                 socks=cats.P.CAT_WHITE, bib=cats.P.CAT_WHITE, eyes="#e0c050")
     for name, points in L.SHELTER.items():
@@ -328,7 +369,8 @@ def scatter(t: Terrain, seed=11, plan: Terrain | None = None):
                 n -= 1
                 if not n:
                     break
-    nature.bulbs(group("bulbs"), patches, lawn, seed + 1)
+    gx, gy = L.CAMPFIRE[0] + 2.5, L.CAMPFIRE[1] + 3.0                  # none through the guitar case
+    nature.bulbs(group("bulbs"), patches, lambda x, y: None if math.hypot(x - gx, y - gy) < 1.3 else lawn(x, y), seed + 1)
 
 
 def populate(t: Terrain, plan: Terrain | None = None):
@@ -343,3 +385,6 @@ def populate(t: Terrain, plan: Terrain | None = None):
     camping.populate(t)
     boardgames.populate(t)
     running.populate(t)
+    chores.populate(t)
+    routines.populate(t)
+    surf.populate(t)

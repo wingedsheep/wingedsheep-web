@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { fridayNight } from './bedtime';
 import { Beike, HANGOUTS, type Hangout } from './beike';
 import { Bottle } from './bottle';
+import { Chores } from './chores';
 import { Companion } from './companion';
 import { Days } from './days';
 import { Fauna } from './fauna';
@@ -17,9 +18,10 @@ import { Shelter, indoors, type Waypoint } from './shelter';
 import type { Sky } from './sky';
 import { Vincent } from './vincent';
 import { Pastimes } from './pastimes';
+import { fetching } from './routines';
 import { Ways } from './ways';
 import { windDir } from './grass';
-import { Week } from './week';
+import { HIS_HAND, Week } from './week';
 import { showSpread, table } from './meals';
 
 /** The campfire's light and embers when it burns blue (fiction.ts). */
@@ -43,6 +45,10 @@ const SHEEP_PASS = 30; // seconds for the winged sheep to cross the island
 const q = new THREE.Quaternion();
 const axis = new THREE.Vector3();
 const MOUTH = new THREE.Vector3();
+// the tops of the mugs on the bench, in their forearms' frames (routines.py, companion.py bench_tea)
+const ZERO = new THREE.Vector3();
+const BENCH_CUP = new THREE.Vector3(0.15, 0.15, 0.46);
+const BENCH_MUG = new THREE.Vector3(0, 0.24, 0.3);
 /** Beike's way over to the campfire from his meadow (Blender x, y: tools/models/layout.py), round the west log. */
 const TO_THE_FIRE: [number, number][] = [[-8.5, -10.5], [-3, -9.8], [3.6, -9.5], [9, -11], [15, -10.5], [21, -6], [23.6, -2.4], [24.7, 1.5]];
 const FACING = new THREE.Vector3();
@@ -92,6 +98,8 @@ export class Life {
   private nextUfo = rand(20, 60);
   /** On Halloween, bats round the lighthouse lamp (holidays.py): out only after dark, and not in a storm. */
   private bats?: THREE.Object3D;
+  /** On Halloween, will-o'-the-wisps over the meadow (holidays.py): after dark only, and not in a storm. */
+  private wisps?: THREE.Object3D;
   private mixer: THREE.AnimationMixer;
   private idles = new Map<string, THREE.AnimationAction>();
   readonly beike: Beike;
@@ -107,6 +115,8 @@ export class Life {
   readonly pastimes: Pastimes;
   /** Every way across the island, for getting from one thing to the next with someone watching (ways.ts). */
   readonly ways: Ways;
+  /** The workshop robot, out on an odd job (chores.ts; main.ts runs it). */
+  readonly chores: Chores;
   /** The gull with its eye on Vincent's dinner: see mischief.ts. */
   readonly mischief: Mischief;
   /** A message in a bottle, now and then: see bottle.ts. */
@@ -129,6 +139,8 @@ export class Life {
   /** Seconds since the music stopped (or Vincent left the fire), so Beike can get up and go. */
   private quiet = 0;
   private kick = 0;
+  /** Seconds Vincent's been out in the meadow with no Beike coming. */
+  private unplayed = 0;
   /** Friday evening, between songs: a swig of his IPA now and then (0..1 through one), and the wait till the next. */
   private swig = { t: 0, next: rand(4, 10) };
   /** Where Beike lies down for a fuss, and his head's way (in front of whoever's kneeling in his meadow). */
@@ -186,6 +198,7 @@ export class Life {
     this.ufo = island.get('ufo');
     if (this.ufo) this.ufo.visible = false;
     this.bats = island.get('bats');
+    this.wisps = island.get('wisps');
     this.beike = new Beike(island);
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
     this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours(), this.fauna.template('mouse'));
@@ -206,6 +219,8 @@ export class Life {
       lines.renderOrder = 9;
       scene.add(lines);
     }
+    this.chores = new Chores(island, this.beike.ground, this.ways, this.particles);
+    this.chores.onSound = (call, at) => this.fauna.onCall?.(call, at, true);
     this.pastimes.hammock.onSnore = (at) => this.floaters.add('zzz', at);
     this.companion = new Companion(island, this.beike.ground, this.pastimes, this.ways);
     this.vincent = new Vincent(island, this.beike.ground, this.pastimes, this.ways);
@@ -260,6 +275,9 @@ export class Life {
       b.onSplash = (at, big) => this.splash(at, big);
       b.onSound = (call, at, loud) => this.fauna.onCall?.(call, at, true, loud);
     }
+    // out on his board (surf.ts): the water flies when he paddles, and when he comes off
+    this.vincent.surfer.onSplash = (at, big) => this.splash(at, big);
+    this.vincent.surfer.onSound = (call, at, loud) => this.fauna.onCall?.(call, at, true, loud);
     this.beike.onSpray = (at, kind) => (kind === 'shake' ? this.shake(at) : this.splash(at, kind === 'in'));
     this.bottle.onGlint = (at) => {
       if (this.sky.lamps > 0.6) return; // no sun to catch at night
@@ -369,6 +387,7 @@ export class Life {
     if (cat) cat.scale.set(1, 1 + Math.sin(t * 1.8) * 0.04, 1);
 
     if (this.bats) this.bats.visible = night > 0.5 && this.storm < 0.5;
+    if (this.wisps) this.wisps.visible = night > 0.4 && this.storm < 0.5;
     this.mixer.update(dt);
     this.flinch();
     this.hutFlag();
@@ -381,11 +400,12 @@ export class Life {
     this.fuss(dt);
     this.beike.update(dt);
     this.fetchAtTheFire(dt);
+    this.routines(dt);
     this.outAndAbout(dt);
     this.dogPaddle(dt);
     this.week.update(dt, {
       time: this.sky.time, night, rain: this.rain, wind: this.wind, windDir: windDir.value,
-      flyer: this.vincent.spot === 'kite' ? (this.vincent.errands.body ?? null) : null,
+      flyer: this.vincent.spot === 'kite' && this.vincent.errands.body ? { body: this.vincent.errands.body, hand: HIS_HAND } : this.companion.flyer,
     });
     this.beike.siren = this.week.siren;
     // on a Wednesday every gull on the island is out after the trawler, and the wrap is safe
@@ -488,13 +508,37 @@ export class Life {
   }
 
   /**
+   * Vincent out in Beike's meadow with the ball: Beike comes over and they play (beike.ts
+   * `playWith`, routines.ts `Thrower`); if he doesn't come, Vincent gives it up. And the two of them
+   * on the bench of a morning: the cats stay put, and Charlie, if he's asleep in her place, is on
+   * her lap.
+   */
+  private routines(dt: number) {
+    const v = this.vincent;
+    const beike = this.beike;
+    fetching.open = beike.free;
+    const throwing = v.spot === 'ball';
+    beike.playWith(throwing ? v.thrower.at : null);
+    if (throwing) {
+      v.thrower.update(dt, beike);
+      this.unplayed = beike.playing ? 0 : this.unplayed + dt;
+      if (this.unplayed > 25) v.enough('ball');
+    } else this.unplayed = 0;
+    const hers = this.companion.where === 'coffee';
+    this.shelter.company = hers || v.spot === 'coffee';
+    this.shelter.lap = hers;
+    const lap = this.island.get('companion_coffee')?.getObjectByName('companion_bench_charlie');
+    if (lap) lap.visible = this.shelter.charlieOnLap;
+  }
+
+  /**
    * Someone on their knees by the bench or in the meadow (petting.ts): George stretches out into
    * it now and then, and Beike comes over and lies down in front of them. Neither's there to be
    * petted while they're in out of the rain.
    */
   private fuss(dt: number) {
     petting.there.cats = this.shelter.onTheBench;
-    petting.there.beike = !this.beike.sheltering && !this.beike.inside && this.beike.inMeadow;
+    petting.there.beike = !this.beike.sheltering && !this.beike.inside && this.beike.inMeadow && !this.beike.playing;
     this.beike.lap = petting.by.beike ? (this.lap ?? null) : null;
     if (petting.by.cats && this.every('george:fuss', 9, dt)) this.pet('george');
   }
@@ -821,10 +865,12 @@ export class Life {
 
   /** Steam curling up off their mugs of glühwein, out on a cold walk. */
   private gluhwein(dt: number, night: number) {
-    for (const id of ['vincent_stroll', 'companion_stroll']) {
-      const mug = this.island.get(id)?.getObjectByName(id === 'vincent_stroll' ? 'stroll_mug' : 'companion_stroll_mug');
+    // the glühwein on a walk, and the coffee and the tea on the bench (from the forearm, out to the mug)
+    for (const [id, part, top] of [['vincent_stroll', 'stroll_mug', ZERO], ['companion_stroll', 'companion_stroll_mug', ZERO],
+      ['vincent_coffee', 'bench_cup', BENCH_CUP], ['companion_coffee', 'companion_bench_mug', BENCH_MUG]] as const) {
+      const mug = this.island.get(id)?.getObjectByName(part);
       if (!mug || !this.island.get(id)!.visible || !mug.visible || !this.every(`steam:${id}`, 0.45, dt)) continue;
-      const at = mug.getWorldPosition(MOUTH).add(V(rand(-0.03, 0.03), 0.1, rand(-0.03, 0.03)));
+      const at = mug.localToWorld(MOUTH.copy(top)).add(V(rand(-0.03, 0.03), 0.1, rand(-0.03, 0.03)));
       this.particles.emit({
         position: at,
         velocity: V(this.drift.x * 0.15 + rand(-0.05, 0.05), rand(0.25, 0.4), this.drift.y * 0.15 + rand(-0.05, 0.05)),
@@ -879,6 +925,9 @@ export class Life {
       } else if (e.kind === 'sparkle' && this.every(key, 0.3, dt)) {
         // the cairns on the trail: a few golden motes rise round each token, so they catch the eye
         p.emit({ position: e.position.clone().add(V(rand(-0.6, 0.6), rand(-0.2, 0.4), rand(-0.6, 0.6))), velocity: V(rand(-0.1, 0.1), rand(0.4, 0.7), rand(-0.1, 0.1)), color: rand(0, 1) < 0.7 ? '#ffe28a' : '#fffbe6', life: rand(1.4, 2.2), wobble: 0.3 });
+      } else if (e.kind === 'brew' && this.every(key, 0.25, dt)) {
+        // the witch's cauldron (holidays.py): green fumes curling up off the brew, the odd pale one
+        p.emit({ position: e.position.clone().add(V(rand(-0.3, 0.3), 0, rand(-0.3, 0.3))), velocity: V(rand(-0.1, 0.1), rand(0.35, 0.6), rand(-0.1, 0.1)), color: rand(0, 1) < 0.75 ? '#8cff5a' : '#e2ffb8', life: rand(1.6, 2.6), size: rand(0, 1) < 0.3 ? 2 : undefined, wobble: 0.6 });
       } else if (e.kind === 'petals' && season.blossom > 0.05 && this.every(key, 0.8 / season.blossom, dt)) {
         p.emit({ position: e.position.clone().add(V(rand(-1.5, 1.5), rand(0, 1), rand(-1.5, 1.5))), velocity: V(rand(0.2, 0.6), -rand(0.3, 0.6), rand(-0.2, 0.2)), color: '#f6cfdc', life: 5, wobble: 0.6 });
       }

@@ -60,7 +60,44 @@ export function litter(trees: CanopyMarker[], groundAt: (x: number, z: number) =
   mesh.frustumCulled = false;
   mesh.raycast = () => {};
   mesh.userData.leaves = leaves.length;
+  mesh.userData.spots = leaves.map((l) => [l.x, l.z]);
   return mesh;
+}
+
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+
+/**
+ * Pick up to `n` of the leaves lying within `r` of (x, z), nearest first: gone for the rest of
+ * the visit (into the robot's sack, chores.ts). Returns how many it got.
+ */
+export function gather(mesh: THREE.InstancedMesh, x: number, z: number, r: number, n = 1) {
+  const spots = mesh.userData.spots as ([number, number] | null)[] | undefined;
+  if (!spots) return 0;
+  const near: [number, number][] = [];
+  for (let i = 0; i < mesh.count; i++) {
+    const s = spots[i];
+    if (!s) continue;
+    const d = Math.hypot(s[0] - x, s[1] - z);
+    if (d < r) near.push([d, i]);
+  }
+  near.sort((a, b) => a[0] - b[0]);
+  for (const [, i] of near.slice(0, n)) {
+    spots[i] = null;
+    mesh.setMatrixAt(i, ZERO);
+  }
+  if (near.length) mesh.instanceMatrix.needsUpdate = true;
+  return Math.min(n, near.length);
+}
+
+/** How many leaves are lying within `r` of (x, z). */
+export function lying(mesh: THREE.InstancedMesh, x: number, z: number, r: number) {
+  const spots = mesh.userData.spots as ([number, number] | null)[] | undefined;
+  let k = 0;
+  for (let i = 0; spots && i < mesh.count; i++) {
+    const s = spots[i];
+    if (s && Math.hypot(s[0] - x, s[1] - z) < r) k++;
+  }
+  return k;
 }
 
 /** Show as much of a carpet as is lying: `amount` 0..1 of its leaves. */

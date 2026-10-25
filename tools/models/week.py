@@ -9,9 +9,8 @@ so it only comes out on its day; the ones that move are parked out of sight till
   trawler   Wednesdays: a trawler, outriggers down, working offshore (`trawler`)
   friday    a crate of beer by the fire and a second mug (`borrel`), for the evening; her
             beer and his IPA come with them (companion.py `fireside`, characters.py `ipa`)
-  sunday    a kite (`kite`) and its line (`kite_line`, a metre long up its z, for the runtime to stretch)
-
-and, on any day, Vincent on his feet with nothing in his hands (`vincent_about`), for fetching the
+and, on any day, a kite (`kite`) and its line (`kite_line`, a metre long up its z, for the runtime to
+stretch), parked till it's windy, and Vincent on his feet with nothing in his hands (`vincent_about`), for fetching the
 post and flying the kite.
 """
 from __future__ import annotations
@@ -271,12 +270,12 @@ def borrel(t: Terrain):
     u.build(g)
 
 
-# --- Sunday: a kite -------------------------------------------------------------------------------
+# --- Any windy day: a kite -------------------------------------------------------------------------------
 
 def kite():
     """A diamond kite in red and yellow, a tail of bows below it. Faces -y (into the wind, when the
     runtime flies it); its line is a separate thread the runtime stretches from his hands to it."""
-    root = holiday("kite", "sunday", PARKED, id="kite")
+    root = group("kite", PARKED, id="kite")
     m = Model("kite")
     top, bottom, half = 0.75, -1.05, 0.62
     for (x0, z0), (x1, z1), c in (((0, top), (-half, 0), "#c8303a"), ((0, top), (half, 0), P.GOLD),
@@ -294,7 +293,7 @@ def kite():
         for s in (-1, 1):
             tl.prism([(0, 0), (s * 0.14, 0.07), (s * 0.14, -0.07)], 0.02, (0, 0, z), c)
     tl.build(tail)
-    line = holiday("kite_line", "sunday", PARKED, id="kite_line")
+    line = group("kite_line", PARKED, id="kite_line")
     k = Model("kite_line_thread")
     k.box((0.015, 0.015, 1.0), (0, 0, 0.5), "#f4efe6")
     k.build(line, unshaded=1)

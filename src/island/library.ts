@@ -65,6 +65,7 @@ export class Library implements RoomInput {
       .then((interior) => this.pixels.warm(interior.scene, interior.camera).then(() => interior))
       .then((interior) => {
         this.interior = interior;
+        this.ctx.life.days.easter.adopt(interior.named);
         this.ctx.interior = interior;
         interior.setFilter(this.filter);
         this.makePlates();
@@ -80,6 +81,7 @@ export class Library implements RoomInput {
 
   /** Go in (or out). `instant` skips the iris, e.g. when the page loads on a post. */
   enter(inside: boolean, instant = false) {
+    this.ctx.life.days.easter.indoors('library', inside);
     if (inside) void this.load();
     this.want = inside;
     if (instant) this.fade = inside === this.inside ? 0 : 1;

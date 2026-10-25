@@ -650,13 +650,14 @@ def paint_corner(root):
 
 # --- the robot -----------------------------------------------------------------------------
 
-def robot(root):
+def robot(root, p: str = "", indoors: bool = True):
     """The workshop's assistant: mustard paint, one big eye, a plaster on its head from last
     Tuesday, and feet slightly too big for it. Faces -y. The runtime moves the whole thing and
-    swings robot_hips, robot_head, antenna, arm_l/arm_r and leg_l/leg_r."""
-    hips = group("robot_hips", (0, 0, 0.42), parent=root)
+    swings robot_hips, robot_head, antenna, arm_l/arm_r and leg_l/leg_r (each name after `p`).
+    Out on the island (chores.py) its hands are free for the job, and there's no update to show."""
+    hips = group(f"{p}robot_hips", (0, 0, 0.42), parent=root)
 
-    t = Model("robot_torso", seed=40)
+    t = Model(f"{p}robot_torso", seed=40)
     t.box((0.56, 0.42, 0.5), (0, 0, 0.27), ROBOT, taper=0.9)
     t.box((0.6, 0.46, 0.08), (0, 0, 0.04), ROBOT_DARK)                   # waist band
     t.box((0.3, 0.04, 0.2), (0, -0.21, 0.3), ROBOT_FACE)                 # chest panel
@@ -670,22 +671,23 @@ def robot(root):
     t.cyl(0.03, 0.1, (0.05, 0.3, 0.42), "#e46f5a", segs=5)
     t.cyl(0.12, 0.08, (0, 0, 0.52), P.IRON, segs=6)                      # neck
     t.build(hips)
-    # on Patch Tuesday its chest panel shows how the update's going (the runtime fills the bar)
-    upd = group("robot_update", (0, -0.24, 0.3), parent=hips)
-    u = Model("robot_update_frame")
-    u.box((0.3, 0.012, 0.2), (0, 0, 0), ROBOT_FACE)
-    u.box((0.26, 0.014, 0.07), (0, -0.002, -0.02), P.WHITE)
-    u.box((0.24, 0.016, 0.05), (0, -0.004, -0.02), ROBOT_FACE)
-    for i in range(3):                                                    # "please wait", in dots
-        u.box((0.025, 0.016, 0.025), (-0.04 + i * 0.04, -0.004, 0.055), EYE, glow=True)
-    u.build(upd)
-    bar = group("robot_bar", (-0.12, -0.012, -0.02), parent=upd)
-    b = Model("robot_bar_fill")
-    b.box((0.24, 0.01, 0.04), (0.12, 0, 0), SCREEN_GREEN, glow=True)
-    b.build(bar)
+    if indoors:
+        # on Patch Tuesday its chest panel shows how the update's going (the runtime fills the bar)
+        upd = group(f"{p}robot_update", (0, -0.24, 0.3), parent=hips)
+        u = Model(f"{p}robot_update_frame")
+        u.box((0.3, 0.012, 0.2), (0, 0, 0), ROBOT_FACE)
+        u.box((0.26, 0.014, 0.07), (0, -0.002, -0.02), P.WHITE)
+        u.box((0.24, 0.016, 0.05), (0, -0.004, -0.02), ROBOT_FACE)
+        for i in range(3):                                                    # "please wait", in dots
+            u.box((0.025, 0.016, 0.025), (-0.04 + i * 0.04, -0.004, 0.055), EYE, glow=True)
+        u.build(upd)
+        bar = group(f"{p}robot_bar", (-0.12, -0.012, -0.02), parent=upd)
+        b = Model(f"{p}robot_bar_fill")
+        b.box((0.24, 0.01, 0.04), (0.12, 0, 0), SCREEN_GREEN, glow=True)
+        b.build(bar)
 
-    head = group("robot_head", (0, 0, 0.58), parent=hips)
-    h = Model("robot_headshell", seed=41)
+    head = group(f"{p}robot_head", (0, 0, 0.58), parent=hips)
+    h = Model(f"{p}robot_headshell", seed=41)
     h.ball(0.24, (0, 0, 0.17), ROBOT, subdiv=2, scale=(1.15, 0.95, 0.85))
     h.cyl(0.14, 0.06, (0, -0.2, 0.17), ROBOT_FACE, segs=10, rot=(math.pi / 2, 0, 0))   # eye socket
     h.cyl(0.1, 0.04, (0, -0.23, 0.17), EYE, segs=10, rot=(math.pi / 2, 0, 0), glow=True)
@@ -698,25 +700,25 @@ def robot(root):
     h.box((0.04, 0.02, 0.03), (0.05, -0.2, 0.06), P.INK)                 # a small dent of a mouth
     h.build(head)
 
-    ant = Model("antenna")
+    ant = Model(f"{p}antenna")
     ant.cyl(0.015, 0.26, (0, 0, 0), P.IRON, segs=4)
     ant.ball(0.05, (0, 0, 0.28), BULB, subdiv=1, glow=True)
     obj = ant.build(head, loc=(0.06, 0.02, 0.36))
     obj.rotation_euler = (0, 0.15, 0)
 
-    for sx, name in ((1, "arm_l"), (-1, "arm_r")):                       # left is +x (it faces -y)
+    for sx, name in ((1, f"{p}arm_l"), (-1, f"{p}arm_r")):               # left is +x (it faces -y)
         a = Model(name)
         a.ball(0.075, (0, 0, 0), ROBOT_DARK, subdiv=1)
         a.cyl(0.045, 0.34, (0, 0, -0.36), P.IRON, segs=5)
         a.box((0.1, 0.1, 0.1), (0, 0, -0.4), ROBOT, rot=(0, 0, 0))
         for dy in (-0.04, 0.04):                                         # two-finger clamp
             a.box((0.03, 0.03, 0.1), (0, dy, -0.48), P.IRON)
-        if sx < 0:                                                       # it's never without its wrench
+        if sx < 0 and indoors:                                           # it's never without its wrench
             a.box((0.04, 0.3, 0.03), (0, -0.14, -0.48), SILVER_DARK)
             a.cyl(0.05, 0.03, (0, -0.3, -0.495), SILVER_DARK, segs=6)
         a.build(hips, loc=(sx * 0.34, 0, 0.42))
 
-    for sx, name in ((1, "leg_l"), (-1, "leg_r")):
+    for sx, name in ((1, f"{p}leg_l"), (-1, f"{p}leg_r")):
         g = Model(name)
         g.cyl(0.06, 0.28, (0, 0, -0.3), P.IRON, segs=5)
         g.ball(0.07, (0, 0, -0.02), ROBOT_DARK, subdiv=1)

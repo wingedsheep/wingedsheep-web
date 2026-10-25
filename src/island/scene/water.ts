@@ -21,6 +21,58 @@ export const CHILLED = /* glsl */ `
   }
 `;
 
+/** The surf break: a sandbar east of the pier (Blender x, y), where the rollers come in clean for this far round it (m). */
+export const BREAK = { x: 11, y: -22, r: 7 };
+
+/** How many rollers a metre of shore distance (the map's 0..1) holds, and how fast they come in (radians a second, by the sea). */
+const ROLL_K = 24;
+/** At the break, one roller in this many is a good one: the time between them is for paddling back out. */
+export const SET = 3;
+export const rollRate = (sea: number) => 1.3 + sea * 0.9;
+
+/**
+ * A roller in the shallows at shore distance `d` (0..1, shoreDistance), as the sea shader raises
+ * it at the break: its phase (a crest at π/2, every 2π; a good one, of a set, every 2π·SET), and
+ * how high it stands (m). Only true to the
+ * shader at the BREAK, where the rollers come in clean.
+ */
+export function roller(d: number, rollT: number, sea: number) {
+  const phase = d * ROLL_K + rollT;
+  const set = 0.5 + 0.5 * Math.cos((phase - Math.PI / 2) / SET);
+  const r = Math.pow(0.5 + 0.5 * Math.sin(phase), 3) * set * set;
+  const open = THREE.MathUtils.smoothstep(d, 0.2, 0.55);
+  const shoal = (1 - open) * THREE.MathUtils.smoothstep(d, 0, 0.04) * (1.4 - d * 1.5);
+  return { phase, height: r * shoal * sea * 1.1, shoal };
+}
+
+/** The distance-to-shore map the sea shader reads (0 at the coast … 1 far out), at Blender (x, y), smoothed as the GPU smooths it. */
+export function shoreDistance(shore: THREE.Texture, info: IslandInfo) {
+  const [x0, y0, x1, y1] = info.extent;
+  const img = shore.image as CanvasImageSource & { width: number; height: number };
+  let data: Uint8ClampedArray | null = null;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = img.width;
+    cv.height = img.height;
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(img, 0, 0);
+    data = ctx.getImageData(0, 0, img.width, img.height).data;
+  } catch {}
+  const W = img.width;
+  const H = img.height;
+  const at = (i: number, j: number) => data![(Math.min(H - 1, Math.max(0, H - 1 - j)) * W + Math.min(W - 1, Math.max(0, i))) * 4] / 255;
+  return (x: number, y: number) => {
+    const u = ((x - x0) / (x1 - x0)) * W - 0.5;
+    const v = ((y - y0) / (y1 - y0)) * H - 0.5;
+    if (!data || u < -0.5 || v < -0.5 || u > W - 0.5 || v > H - 0.5) return 1;
+    const i = Math.floor(u);
+    const j = Math.floor(v);
+    const fu = u - i;
+    const fv = v - j;
+    return (at(i, j) * (1 - fu) + at(i + 1, j) * fu) * (1 - fv) + (at(i, j + 1) * (1 - fu) + at(i + 1, j + 1) * fu) * fv;
+  };
+}
+
 /**
  * The sea: one big plane. Colour comes from a baked distance-to-shore map (turquoise shallows
  * fading to deep blue), plus animated foam bands, caustic squiggles and sparkles. Everything
@@ -109,11 +161,16 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
         // nearer in, the waves turn to come straight at the beach, and the shallows make them
         // stand up taller and steeper until they break
         float open = smoothstep(0.2, 0.55, d);
-        float rp = d * 24.0 + uRollT + noise(p * 0.07) * 3.0;
+        // (but over the sandbar east of the pier, BREAK, they come in clean and even: a surf break)
+        float clean = smoothstep(${BREAK.r.toFixed(1)}, ${(BREAK.r * 1.5).toFixed(1)}, distance(p, vec2(${BREAK.x.toFixed(1)}, ${BREAK.y.toFixed(1)})));
+        float rp = d * ${ROLL_K.toFixed(1)} + uRollT + noise(p * 0.07) * 3.0 * clean;
         float roller = pow(0.5 + 0.5 * sin(rp), 3.0);
+        // and there they come in sets: one good one in SET, the ones between hardly standing up
+        float set = 0.5 + 0.5 * cos((rp - 1.5708) / ${SET.toFixed(1)});
+        roller *= mix(set * set, 1.0, clean);
         float shoal = (1.0 - open) * smoothstep(0.0, 0.04, d) * (1.4 - d * 1.5);
         vRoll = roller * shoal * step(0.2, uSea);
-        h = mix(h * 0.35, h, open);
+        h = mix(h * 0.35, h, open) * mix(0.2, 1.0, clean); // (over the sandbar, the rollers are all there is)
         face = mix(-cos(rp), face, open);
 
         // and then the sea surges up the sand, and drains back: a quick rise and a slow retreat,
@@ -361,7 +418,7 @@ export function createWater(shore: THREE.Texture, info: IslandInfo) {
     const wind = u.uWind.value as number;
     u.uTime.value += dt;
     u.uSwellT.value += dt * (1.2 + sea * 2.2);
-    u.uRollT.value += dt * (1.3 + sea * 0.9);
+    u.uRollT.value += dt * rollRate(sea);
     u.uSurgeT.value += dt * (0.1 + sea * 0.06);
     u.uWobT.value += dt * (0.05 + wind * 0.2);
     u.uBreatheT.value += dt * (0.9 + wind * 0.9);

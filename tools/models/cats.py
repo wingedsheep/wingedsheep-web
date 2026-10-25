@@ -14,6 +14,10 @@ from mathutils import Vector
 import palette as P
 from kit import Model, animate
 
+# How big each sleeping cat is next to the cat on its feet (walker(): George at 1.05, Charlie at
+# 0.9), so neither grows or shrinks as it gets up; on top of whatever size its bed puts it at.
+GEORGE, CHARLIE = 0.86, 0.8
+
 
 def _limb(m: Model, a, b, r0, r1, color, segs=6):
     """A tapered round limb or tail from a (radius r0) to b (radius r1), with a rounded end."""
@@ -53,6 +57,7 @@ def george(root):
     """The big one, flat out on his side, back to the bench's back and belly to the front: all four
     legs out in front of him on the fleece, one back paw just over the edge, the front paw folded
     under his chin, the tail curled round behind and along the front, head down on his cheek."""
+    root.scale = root.scale * GEORGE
     b = Model("george_body")
     b.ball(0.15, (0.17, -0.01, 0.12), P.CAT_WHITE, subdiv=2, scale=(1.1, 1.05, 0.88))     # chest
     b.ball(0.16, (-0.02, 0.0, 0.12), P.CAT_WHITE, subdiv=2, scale=(1.25, 1.08, 0.85))    # belly
@@ -77,6 +82,7 @@ def george(root):
         h.ball(0.05, (0.09 + dx, -0.1, -0.06), P.CAT_WHITE, subdiv=1)                  # chubby cheeks
     head = h.build(root, loc=(0.33, -0.03, 0.13))
     head.rotation_euler = (0, 0.12, 0)                                                 # down on his cheek
+    head.scale = (0.9, 0.9, 0.9)                                                       # a head the size of the one he gets up with
     ear_l, ear_r = _ears(head, "george", (0.09, -0.02, 0.1), 0.085, 0.055)
 
     # the top front paw, folded under his chin (pivots at the shoulder)
@@ -119,6 +125,7 @@ def george(root):
 
 def charlie(root):
     """The slim one, curled into a tight ball, chin on the paws."""
+    root.scale = root.scale * CHARLIE
     b = Model("charlie_body")
     b.ball(0.24, (0, 0.02, 0.16), P.CAT_WHITE, subdiv=2, scale=(1.2, 1.0, 0.72))
     b.ball(0.2, (-0.16, 0.08, 0.19), P.GINGER, subdiv=2, scale=(1.0, 1.0, 0.75))      # hip patch

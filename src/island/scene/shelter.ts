@@ -1007,6 +1007,11 @@ export class Shelter {
   private mousing = new URLSearchParams(location.search).get('cats') === 'mouse';
   /** A pounce lands, at (Life: the grass goes up). */
   onPounce?: (at: THREE.Vector3) => void;
+  /** Somebody's sitting on the bench with them (routines.ts, set every frame): nobody gets up and goes. */
+  company = false;
+  /** She's sitting in Charlie's place (set every frame): if he's asleep there, he's on her lap instead. */
+  lap = false;
+  private onLap = false;
 
   /** `hour`: the time of day on the island when you arrive, for where the cats have gone to sleep. */
   /** The mouse George goes after (fieldmouse.ts), if there's a model of one. */
@@ -1072,7 +1077,7 @@ export class Shelter {
     const was = this.wantIn;
     this.wantIn = rain > GO_IN || (this.wantIn && rain > COME_OUT);
     const v = this.visit;
-    if (!this.wantIn && !instant && !this.settling && (v.wait -= dt) <= 0) {
+    if (!this.wantIn && !instant && !this.settling && !this.company && (v.wait -= dt) <= 0) {
       v.on = !v.on;
       v.wait = v.on ? 150 + Math.random() * 150 : 150 + Math.random() * 210;
     }
@@ -1081,6 +1086,7 @@ export class Shelter {
       this.cats.forEach((c) => c.snap(catsIn, hot));
       this.beike.snap(this.wantIn);
       this.settling = false;
+      this.onLap = false; // (the sleepers are all back where they sleep)
     } else if (!instant) {
       this.roam(dt, catsIn, hot);
       this.cats.forEach((c) => c.update(dt, catsIn, hot));
@@ -1096,6 +1102,19 @@ export class Shelter {
     }
     if (this.beike.inside) indoors.add('beike');
     else indoors.delete('beike');
+    // Charlie, from the fleece to her lap and back
+    const charlie = this.cats.find((c) => c.id === 'charlie');
+    const lap = this.lap && !!charlie?.asleep && charlie.onBench;
+    if (lap !== this.onLap) {
+      this.onLap = lap;
+      const sleeper = this.island.get('charlie');
+      if (sleeper && charlie?.asleep) sleeper.visible = !lap;
+    }
+  }
+
+  /** Whether Charlie's curled up on her lap on the bench. */
+  get charlieOnLap() {
+    return this.onLap;
   }
 
   /**
@@ -1105,7 +1124,7 @@ export class Shelter {
    * the bench, goes out into the meadow after a mouse instead, likeliest at dusk and dawn.
    */
   private roam(dt: number, catsIn: boolean, hot: number) {
-    if (catsIn || this.pinned) return;
+    if (catsIn || this.pinned || this.company) return;
     this.lull -= dt;
     const hour = (this.hour + this.clock / 3600) % 24;
     for (const c of this.cats) {

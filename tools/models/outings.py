@@ -198,6 +198,17 @@ def companion_walker(root, p: str):
             _mug(arm, f"{p}_mug", (0, -0.07, -0.6))
         else:
             _finds(arm, p, (0, -0.07, -0.62))
+    # on the phone: the right arm bent, elbow forward, the phone at her ear (shown in place of
+    # `_arm_r` while she's on a call: companion.ts)
+    a = Model(f"{p}_arm_phone")
+    elbow, hand = (-0.05, -0.2, 0.14), (0.11, -0.03, 0.3)
+    companion._limb(a, (0, 0, 0), (-0.025, -0.1, 0.07), 0.14, P.E_TOP)
+    companion._limb(a, (-0.025, -0.1, 0.07), elbow, 0.11, P.E_ARM)
+    companion._limb(a, elbow, hand, 0.11, P.E_ARM)
+    a.box((0.12, 0.12, 0.05), (0.062, -0.081, 0.252), P.GOLD, rot=(0.8, 0, -0.5))       # the watch, on that wrist
+    a.box((0.09, 0.11, 0.11), hand, P.FAIR)
+    a.box((0.03, 0.08, 0.15), (hand[0] + 0.04, hand[1] - 0.02, hand[2] + 0.02), P.PHONE)    # the phone, between hand and ear
+    a.build(torso, loc=(-0.28, 0.03, 0.6))
     companion.head(torso, f"{p}_head", (0, 0.02, 0.73))
 
 

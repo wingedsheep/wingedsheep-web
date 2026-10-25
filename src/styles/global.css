@@ -46,6 +46,40 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* in a room the cards down the left start under the name, so the brand is just that */
 .island-page:has(.workshop:not([hidden])) :is(.brand-tag, .brand-work) { display: none; }
 
+/* Easter's egg hunt (scene/easter.ts): a card under the name once you've found an egg, a little
+   egg for each by place, coloured in as you find them; gold when you've found them all */
+.egg-hunt {
+  pointer-events: auto; width: 214px; margin-top: 12px; padding-top: 4px; color: var(--ink); text-shadow: none; font: 14px var(--ui);
+  background: linear-gradient(90deg, #f2b8c6 0 17%, #a8d8f0 17% 34%, #f7e08a 34% 50%, #b8e0a0 50% 67%, #d0b8f0 67% 84%, #f5a860 84%) top / 100% 4px no-repeat var(--paper);
+  clip-path: var(--notch); box-shadow: inset 0 -3px 0 var(--paper-edge); animation: egg-in 0.35s ease-out;
+}
+.egg-hunt-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: 0; background: none; font: 15px var(--ui); text-align: left; }
+.egg-hunt-head b { margin-left: auto; font-weight: 400; }
+.egg-hunt-body { padding: 0 10px 10px; }
+.egg-hunt.folded .egg-hunt-body { display: none; }
+.egg-hunt ul { margin: 0; padding: 0; list-style: none; }
+.egg-hunt li { display: grid; grid-template-columns: 74px 1fr; align-items: center; min-height: 18px; color: var(--ink-soft); font-size: 13px; }
+.egg-hunt li.all .egg-hunt-where { color: var(--moss); }
+.egg-hunt-row { display: flex; flex-wrap: wrap; gap: 3px; }
+.egg-px { display: block; color: var(--paper-edge); opacity: 0.6; }
+.egg-px.found { opacity: 1; filter: drop-shadow(0 1px 0 rgba(29, 26, 44, 0.35)); }
+.egg-px.fresh { animation: egg-pop 0.5s ease-out; }
+.egg-hunt-hint {
+  display: block; width: 100%; height: 30px; margin-top: 8px; border: 0; font: 14px var(--ui); color: var(--ink);
+  background: var(--paper-2); clip-path: var(--notch); box-shadow: inset 0 -3px 0 var(--paper-edge);
+}
+.egg-hunt-hint:hover { background: var(--gold); }
+.egg-hunt.done { background-color: var(--ink); color: var(--paper); box-shadow: inset 0 0 0 2px var(--gold); }
+.egg-hunt.done .egg-hunt-head b { color: var(--gold); }
+.egg-hunt-prize { display: flex; gap: 12px; align-items: center; }
+.egg-hunt-prize p { margin: 0; font: 13px/1.35 var(--ui); }
+.egg-hunt-prize strong { display: block; color: var(--gold); font-weight: 400; font-size: 15px; }
+.egg-gold { flex: none; opacity: 1; animation: egg-bob 2.4s ease-in-out infinite; }
+@keyframes egg-in { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes egg-pop { 0% { transform: scale(0.4); } 60% { transform: scale(1.5); } }
+@keyframes egg-bob { 50% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .egg-hunt, .egg-px.fresh, .egg-gold { animation: none; } }
+
 .hud { position: absolute; top: 14px; right: 16px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 70vw; }
 .hud-btn {
   display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px;

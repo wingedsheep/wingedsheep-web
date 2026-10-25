@@ -18,6 +18,12 @@ export interface UIEvents {
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel);
 const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => [...root.querySelectorAll<T>(sel)];
 
+/** A URL on the island that keeps the query (`?time=`, `?weather=`…), so a previewed moment holds from room to room. */
+export const keepQuery = (url: string) => {
+  const [path, hash] = url.split('#');
+  return path + location.search + (hash === undefined ? '' : `#${hash}`);
+};
+
 export class UI {
   private tip = $('#tip')!;
   private toasts = $('#toasts')!;
@@ -119,14 +125,14 @@ export class UI {
     else if (name === 'trail') document.title = 'The mountain trail · wingedsheep';
     else if (name === 'river') document.title = 'Wild water · wingedsheep';
     else if (name === 'commonplace') document.title = 'Commonplace · wingedsheep';
-    if (push) history.pushState(null, '', name === 'library' ? '/blog/' : `/#${name}`);
+    if (push) history.pushState(null, '', keepQuery(name === 'library' ? '/blog/' : `/#${name}`));
     this.events.panelOpened(name, sub);
     ($('[data-autofocus]', el) ?? $('h2', el))?.focus({ preventScroll: true });
   }
 
   async openArticle(slug: string, push = true) {
     if (this.current?.kind === 'panel') this.returnTo = this.current.name;
-    if (push) history.pushState(null, '', `/blog/${slug}/`);
+    if (push) history.pushState(null, '', keepQuery(`/blog/${slug}/`));
     track('open_article', { post: slug });
     this.hideAll();
     this.article.hidden = false;
@@ -139,7 +145,7 @@ export class UI {
       const title = $('h1', this.articleBody)?.textContent;
       if (title) document.title = `${title} · wingedsheep`;
     } catch {
-      location.href = `/blog/${slug}/`; // fall back to a normal page load
+      location.href = keepQuery(`/blog/${slug}/`); // fall back to a normal page load
       return;
     }
     this.showArticle(slug);
@@ -167,7 +173,7 @@ export class UI {
     this.hideAll();
     this.current = null;
     document.title = document.body.dataset.title ?? document.title;
-    if (push) history.pushState(null, '', '/');
+    if (push) history.pushState(null, '', keepQuery('/'));
     this.events.closed();
   }
 

@@ -299,6 +299,29 @@ def fireside(root):
     head(root, "companion_fire_head", (0, 0.02, 1.37))
 
 
+def bench_tea(root):
+    """On the cats' bench of a morning, next to him, in her cardigan with a mug of tea in both
+    hands (`companion_bench_mug`, from the elbows, up to her mouth now and then). Her seat, the
+    fleece, is at z = 0.56; Charlie, if he's on the bench, comes onto her lap (routines.py)."""
+    m = Model("companion_bench_body")
+    _seated(m, 0.56, root)
+    for s in (-1, 1):
+        m.box((0.12, 0.3, 0.57), (s * 0.18, 0.03, 1.02), P.E_CARDI)
+        m.box((0.02, 0.31, 0.5), (s * 0.12, 0.03, 1.0), P.E_CARDI_EDGE)
+        _limb(m, (s * 0.28, 0.03, 1.24), (s * 0.29, -0.08, 0.94), 0.14, P.E_CARDI)
+    m.box((0.46, 0.3, 0.08), (0, 0.04, 0.72), P.E_CARDI)
+    m.build(root)
+    g = Model("companion_bench_mug")
+    for s in (-1, 1):
+        _limb(g, (s * 0.29, 0, 0), (s * 0.1, -0.24, 0.14), 0.13, P.E_CARDI)
+        g.box((0.09, 0.11, 0.1), (s * 0.08, -0.28, 0.15), P.FAIR)
+    g.cyl(0.075, 0.15, (0, -0.3, 0.09), P.TILE_BLUE, segs=8)
+    g.cyl(0.078, 0.02, (0, -0.3, 0.23), P.WHITE, segs=8)
+    g.cyl(0.062, 0.005, (0, -0.3, 0.24), "#a0603a", segs=8)                            # tea, with a drop of milk
+    g.build(root, loc=(0, -0.08, 0.94))
+    head(root, "companion_bench_head", (0, 0.02, 1.37))
+
+
 def workout(root):
     """On an exercise mat on the grass, a water bottle and a towel at the end of it, in a tank
     top and leggings, ponytail through her cap. The runtime runs the routine (jumping jacks, a

@@ -340,6 +340,7 @@ export class Lighthouse implements RoomInput {
       .then((room) => this.pixels.warm(room.scene, room.camera).then(() => room))
       .then((room) => {
         (this.rooms as Record<Floor, Room>)[floor] = room;
+        this.ctx.life.days.easter.adopt(room.named);
         if (room instanceof QuartersRoom) {
           room.onMew = () => this.ctx.sound.call('mew');
           room.onSip = () => this.ctx.sound.call('sip');
@@ -359,6 +360,7 @@ export class Lighthouse implements RoomInput {
 
   /** Go in (or out). `instant` skips the iris closing, e.g. coming straight from another room. */
   enter(inside: boolean, instant = false) {
+    this.ctx.life.days.easter.indoors('lighthouse', inside);
     if (inside) void this.load();
     if (!inside) {
       this.switchOff(true);

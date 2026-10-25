@@ -13,15 +13,15 @@ const TO_THE_PIER: [number, number, string?][] = [
   [26.4, 0.6], [25, -2.5], [21, -6], [15, -10.5], [9, -11], [3.6, -9.5], [0.6, -12.5], [0.2, -15.8],
   [0.2, -18.4, 'deck'], [0.3, -25.4, 'deck'], [-0.05, -26.35, 'deck'],
 ];
-/** Where he flies the kite on a windy Sunday: on the sand just east of the pier. */
-const KITE_AT: [number, number] = [6.2, -16.4];
+/** Where the kite's flown on a windy day: on the sand just east of the pier. */
+export const KITE_AT: [number, number] = [6.2, -16.4];
 
 type Leg = 'down' | 'pick' | 'up' | 'done';
 
 /**
  * Vincent's errands on his feet (week.py `vincent_about`): on a post day, down from the fire to the
  * end of the pier for the parcel the post boat left there, and all the way up the trail with it to
- * the hut; on a windy Sunday, out on the beach flying the kite (week.ts flies the kite itself).
+ * the hut; on a windy day, out on the beach flying the kite (week.ts flies the kite itself).
  */
 export class Errands {
   private me?: THREE.Object3D;

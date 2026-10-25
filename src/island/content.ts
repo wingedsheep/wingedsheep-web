@@ -17,8 +17,11 @@ import { table } from './scene/meals';
 import { GAME_NAMES, type Game, games } from './scene/boardgames';
 import type { Find, Topic } from './scene/outings';
 import type { Doing } from './scene/swim';
+import type { Doing as SurfDoing } from './scene/surf';
+import { LEISURE, type Chore } from './scene/chores';
 import { season } from './scene/season';
 import { clog, occasions } from './scene/calendar';
+import { type Building, eggIds } from './scene/easter';
 import { type Show, telly } from './scene/companion';
 import { sofa } from './scene/programmes';
 import { wardrobe } from './scene/wardrobe';
@@ -187,6 +190,9 @@ const NOOKS: Record<Exclude<Nook, 'bench'>, { at: string; george: string; charli
 };
 const nook = (cat: 'charlie' | 'george') => (beds[cat] === 'bench' ? null : NOOKS[beds[cat] as Exclude<Nook, 'bench'>]);
 const say = (text: string) => (ctx: IslandContext) => ctx.toast(text);
+/** The Easter eggs hidden on the island or in a building, to click and find (scene/easter.ts). */
+const eggPlaces = (where: 'island' | Building): Record<string, Place> =>
+  Object.fromEntries(eggIds(where).map((id) => [id, { label: 'An Easter egg', activate: (ctx: IslandContext) => ctx.toast(ctx.life.days.easter.find(id)) }]));
 /**
  * The same line every click, except that on the nth click (counting from 1) the thing has had
  * enough and says something else: for things people click over and over just to see.
@@ -350,10 +356,11 @@ const SPECIAL_DAYS: Record<string, Place> = {
     label: 'The summit flag · right back up, with bunting',
     activate: say('Yesterday it was at half-mast. Today, the fifth of May, it’s back at the top, with red, white and blue down both sides of the pole.'),
   },
-  ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`egg_${i}`, {
-    label: 'An Easter egg',
-    activate: (ctx: IslandContext) => ctx.toast(ctx.life.days.easter.find(`egg_${i}`)),
-  } satisfies Place])),
+  ...eggPlaces('island'),
+  egg_basket: {
+    label: 'Your egg basket',
+    activate: (ctx: IslandContext) => ctx.toast(ctx.life.days.easter.basketLine()),
+  },
   vincent_dive: {
     label: 'Vincent · in an orange hat, and not much else',
     activate(ctx) {
@@ -393,8 +400,28 @@ const SPECIAL_DAYS: Record<string, Place> = {
     activate: say('Every present comes with a poem, and every poem teases whoever it’s for. This one rhymes “Vincent” with “the bugs he never meant”.'),
   },
   pumpkin: JACK,
-  pumpkin_0: JACK,
-  pumpkin_1: JACK,
+  pumpkin_0: {
+    label: 'A jack-o’-lantern · with fangs',
+    activate: say('This one came out properly fierce, so it got the library door. The books have never been better behaved.'),
+  },
+  pumpkin_1: {
+    label: 'A jack-o’-lantern · winking',
+    activate: say('It was going to be a scowl, until the knife slipped. Now it winks at everyone who goes in.'),
+  },
+  cauldron: {
+    label: 'A cauldron · bubbling',
+    activate(ctx) {
+      ctx.sound.haunt('bubble');
+      ctx.toast('Something green, on the boil all week, stirring itself. Nobody has owned up to the recipe, and nobody is tasting it.');
+    },
+  },
+  wisps: {
+    label: 'Will-o’-the-wisps',
+    activate(ctx) {
+      ctx.sound.haunt('moan', 0.5);
+      ctx.toast('Little cold lights out over the meadow after dark. Follow them and you only ever end up back at the coffin.');
+    },
+  },
   graves: {
     label: 'A graveyard · the unfinished projects',
     activate: (() => {
@@ -1007,6 +1034,48 @@ const mulledXmas = inTurn([
   'A mug each, and the lights are up. They walk the long way round.',
 ]);
 const gluhweinLine = () => (occasions.has('christmas') ? mulledXmas() : mulled());
+// a walk, the two of them, on an ordinary day (vincent.ts: no mugs unless it's cold)
+const together = inTurn([
+  'A walk, the two of them. No plan, just round.',
+  'They’re talking about nothing much, and then, three bends later, about everything.',
+  'Side by side and in step, for once. Neither of them mentions it.',
+]);
+const walkLine = (ctx: IslandContext) => (ctx.life.vincent.pair.mugs ? gluhweinLine() : together());
+// the robin he's drawing, under the oak by the lamp (routines.ts)
+const drawingLine = inTurn([
+  'Drawing the robin. The robin keeps moving, so it’s a slightly different robin every minute.',
+  'A soft pencil and a lot of looking: up at the bird, down at the page, up again.',
+  'The branch is coming along nicely. The bird’s still mostly a circle with opinions.',
+  'He holds it out at arm’s length, squints, and rubs a bit out.',
+]);
+// out in Beike's meadow, with the ball
+const ballLine = inTurn([
+  'Throwing the ball for Beike. Beike would like it thrown again. And again.',
+  'He throws, Beike goes. It’s very clear which of them will get tired first.',
+  'Beike drops it at his feet and looks at it, then at him, then at it.',
+]);
+// coffee on the bench, of a morning: his black, her tea
+const coffeeHim = inTurn([
+  'A black coffee on the bench. The morning can start whenever it likes.',
+  'Not a morning person. The coffee is working on it.',
+  'Coffee, the meadow, and not having to say anything yet.',
+]);
+const coffeeHer = inTurn([
+  'Tea on the bench, next to him. Nobody’s in a hurry to say anything.',
+  'She’s got both hands round her mug, and her feet tucked back under the bench.',
+  'A slow start: tea, the meadow, and him not quite awake yet.',
+]);
+const coffeeLap = inTurn([
+  'Charlie’s on her lap, so she’s not going anywhere. That was always the plan, as far as Charlie’s concerned.',
+  'Charlie’s purring on her lap. The tea has to go round him.',
+]);
+// on the phone, up and down the grass below the lighthouse path
+const phoneLine = inTurn([
+  'On the phone, walking up and down the grass. Mostly listening.',
+  '“Nee, echt?” Whatever it is, it’s a good one.',
+  'A call that was going to be quick. She’s on her third lap of the lawn.',
+  'She laughs, stops dead, and has to hear that bit again.',
+]);
 
 const FILLINGS = { pate: 'vegetarian pâté', pb: 'peanut butter', egg: 'egg salad' } as const;
 const breakfastHim = {
@@ -1084,6 +1153,7 @@ function mealLabel(ctx: IslandContext, who: string) {
   return who === 'Vincent' ? `Vincent · ${what}` : what[0].toUpperCase() + what.slice(1);
 }
 const walking = (ctx: IslandContext) => ctx.life.vincent.spot === 'gluhwein';
+const walkName = (ctx: IslandContext) => (ctx.life.vincent.pair.mugs ? 'a walk, with glühwein' : 'a walk, the two of them');
 /** On their way to something (vincent.ts, companion.ts `headedFor`): what it is, the way you'd say it. */
 const OFF_TO: Record<string, [string, string]> = { // his, hers
   guitar: ['back to the guitar', ''],
@@ -1098,10 +1168,16 @@ const OFF_TO: Record<string, [string, string]> = { // his, hers
   podcast: ['off with a podcast on', 'down the pier with a podcast'],
   petting: ['off to give someone a fuss', 'off to give someone a fuss'],
   swim: ['down for a swim', 'down for a swim'],
+  surf: ['down to the beach with his board', ''],
   hammock: ['off for a nap in the hammock', 'off to the hammock with her book'],
   run: ['up to the hut to change for a run', ''],
   sofa: ['in to the sofa in the lighthouse', ''],
   games: ['off to set up a game', 'off for a game with him'],
+  drawing: ['off to draw for a bit', ''],
+  ball: ['off to throw the ball for Beike', ''],
+  coffee: ['out to the bench with a coffee', 'out to the bench with a tea'],
+  phone: ['', 'off with her phone'],
+  kite: ['down to the beach with the kite', 'down to the beach with the kite'],
   reading: ['', 'off to read under the blossom tree'],
   fireside: ['', 'over to the fire'],
   workout: ['', 'off to work out, not thrilled about it'],
@@ -1110,6 +1186,13 @@ const OFF_TO: Record<string, [string, string]> = { // his, hers
   bed: ['', 'up to bed'],
 };
 const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
+// her turn with the kite on a windy day (companion.ts `kite`)
+const herKite = inTurn([
+  'Leaning back on the line, letting the wind take it higher. The tail snakes about under it.',
+  'A tug, and the kite climbs. She looks round to check somebody saw that.',
+  'She’s got the kite out, and he isn’t getting the line back for a while.',
+  'Walking it up into a gust, then letting out line until it sits steady, high over the water.',
+]);
 const offTo = (ctx: IslandContext, who: 'v' | 'e') => {
   const to = who === 'v' ? ctx.life.vincent.headedFor : ctx.life.companion.headedFor;
   return to ? OFF_TO[to]?.[who === 'v' ? 0 : 1] || 'on the way somewhere' : null;
@@ -1175,6 +1258,43 @@ function swimLine(ctx: IslandContext, who: 'v' | 'e') {
 }
 const swimLabel = (doing: Doing) => (doing === 'sitting' || doing === 'sunbathing' || doing === 'drying' ? 'drying off in the sun' : 'in for a swim');
 
+// out on his board, on a day with waves (surf.ts): he's not very good, and he knows it
+const SURF_LINES: Record<SurfDoing, () => string> = {
+  carrying: inTurn([
+    'Down to the water with his board under his arm. There’s a swell running: today’s the day.',
+    'Wetsuit on, board under his arm, eyeing the waves on the sandbar.',
+  ]),
+  paddling: inTurn([
+    'Paddling out again, up on his arms as the next one goes under him.',
+    'Back out for another go. His shoulders will have something to say about this tomorrow.',
+  ]),
+  waiting: inTurn([
+    'Sitting on his board out past the break, watching the sea for a good one.',
+    'He lets one go by. Not his. He’s waiting for the right one.',
+    'Out on his board, bobbing, looking back over his shoulder at what’s coming.',
+  ]),
+  going: inTurn(['Paddling hard, the wave coming up behind him. Here goes.', 'He’s going for this one.']),
+  riding: inTurn([
+    'He’s up! Knees bent, arms out, riding it along the sandbar.',
+    'Up and riding it. Better not say anything.',
+  ]),
+  falling: inTurn([
+    'Off again. The board went one way and Vincent the other.',
+    'He comes up spluttering, finds his board, and climbs back on.',
+    'A wipeout. He’s laughing about it, which is the main thing.',
+  ]),
+  missed: inTurn(['He paddled for it, and the wave went on without him.', 'Not that one, then.']),
+};
+function surfLine(ctx: IslandContext) {
+  const doing = ctx.life.vincent.surfer.doing;
+  if (doing === 'waiting' && ctx.life.chill > 0.3 && Math.random() < 0.4) return 'Cold out there. He has the thick wetsuit on, and the sea’s still colder than he’d like.';
+  return SURF_LINES[doing]();
+}
+const SURF_LABEL: Record<SurfDoing, string> = {
+  carrying: 'off surfing', paddling: 'paddling out', waiting: 'waiting for a wave', going: 'going for one', riding: 'up on his board',
+  falling: 'in the water, again', missed: 'missed that one',
+};
+
 /** The tent on the headland (camping.ts), up for a night out. */
 const pitched = inTurn([
   'Pitched for the night, the door to the fire. Two sleeping bags, a lantern, and the sea for a view.',
@@ -1238,7 +1358,46 @@ const runLabel = (ctx: IslandContext) => {
     : ctx.sky.lamps > 0.5 ? 'Vincent · a run by head torch' : 'Vincent · out for a run';
 };
 
+/** The workshop robot out on an odd job (scene/chores.ts): what it's at, and a word about it. */
+const CHORE_LABEL: Record<Chore, string> = {
+  leaves: 'picking up leaves', sweep: 'sweeping', shovel: 'clearing the snow', beach: 'clearing the beach', water: 'watering', mow: 'mowing',
+  sea: 'watching the sea', stones: 'skimming stones', dance: 'dancing',
+};
+const leafOpening = inTurn(['Leaves into a sack, a clampful at a time.', 'Bend, pick, up, into the sack. And again.', 'Under the tree with its sack, picking up leaves.']);
+const CHORE_LINES: Record<Chore, () => string> = {
+  leaves: () => `${leafOpening()} Vincent hates the sound of leaf blowers and thinks they should be banned, so here it’s done by hand.`,
+  sweep: inTurn(['Sweeping, in long, careful strokes.', 'The broom goes left, the broom goes right. It takes this very seriously.']),
+  shovel: inTurn(['Digging a path through the snow from the workshop door down to the pier, a shovelful at a time.', 'Shovel in, lift, and over to the right. Every shovelful goes to the right.']),
+  beach: inTurn(['Walking the tideline with a litter picker and a bucket: bottle tops, bits of rope, a crisp packet from who knows where.', 'It looks at a shell for a long time, decides it belongs there, and leaves it.']),
+  water: inTurn(['Watering the trees, first thing or in the cool of the evening, so it soaks in instead of going straight back up.', 'It’s been dry. The cherry tree gets a whole can to itself.']),
+  mow: inTurn(['A push mower: no engine, just the blades whirring round. Never on a Sunday.', 'Up the lawn and back, in neat stripes. Nearly straight ones.']),
+  // and its own time
+  sea: inTurn(['Sat on the edge of the pier with its feet over the water, watching the sea. No job in sight.', 'It looks round when you come by, beeps once, and goes back to the waves.']),
+  stones: inTurn(['Skimming stones off the beach while the sea’s flat. Its best is eight. It remembers every one.', 'It weighs each stone in its clamp first. Flat ones only.']),
+  dance: inTurn(['Dancing by the fire while he plays, mostly on the beat.', 'It does the robot. Of course it does the robot.']),
+};
+const robotOutLabel = (ctx: IslandContext) => {
+  const c = ctx.life.chores;
+  const who = ctx.journal.has('robot') ? 'The workshop robot' : 'A robot, mid-errand';
+  return c.homeward ? `${who} · heading back in` : c.chore ? `${who} · ${CHORE_LABEL[c.chore]}` : who;
+};
+
 export const PLACES: Record<string, Place> = {
+  robot_about: {
+    label: robotOutLabel,
+    activate(ctx) {
+      const c = ctx.life.chores;
+      const what = c.poke();
+      ctx.toast(
+        what === 'trip' ? 'You startled it. It windmills its arms and, somehow, stays upright.'
+        : c.homeward && ctx.life.rain > 0.08 ? 'Back to the workshop at a trot, out of the wet. It doesn’t trust its seals.'
+        : c.homeward ? (c.chore && LEISURE.includes(c.chore) ? 'Back to the workshop, and onto its charger.' : 'Job done: back to the workshop, and onto its charger.')
+        : c.chore === 'water' && c.filling ? 'Filling the watering can at the well. It waits till it’s full to the brim.'
+        : c.chore ? CHORE_LINES[c.chore]() : 'Bzzt.',
+      );
+      ctx.discover('robot');
+    },
+  },
   vincent_run: { label: runLabel, activate: (ctx) => ctx.toast(runLine(ctx)) },
   vincent_podcast: {
     label: 'Vincent · pacing with a podcast',
@@ -1263,20 +1422,45 @@ export const PLACES: Record<string, Place> = {
       ctx.life.vincent.peek();
     },
   },
+  vincent_drawing: {
+    label: 'Vincent · drawing the robin',
+    activate(ctx) {
+      ctx.life.vincent.notice();
+      ctx.toast(drawingLine());
+    },
+  },
+  vincent_ball: {
+    label: 'Vincent · throwing the ball for Beike',
+    activate: (ctx) => ctx.toast(ballLine()),
+  },
+  vincent_coffee: {
+    label: 'Vincent · coffee on the bench',
+    activate(ctx, at) {
+      ctx.life.burst('hearts', at);
+      ctx.life.vincent.notice();
+      ctx.toast(coffeeHim());
+    },
+  },
+  companion_coffee: withHer((ctx) => (ctx.life.shelter.charlieOnLap ? 'Tea on the bench, Charlie on her lap' : 'Tea on the bench'),
+    (ctx) => (ctx.life.shelter.charlieOnLap && Math.random() < 0.5 ? coffeeLap() : coffeeHer())),
   vincent_stroll: {
     label: (ctx) => (playing(ctx) ? (building(ctx) ? 'Vincent · building a snowman' : 'Vincent · a snowball fight')
-      : walking(ctx) ? 'Vincent · a walk, with glühwein' : offTo(ctx, 'v') ? `Vincent · ${offTo(ctx, 'v')}` : 'Vincent · out for a stroll'),
+      : walking(ctx) ? `Vincent · ${walkName(ctx)}` : offTo(ctx, 'v') ? `Vincent · ${offTo(ctx, 'v')}` : 'Vincent · out for a stroll'),
     activate(ctx, at) {
       ctx.life.burst('hearts', at);
       const s = ctx.life.vincent.stroll;
       if (playing(ctx)) ctx.toast(building(ctx) ? snowmanMaking() : snowballsHim());
-      else ctx.toast(walking(ctx) ? gluhweinLine() : thought(ctx, 'v', s?.topic ?? 'walk', s?.found ?? null));
+      else ctx.toast(walking(ctx) ? walkLine(ctx) : thought(ctx, 'v', s?.topic ?? 'walk', s?.found ?? null));
     },
   },
   companion_stroll: withHer((ctx) => (ctx.life.companion.where === 'snow' ? (building(ctx) ? 'Building a snowman' : 'A snowball fight')
-    : ctx.life.companion.where === 'gluhwein' ? 'A walk, with glühwein' : offTo(ctx, 'e') ? capital(offTo(ctx, 'e')!) : 'Out for a stroll'), (ctx) => {
+    : ctx.life.companion.where === 'gluhwein' ? capital(walkName(ctx)) : ctx.life.companion.where === 'phone' ? 'On the phone'
+    : ctx.life.companion.where === 'kite' ? 'Flying the kite'
+    : offTo(ctx, 'e') ? capital(offTo(ctx, 'e')!) : 'Out for a stroll'), (ctx) => {
     if (ctx.life.companion.where === 'snow') return building(ctx) ? snowmanMaking() : snowballsHer();
-    if (ctx.life.companion.where === 'gluhwein') return gluhweinLine();
+    if (ctx.life.companion.where === 'gluhwein') return walkLine(ctx);
+    if (ctx.life.companion.where === 'phone') return phoneLine();
+    if (ctx.life.companion.where === 'kite') return herKite();
     const s = ctx.life.companion.stroll;
     return thought(ctx, 'e', s.topic, s.found); // (on her way somewhere, the walk's the topic)
   }),
@@ -1301,6 +1485,10 @@ export const PLACES: Record<string, Place> = {
     const s = swimLabel(ctx.life.companion.bather.doing);
     return s[0].toUpperCase() + s.slice(1);
   }, (ctx) => swimLine(ctx, 'e')),
+  vincent_surf: {
+    label: (ctx) => `Vincent · ${SURF_LABEL[ctx.life.vincent.surfer.doing]}`,
+    activate: (ctx) => ctx.toast(surfLine(ctx)),
+  },
   vincent_boulder: {
     label: (ctx) => ({ thinking: 'Vincent · working out his problem', climbing: 'Vincent · on the boulder', falling: 'Vincent · off the boulder', topped: 'Vincent · on top of the boulder' })[ctx.life.vincent.boulder.doing],
     activate: (ctx) => ctx.toast(boulderingLine(ctx)),
@@ -1562,7 +1750,7 @@ export const PLACES: Record<string, Place> = {
     activate: (() => {
       const lines = [
         'He lifts the paddle to wave, drips all down his sleeve, and nearly goes in. Worth it.',
-        'Round the pier and back, just to see the island from the water for a bit.',
+        'All the way round the island, just to see it from the water for a bit.',
         'He says the fish are right there. He has never once seen a fish.',
       ];
       let n = 0;
@@ -1644,6 +1832,7 @@ export const PLACES: Record<string, Place> = {
 
 /** Things inside the library. Books are `book:<slug>` and open their post. */
 export const LIBRARY_PLACES: Record<string, Place> = {
+  ...eggPlaces('library'),
   // the two of them in with a book (companion.ts, vincent.ts `library`): shown only while they're in
   companion_library: withHer('On the window seat, feet tucked up', inTurn([
     'A thick history of the Cold War, open on her knees. She says it explains a great deal, and won’t say about whom.',
@@ -1788,6 +1977,7 @@ const BOAT_WEEKS = [
 ];
 
 export const WORKSHOP_PLACES: Record<string, Place> = {
+  ...eggPlaces('workshop'),
   // her paint by numbers (companion.ts `painting`): she's at it, or it's left out for next time
   companion_workshop: withHer('At her paint by numbers', inTurn([
     'Number seven is a blue she swears is two different blues. She paints it anyway.',
@@ -1991,6 +2181,7 @@ const readingNow: Place = {
 
 /** Things in the keeper's quarters, inside the lighthouse. */
 export const LIGHTHOUSE_PLACES: Record<string, Place> = {
+  ...eggPlaces('lighthouse'),
   companion_watching: {
     label: 'On the sofa, remote in hand',
     activate(ctx) {
@@ -2230,6 +2421,7 @@ function cameOn(d: Date) {
 }
 
 export const HUT_PLACES: Record<string, Place> = {
+  ...eggPlaces('hut'),
   carving: {
     label: 'Pumpkin carving · half done',
     activate: say('Where the island’s jack-o’-lanterns come from: newspaper on the floor, a spoon for the insides and the seeds laid out for roasting. This one has its eyes, and is still deciding on a mouth.'),
@@ -2372,6 +2564,7 @@ export const HUT_PLACES: Record<string, Place> = {
 
 /** Things in the lamp room, at the top of the lighthouse. */
 export const LAMP_PLACES: Record<string, Place> = {
+  ...eggPlaces('lighthouse'),
   painting: {
     label: 'A painting · a figure before a pale moon',
     activate: (ctx) => ctx.showDrawing('/drawings/painting.png', 'An acrylic painting by Vincent: a lone figure on red rock, facing a huge pale moon in a deep blue sky.'),
@@ -2466,8 +2659,8 @@ function dressedUp(places: Record<string, Place>, ids: string[], who: 'vampire' 
     };
   }
 }
-dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike', 'vincent_stroll', 'vincent_meal', 'vincent_games'], 'vampire');
-dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike', 'companion_stroll', 'companion_meal', 'companion_hammock', 'companion_games'], 'witch');
+dressedUp(PLACES, ['vincent', 'vincent_about', 'vincent_petting_cats', 'vincent_petting_beike', 'vincent_stroll', 'vincent_meal', 'vincent_games', 'vincent_drawing', 'vincent_ball', 'vincent_coffee'], 'vampire');
+dressedUp(PLACES, ['companion_podcast', 'companion_reading', 'companion_fireside', 'companion_petting_cats', 'companion_petting_beike', 'companion_stroll', 'companion_meal', 'companion_hammock', 'companion_games', 'companion_coffee'], 'witch');
 dressedUp(WORKSHOP_PLACES, ['vincent_workshop'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['vincent_coding'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['companion_watching'], 'witch');

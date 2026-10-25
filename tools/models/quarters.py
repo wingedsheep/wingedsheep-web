@@ -493,7 +493,7 @@ def guests(root):
     # for a bite now and then (`charlie_eat`, `george_eat`; quarters.ts), in place of its sleeping one
     white = dict(coat=cats.P.CAT_WHITE, patch=cats.P.GINGER, cap=cats.P.GINGER, tail=cats.P.GINGER, socks=cats.P.CAT_WHITE)
     cats.walker(group("charlie_eat", (0, 0, -20), parent=root), "charlie", size=0.9, **white)
-    cats.walker(group("george_eat", (0, 0, -20), parent=root), "george", size=1.1, eyes="#c9b560", **white)
+    cats.walker(group("george_eat", (0, 0, -20), parent=root), "george", size=1.05, eyes="#c9b560", **white)
 
 
 def desk(root):

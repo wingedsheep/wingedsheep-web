@@ -48,8 +48,8 @@ export class Ambience {
   private critters: Critters;
   /** The trees that shed their leaves (not the bushes), and the ground under each. */
   private trees: { c: CanopyMarker; ground: number }[] = [];
-  /** The leaves lying under the trees, more the later in autumn it is (litter.ts). */
-  private fallen: THREE.InstancedMesh;
+  /** The leaves lying under the trees, more the later in autumn it is (litter.ts); the robot clears some (chores.ts). */
+  readonly fallen: THREE.InstancedMesh;
   /** 1 while it's raining, running down to 0 a couple of minutes after it stops: the trees dripping. */
   private soaked = 0;
 

@@ -49,27 +49,17 @@ const GROGGY = 90; // seconds after, of not being quite itself
  */
 export class Robot {
   private root?: THREE.Object3D;
-  private hips?: THREE.Object3D;
-  private head?: THREE.Object3D;
-  private antenna?: THREE.Object3D;
-  private arms: THREE.Object3D[] = []; // left, right
-  private legs: THREE.Object3D[] = [];
-  private rest = new Map<THREE.Object3D, THREE.Euler>();
-  private hipsY = 0;
+  private body?: RobotBody;
 
   private nodes = new Map<string, Waypoint>();
   private node = 'home'; // where it last arrived
   private route: string[] = [];
   private from = V();
   private heading = 0;
-  private stride = 0;
   private mood: Mood = { kind: 'charge', until: 4 };
   private clock = 0;
   /** The exhibit it's been asked to show, if any. */
   private showing: string | null = null;
-  // the antenna is a damped spring that every stumble sets wobbling
-  private wobble = new THREE.Vector2();
-  private wobbleV = new THREE.Vector2();
   /** The update's progress bar on its chest (workshop.py `robot_update`), and until when it's groggy after. */
   private screen?: THREE.Object3D;
   private bar?: THREE.Object3D;
@@ -84,13 +74,7 @@ export class Robot {
     this.root = root;
     if (!this.root) return;
     const part = (name: string) => this.root!.getObjectByName(name);
-    this.hips = part('robot_hips');
-    this.head = part('robot_head');
-    this.antenna = part('antenna');
-    this.arms = ['arm_l', 'arm_r'].map(part).filter(Boolean) as THREE.Object3D[];
-    this.legs = ['leg_l', 'leg_r'].map(part).filter(Boolean) as THREE.Object3D[];
-    for (const o of [this.hips, this.head, this.antenna, ...this.arms, ...this.legs]) if (o) this.rest.set(o, o.rotation.clone());
-    this.hipsY = this.hips?.position.y ?? 0;
+    this.body = new RobotBody(this.root);
     this.screen = part('robot_update');
     this.bar = part('robot_bar');
     if (this.screen) this.screen.visible = false;
@@ -164,7 +148,7 @@ export class Robot {
   }
 
   update(dt: number) {
-    if (!this.root || !this.hips) return;
+    if (!this.root || !this.body?.ok) return;
     this.clock += dt;
     const m = this.mood;
     let walking = 0;
@@ -307,7 +291,7 @@ export class Robot {
       }
     }
 
-    this.pose(dt, walking, lean, arm, armOut, look, crouch);
+    this.body.pose(dt, { walking, lean, arm, armOut, look, crouch });
   }
 
   // --- moving about -------------------------------------------------------------------------
@@ -419,44 +403,8 @@ export class Robot {
     this.root.rotation.y = this.heading;
   }
 
-  // --- animation -----------------------------------------------------------------------------
-
-  private pose(dt: number, walking: number, lean: number, arm: number[], armOut: number[], look: number, crouch: number) {
-    const r = (o: THREE.Object3D | undefined) => (o ? this.rest.get(o)! : new THREE.Euler());
-    const hips = this.hips!;
-    this.stride += dt * 9 * walking;
-    const s = Math.sin(this.stride) * walking;
-    const bob = Math.abs(Math.cos(this.stride)) * 0.05 * walking;
-
-    hips.position.y = this.hipsY + bob - crouch;
-    hips.rotation.x = r(hips).x + lean + walking * 0.06;
-    hips.rotation.z = r(hips).z + s * 0.1; // a waddle
-    this.legs.forEach((leg, i) => {
-      leg.rotation.x = r(leg).x + (i ? -s : s) * 0.6 - lean * 0.6;
-    });
-    this.arms.forEach((a, i) => {
-      a.rotation.x = r(a).x + (i ? s : -s) * 0.45 - arm[i];
-      a.rotation.z = r(a).z + armOut[i] + (i ? -0.08 : 0.08);
-    });
-    if (this.head) {
-      this.head.rotation.y = THREE.MathUtils.damp(this.head.rotation.y, r(this.head).y + look, 4, dt);
-      this.head.rotation.x = r(this.head).x + Math.sin(this.stride * 2) * 0.05 * walking;
-    }
-
-    // antenna: a spring, shoved about by steps and stumbles
-    const kick = V(s * walking * 0.8, 0);
-    this.wobbleV.x += (-40 * this.wobble.x - 3 * this.wobbleV.x + kick.x * 6) * dt;
-    this.wobbleV.y += (-40 * this.wobble.y - 3 * this.wobbleV.y + walking * 2 + lean * 8) * dt;
-    this.wobble.addScaledVector(this.wobbleV, dt);
-    if (this.antenna) {
-      this.antenna.rotation.z = r(this.antenna).z + this.wobble.x * 0.5;
-      this.antenna.rotation.x = r(this.antenna).x + this.wobble.y * 0.5;
-    }
-  }
-
   private kick(amount: number) {
-    this.wobbleV.x += rand(-1, 1) * amount;
-    this.wobbleV.y += amount;
+    this.body?.kick(amount);
   }
 
   // --- little effects --------------------------------------------------------------------------
@@ -480,6 +428,93 @@ export class Robot {
     const at = this.position.addScaledVector(f, 0.8).add(V(0, 0.1, 0));
     for (let i = 0; i < 14; i++) {
       this.room.particles.emit({ position: at.clone().add(V(rand(-0.4, 0.4), 0, rand(-0.4, 0.4))), velocity: V(rand(-0.8, 0.8), rand(0.2, 0.8), rand(-0.8, 0.8)), color: pick(['#c9b48a', '#b89a6a', '#d8cdb0']), life: rand(0.5, 1.1), size: 2 });
+    }
+  }
+}
+
+/** How the robot holds itself this frame: everything 0 is standing still, arms down. */
+export interface Stance {
+  walking?: number; // 0..1, striding
+  lean?: number; // forward pitch of the whole body
+  arm?: number[]; // extra forward raise per arm (left, right)
+  armOut?: number[]; // sideways, flailing
+  look?: number; // head turned
+  crouch?: number; // knees bent, metres down
+  plant?: number; // 0..1: feet kept under it as it bends (a bow), rather than going out behind (a fall)
+  swing?: number; // how much the arms swing as it walks (1; 0 with both hands on something)
+  legs?: number[]; // extra forward swing per leg (left, right): a kick, a foot dangling
+}
+
+/**
+ * The robot's body (workshop.py `robot`): the hips it bends at, the head, both arms and legs,
+ * and the antenna on its spring. In the workshop it's `robot_hips` and so on; out on the island
+ * (chores.ts) every part's name starts `bot_`.
+ */
+export class RobotBody {
+  private hips?: THREE.Object3D;
+  private head?: THREE.Object3D;
+  private antenna?: THREE.Object3D;
+  private arms: THREE.Object3D[] = []; // left, right
+  private legs: THREE.Object3D[] = [];
+  private rest = new Map<THREE.Object3D, THREE.Euler>();
+  private hipsY = 0;
+  private stride = 0;
+  // the antenna is a damped spring that every stumble sets wobbling
+  private wobble = new THREE.Vector2();
+  private wobbleV = new THREE.Vector2();
+
+  constructor(root: THREE.Object3D, p = '') {
+    const part = (name: string) => root.getObjectByName(p + name);
+    this.hips = part('robot_hips');
+    this.head = part('robot_head');
+    this.antenna = part('antenna');
+    this.arms = ['arm_l', 'arm_r'].map(part).filter(Boolean) as THREE.Object3D[];
+    this.legs = ['leg_l', 'leg_r'].map(part).filter(Boolean) as THREE.Object3D[];
+    for (const o of [this.hips, this.head, this.antenna, ...this.arms, ...this.legs]) if (o) this.rest.set(o, o.rotation.clone());
+    this.hipsY = this.hips?.position.y ?? 0;
+  }
+
+  get ok() {
+    return !!this.hips;
+  }
+
+  /** Shove the antenna about (a stumble, a fall, a jolt). */
+  kick(amount: number) {
+    this.wobbleV.x += rand(-1, 1) * amount;
+    this.wobbleV.y += amount;
+  }
+
+  pose(dt: number, { walking = 0, lean = 0, arm = [0, 0], armOut = [0, 0], look = 0, crouch = 0, plant = 0, swing = 1, legs = [0, 0] }: Stance) {
+    const r = (o: THREE.Object3D | undefined) => (o ? this.rest.get(o)! : new THREE.Euler());
+    const hips = this.hips;
+    if (!hips) return;
+    this.stride += dt * 9 * walking;
+    const s = Math.sin(this.stride) * walking;
+    const bob = Math.abs(Math.cos(this.stride)) * 0.05 * walking;
+
+    hips.position.y = this.hipsY + bob - crouch;
+    hips.rotation.x = r(hips).x + lean + walking * 0.06;
+    hips.rotation.z = r(hips).z + s * 0.1; // a waddle
+    this.legs.forEach((leg, i) => {
+      leg.rotation.x = r(leg).x + (i ? -s : s) * 0.6 - lean * (0.6 + 0.4 * plant) - legs[i];
+    });
+    this.arms.forEach((a, i) => {
+      a.rotation.x = r(a).x + (i ? s : -s) * 0.45 * swing - arm[i];
+      a.rotation.z = r(a).z + armOut[i] + (i ? -0.08 : 0.08);
+    });
+    if (this.head) {
+      this.head.rotation.y = THREE.MathUtils.damp(this.head.rotation.y, r(this.head).y + look, 4, dt);
+      this.head.rotation.x = r(this.head).x + Math.sin(this.stride * 2) * 0.05 * walking;
+    }
+
+    // antenna: a spring, shoved about by steps and stumbles
+    const kick = V(s * walking * 0.8, 0);
+    this.wobbleV.x += (-40 * this.wobble.x - 3 * this.wobbleV.x + kick.x * 6) * dt;
+    this.wobbleV.y += (-40 * this.wobble.y - 3 * this.wobbleV.y + walking * 2 + lean * 8) * dt;
+    this.wobble.addScaledVector(this.wobbleV, dt);
+    if (this.antenna) {
+      this.antenna.rotation.z = r(this.antenna).z + this.wobble.x * 0.5;
+      this.antenna.rotation.x = r(this.antenna).x + this.wobble.y * 0.5;
     }
   }
 }

@@ -52,7 +52,7 @@ type Mood =
   | { kind: 'return' }
   // in out of the rain, or back out; over to the campfire with his ball (`fire`), or back home from it (`home`);
   // off to one of his other spots and back (`errand`), or once round the island
-  | { kind: 'trip'; path: Waypoint[]; leg: number; indoors: boolean; fire?: boolean; home?: boolean; errand?: 'out' | 'back' | 'round' }
+  | { kind: 'trip'; path: Waypoint[]; leg: number; indoors: boolean; fire?: boolean; home?: boolean; errand?: 'out' | 'back' | 'round'; greet?: boolean }
   | { kind: 'inside' }
   // by the fire once Vincent's done kicking: a few mad laps round it, then a turn on the spot and down
   | { kind: 'zoomies'; path: THREE.Vector3[]; leg: number }
@@ -147,6 +147,10 @@ export class Beike {
    * should be towards. He goes as soon as he's pottering about with his ball, and stays till they go.
    */
   lap: { at: THREE.Vector3; face: THREE.Vector3 } | null = null;
+  /** Vincent out in the meadow to throw the ball for him (routines.ts): where he's standing. */
+  private player: THREE.Vector3 | null = null;
+  /** The ball's in Vincent's hand, about to go. */
+  private held = false;
 
   private inMouth = true;
   private ballVel = V();
@@ -304,8 +308,81 @@ export class Beike {
 
   /** Pottering about in his own meadow with his ball, and nobody wanting him for anything. */
   get free() {
+    return this.loose && !this.player;
+  }
+
+  /** Pottering about in his meadow with his ball (whoever's there). */
+  private get loose() {
     const kind = this.mood.kind;
     return !!this.root && !this.sheltering && !this.away && !this.outing && !this.lap && this.inMouth && (kind === 'idle' || kind === 'wander');
+  }
+
+  /**
+   * Vincent's come out to throw the ball for him, and is standing at `at` (or has gone: null).
+   * Up he comes, jumps up at him and rolls right over (if he hasn't seen him for a while), then
+   * drops the ball at his feet; from then on it's a throw, a chase, and back to his feet with it.
+   */
+  playWith(at: THREE.Vector3 | null) {
+    if (!at) {
+      if (!this.player) return;
+      this.player = null;
+      if (this.held) this.letGo();
+      const kind = this.mood.kind;
+      if (kind === 'offer' || kind === 'greet') this.mood = this.inMouth ? { kind: 'idle', until: this.clock + 2 } : { kind: 'chase' };
+      return;
+    }
+    if (this.player) return;
+    if (!this.loose || !this.root) return;
+    this.player = at.clone();
+    this.face.copy(at);
+    // just in front of him, on the meadow side
+    this.dropAt.copy(at).add(this.meadow.clone().sub(at).setY(0).normalize().multiplyScalar(0.8));
+    this.dropAt.y = this.ground.at(this.dropAt.x, this.dropAt.z);
+    this.joy = 1;
+    this.onBark?.();
+    if (this.clock - this.greeted > 90) {
+      this.greeted = this.clock;
+      this.mood = { kind: 'trip', path: [{ at: this.root.position.clone(), fixed: false }, { at: this.dropAt.clone(), fixed: false }], leg: 1, indoors: false, greet: true };
+    } else this.mood = { kind: 'trip', path: [{ at: this.root.position.clone(), fixed: false }, { at: this.dropAt.clone(), fixed: false }], leg: 1, indoors: false };
+  }
+
+  /** Whether he's playing ball with Vincent. */
+  get playing() {
+    return !!this.player;
+  }
+
+  /** The ball at Vincent's feet, stopped, for him to pick up. */
+  get ballAtFeet() {
+    return !!this.player && this.mood.kind === 'offer' && !this.inMouth && !this.held && !this.ballFlying;
+  }
+
+  /** In Vincent's hand. */
+  get inHand() {
+    return this.held;
+  }
+
+  /** Vincent picks it up: it goes in `hand` (his arm, which hangs down to it). */
+  hand(arm: THREE.Object3D) {
+    if (!this.ball || this.held || this.inMouth) return;
+    arm.attach(this.ball);
+    this.ball.position.set(0, -0.68, 0.04);
+    this.ballVel.set(0, 0, 0);
+    this.ballFlying = false;
+    this.held = true;
+  }
+
+  /** …and throws it, out over the meadow, the way he's facing. */
+  throwFrom() {
+    if (this.held) this.throwBall();
+  }
+
+  /** Dropped where he's standing (he's off, or it's started to rain). */
+  private letGo() {
+    if (!this.ball || !this.root?.parent || !this.held) return;
+    this.root.parent.attach(this.ball);
+    this.held = false;
+    this.ballVel.set(0, 0, 0);
+    this.ballFlying = true;
   }
 
   /** Whether he's in his meadow (not off somewhere, or on his way). */
@@ -545,6 +622,7 @@ export class Beike {
         this.turnTo(this.face, dt);
         if (m.t > 0.35 && this.inMouth) this.dropBall();
         if (m.t > 9 && m.t - dt <= 9) this.onSound?.('whine', this.position, 1); // well?
+        if (this.player) m.t = Math.min(m.t, 8); // he'll throw it
         if (m.t > 30) {
           // nobody's throwing: he picks it up and wanders off with it
           this.pickUp();
@@ -583,7 +661,10 @@ export class Beike {
         pace = m.errand === 'round' ? RUN * 0.85 : m.errand ? TROT * 1.4 : RUN * 0.7;
         if (this.flatDistance(target) > 0.3) break;
         if (m.leg < m.path.length - 1) m.leg++;
-        else if (m.fire && this.away) {
+        else if (this.player && !m.indoors && !m.errand) {
+          // over to Vincent: a greeting, or straight to it with the ball
+          this.mood = m.greet ? { kind: 'greet', t: 0 } : { kind: 'offer', t: 0 };
+        } else if (m.fire && this.away) {
           // at Vincent's feet: face him, drop the ball, wait
           this.face.copy(this.away.vincent);
           this.dropAt.copy(this.away.spot);
@@ -848,6 +929,10 @@ export class Beike {
 
   private throwBall() {
     if (!this.ball || !this.root) return;
+    if (this.held && this.root.parent) {
+      this.root.parent.attach(this.ball); // out of Vincent's hand
+      this.held = false;
+    }
     if (this.inMouth) this.dropBall(); // clicked before he'd even let go of it
     const from = this.ball.getWorldPosition(V());
     // somewhere out in the meadow, away from the visitor, on open grass all the way
@@ -899,11 +984,12 @@ export class Beike {
     this.ballVel.set(0, 0, 0);
     this.ballFlying = false;
     this.inMouth = true;
+    this.held = false; // (out of Vincent's hand, if it was in it)
   }
 
   /** Arc, bounce, roll, stop. */
   private updateBall(dt: number) {
-    if (!this.ball || this.inMouth) return;
+    if (!this.ball || this.inMouth || this.held) return;
     const b = this.ball;
     const floor = this.ground.at(b.position.x, b.position.z);
     if (this.ballFlying) {

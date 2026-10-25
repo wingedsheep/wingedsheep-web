@@ -39,10 +39,18 @@ CAMP = (34.4, 0.4)                # the tent, on the headland, its door to the f
 WELL = (20, -14)
 BENCH = (-17, -11)
 READING = (22.9, -14.0)            # a picnic blanket under the blossom tree, by the well
-WORKOUT = (-4.4, -12.6)            # her exercise mat, on the grass above the beach west of the pier
+WORKOUT = (-8.6, -12.9)            # her exercise mat, on the grass above the beach, west of the pier's lamps and signpost
 PIER_SEAT = (-1.0, -21.5)          # her, with a podcast: on the pier's west edge between two posts, legs over the water
 # Vincent with a podcast: pacing up and down the path from the plaza towards the well
 PODCAST_WALK = [(3.0, -10.3), (8.0, -12.0), (12.5, -13.1), (17.2, -13.9)]
+# Vincent drawing: on the grass with his back to the oak south of the plaza's lamp, looking out
+# over the beach, the robin he's drawing on a stick in front of him (routines.py)
+DRAWING = (-6.3, -11.8)
+# throwing the ball for Beike: standing at the edge of his meadow, on the plaza side
+BALL = (-10.6, -11.2)
+# her, on the phone: up and down the open grass below the lighthouse path, west of the library (the
+# path itself is under the trees, seen from the default camera)
+PHONE_WALK = [(-21.6, -8.6), (-23.4, -7.4), (-25.4, -6.2)]
 BEIKE = (-12.5, -12.5)             # Beike's spot in the meadow; he fetches the ball around it
 PETTING = (-12.8, -11.9)           # kneeling in his meadow while he lies in front of them, facing the camera
 SIGNPOST = (-2.6, -15.5)
@@ -53,7 +61,10 @@ SUMMIT = (5.0, 18.6)
 # The peak rises from the upper terrace: centre, radius, height of the top ledge
 PEAK = ((5.0, 18.6), 6.0, 13.5)
 KAYAK = (2.6, -24)
-KAYAK_LOOP = ((9.0, -27.0), 6.0, 3.5)  # where Vincent paddles about: the middle, and the radii east-west and north-south
+# Vincent out in the kayak goes all the way round the island, this far off the shore (and round
+# the end of the pier and of the birch twigs), setting off from and coming back to the pier's end
+KAYAK_OFFSHORE = 3.5
+KAYAK_PUT_IN = (2.4, -25.0)
 # A line of birch twigs off the island's back shore in the north-east, between the mountain hut
 # and the eastern woods: from the sand out into the sea (to Low Water: src/island/commonplace.ts). From
 # the default camera a tree hides the shore end, and the rest show as a row of posts running out

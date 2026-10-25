@@ -13,6 +13,7 @@ import { Hut } from './hut';
 import { Companion, SHOWS, type Show, type Spot } from './scene/companion';
 import { type Pet, PETS } from './scene/petting';
 import { Vincent, type Whereabouts } from './scene/vincent';
+import { CHORES, type Chore } from './scene/chores';
 import { Lighthouse } from './lighthouse';
 import { GameBox } from './games';
 import { CameraRig } from './scene/camera-rig';
@@ -42,7 +43,7 @@ import { Radio } from './radio';
 import { River } from './river';
 import { CommonplaceRoom } from './commonplace';
 import { Trail } from './trail';
-import { UI } from './ui';
+import { UI, keepQuery } from './ui';
 import { Workshop } from './workshop';
 
 /** Which place the camera visits when a panel opens. */
@@ -101,6 +102,7 @@ export async function bootIsland(host: HTMLElement) {
   const pixels = new PixelRenderer(renderer, pixelSizeFor(host.clientWidth, host.clientHeight));
   const sky = new Sky(scene, island, pixels, water.uniforms);
   const life = new Life(scene, island, sky);
+  life.vincent.surfer.sea = water.uniforms; // where the rollers are, to ride them
   const sound = new Sound(songs, piano, records, album);
   life.beike.onBark = () => sound.bark();
   // animals nearer the middle of the view sound louder, and off to the side they're heard from
@@ -133,6 +135,7 @@ export async function bootIsland(host: HTMLElement) {
     if (!(river.inside && river.calm) && !commonplace.inside) sound.thunder(distance); // (not on a clear day on the river, nor out on the flat)
   };
   const ambience = new Ambience(scene, island, water.uniforms, reducedMotion);
+  life.chores.fallen = ambience.fallen; // the robot's autumn job: picking them up
   const mist = new Mist(scene, reducedMotion);
   const beacons = new Beacons(scene, island, reducedMotion);
   const icicles = new Icicles(scene, island);
@@ -242,7 +245,7 @@ export async function bootIsland(host: HTMLElement) {
       hut.enter(name === 'hut');
       if (name === 'trail') {
         trail.goTo(sub);
-        history.replaceState(null, '', `/#trail/${trail.chapterId}`);
+        history.replaceState(null, '', keepQuery(`/#trail/${trail.chapterId}`));
       }
       trail.enter(name === 'trail' || from === 'trail');
       river.enter(name === 'river');
@@ -262,6 +265,8 @@ export async function bootIsland(host: HTMLElement) {
       commonplace.enter(false);
     },
   });
+
+
 
   const gameBox = new GameBox();
   const ctx: IslandContext = {
@@ -346,8 +351,10 @@ export async function bootIsland(host: HTMLElement) {
   // WEATHER_KINDS), optionally with &k=<0..1 intensity: ?weather=partly&k=0.2 is the odd cloud>,
   // &wind=<m/s>, &gusts=<m/s>, &dir=<degrees it comes from> and &temp=<°C>
   const params = new URLSearchParams(location.search);
-  // (out in the snow, ?play=snow, comes with snow of its own: there's no snowman on bare grass)
-  const preview = (params.get('weather') ?? (params.get('play') === 'snow' ? 'snow' : null)) as WeatherKind | null;
+  // (out in the snow, ?play=snow, comes with snow of its own: there's no snowman on bare grass;
+  // and surfing, ?vincent=surf, with a breeze and a swell running)
+  const surfing = params.get('vincent') === 'surf';
+  const preview = (params.get('weather') ?? (params.get('play') === 'snow' ? 'snow' : surfing ? 'partly' : null)) as WeatherKind | null;
   let first = true;
   const live = async () => {
     ctx.forecast = await fetchForecast();
@@ -363,13 +370,13 @@ export async function bootIsland(host: HTMLElement) {
   };
   if (preview) {
     const num = (k: string) => (params.has(k) ? Number(params.get(k)) : undefined);
-    weather.set(preview, num('k') ?? 0.8, { wind: num('wind'), gusts: num('gusts'), direction: num('dir'), temperature: num('temp'), instant: true });
+    weather.set(preview, num('k') ?? (surfing ? 0.3 : 0.8), { wind: num('wind') ?? (surfing ? 8 : undefined), gusts: num('gusts'), direction: num('dir'), temperature: num('temp'), instant: true });
     if (params.has('temp') || preview === 'warm' || preview === 'hot') wardrobe.feel(weather.temperature);
     life.shelter.settle();
     life.companion.settle();
     life.vincent.settle();
   }
-  // and to see her somewhere in particular: ?companion=reading|fireside|workout|podcast|yoga|petting|baking|watching|bed|stroll, with
+  // and to see her somewhere in particular: ?companion=reading|fireside|workout|podcast|yoga|petting|baking|watching|bed|stroll|phone|coffee|kite, with
   // &show=murder|location|bnb|rail for what's on the telly, or &pet=cats|beike for who's getting a fuss
   const pet = params.get('pet') as Pet | null;
   const fuss = pet && PETS.includes(pet) ? pet : undefined;
@@ -378,18 +385,24 @@ export async function bootIsland(host: HTMLElement) {
     const show = params.get('show') as Show | null;
     life.companion.put(spot, show && SHOWS.includes(show) ? show : undefined, fuss);
   }
-  // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep|stroll|meditate (and ?time=00:30 to see who's up)
+  // or him: ?vincent=guitar|hut|kayak|yoga|climb|podcast|petting|coding|asleep|stroll|meditate|drawing|ball|coffee (and ?time=00:30 to see who's up)
   const where = params.get('vincent') as Whereabouts | null;
   if (where && Vincent.SPOTS.includes(where)) life.vincent.put(where, fuss);
   // the two of them at a meal: ?meal=breakfast|pasta|miso|curry|risotto|pizza|gourmet (&where=hut|fire, otherwise
-  // the weather decides), or out for a walk with a mug of glühwein each: ?walk=gluhwein
+  // the weather decides), or out for a walk with a mug of glühwein each: ?walk=gluhwein (or without: ?walk=together)
   if (params.has('meal')) {
     life.vincent.put('meal');
     life.companion.put('meal');
   }
-  if (params.get('walk') === 'gluhwein') {
+  if (params.get('walk') === 'gluhwein' || params.get('walk') === 'together') {
     life.vincent.put('gluhwein');
+    life.vincent.pair.mugs = params.get('walk') === 'gluhwein';
     life.companion.put('gluhwein');
+  }
+  // the two of them on the bench of a morning, coffee and tea: ?coffee
+  if (params.has('coffee')) {
+    life.vincent.put('coffee');
+    life.companion.put('coffee');
   }
   // the two of them in for a swim (a hot day's): ?swim (or just one: ?vincent=swim, ?companion=swim)
   if (params.has('swim')) {
@@ -418,9 +431,12 @@ export async function bootIsland(host: HTMLElement) {
   if (params.has('revel')) life.revel.soon();
   // and the week's: ?siren (the siren test, now), ?post (the post boat, on a post day: ?holiday=postday)
   if (params.has('siren')) life.week.soon('siren');
+  // the workshop robot out at an odd job: ?robot=leaves|sweep|shovel|beach|water|mow (chores.ts)
+  const job = params.get('robot') as Chore | null;
+  if (job && CHORES.includes(job)) life.chores.put(job);
   if (params.has('post')) life.week.soon('post');
   // in development, a handle on it all from the console (and for screenshots)
-  if (import.meta.env.DEV) Object.assign(window, { __island: { rig, life, scene, THREE } });
+  if (import.meta.env.DEV) Object.assign(window, { __island: { rig, life, scene, THREE, rooms: { library, workshop, lighthouse, hut } } });
   void live();
   setInterval(live, 60 * 1000);
   ui.route(true);
@@ -545,8 +561,13 @@ export async function bootIsland(host: HTMLElement) {
       time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, rough: weather.blizzard, camera: rig.camera,
       view: rig.view, room: indoorsNow, playing: life.playing, chill: life.chill,
       warm: weather.heat.warm, lying: snowCover.value, raining: weather.now.rain + weather.now.hail,
-      cloud: life.cloud, fog: life.fog, temperature: weather.temperature,
+      cloud: life.cloud, fog: life.fog, temperature: weather.temperature, swell: weather.swell,
     }, reducedMotion);
+    if (!reducedMotion) life.chores.update(dt, {
+      time: sky.time, night: sky.lamps, rain: weather.now.rain + weather.now.hail, snow: weather.now.snow, lying: snowCover.value, wind: weather.wind,
+      temperature: weather.temperature, cloud: life.cloud, inside: workshop.inside || workshop.wanted,
+      music: life.vincent.atTheFire && sound.enabled,
+    });
     life.pastimes.update(reducedMotion ? 0 : dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, storm: life.storm, wind: weather.wind, temperature: weather.temperature, camera: rig.camera,
     });

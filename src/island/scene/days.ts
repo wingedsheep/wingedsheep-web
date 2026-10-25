@@ -51,6 +51,7 @@ export class Days {
     const hour = d.getHours() + d.getMinutes() / 60;
     this.remembrance.update(dt, time);
     if (still) return; // reduced motion: the flag still comes down, but nobody runs about
+    this.easter.update(dt);
     this.lanterns.update(dt, o.night, o.wet, hour);
     this.airborne.update(dt, hour, o.rain, o.wind);
   }
