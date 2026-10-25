@@ -188,7 +188,14 @@ export class Life {
     this.bats = island.get('bats');
     this.beike = new Beike(island);
     this.fauna = new Fauna(scene, island, this.particles, this.beike);
-    this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours());
+    this.shelter = new Shelter(island, this.beike, new Date(sky.time).getHours(), this.fauna.template('mouse'));
+    // George pounces on a mouse in the meadow (shelter.ts): a few bits of grass go up
+    this.shelter.onPounce = (at) => {
+      const grass = season.name === 'autumn' ? ['#8a9a4a', '#a89a52', '#6f8a3e'] : season.name === 'winter' ? ['#7d8a66', '#9a9a7a'] : ['#5f9a3e', '#7cb04a', '#4f8a34'];
+      for (let i = 0; i < 7; i++) {
+        this.particles.emit({ position: at.clone().add(V(rand(-0.15, 0.15), 0.05, rand(-0.15, 0.15))), velocity: V(rand(-0.6, 0.6), rand(0.8, 1.6), rand(-0.6, 0.6)), color: grass[i % grass.length], life: rand(0.4, 0.7), size: 1, gravity: -6 });
+      }
+    };
     if (Math.random() < 0.2) this.beike.hangAbout(anyHangout(), true); // not in his meadow when you arrive
     this.pastimes = new Pastimes(island);
     this.ways = new Ways(island, this.beike.ground);

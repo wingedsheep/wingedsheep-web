@@ -18,6 +18,11 @@ the rest along the eighth row:
   mosslits     three of them on a mossy branch, each tail curled over a little light
   tromb        a striped lizard crouched on a clifftop, its long snout let out over the sea
 
+and on the eighth row's last page, left blank till it came (George goes after them, shelter.ts):
+
+  mouse        a wood mouse side on in the grass, sat up a little: big round ears, a bead of an
+               eye, pink feet and a long bare tail curled round behind it
+
     python3 tools/drawings/row-seven.py
 """
 import math
@@ -1117,11 +1122,82 @@ def tromb():
     return img
 
 
+def mouse():
+    img = np.zeros((N, N, 3), np.uint8)
+    img[:] = PAPER
+    ground = 42
+    # drawn a size up, about its feet, so it fills the page like the others do
+    k, ox = 1.15, 24
+    up = lambda x, y: (ox + (x - ox) * k, ground + 1 + (y - ground - 1) * k)
+    down = lambda X, Y: (ox + (X - ox) / k, ground + 1 + (Y - ground - 1) / k)
+    sized = lambda test: shape(lambda X, Y: test(*down(X, Y)))
+    stroke = lambda pts, radii: brush([up(*p) for p in pts], [r * k for r in radii])
+
+    def dot(pts, color):
+        """Single pixels of the small drawing, sized up with it."""
+        pts = set(pts)
+        for y in range(N):
+            for x in range(N):
+                X, Y = down(x + 0.5, y + 0.5)
+                if (int(X), int(Y)) in pts:
+                    img[y, x] = color
+    # the ground under it, scuffed, and a few blades of grass either side
+    for x in range(3, N - 3):
+        if hashed(x, ground + 1, 31) < 0.45:
+            img[ground + 1, x] = SMUDGE
+    for x0, h, lean in ((42, 11, -0.2), (45, 7, 0.2), (47, 13, 0.35), (3, 8, -0.3), (39, 6, -0.45)):
+        img[brush([(x0, ground + 0.5), (x0 + lean * h * 0.5, ground - h * 0.6), (x0 + lean * h, ground - h)], [0.7, 0.55, 0.3])] = LEAF_L
+
+    # the tail first, long and bare, round behind it along the ground
+    tail = stroke([(14, 38), (8, 39.5), (4.5, 42), (7.5, 44.6), (17, 45.2), (28, 44.6), (34, 43.6)], [1.2, 1.05, 0.95, 0.85, 0.7, 0.5, 0.35])
+    img[tail] = PINK_D
+    img[edges(tail)] = MID
+
+    # sat up, leaning forward: a round pear of a body, the haunch, the head with its pointed snout
+    body = sized(lambda X, Y: inside_ellipse(X, Y, 22.5, 32.5, 8.8, 9.6, -0.45))
+    haunch = sized(lambda X, Y: inside_ellipse(X, Y, 18.5, 36, 7, 5.6, -0.1))
+    head = sized(lambda X, Y: inside_ellipse(X, Y, 31.5, 22.8, 6.4, 5.6, 0.3)
+                 or inside_ellipse(X, Y, 36.5, 25.2, 3.6, 2.2, 0.45))
+    far = sized(lambda X, Y: inside_ellipse(X, Y, 25.6, 16.6, 3.2, 3.7, -0.4))    # the far ear, behind
+    ear = sized(lambda X, Y: inside_ellipse(X, Y, 29.2, 15.2, 3.9, 4.4, -0.15))
+    fur = body | haunch | head
+    tone(img, far & ~fur & ~ear, volume(far, 2), [UMBER, BROWN, BROWN], 0.4)
+    tone(img, fur, volume(fur, 6, (-0.45, -0.8, 0.45)), [UMBER, BROWN, BROWN, BUFF, BUFF], 0.7)
+    tone(img, haunch, volume(haunch, 4, (-0.45, -0.8, 0.45)), [UMBER, BROWN, BROWN, BUFF], 0.7)
+    tone(img, head & ~body, volume(head, 3, (0.1, -0.8, 0.6)), [BROWN, BROWN, BUFF, BUFF], 0.6)   # the face, catching the light
+    # the pale front: chin, chest and belly
+    under = sized(lambda X, Y: inside_ellipse(X, Y, 28.6, 31.5, 3.6, 8, -0.3)) & (body | head) & ~haunch
+    tone(img, under, volume(under, 2, (-0.1, 0.2, 0.95)), [BUFF, HEAD, CREAM], 0.6)
+    for y, x in np.argwhere(fur & ~under):   # the grain of the fur
+        if hashed(x, y, 41) < 0.12 and y > 18:
+            img[y, x] = UMBER if hashed(x, y, 42) < 0.5 else BROWN
+    img[edges(fur | (far & ~ear))] = INK
+
+    # the near ear, big and round, thin enough for the light through it, pink inside
+    tone(img, ear, volume(ear, 2, (-0.4, -0.8, 0.5)), [BROWN, BUFF, BUFF], 0.4)
+    img[sized(lambda X, Y: inside_ellipse(X, Y, 29.5, 15.6, 2.3, 2.8, -0.15))] = PINK
+    img[edges(ear)] = INK
+
+    # a black bead of an eye with the light in it, the pink nose, whiskers
+    dot(((33, 21), (34, 21), (33, 22), (34, 22)), INK)
+    dot(((33, 21),), CREAM)
+    dot(((40, 26), (40, 27)), PINK_D)
+    dot(((42, 24), (43, 23), (44, 23), (42, 27), (43, 28), (44, 28), (42, 26), (44, 25)), LIGHT)
+
+    # pink front paws held together at its chest, the long hind foot flat on the ground
+    dot(((28, 30), (29, 30), (29, 31), (30, 31), (28, 31)), PINK)
+    dot(((30, 31),), PINK_D)
+    dot([(x, ground - 1) for x in range(19, 28)], PINK)
+    dot([(17, ground - 1), (18, ground - 1)] + [(x, ground) for x in range(17, 27)], PINK_D)
+    return img
+
+
 # the pages drawn here, by their tile in the atlas (row * 6 + column)
 CELLS = {
     36: starling, 37: seal, 38: eagle, 39: boar, 40: highland,   # the seventh row
     41: snorble,                                                   # its last page
     42: balloonbug, 43: fosha, 44: treestrider, 45: mosslits, 46: tromb,   # the eighth row
+    47: mouse,                                                              # its last page, out of turn
 }
 
 

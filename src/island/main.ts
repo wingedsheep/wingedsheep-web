@@ -410,6 +410,7 @@ export async function bootIsland(host: HTMLElement) {
   if (off === 'swim') life.beikeSwim(); // in after them, with ?swim
   // ?cats=in: Charlie and George in the lighthouse (they visit now and then, dry days too)
   // (?cats=go: they hop down off the bench and go in, rather than being in already)
+  // (?cats=mouse: George goes out into the meadow after a mouse, every time he gets up: shelter.ts)
   if (params.get('cats') === 'in') { life.shelter.visitNow(); life.shelter.settle(); }
   if (params.get('cats') === 'go') life.shelter.visitNow();
   if (params.has('mischief')) life.mischief.soon();

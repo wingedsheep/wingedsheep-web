@@ -226,6 +226,31 @@ def rabbit(root):
         e.build(head, loc=(0.0, s * 0.035, 0.06)).rotation_euler = (s * 0.15, -0.25, 0)
 
 
+
+def mouse(root):
+    """A wood mouse, out of the long grass (George goes after them: src/island/scene/fieldmouse.ts):
+    a brown back, a pale belly, big ears and a tail as long as the rest of it."""
+    b = Model("mouse_body")
+    b.ball(0.05, (0, 0, 0.045), P.MOUSE, subdiv=2, scale=(1.5, 0.95, 0.85))
+    b.ball(0.042, (0.01, 0, 0.03), P.MOUSE_BELLY, subdiv=1, scale=(1.35, 0.85, 0.6))
+    for s in (1, -1):
+        b.box((0.035, 0.016, 0.01), (-0.035, s * 0.032, 0.005), P.MOUSE_TAIL)          # hind feet
+        b.box((0.018, 0.012, 0.01), (0.045, s * 0.022, 0.005), P.MOUSE_TAIL)           # fore paws
+    body = b.build(root)
+    h = Model("mouse_head")
+    h.ball(0.034, (0.025, 0, 0), P.MOUSE, subdiv=1, scale=(1.4, 0.9, 0.85))
+    h.box((0.012, 0.012, 0.01), (0.072, 0, -0.006), P.CAT_NOSE)
+    _eyes(h, 0.045, 0.02, 0.012, 0.012)
+    for s in (1, -1):
+        h.ball(0.02, (0.0, s * 0.024, 0.032), P.MOUSE, subdiv=1, scale=(0.45, 1.0, 1.1))   # ears
+        h.ball(0.013, (0.006, s * 0.024, 0.032), P.EAR_PINK, subdiv=1, scale=(0.3, 1.0, 1.1))
+    h.build(body, loc=(0.072, 0, 0.055))
+    t = Model("mouse_tail")
+    _limb(t, (0, 0, 0), (-0.08, 0, -0.02), 0.008, 0.006, P.MOUSE_TAIL, segs=4)
+    _limb(t, (-0.08, 0, -0.02), (-0.16, 0, -0.035), 0.006, 0.004, P.MOUSE_TAIL, segs=4)
+    t.build(body, loc=(-0.07, 0, 0.04))
+
+
 def deer(root, stag=False):
     """A red deer from the Veluwe, next door to Arnhem. The stag carries a crown of antlers."""
     name = "stag" if stag else "deer"
@@ -678,7 +703,7 @@ def _river(kind: str):
 ALL = {
     "gull": (gull, 1.4), "songbird": (songbird, 1.7), "goose": (goose, 1.4), "owl": (owl, 1.5),
     "heron": (heron, 1.2), "duck": (duck, 1.3), "duckling": (duckling, 1.3), "bat": (bat, 1.8),
-    "rabbit": (rabbit, 1.4), "deer": (deer, 1.0), "stag": (lambda r: deer(r, stag=True), 1.05),
+    "rabbit": (rabbit, 1.4), "mouse": (mouse, 1.7), "deer": (deer, 1.0), "stag": (lambda r: deer(r, stag=True), 1.05),
     "fox": (fox, 1.25), "badger": (badger, 1.55), "hedgehog": (hedgehog, 1.5), "squirrel": (squirrel, 1.6), "crab": (crab, 1.6),
     "sheep": (sheep, 1.0), "blacksheep": (lambda r: sheep(r, "blacksheep"), 1.0),
     "starsheep": (lambda r: sheep(r, "starsheep"), 1.0), "supersheep": (lambda r: sheep(r, "supersheep"), 1.3),

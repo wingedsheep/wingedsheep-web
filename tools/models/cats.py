@@ -1,6 +1,6 @@
 """Charlie and George, Vincent's cats: white with ginger patches, asleep on a fleece on the bench.
 
-George is the big one, sprawled out, one front paw stretched and the tail hanging off the edge.
+George is the big one, flat out on his side, legs out in front, the tail curled round behind.
 Charlie is the slim one, curled into a tight ball beside him. Each cat's frame: x runs along
 the bench towards George's head, -y faces the front of the bench, z = 0 is the top of the fleece.
 
@@ -50,16 +50,24 @@ def _ears(head, name: str, at, spread: float, size: float, tilt=0.3):
 
 
 def george(root):
-    """The big one, sprawled on one side, belly to the front, head resting on the fleece."""
+    """The big one, flat out on his side, back to the bench's back and belly to the front: all four
+    legs out in front of him on the fleece, one back paw just over the edge, the front paw folded
+    under his chin, the tail curled round behind and along the front, head down on his cheek."""
     b = Model("george_body")
-    b.ball(0.22, (0, 0, 0.17), P.CAT_WHITE, subdiv=2, scale=(1.9, 1.0, 0.78))
-    b.ball(0.2, (-0.02, 0.09, 0.2), P.GINGER, subdiv=2, scale=(1.35, 0.8, 0.75))     # ginger saddle
-    b.ball(0.14, (-0.34, 0.03, 0.18), P.GINGER, subdiv=2, scale=(1.0, 1.25, 1.05))   # rump
-    b.ball(0.17, (0.3, -0.01, 0.17), P.CAT_WHITE, subdiv=2, scale=(1.0, 1.1, 0.95))  # shoulders
-    # hind leg dangling over the front edge: ginger thigh, white foot
-    b.ball(0.11, (-0.27, -0.13, 0.1), P.GINGER, subdiv=1, scale=(1.3, 1.0, 0.9))
-    _limb(b, (-0.25, -0.18, 0.07), (-0.2, -0.3, -0.12), 0.05, 0.042, P.GINGER)
-    b.ball(0.048, (-0.2, -0.32, -0.17), P.CAT_WHITE, subdiv=1, scale=(1.0, 1.3, 0.8))
+    b.ball(0.15, (0.17, -0.01, 0.12), P.CAT_WHITE, subdiv=2, scale=(1.1, 1.05, 0.88))     # chest
+    b.ball(0.16, (-0.02, 0.0, 0.12), P.CAT_WHITE, subdiv=2, scale=(1.25, 1.08, 0.85))    # belly
+    b.ball(0.15, (-0.2, 0.02, 0.13), P.GINGER, subdiv=2, scale=(1.0, 1.05, 0.88))        # hips
+    b.ball(0.14, (-0.01, 0.075, 0.17), P.GINGER, subdiv=2, scale=(1.55, 0.75, 0.68))     # ginger saddle, along his back
+    b.ball(0.11, (0.01, -0.08, 0.1), P.CAT_WHITE, subdiv=1, scale=(1.55, 0.85, 0.85))    # the soft belly, to the front
+    # the back legs, out in front of him: the top one along the fleece, the other's paw over the edge
+    b.ball(0.095, (-0.2, -0.07, 0.15), P.GINGER, subdiv=1, scale=(1.2, 1.05, 0.95))      # thigh
+    _limb(b, (-0.19, -0.11, 0.11), (-0.1, -0.24, 0.05), 0.045, 0.034, P.GINGER)
+    b.ball(0.04, (-0.08, -0.265, 0.045), P.CAT_WHITE, subdiv=1, scale=(1.35, 1.0, 0.75))
+    _limb(b, (-0.24, -0.09, 0.05), (-0.22, -0.26, -0.02), 0.04, 0.032, P.GINGER)
+    b.ball(0.038, (-0.215, -0.285, -0.05), P.CAT_WHITE, subdiv=1, scale=(1.1, 1.3, 0.85))
+    # the underneath front leg, curled in under his chest
+    _limb(b, (0.2, -0.08, 0.04), (0.3, -0.19, 0.03), 0.04, 0.032, P.CAT_WHITE)
+    b.ball(0.038, (0.32, -0.205, 0.03), P.CAT_WHITE, subdiv=1, scale=(1.3, 1.1, 0.75))
     body = b.build(root)
 
     h = Model("george_head")
@@ -67,24 +75,25 @@ def george(root):
     h.ball(0.15, (0.09, -0.05, -0.02), P.CAT_WHITE, subdiv=2, scale=(1.05, 0.95, 0.88))
     for dx in (-0.1, 0.1):
         h.ball(0.05, (0.09 + dx, -0.1, -0.06), P.CAT_WHITE, subdiv=1)                  # chubby cheeks
-    head = h.build(root, loc=(0.46, -0.04, 0.14))
+    head = h.build(root, loc=(0.33, -0.03, 0.13))
+    head.rotation_euler = (0, 0.12, 0)                                                 # down on his cheek
     ear_l, ear_r = _ears(head, "george", (0.09, -0.02, 0.1), 0.085, 0.055)
 
-    # the front leg stretched out towards the edge (pivots at the shoulder)
+    # the top front paw, folded under his chin (pivots at the shoulder)
     p = Model("george_paw")
-    _limb(p, (0, 0, 0), (0.4, -0.1, -0.02), 0.048, 0.04, P.CAT_WHITE)
-    p.ball(0.046, (0.12, -0.03, 0.0), P.GINGER, subdiv=1, scale=(1.4, 1.0, 1.0))       # patch at the elbow
-    p.ball(0.052, (0.43, -0.11, -0.025), P.CAT_WHITE, subdiv=2, scale=(1.35, 1.1, 0.7))
-    paw = p.build(root, loc=(0.34, -0.15, 0.06))
+    _limb(p, (0, 0, 0), (0.12, -0.11, -0.04), 0.045, 0.036, P.CAT_WHITE)
+    p.ball(0.042, (0.05, -0.04, -0.01), P.GINGER, subdiv=1, scale=(1.3, 1.0, 1.0))      # patch at the elbow
+    p.ball(0.044, (0.15, -0.13, -0.045), P.CAT_WHITE, subdiv=2, scale=(1.35, 1.1, 0.7))
+    paw = p.build(root, loc=(0.24, -0.08, 0.13))
 
-    # the tail lies across the fleece, then hangs off the edge
+    # the tail, out behind him and curled round along the front of the fleece
     t = Model("george_tail")
-    _limb(t, (0, 0, 0), (0.02, -0.17, -0.08), 0.042, 0.037, P.GINGER)
-    tail = t.build(root, loc=(-0.42, -0.06, 0.1))
+    _limb(t, (0, 0, 0), (-0.1, -0.12, -0.06), 0.042, 0.038, P.GINGER)
+    tail = t.build(root, loc=(-0.33, 0.02, 0.1))
     tt = Model("george_tail_tip")
-    _limb(tt, (0, 0, 0), (0.02, -0.07, -0.22), 0.037, 0.03, P.GINGER)
-    tt.ball(0.032, (0.02, -0.07, -0.22), P.GINGER_DARK, subdiv=1)
-    tip = tt.build(tail, loc=(0.02, -0.17, -0.08))
+    _limb(tt, (0, 0, 0), (0.17, -0.09, -0.01), 0.038, 0.03, P.GINGER)
+    tt.ball(0.032, (0.17, -0.09, -0.01), P.GINGER_DARK, subdiv=1)
+    tip = tt.build(tail, loc=(-0.1, -0.12, -0.06))
 
     # idle, 8 s: two slow breaths, an ear flick each side, a lazy tail, one little knead
     animate(body, "george_idle", "scale", [(s, (0, 0.02 * (i % 2), 0.045 * (i % 2))) for i, s in enumerate((0, 2, 4, 6, 8))])

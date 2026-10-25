@@ -24,7 +24,7 @@ import { sofa } from './scene/programmes';
 import { wardrobe } from './scene/wardrobe';
 import { snowCover } from './scene/toon';
 import { FRIDAY_13 } from './scene/fauna';
-import { ambush, beds, coffee, flatOut, indoors, type Nook } from './scene/shelter';
+import { ambush, beds, coffee, flatOut, indoors, proud, type Nook } from './scene/shelter';
 import { boatStage, shelf } from './scene/almanac';
 import type { Forecast, WeatherKind } from './forecast';
 import type { Journal } from './journal';
@@ -524,6 +524,10 @@ const WILDLIFE: Record<string, Place> = {
     ...(FRIDAY_13 ? ['Friday the 13th. It was never going to miss this.'] : []),
     'Every flock has one. This one seems very pleased about it.',
   ], 'blacksheep'),
+  mouse: animal('mouse', 'A wood mouse', [
+    'A wood mouse, ears up, every whisker going. It has had a very long day.',
+    'Very still, very small, and doing its sums: how far to the long grass, and how fast is that cat.',
+  ]),
   rabbit: animal('rabbit', 'A rabbit', ['A flash of white tail, and it’s gone down a hole.', 'Thump, thump: a warning to every rabbit in the meadow. Then it bolts.']),
   deer: animal('deer', 'A red deer', [
     'Heads up, ears up, and they’re gone into the trees. The Veluwe, where they roam wild, starts just outside Arnhem.',
@@ -1380,13 +1384,16 @@ export const PLACES: Record<string, Place> = {
       if (!ctx.journal.has('cats')) return 'A big cat, sprawled out';
       const away = nook('george');
       if (away) return `George · ${flatOut.has('george') ? 'flat out ' : ''}${away.at}`;
+      if (proud.has('george')) return 'George · back from the meadow, very pleased with himself';
       return flatOut.has('george') ? 'George · flat out on the cool stones' : 'George · taking up most of the bench';
     },
     activate(ctx, at) {
       ctx.life.pet('george');
       ctx.sound.purr();
       ctx.life.burst('hearts', at);
-      ctx.toast(nook('george')?.george ?? (flatOut.has('george')
+      ctx.toast(nook('george')?.george ?? (proud.has('george')
+        ? 'George went out into the long grass, caught a mouse and brought it all the way back to the bench for you. He’d like that noted.'
+        : flatOut.has('george')
         ? 'George has poured himself onto the cool flagstones under the bench. One ear moves. That’s all you’re getting in this heat.'
         : 'George stretches one paw even further across the bench, clearly not moving for anyone.'));
       ctx.discover('cats');

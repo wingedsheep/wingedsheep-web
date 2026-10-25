@@ -55,12 +55,16 @@ const SPECIMENS = [
   ['hippogriff', 'Hippogriff', 'Bowed first, and waited. It looked at me a long while with its orange eye, then bowed back, and let me draw it.'],
   ['spermwhale', 'Sperm whale', 'Falling, nose first, out of a clear sky. I had about as long to sketch it as it had to wonder what it was.'],
   ['windspren', 'Windspren', 'Two ribbons of light on the gust, looping round each other and away. Laughing, if a ribbon can.'],
+  ['mouse', 'Wood mouse', 'Ears like two petals and a tail as long as the rest of it. Quicker than the cat, mostly.'],
 ] as const;
-/** The atlas is six sketches wide and nine deep; its thirty-sixth sketch is the feather, not an animal,
- *  and the eighth row's last page is left blank, so the ninth row starts with the curlew. */
+/** The atlas is six sketches wide and nine deep; its thirty-sixth sketch is the feather, not an animal.
+ *  The eighth row's last page was left blank, so the ninth row starts with the curlew; the wood mouse
+ *  came later and has it, out of turn. */
 const FEATHER = 35;
 const BLANK = 47;
+const MOUSE = SPECIMENS.findIndex((s) => s[0] === 'mouse');
 const tileOf = (specimen: number) => {
+  if (specimen === MOUSE) return BLANK;
   const tile = specimen >= FEATHER ? specimen + 1 : specimen;
   return tile >= BLANK ? tile + 1 : tile;
 };

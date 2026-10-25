@@ -130,7 +130,7 @@ def shelter(t: Terrain):
     the island till then) and the routes they and Beike take indoors, as markers."""
     white = dict(coat=cats.P.CAT_WHITE, patch=cats.P.GINGER, cap=cats.P.GINGER, tail=cats.P.GINGER, socks=cats.P.CAT_WHITE)
     cats.walker(group("charlie_walk", (0, 0, -20)), "charlie", size=0.9, **white)
-    cats.walker(group("george_walk", (0, 0, -20)), "george", size=1.1, eyes="#c9b560", **white)
+    cats.walker(group("george_walk", (0, 0, -20)), "george", size=1.2, eyes="#c9b560", **white)
     cats.walker(group("cat_walk", (0, 0, -20)), "cat", coat=cats.P.CAT, patch=None, cap=cats.P.CAT, tail=cats.P.CAT,
                 socks=cats.P.CAT_WHITE, bib=cats.P.CAT_WHITE, eyes="#e0c050")
     for name, points in L.SHELTER.items():

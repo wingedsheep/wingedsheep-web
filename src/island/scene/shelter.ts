@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { games } from './boardgames';
 import type { Beike, Ground } from './beike';
+import { FieldMouse, type Patch } from './fieldmouse';
 import type { Island } from './island';
 import { petting } from './petting';
 
@@ -19,6 +20,9 @@ export const indoors = new Set<string>();
 
 /** Which cats are flat out in the heat, by id (content.ts says so when you click them). */
 export const flatOut = new Set<string>();
+
+/** Which cats are back on the bench from the meadow with a mouse, by id (till they next get up). */
+export const proud = new Set<string>();
 
 /**
  * Charlie's ambush in the lighthouse (quarters.ts), while Vincent's at his desk: one tiny mew,
@@ -55,20 +59,49 @@ export function heightBetween(a: Waypoint, b: Waypoint, p: THREE.Vector3, ground
 // 'cool' and 'warm': down off the bench onto the stones under it in the heat, and back up.
 // The rest are a move to somewhere else to sleep (Shelter.roam): a stretch where it lay, the jump
 // down, the walk over, the jump up, and round in a circle or two before it curls up.
+// The hunt (Shelter.roam, now and then, George only): out into the meadow at a stroll, then
+// 'stalk' (belly to the grass, a few steps at a time), 'freeze' (dead still, then the wiggle) and
+// 'pounce'. The mouse (fieldmouse.ts) is out from under his paws, and it's a 'chase', bounding
+// after it, with a 'spring' each time it stops dead, till he has it or it's gone ('lost'). Then
+// 'pin' (nose in the grass), and 'proud' with it, carried home to be put down at the bench
+// ('gift'), or 'groom', as if he'd meant to miss.
 type Phase = 'asleep' | 'down' | 'in' | 'inside' | 'out' | 'up' | 'cool' | 'warm'
-  | 'stretch' | 'leave' | 'roam' | 'arrive' | 'circle' | 'away';
+  | 'stretch' | 'leave' | 'roam' | 'arrive' | 'circle' | 'away'
+  | 'stalk' | 'freeze' | 'pounce' | 'chase' | 'spring' | 'lost' | 'pin' | 'proud' | 'groom' | 'gift';
 
 const HOT = 0.55; // heat (0..1) that has them down on the cool stones…
 const COOLER = 0.4; // …and back up on the fleece once it's this much cooler
 const STRETCH = 1.8; // seconds for the stretch before it sets off: front paws out, bottom up, then a yawn
 const CIRCLE = 1.9; // seconds going round on the spot before it lies down
 const STROLL = 0.75; // how fast it goes, moving house, against its trot in the rain
+const CREEP = 0.22; // m/s, stalking
+const SPRING = 1.1; // how far it pounces from (m)
+const CHASE = 2.3; // m/s, bounding after it
+const REACH = 0.9; // how close he has to be when it stops to spring at it (m)
+
+/**
+ * Where George listens for mice (Blender x, y): the long grass west of the bench, off the sand,
+ * clear of the library's garden and away from Beike's end of the meadow. `patch` (min x, min y,
+ * max x, max y) is the grass the mouse keeps to when it runs.
+ */
+const MEADOW: [number, number, number, number] = [-21.8, -13, -18.6, -10.2];
+/** Round the bench's west end on the way out to the meadow and back, not through it. */
+const ROUND: [number, number] = [-18.8, -12.3];
+const MOUSE_HOLES: { at: [number, number]; patch: [number, number, number, number] }[] = [
+  { at: [-21.2, -11.6], patch: MEADOW },
+  { at: [-20.4, -12.6], patch: MEADOW },
+  { at: [-20.8, -10.7], patch: MEADOW },
+];
+
+/** How the hunt goes: nothing there after all, the mouse gets away, or he has it. */
+type Outcome = 'empty' | 'miss' | 'catch';
 
 interface CatSpec {
   id: string;
   route: string;
   speed: number; // m/s
   delay: number; // seconds after the rain comes (or goes) before this one gets up
+  curl?: number; // how much of its size it has just up from asleep, growing out of a curled-up ball (default 0.62)
   front?: number; // jumps down this far in front of where it sleeps (off the bench)
 }
 
@@ -106,7 +139,7 @@ const NOOKS: Record<Exclude<Nook, 'bench'>, NookSpec> = {
   hearth: { at: [-10.6, -7.85], on: 'library', yaw: 1.6, hop: true, way: [[-10.6, -9.2], [-14.8, -9.9]], join: 1, room: 'library' },
   workshop: {
     at: [11.5, -7.7], on: 'workshop', yaw: 1.6, hop: true, room: 'workshop',
-    way: [[11.5, -8.7], [8, -7.7], [4.6, -8.5], [3.6, -10.2], [-3, -9.8], [-8.5, -10.5], [-14.8, -9.9]], join: 1,
+    way: [[11.5, -8.7], [8, -8.4], [4.6, -8.5], [3.6, -10.2], [-3, -9.8], [-8.5, -10.5], [-14.8, -9.9]], join: 1,
   },
 };
 
@@ -151,6 +184,7 @@ function chooseBeds(hour: number) {
     const n = q.get(id) as Nook | null;
     if (n && (n === 'bench' || n in NOOKS)) beds[id] = n;
   }
+  if (q.get('cats') === 'mouse') beds.george = 'bench'; // he goes mousing from the bench
 }
 
 /** A way to walk, and how far along it each point is. */
@@ -271,7 +305,7 @@ function between(a: Bed, b: Bed, bench: Waypoint[]): Waypoint[] {
 
 const CATS: CatSpec[] = [
   { id: 'charlie', route: 'bench', speed: 1.7, delay: 0.6, front: 0.8 }, // first to notice
-  { id: 'george', route: 'bench', speed: 1.35, delay: 2.4, front: 0.8 }, // not in a hurry, ever
+  { id: 'george', route: 'bench', speed: 1.35, delay: 2.4, front: 0.8, curl: 0.94 }, // not in a hurry, ever; sleeps sprawled out, not curled up
   { id: 'cat', route: 'dock', speed: 2.4, delay: 1.2 }, // a long way up to the hut
 ];
 
@@ -313,6 +347,27 @@ class Cat {
   /** Seconds it's been settled where it is, and how long it means to stay. */
   idle = 0;
   stay = rand(150, 420);
+  /**
+   * Out after a mouse: where it is, where the cat creeps to before it freezes, the grass it runs
+   * in, how it goes, and the chase: springs so far, the one that gets it, where this one's from
+   * and to, and whether he has it (and has given it to you).
+   */
+  private mouse: {
+    at: THREE.Vector3; from: THREE.Vector3; patch: Patch; outcome: Outcome;
+    springs: number; catchOn: number; start: THREE.Vector3; target: THREE.Vector3; caught: boolean; given: boolean;
+  } | null = null;
+  /** The mouse itself (George's), hidden till he pounces. */
+  field?: FieldMouse;
+  /** Down in the grass (0..1), the wiggle before a pounce, and licking a paw. */
+  private low = 0;
+  private bound = 0; // flat out after it, a gallop
+  private shimmy = 0;
+  private lick = 0;
+  private chin = 0; // head up, pleased with itself
+  private look = 0; // head turned, looking for it (radians)
+  private clock = 0;
+  /** A pounce lands, at: a few bits of grass go up (Life). */
+  onPounce?: (at: THREE.Vector3) => void;
 
   constructor(
     private spec: CatSpec,
@@ -346,6 +401,10 @@ class Cat {
 
   get id() {
     return this.spec.id;
+  }
+
+  private get curl() {
+    return this.spec.curl ?? 0.62;
   }
 
   /** In the lighthouse (not another room). */
@@ -389,7 +448,8 @@ class Cat {
   /** Straight to where the weather says it should be, no walking (on arrival, or with reduced motion). */
   snap(wantIn: boolean, hot = 0) {
     if (this.next) this.lieIn(this.next); // halfway across: it's there
-    this.next = this.trip = null;
+    if (this.mouse) this.field?.hide();
+    this.next = this.trip = this.mouse = null;
     const away = !!this.bed.room;
     this.phase = away ? 'away' : wantIn ? 'inside' : 'asleep';
     this.sprawl(this.phase === 'asleep' && hot > HOT);
@@ -413,6 +473,7 @@ class Cat {
 
   /** Up, and off to sleep in `bed` instead, along `way` (which starts where it lands jumping down). */
   roam(bed: Bed, way: Waypoint[]) {
+    proud.delete(this.spec.id);
     this.next = bed;
     this.trip = new Path(way);
     this.idle = 0;
@@ -434,11 +495,34 @@ class Cat {
     }
   }
 
+  /**
+   * Up off the bench and out into the meadow after a mouse at `hole`: a stroll to a few metres
+   * off, then the stalk. Afterwards (`next`) it's back to the bench. Only from the bench.
+   */
+  hunt(hole: THREE.Vector3, patch: Patch, outcome: Outcome) {
+    const start = this.bed.lead[0];
+    if (!start) return;
+    const round = this.corner();
+    const dir = hole.clone().sub(round.at).setY(0).normalize();
+    const from = hole.clone().addScaledVector(dir, -SPRING);
+    const near = from.clone().addScaledVector(dir, -1.6);
+    near.y = this.ground.at(near.x, near.z);
+    this.roam(this.bed, [start, round, { at: near, fixed: false }]);
+    this.next = null;
+    this.mouse = {
+      at: hole, from, patch, outcome: this.field ? outcome : 'empty',
+      springs: 0, catchOn: outcome === 'catch' ? 3 + Math.floor(Math.random() * 2) : 99, // never first time
+      start: new THREE.Vector3(), target: new THREE.Vector3(), caught: false, given: false,
+    };
+  }
+
   update(dt: number, wantIn: boolean, hot = 0) {
     const end = this.route.end;
     let moving = false;
     let pace = this.spec.speed;
+    this.clock += dt;
     this.crouch = this.air = this.land = this.reach = this.yawn = 0;
+    this.low = this.shimmy = this.lick = this.chin = this.bound = this.look = 0;
     this.morph = 1;
     if (this.phase === 'asleep' && !wantIn) {
       const want = this.sprawled ? hot > COOLER : hot > HOT;
@@ -551,7 +635,7 @@ class Cat {
       case 'stretch': {
         this.t += dt / STRETCH;
         const k = Math.min(1, this.t);
-        this.morph = 0.62 + 0.38 * step(0, 0.15, k); // up out of the curl
+        this.morph = this.curl + (1 - this.curl) * step(0, 0.15, k); // up out of the curl
         this.reach = step(0.1, 0.35, k) * (1 - step(0.6, 0.8, k));
         this.yawn = step(0.62, 0.72, k) * (1 - step(0.86, 0.98, k));
         if (k < 1) break;
@@ -580,11 +664,18 @@ class Cat {
         this.turn(trip.heading(this.s, 1), dt);
         this.stride += pace * dt * 9;
         moving = true;
+        if (this.mouse?.caught) this.chin = 0.7; // head up, with it
         if (this.s < trip.end) break;
         this.t = 0;
-        this.lieIn(this.next!);
-        this.phase = this.bed.hop ? 'arrive' : 'circle';
-        this.turnFrom = this.heading;
+        if (!this.next) {
+          this.phase = 'stalk'; // there: down into the grass
+          break;
+        }
+        if (this.mouse?.caught && !this.mouse.given) {
+          this.phase = 'gift'; // at the foot of the bench: put it down first
+          break;
+        }
+        this.settleIn();
         break;
       }
       case 'arrive': {
@@ -615,7 +706,7 @@ class Cat {
         this.stride += dt * 7 * (1 - step(0.7, 0.85, k));
         moving = k < 0.8;
         this.crouch = step(0.75, 0.95, k) * 0.6;
-        this.morph = 1 - 0.38 * step(0.82, 1, k);
+        this.morph = 1 - (1 - this.curl) * step(0.82, 1, k);
         if (k < 1) break;
         this.next = this.trip = null;
         this.phase = 'asleep';
@@ -623,10 +714,197 @@ class Cat {
         this.sleeper.visible = true;
         break;
       }
+      // --- after a mouse ---
+      case 'stalk': {
+        // a few steps, belly low, then still; a few more
+        const m = this.mouse!;
+        this.t += dt;
+        this.low = Math.min(1, this.t * 2);
+        const go = Math.sin(this.t * 1.7) > -0.2;
+        const p = this.walker.position;
+        const left = Math.hypot(m.from.x - p.x, m.from.z - p.z);
+        const d = Math.min(left, go ? CREEP * dt : 0);
+        p.x += ((m.from.x - p.x) / (left || 1)) * d;
+        p.z += ((m.from.z - p.z) / (left || 1)) * d;
+        p.y = this.ground.at(p.x, p.z);
+        this.turn(headingTo(p, m.at), dt);
+        pace = CREEP;
+        moving = go && left > 0.01;
+        this.stride += d * 14;
+        if (left > 0.01) break;
+        this.phase = 'freeze';
+        this.t = 0;
+        this.wait = rand(2.5, 5.5);
+        break;
+      }
+      case 'freeze': {
+        // dead still, eyes on the spot; then the back end goes, side to side
+        this.t += dt;
+        this.low = 1;
+        this.turn(headingTo(this.walker.position, this.mouse!.at), dt);
+        this.shimmy = step(this.wait - 1.4, this.wait - 0.9, this.t);
+        if (this.t < this.wait) break;
+        this.phase = 'pounce';
+        this.t = 0;
+        this.turnFrom = this.heading;
+        break;
+      }
+      case 'pounce': {
+        const m = this.mouse!;
+        this.t += dt / 0.8;
+        const k = Math.min(1, this.t);
+        this.leap(k, m.from, m.at, 0.4, false);
+        this.morph = 1;
+        this.low = 1 - this.air;
+        if (k < 1) break;
+        this.onPounce?.(m.at.clone());
+        this.t = 0;
+        if (m.outcome === 'empty' || !this.field) {
+          this.phase = 'pin';
+          break;
+        }
+        // out from under his paws, and away
+        const away = m.at.clone().sub(m.from).setY(0).normalize();
+        this.field.bolt(m.at, away, m.patch, m.outcome === 'catch' ? 12 : 7 + Math.floor(Math.random() * 2));
+        this.phase = 'chase';
+        this.wait = 0.35; // a beat, caught out, before he's after it
+        break;
+      }
+      case 'chase': {
+        // bounding after it; when it stops dead and he's near enough, he springs
+        const m = this.mouse!;
+        const f = this.field!;
+        if (f.gone) {
+          this.phase = 'lost';
+          this.t = 0;
+          break;
+        }
+        const p = this.walker.position;
+        const to = f.position;
+        const dx = to.x - p.x;
+        const dz = to.z - p.z;
+        const dist = Math.hypot(dx, dz);
+        this.turn(Math.atan2(-dz, dx), dt);
+        if ((this.wait -= dt) > 0) {
+          this.low = 0.5;
+          break;
+        }
+        pace = CHASE;
+        const d = Math.min(Math.max(0, dist - 0.55), pace * dt);
+        p.x += (dx / (dist || 1)) * d;
+        p.z += (dz / (dist || 1)) * d;
+        p.y = this.ground.at(p.x, p.z);
+        this.stride += d * 11;
+        moving = d > 0;
+        this.bound = moving ? 1 : 0;
+        this.low = moving ? 0.3 : 0.8;
+        if (!(f.still && dist < REACH)) break;
+        m.springs++;
+        if (m.springs >= m.catchOn) f.freeze();
+        m.start.copy(p);
+        m.target.copy(to);
+        this.phase = 'spring';
+        this.t = 0;
+        break;
+      }
+      case 'spring': {
+        const m = this.mouse!;
+        const f = this.field!;
+        const catching = m.springs >= m.catchOn;
+        this.t += dt / 0.6;
+        const k = Math.min(1, this.t);
+        this.leap(k, m.start, m.target, 0.3, false);
+        this.morph = 1;
+        this.low = 0.6 * (1 - this.air);
+        this.turn(headingTo(m.start, m.target), dt);
+        if (!catching && k > 0.3) f.dash(); // off again from under him
+        if (k < 1) break;
+        this.onPounce?.(m.target.clone());
+        this.t = 0;
+        if (catching && this.parts.head) {
+          f.hold(this.parts.head);
+          m.caught = true;
+          this.phase = 'pin';
+        } else {
+          this.phase = 'chase';
+          this.wait = 0.45; // missed: a look, and after it again
+        }
+        break;
+      }
+      case 'lost': {
+        // gone into the grass: he stops, and looks for it, this way and that
+        this.t += dt;
+        this.low = 0.4 * (1 - step(0, 1, this.t));
+        this.lick = 0;
+        this.look = Math.sin(this.t * 2.6) * 0.7 * (1 - step(1.6, 2.2, this.t));
+        if (this.t < 2.2) break;
+        this.phase = 'groom';
+        this.t = 0;
+        break;
+      }
+      case 'pin': {
+        // both front paws down on it, nose in after them
+        this.t += dt;
+        this.low = 1;
+        if (this.t < (this.mouse!.caught ? 0.9 : 1.3)) break;
+        this.phase = this.mouse!.caught ? 'proud' : 'groom';
+        this.t = 0;
+        break;
+      }
+      case 'proud':
+      case 'groom': {
+        // with it, a look round, head up; without it, a wash, as though that's what he came out for
+        this.t += dt;
+        const length = this.phase === 'proud' ? 1.8 : 4;
+        if (this.phase === 'groom') this.lick = step(0.2, 0.6, this.t) * (1 - step(length - 0.5, length, this.t));
+        else this.chin = step(0, 0.4, this.t);
+        if (this.t < length) break;
+        const here = this.walker.position.clone();
+        const home = this.bed.lead[0];
+        this.trip = new Path([{ at: here, fixed: false }, this.corner(), home]);
+        this.next = this.bed;
+        this.phase = 'roam';
+        this.s = 0;
+        break;
+      }
+      case 'gift': {
+        // he turns, head down, and leaves it on the flagstones in front of the bench, for you
+        const m = this.mouse!;
+        const out = this.bed.lead[0].at.clone().sub(this.seat).setY(0).normalize();
+        const spot = this.seat.clone().addScaledVector(out, 0.6);
+        this.t += dt;
+        this.turn(headingTo(this.walker.position, spot), dt);
+        this.low = 0.5 * step(0.2, 0.5, this.t) * (1 - step(1, 1.3, this.t));
+        if (this.t > 0.8 && !m.given) {
+          m.given = true;
+          this.field?.drop(spot.setY(this.ground.at(spot.x, spot.z)));
+        }
+        if (this.t < 1.4) break;
+        this.t = 0;
+        this.settleIn();
+        break;
+      }
     }
     this.walker.rotation.set(0, this.heading, 0);
     this.walker.scale.copy(this.baseScale).multiplyScalar(this.morph);
     this.pose(moving, pace);
+  }
+
+  /** The way round the end of the bench, between the front of it and the meadow (ROUND). */
+  private corner(): Waypoint {
+    const [x, y] = ROUND;
+    return { at: new THREE.Vector3(x, this.ground.at(x, -y), -y), fixed: false };
+  }
+
+  /** Home from a move or a hunt: in its new bed, and up onto it (or straight round and down). */
+  private settleIn() {
+    this.lieIn(this.next!);
+    if (this.mouse) {
+      if (this.mouse.caught) proud.add(this.spec.id);
+      this.mouse = null;
+    }
+    this.phase = this.bed.hop ? 'arrive' : 'circle';
+    this.turnFrom = this.heading;
   }
 
   private turn(want: number, dt: number) {
@@ -646,8 +924,8 @@ class Cat {
     this.crouch = step(0, 0.16, t) * (1 - step(0.19, 0.24, t));
     this.air = Math.sin(flight * Math.PI);
     this.land = t > 0.78 ? 1 - step(0.78, 1, t) : 0;
-    if (leaving) this.morph = 0.62 + 0.38 * step(0, 0.2, t);
-    else this.morph = 1 - 0.38 * step(0.8, 1, t);
+    if (leaving) this.morph = this.curl + (1 - this.curl) * step(0, 0.2, t);
+    else this.morph = 1 - (1 - this.curl) * step(0.8, 1, t);
     const along = flight * 0.85 + step(0, 1, flight) * 0.15; // nearly steady across, easing a little at each end
     const p = this.walker.position.lerpVectors(from, to, along);
     p.y = THREE.MathUtils.lerp(from.y, to.y, along) + this.air * height;
@@ -660,26 +938,41 @@ class Cat {
     for (const [o, r] of this.rest) o.rotation.copy(r);
     if (!body) return;
     const s = this.stride;
-    const { air, crouch, land, reach, yawn } = this;
+    const { air, crouch, land, reach, yawn, low, shimmy, lick, bound } = this;
     const amble = pace < this.spec.speed; // strolling, not trotting through the rain: a shorter step
     this.wiggle += crouch > 0 ? 0.5 : 0;
     // a trot: diagonal pairs swing together; in the air, front paws reach and back legs push off
+    // (flat out, a gallop: front paws together, then back paws together, reaching further)
     legs.forEach((leg, i) => {
       const front = i < 2;
-      const phase = i === 0 || i === 3 ? 0 : Math.PI;
-      leg.rotation.z += moving ? Math.sin(s + phase) * (amble ? 0.38 : 0.5) : 0;
+      const phase = bound ? (front ? 0 : Math.PI * 0.8) + (i % 2) * 0.3 : i === 0 || i === 3 ? 0 : Math.PI;
+      leg.rotation.z += moving ? Math.sin(s + phase) * (bound ? 0.85 : amble ? 0.38 : 0.5) : 0;
       leg.rotation.z += air * (front ? 0.7 : -0.6);
       leg.rotation.z += reach * (front ? 0.95 : -0.15); // the stretch: front paws right out in front
     });
-    body.position.y = this.bodyY + (moving ? Math.abs(Math.sin(s)) * (amble ? 0.015 : 0.025) : 0) - 0.09 * crouch - 0.08 * land - 0.05 * reach;
+    body.position.y = this.bodyY + (moving ? Math.abs(Math.sin(s)) * (amble ? 0.015 : 0.025) : 0) - 0.09 * crouch - 0.08 * land - 0.05 * reach - 0.1 * low;
     const off = this.phase === 'down' || this.phase === 'cool' || this.phase === 'leave';
     body.rotation.z = air * (off ? -0.25 : 0.25) + (off ? 0.08 : -0.08) * crouch + 0.1 * land - 0.32 * reach; // nose down off the bench, up onto it; up a little to look at where it's going
-    body.scale.set(1 + 0.1 * air + 0.04 * land + 0.08 * reach, 1 - 0.07 * land - 0.05 * crouch, 1); // stretched in the air, squashed down low
+    body.scale.set(1 + 0.1 * air + 0.04 * land + 0.08 * reach + 0.06 * low, 1 - 0.07 * land - 0.05 * crouch - 0.1 * low, 1); // stretched in the air, squashed down low
+    body.rotation.z -= 0.06 * low; // stalking: shoulders down, back end up a touch
+    body.rotation.y += Math.sin(this.clock * 22) * 0.12 * shimmy; // the wiggle before the pounce
+    if (moving && bound) {
+      body.rotation.z += Math.sin(s) * 0.16; // rocking, nose and tail, bound to bound
+      body.position.y += Math.max(0, Math.sin(s)) * 0.05;
+    }
     if (head) {
       head.rotation.z += (moving ? Math.sin(s * 2) * 0.05 : 0) + 0.25 * crouch + 0.3 * reach - 0.45 * yawn; // eyes on the landing; up, and back for a yawn
+      // eyes level on the spot, stalking; nose in the grass; down at a paw, licking; chin up with it
+      const nose = this.phase === 'pin' || (this.phase === 'gift' && this.t > 0.3 && this.t < 1.1) ? 0.5 : 0;
+      head.rotation.z += -0.12 * low - nose - lick * (0.55 + Math.sin(this.clock * 11) * 0.12) + 0.3 * this.chin;
+      head.rotation.y += lick * 0.6 + this.look;
+      if (bound) head.rotation.z -= Math.sin(s) * 0.12; // eyes kept level on it
       head.scale.set(1, 1 + 0.12 * yawn, 1);
     }
-    if (tail) tail.rotation.x += Math.sin(s * 0.5) * 0.15 + crouch * Math.sin(this.wiggle) * 0.4 + reach * 0.5; // tail up, the tip bobbing side to side (and a wiggle before a jump)
+    if (tail) {
+      tail.rotation.x += Math.sin(s * 0.5) * 0.15 + crouch * Math.sin(this.wiggle) * 0.4 + reach * 0.5 + low * Math.sin(this.clock * 7) * 0.2; // tail up, the tip bobbing side to side (and a wiggle before a jump; a twitch, stalking)
+      tail.rotation.z += 1.1 * Math.max(low, bound); // stalking (and after it), it goes down straight out behind
+    }
   }
 }
 
@@ -710,12 +1003,23 @@ export class Shelter {
   private pinned = ['charlie', 'george'].some((id) => new URLSearchParams(location.search).has(id));
   /** A preview (?cats=roam): on the move every half a minute or so, rather than every few. */
   private restless = new URLSearchParams(location.search).get('cats') === 'roam';
+  /** A preview (?cats=mouse): George off after a mouse every time he gets up, and soon. */
+  private mousing = new URLSearchParams(location.search).get('cats') === 'mouse';
+  /** A pounce lands, at (Life: the grass goes up). */
+  onPounce?: (at: THREE.Vector3) => void;
 
   /** `hour`: the time of day on the island when you arrive, for where the cats have gone to sleep. */
+  /** The mouse George goes after (fieldmouse.ts), if there's a model of one. */
+  private field?: FieldMouse;
+  /** A preview: how the hunt goes (?cats=mouse&mouse=catch|miss|empty). */
+  private outcome = new URLSearchParams(location.search).get('mouse') as Outcome | null;
+
+  /** `mouse`: the wood mouse's model (fauna.py), for George to go after. */
   constructor(
     private island: Island,
     private beike: Beike,
     private hour: number,
+    mouse?: THREE.Object3D,
   ) {
     chooseBeds(hour);
     for (const spec of CATS) {
@@ -728,8 +1032,13 @@ export class Shelter {
       this.beds.set(spec.id, { bench: home });
       const want = spec.id in beds ? beds[spec.id as keyof typeof beds] : 'bench';
       const bed = this.bedIn(spec.id, sleeper, want) ?? home;
-      this.cats.push(new Cat(spec, sleeper, walker, bed, beike.ground));
+      const cat = new Cat(spec, sleeper, walker, bed, beike.ground);
+      cat.onPounce = (at) => this.onPounce?.(at);
+      if (spec.id === 'george' && mouse && walker.parent) cat.field = this.field = new FieldMouse(mouse, walker.parent, beike.ground);
+      if (this.mousing && spec.id === 'george') cat.stay = 4;
+      this.cats.push(cat);
     }
+    if (this.mousing) this.lull = 0;
     const route = island.routes.get('beike');
     if (route?.length) beike.shelterRoute = route;
   }
@@ -759,6 +1068,7 @@ export class Shelter {
   /** `rain` and `hot` are 0..1; `instant` skips the walking (reduced motion). */
   update(dt: number, rain: number, instant = false, hot = 0) {
     this.clock += dt;
+    this.field?.update(dt);
     const was = this.wantIn;
     this.wantIn = rain > GO_IN || (this.wantIn && rain > COME_OUT);
     const v = this.visit;
@@ -791,7 +1101,8 @@ export class Shelter {
   /**
    * Every few minutes, out of the rain, Charlie or George gets up and goes to sleep somewhere
    * else: never where the other one is (outdoors: there's room for two indoors), and not while
-   * somebody's kneeling at the bench giving them a fuss.
+   * somebody's kneeling at the bench giving them a fuss. Once in a while George, getting up off
+   * the bench, goes out into the meadow after a mouse instead, likeliest at dusk and dawn.
    */
   private roam(dt: number, catsIn: boolean, hot: number) {
     if (catsIn || this.pinned) return;
@@ -803,6 +1114,16 @@ export class Shelter {
       if (c.idle < (this.restless ? 20 : c.stay) || this.lull > 0 || (c.onBench && petting.by.cats)) continue;
       const sleeper = this.island.get(c.id);
       if (!sleeper) continue;
+      const dusk = (hour >= 5 && hour < 8) || (hour >= 17 && hour < 21);
+      if (c.id === 'george' && c.onBench && (this.mousing || Math.random() < (dusk ? 0.25 : 0.07))) {
+        const { at: [x, y], patch: [x0, y0, x1, y1] } = MOUSE_HOLES[Math.floor(Math.random() * MOUSE_HOLES.length)];
+        const r = Math.random();
+        const outcome = this.outcome ?? (r < 0.15 ? 'empty' : r < 0.6 ? 'miss' : 'catch');
+        c.hunt(new THREE.Vector3(x, this.beike.ground.at(x, -y), -y), [x0, -y1, x1, -y0], outcome);
+        this.lull = this.mousing ? 6 : rand(60, 150);
+        if (this.mousing) c.stay = 6;
+        continue;
+      }
       const taken = new Set(this.cats.filter((o) => o !== c).map((o) => o.bed.nook));
       const options = (['bench', ...Object.keys(NOOKS)] as Nook[])
         .filter((n) => n !== c.bed.nook && (n === 'bench' || NOOKS[n].room || !taken.has(n)))
@@ -814,7 +1135,7 @@ export class Shelter {
       c.idle = 0;
       if (!bed) continue;
       c.roam(bed, between(c.bed, bed, this.bench));
-      this.lull = this.restless ? 8 : rand(60, 150);
+      this.lull = this.restless || this.mousing ? 8 : rand(60, 150);
     }
   }
 }
