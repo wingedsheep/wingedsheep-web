@@ -18,6 +18,7 @@ import nature
 import outings
 import pastimes
 import props
+import running
 import snowplay
 import week
 from kit import group
@@ -333,3 +334,4 @@ def populate(t: Terrain):
     outings.populate(t)
     snowplay.populate(t)
     pastimes.populate(t)
+    running.populate(t)

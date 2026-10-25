@@ -19,6 +19,7 @@ import type { Doing } from './scene/swim';
 import { season } from './scene/season';
 import { clog, occasions } from './scene/calendar';
 import { type Show, telly } from './scene/companion';
+import { sofa } from './scene/programmes';
 import { wardrobe } from './scene/wardrobe';
 import { snowCover } from './scene/toon';
 import { FRIDAY_13 } from './scene/fauna';
@@ -1057,6 +1058,8 @@ const OFF_TO: Record<string, [string, string]> = { // his, hers
 const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
 const offTo = (ctx: IslandContext, who: 'v' | 'e') => {
   const to = who === 'v' ? ctx.life.vincent.headedFor : ctx.life.companion.headedFor;
+  run: ['up to the hut to change for a run', ''],
+  sofa: ['in to the sofa in the lighthouse', ''],
   return to ? OFF_TO[to]?.[who === 'v' ? 0 : 1] || 'on the way somewhere' : null;
 };
 // out in the snow, the two of them: a snowman, then snowballs (snowplay.ts)
@@ -1158,7 +1161,30 @@ export const PLACES: Record<string, Place> = {
   companion_fireside: withHer((ctx) => (fridayNight(ctx.sky.time) ? 'By the fire, with a beer' : 'By the fire, with tea'), (ctx) =>
     ctx.sound.playing ? 'She’s singing along, a word or two ahead of him. He’s pretending not to notice.' : fridayNight(ctx.sky.time) ? borrel() : fireside()),
   companion_workout: withHer('Working out above the beach, under protest', workout),
+const running = inTurn([
+  'An easy pace, round the island. He nods as he goes past, saving his breath.',
+  'Along the beach and out past the lighthouse, watch checked every hundred metres.',
+  'Out for a run, in the kind of rhythm where the thinking goes quiet.',
+]);
+const runningDark = inTurn([
+  'A run after dark, the head torch bobbing along the path ahead of him.',
+  'Just a small circle of light on the path, and his footsteps. He likes it like this.',
+]);
+function runLine(ctx: IslandContext) {
+  const r = ctx.life.vincent.runner;
+  if (r.doing === 'stretching') return 'A quad stretch by the hut door, wobbling a little. Then the other leg, and he’s off.';
+  if (r.doing === 'blowing') return 'Back at the hut, hands on his knees, getting his breath back. A good one.';
+  if (r.lap > 0 && Math.random() < 0.4) return 'Second lap. The first one felt shorter.';
+  return ctx.sky.lamps > 0.5 ? runningDark() : running();
+}
+const runLabel = (ctx: IslandContext) => {
+  const r = ctx.life.vincent.runner;
+  return r.doing === 'stretching' ? 'Vincent · stretching before a run' : r.doing === 'blowing' ? 'Vincent · back from his run'
+    : ctx.sky.lamps > 0.5 ? 'Vincent · a run by head torch' : 'Vincent · out for a run';
+};
+
   companion_petting_cats: withHer('Giving the cats a fuss', herCats),
+  vincent_run: { label: runLabel, activate: (ctx) => ctx.toast(runLine(ctx)) },
   companion_petting_beike: withHer('Giving Beike a fuss', herBeike),
   vincent_petting_cats: { label: 'Vincent · giving the cats a fuss', activate: (ctx) => ctx.toast(hisCats()) },
   vincent_petting_beike: { label: 'Vincent · giving Beike a fuss', activate: (ctx) => ctx.toast(hisBeike()) },
@@ -1783,6 +1809,31 @@ const DESK: Place = {
     };
     return (ctx: IslandContext) => {
       if (!indoors.has('vincent_coding')) {
+/** Vincent on the sofa (src/island/scene/vincent.ts, quarters.ts): a game on his own, a film with her. */
+const SOFA: Place = (() => {
+  const gaming = inTurn([
+    'GTA Arnhem: across the John Frost Bridge with the police right behind. He leans into every corner, as if that helps.',
+    '“Two seconds, I’m nearly at a save point.” He’s been nearly at a save point for a while now.',
+    'Thumbs going, tongue out a little at the corner of his mouth. Don’t talk to him for a bit.',
+  ]);
+  const film = inTurn([
+    'A film night, an arm round her along the back of the sofa. She has the popcorn and isn’t sharing yet.',
+    'They laugh at the same bit, and then look at each other to check it was funny. It was.',
+    'Feet up, the film on, nothing else to do tonight. This is the plan, and it’s a good one.',
+  ]);
+  return {
+    label: () => (sofa.film ? 'Vincent · a film with her' : sofa.game === 'won' ? 'Vincent · he won'
+      : sofa.game === 'lost' ? 'Vincent · he lost' : 'Vincent · on the sofa, gaming'),
+    activate(ctx) {
+      if (sofa.film) return ctx.toast(film());
+      if (sofa.game === 'won') return ctx.toast('Both arms up, controller and all. Nobody saw it, so he tells you about it. Twice.');
+      if (sofa.game === 'lost') return ctx.toast('Slumped back into the cushions. “The controller’s lagging.” It isn’t.');
+      if (indoors.has('george')) return ctx.toast('George is asleep on his lap, so he plays with his elbows tucked in, very carefully.');
+      ctx.toast(gaming());
+    },
+  };
+})();
+
         return ctx.toast('The screen’s asleep. On the paper by the keyboard, a level sketched in pencil, and in the margin: “level 1?”');
       }
       if (ambush.on) return ctx.toast(clawed());
@@ -1863,16 +1914,20 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
         : 'Black, no sugar, and hot. He’s taking his time with it, as one should.')
       : ctx.sky.lamps > 0.6
         ? 'Black, and stone cold. Someone said they’d be right there. About three hours ago.'
+      else if (sofa.film) ctx.toast('A film with him, the popcorn in her lap. She’ll let him have some at the good bit.');
         : 'Black, no sugar, still hot. Someone said they’d be right there.'),
   },
   coffee_machine: { label: 'The coffee machine', activate: (ctx) => ctx.toast(coffeeLine()) },
   tap: {
     label: 'The kitchen tap',
     activate(ctx) {
+  vincent_sofa: SOFA,
       ctx.sound.call('tap');
       const cats = indoors.has('charlie') || indoors.has('george');
       ctx.toast(cats
         ? 'You turn on the tap. Two cats who were fast asleep on the sofa a second ago are already racing for the counter. Their water bowl is full. It doesn’t count.'
+      : sofa.film ? 'The telly · a film, the two of them'
+      : sofa.on ? 'The telly · GTA Arnhem, his go'
         : 'You turn on the tap. Somewhere out on the island, two cats sit bolt upright.');
     },
   },

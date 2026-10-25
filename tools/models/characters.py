@@ -369,6 +369,60 @@ def vincent_coding(root):
     head(root, "code_head", (0, 0, 1.45 + up))
 
 
+def vincent_sofa(root):
+    """On the lighthouse sofa (quarters.py), its cushion at z = 0.59, the telly in front of him
+    (-y) and her end of the sofa to his left (+x). Two of him, the runtime showing one:
+    `vincent_gaming`, perched forward with the controller in both hands (`game_torso` leans at
+    the hips, `game_pad` is his forearms and the controller, from the elbows, and `game_head`),
+    and `vincent_film`, sunk back into the cushions with his left arm along the back of the
+    sofa behind her (`film_torso`, `film_head`). `vincent_sofa_lap` is where George curls up."""
+    up = 0.59 - 0.56
+    legs = Model("vincent_sofa_legs")
+    for x in (-0.16, 0.16):
+        legs.box((0.21, 0.52, 0.21), (x, -0.24, 0.62 + up), P.V_LEGS)                     # thighs
+        legs.box((0.16, 0.16, 0.52 + up), (x, -0.5, (0.52 + up) / 2 + 0.07), P.V_SHIN)    # bare shins
+        legs.box((0.2, 0.34, 0.1), (x, -0.56, 0.05), P.SHOE)
+    legs.box((0.5, 0.3, 0.2), (0, 0.02, 0.66 + up), P.V_LEGS)                             # his seat
+    legs.build(root)
+    group("vincent_sofa_lap", (0, -0.26, 0.76 + up), parent=root)
+    hip = 0.72 + up
+
+    # gaming: forward on the edge of it, elbows in, the controller held low in front of him
+    g = group("vincent_gaming", parent=root)
+    torso = group("game_torso", (0, 0.04, hip), parent=g)
+    m = Model("vincent_gaming_body")
+    _tee(m, 0.0, torso, cape=0.2)
+    for s in (-1, 1):
+        m.plank_line((s * 0.31, -0.02, 0.58), (s * 0.31, -0.12, 0.32), 0.15, 0.15, P.V_TOP)  # sleeve to the elbow
+        m.plank_line((s * 0.31, -0.08, 0.44), (s * 0.31, -0.13, 0.3), 0.12, 0.12, P.V_ARM)
+    m.build(torso)
+    pad = Model("game_pad")                                                                # from the elbows
+    for s in (-1, 1):
+        pad.plank_line((s * 0.31, 0, 0), (s * 0.13, -0.3, 0.06), 0.11, 0.11, P.V_ARM)
+        pad.box((0.1, 0.12, 0.09), (s * 0.11, -0.33, 0.07), P.SKIN)
+    pad.plank_line((0.28, -0.07, 0.02), (0.24, -0.13, 0.03), 0.13, 0.13, P.WATCH)
+    pad.box((0.3, 0.13, 0.06), (0, -0.35, 0.08), "#d9d5cf")                                 # the controller
+    pad.box((0.06, 0.04, 0.02), (-0.08, -0.36, 0.12), "#5f5a66")                          # its d-pad
+    pad.cyl(0.025, 0.02, (0.06, -0.37, 0.11), P.RED, segs=5)
+    pad.cyl(0.025, 0.02, (0.1, -0.33, 0.11), P.TILE_BLUE, segs=5)
+    pad.build(torso, loc=(0, -0.13, 0.3))
+    head(torso, "game_head", (0, 0, 0.73))
+
+    # a film with her: back in the cushions, an arm round behind her
+    f = group("vincent_film", parent=root)
+    torso = group("film_torso", (0, 0.06, hip), parent=f)
+    m = Model("vincent_film_body")
+    _tee(m, 0.0, torso, cape=0.2)
+    m.plank_line((0.31, 0.0, 0.58), (0.52, 0.12, 0.66), 0.15, 0.15, P.V_TOP)               # left arm along the back
+    m.plank_line((0.52, 0.12, 0.66), (0.92, 0.18, 0.68), 0.12, 0.12, P.V_ARM)
+    m.box((0.12, 0.11, 0.08), (0.98, 0.18, 0.68), P.SKIN)
+    m.plank_line((-0.31, -0.02, 0.58), (-0.33, -0.1, 0.3), 0.15, 0.15, P.V_TOP)           # right hand on his knee
+    m.plank_line((-0.33, -0.1, 0.3), (-0.2, -0.42, 0.0), 0.12, 0.12, P.V_ARM)
+    m.box((0.11, 0.12, 0.08), (-0.18, -0.46, -0.01), P.SKIN)
+    m.build(torso)
+    head(torso, "film_head", (0, 0, 0.73))
+
+
 def vincent_asleep(root, top: float, cell):
     """Fast asleep on his back, head on the pillow, the red check duvet up to his chin (hut.py's
     bed). The group sits at his neck, just over the mattress; the duvet runs off south (-y) from

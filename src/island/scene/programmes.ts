@@ -2,6 +2,12 @@ import type { Show } from './companion';
 
 type Ctx = CanvasRenderingContext2D;
 
+/**
+ * Vincent on the sofa (vincent.ts `sofa`, quarters.ts lounger()): a game on his own, or a film
+ * with her if she's in watching; and, in a game, how the last go went.
+ */
+export const sofa: { on: boolean; film: boolean; game: 'playing' | 'won' | 'lost' } = { on: false, film: false, game: 'playing' };
+
 /** A 3×5 pixel font, just the characters the programmes need, one string per row. */
 const GLYPHS: Record<string, string[]> = {
   P: ['###', '#.#', '###', '#..', '#..'],
@@ -162,6 +168,49 @@ function rail(c: Ctx, t: number) {
   }
   rect(c, '#2e2a3a', x + 26, 12, 1, 3); // the pantograph
   rect(c, '#1d1a24', 0, 11, 48, 1); // the overhead line
+}
+
+/**
+ * A film, the two of them on the sofa (vincent.ts `sofa`): widescreen, black bars and all, cutting
+ * between a ship sliding past a ringed planet, two suns going down over the dunes, and the two
+ * leads, close up, saying something that matters.
+ */
+export function drawFilm(c: Ctx, t: number) {
+  rect(c, '#000', 0, 0, 48, 36);
+  const shot = Math.floor(t / 7) % 3;
+  const k = (t % 7) / 7;
+  if (shot === 0) {
+    rect(c, '#0b0a1a', 0, 6, 48, 24);
+    for (let i = 0; i < 18; i++) rect(c, '#e9f0f7', (i * 17 + Math.floor(k * 3)) % 48, 7 + ((i * 11) % 22), 1, 1);
+    for (let y = -6; y <= 6; y++) {
+      const half = Math.round(Math.sqrt(36 - y * y));
+      rect(c, y < 0 ? '#c98a4a' : '#9a5a3a', 30 - half, 18 + y, half * 2, 1); // the planet
+    }
+    rect(c, '#e8d6a8', 20, 18, 22, 1); // its rings
+    const x = Math.round(-8 + k * 60); // the ship, and its engine
+    rect(c, '#c9c6c0', x, 12, 6, 2);
+    rect(c, '#8a8a9e', x + 1, 11, 3, 1);
+    rect(c, '#8ff0e0', x - 1, 12, 1, 2);
+  } else if (shot === 1) {
+    rect(c, '#e8a05a', 0, 6, 48, 10);
+    rect(c, '#f4d27a', 0, 14, 48, 4);
+    rect(c, '#fff1b0', 14, Math.round(10 + k * 4), 3, 3); // the two suns, going down
+    rect(c, '#fff1b0', 30, Math.round(12 + k * 4), 2, 2);
+    for (let x = 0; x < 48; x++) rect(c, '#b0703a', x, 18 + Math.round(Math.sin(x * 0.3 + 1) * 2), 1, 12);
+    rect(c, '#1d1a24', Math.round(10 + k * 8), 15, 1, 4); // someone walking the ridge
+  } else {
+    rect(c, '#2e2a3a', 0, 6, 48, 24);
+    for (const [x, hair, talking] of [[8, '#5a3e2c', k < 0.5], [30, '#2a2230', k >= 0.5]] as const) {
+      rect(c, hair, x, 10, 10, 4);
+      rect(c, '#f2c6a6', x, 14, 10, 10);
+      rect(c, '#1d1a24', x + 2, 17, 2, 1);
+      rect(c, '#1d1a24', x + 6, 17, 2, 1);
+      rect(c, '#8c3a2a', x + 3, 21, 4, talking && Math.floor(t * 6) % 2 ? 2 : 1); // whose line it is
+      rect(c, '#3f6a8a', x - 1, 24, 12, 6);
+    }
+  }
+  rect(c, '#000', 0, 0, 48, 6); // the bars
+  rect(c, '#000', 0, 30, 48, 6);
 }
 
 const DRAW: Record<Show, (c: Ctx, t: number) => void> = { murder, location, bnb, rail };

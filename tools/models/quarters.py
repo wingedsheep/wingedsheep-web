@@ -469,7 +469,7 @@ def guests(root):
     """Out of the rain, or in for a visit (the runtime shows them only while they're in): Charlie and
     George asleep on the sofa, Beike stretched out on the rug in front of it. She is in here
     whenever she's watching the telly (src/island/scene/companion.ts), and Vincent whenever he's
-    at his desk making a game (src/island/scene/vincent.ts)."""
+    at his desk making a game, or on the sofa with a game or a film (src/island/scene/vincent.ts)."""
     g = group("guests", parent=root, guests="lighthouse")
     sx, cy = -1.95, TV_Y - 0.3
     # (the bench they sleep on outside is wider than the sofa's cushions: a little smaller in here)
@@ -482,6 +482,8 @@ def guests(root):
     # so when the cats are in too, Charlie moves onto her lap (quarters.ts)
     companion.on_the_sofa(g, (sx + 0.08, cy - 0.45, 0), rot_z=-math.pi / 2)
     coding(group("vincent_coding", (*DESK, 0), parent=g, id="vincent_coding"))
+    # and him on the sofa, at the other end from her: a game, or a film with her (vincent.ts)
+    characters.vincent_sofa(group("vincent_sofa", (sx + 0.08, cy + 0.45, 0), rot_z=-math.pi / 2, parent=g, id="vincent_sofa"))
     # on their feet, parked out of sight: the runtime walks whichever cat is in over to the bowls
     # for a bite now and then (`charlie_eat`, `george_eat`; quarters.ts), in place of its sleeping one
     white = dict(coat=cats.P.CAT_WHITE, patch=cats.P.GINGER, cap=cats.P.GINGER, tail=cats.P.GINGER, socks=cats.P.CAT_WHITE)

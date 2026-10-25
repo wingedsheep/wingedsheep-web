@@ -5,7 +5,7 @@ import { hash } from '../../data/subjects';
 import { faceRoom, toonIndoors } from './interior';
 import { Particles } from './particles';
 import { Picker } from './picking';
-import { drawProgramme } from './programmes';
+import { drawFilm, drawProgramme, sofa } from './programmes';
 import { RoomCamera } from './room-camera';
 import { telly } from './companion';
 import { Guests } from './guests';
@@ -150,6 +150,9 @@ export class QuartersRoom {
   /** Her on the sofa, and Charlie's cushion (watcher()), looked up once. */
   private sofa?: Record<'her' | 'snack' | 'head' | 'bowl' | 'lap' | 'charlie', THREE.Object3D | undefined> & { home?: THREE.Vector3 };
   private desk?: Record<'him' | 'left' | 'right' | 'head' | 'hero', THREE.Object3D | undefined>;
+  /** Him on the sofa (lounger()), looked up once, and when the go he's on is over. */
+  private couch?: Record<'him' | 'gaming' | 'film' | 'gameTorso' | 'pad' | 'gameHead' | 'filmTorso' | 'filmHead' | 'lap' | 'george', THREE.Object3D | undefined> & { home?: THREE.Vector3 };
+  private go = { left: rand(18, 40), shown: 0 };
   /** Charlie's ambush (pounce()): what he's up to, how long he's been at it, and how long it lasts. */
   private stalk = { phase: 'wait' as Ambush, t: 0, next: rand(20, 45), stay: 0, flinch: 0 };
   /** Seconds left of the tap running (tap()); where the water comes out and lands, where each cat stands on the counter, and whose turn it is at the stream. */
@@ -284,6 +287,7 @@ export class QuartersRoom {
     }
     this.drawScreen();
     this.watcher(t);
+    this.lounger(t, dt);
     this.pounce(dt);
     this.drink(dt);
     this.dine(dt);
@@ -334,6 +338,91 @@ export class QuartersRoom {
     // with the cat, she looks down at him every so often
     const fond = cat && t % 11 < 3 ? 0.25 : 0;
     head?.rotation.set(-laugh - eat * 0.08 + fond, Math.sin(t * 0.21) * 0.08, 0);
+  }
+
+  /**
+   * Him on the sofa, if he's in (vincent.ts): on his own, a game, perched forward with the
+   * controller, swaying into the corners and jabbing at the buttons, until the go's over: both
+   * arms up when it goes his way, slumped back into the cushions when it doesn't, and on to the
+   * next. With her in, it's a film: sunk back with an arm round behind her, a look at her now and
+   * then, and they laugh at the same bits. George, if he's in, has his lap.
+   */
+  private lounger(t: number, dt: number) {
+    const c = (this.couch ??= {
+      him: this.scene.getObjectByName('vincent_sofa'),
+      gaming: this.scene.getObjectByName('vincent_gaming'),
+      film: this.scene.getObjectByName('vincent_film'),
+      gameTorso: this.scene.getObjectByName('game_torso'),
+      pad: this.scene.getObjectByName('game_pad'),
+      gameHead: this.scene.getObjectByName('game_head'),
+      filmTorso: this.scene.getObjectByName('film_torso'),
+      filmHead: this.scene.getObjectByName('film_head'),
+      lap: this.scene.getObjectByName('vincent_sofa_lap'),
+      george: this.scene.getObjectByName('george'),
+    });
+    const on = !!c.him?.visible;
+    const her = !!this.scene.getObjectByName('companion_lighthouse')?.visible;
+    sofa.on = on;
+    sofa.film = on && her;
+    // George curls up on his lap
+    const cat = on && !!c.george?.visible && !!c.lap && !this.guests.up.has('george');
+    if (c.george) {
+      c.home ??= c.george.position.clone();
+      if (cat) c.george.position.copy(c.george.parent!.worldToLocal(c.lap!.getWorldPosition(V())));
+      else if (!this.guests.up.has('george')) c.george.position.copy(c.home);
+    }
+    if (!on) return;
+    if (c.gaming) c.gaming.visible = !sofa.film;
+    if (c.film) c.film.visible = sofa.film;
+    const rest = (o?: THREE.Object3D) => (o ? ((o.userData.rest ??= o.rotation.clone()) as THREE.Euler) : new THREE.Euler());
+    if (sofa.film) {
+      sofa.game = 'playing';
+      // her laugh (watcher()) is his too; and now and then a look over at her
+      const laugh = t % 17 < 1.4 ? Math.abs(Math.sin(t * 9 + 0.6)) : 0;
+      const look = t % 23 > 19 ? Math.sin(((t % 23) - 19) / 4 * Math.PI) : 0;
+      const r = rest(c.filmTorso);
+      c.filmTorso?.rotation.set(r.x - 0.2 + laugh * 0.06 + Math.sin(t * 0.9) * 0.01, r.y, r.z);
+      const h = rest(c.filmHead);
+      c.filmHead?.rotation.set(h.x + 0.2 - laugh * 0.12, h.y + look * 0.55, h.z + look * 0.08);
+      return;
+    }
+    // a game: each go a run of tense bits, then how it went
+    const g = this.go;
+    g.left -= dt;
+    if (g.left < 0 && sofa.game === 'playing') {
+      sofa.game = Math.random() < 0.55 ? 'won' : 'lost';
+      g.shown = 0;
+    }
+    let lean = 0.22 + Math.max(0, Math.sin(t * 0.43)) * 0.14; // into it, in the tense bits
+    let sway = Math.sin(t * 1.1) * 0.06 + Math.sin(t * 2.7) * 0.03; // and round the corners with it
+    let lift = 0;
+    let jab = Math.sin(t * 13) * 0.03 + Math.sin(t * 7.3) * 0.025;
+    let tip = 0;
+    if (sofa.game !== 'playing') {
+      g.shown += dt;
+      const k = THREE.MathUtils.smoothstep(Math.min(g.shown / 0.4, (3 - g.shown) / 0.6), 0, 1);
+      jab *= 1 - k;
+      if (sofa.game === 'won') {
+        lift = k * (1.5 + Math.sin(g.shown * 14) * 0.1); // both arms up, the controller with them
+        lean = THREE.MathUtils.lerp(lean, -0.05, k);
+        tip = -0.25 * k;
+      } else {
+        lean = THREE.MathUtils.lerp(lean, -0.32, k); // back into the cushions, head back
+        lift = -0.25 * k;
+        tip = -0.35 * k;
+      }
+      sway *= 1 - k;
+      if (g.shown > 3) {
+        sofa.game = 'playing';
+        g.left = rand(18, 40);
+      }
+    }
+    const r = rest(c.gameTorso);
+    c.gameTorso?.rotation.set(r.x + lean, r.y + sway * 0.5, r.z + sway);
+    const p = rest(c.pad);
+    c.pad?.rotation.set(p.x + jab - lift, p.y, p.z + jab * 0.6);
+    const h = rest(c.gameHead);
+    c.gameHead?.rotation.set(h.x - lean * 0.75 + tip, h.y, h.z - sway * 0.8);
   }
 
   /**
@@ -1098,6 +1187,12 @@ export class QuartersRoom {
     if (this.film) {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, s.canvas.width, s.canvas.height);
+      s.texture.needsUpdate = true;
+      return;
+    }
+    // the two of them on the sofa: a film
+    if (sofa.film) {
+      drawFilm(ctx, this.clock);
       s.texture.needsUpdate = true;
       return;
     }
