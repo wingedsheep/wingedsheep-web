@@ -18,21 +18,23 @@ const JOG = 3; // seconds on the spot before he's off
 const BLOWING = 6; // seconds bent over at the end, getting his breath back
 /** The hut's door (Blender x, y): where he gets changed, and sets off from (vincent.ts DOORS). */
 export const RUN_FROM: [number, number] = [13.6, 14.5];
+/** The plaza, out in the open: where he stretches first, and gets his breath back after. */
+const PLAZA: [number, number] = [0, -8];
 /**
- * Round the island (Blender x, y), joined up along the ways (ways.ts): down past the campfire to the
- * east shore, west along the beach past the pier, out to the lighthouse point, back by the library
- * and the plaza, and up to the hut.
+ * Round the island from the plaza (Blender x, y), joined up along the ways (ways.ts): past the
+ * campfire to the east shore, west along the beach past the pier, out to the lighthouse point, and
+ * back by the library.
  */
-const LAP: [number, number][] = [[21, -6], [27.4, -9], [21, -16.4], [13, -16], [5, -14.8], [0.2, -15.8], [-3.4, -15.4], [-7, -13.4],
-  [-16, -13.4], [-20.5, -12.2], [-25.2, -5.2], [-20, -5.5], [-11, -7.2], [0, -8]];
+const LAP: [number, number][] = [PLAZA, [21, -6], [27.4, -9], [21, -16.4], [13, -16], [5, -14.8], [0.2, -15.8], [-3.4, -15.4], [-7, -13.4],
+  [-16, -13.4], [-20.5, -12.2], [-25.2, -5.2], [-20, -5.5], [-11, -7.2], PLAZA];
 
 export type Running = 'changing' | 'stretching' | 'running' | 'blowing' | 'done';
 
 /**
  * Vincent out for a run (running.py `vincent_run`): in at the hut to get changed, out again in his
- * running things for a stretch at the door (a quad each side, then on the spot), a lap or two
- * round the island at an easy pace, and back at the door, hands on his knees, getting his breath
- * back before he goes in. After dark the head torch goes on.
+ * running things and down to the plaza for a stretch (a quad each side, then on the spot), a lap
+ * or two round the island at an easy pace, and back at the plaza, hands on his knees, getting his
+ * breath back before he jogs home. After dark the head torch goes on.
  */
 export class Runner {
   readonly root?: THREE.Object3D;
@@ -49,6 +51,9 @@ export class Runner {
   private heading = 0;
   private start = V();
   private lapLength = 0;
+  /** Down from the hut, round the island, and home again: the way for each, and which he's on. */
+  private ways3: Record<'out' | 'lap' | 'home', Waypoint[]> = { out: [], lap: [], home: [] };
+  private stage: 'out' | 'lap' | 'home' = 'out';
 
   constructor(
     island: Island,
@@ -87,23 +92,38 @@ export class Runner {
   /** In to get changed, and out for a run (`laps` times round). */
   begin(laps = Math.random() < 0.6 ? 1 : 2) {
     const on = ([x, y]: [number, number]): Waypoint => ({ at: V(x, this.ground.at(x, -y), -y), fixed: false });
+    const along = (pts: [number, number][]) => {
+      const stops = pts.map(on).filter((w) => !Number.isNaN(w.at.y));
+      const way: Waypoint[] = [stops[0]];
+      for (let i = 1; i < stops.length; i++) {
+        const bit = this.ways.between(way[way.length - 1], stops[i]);
+        if (bit) way.push(...bit.slice(1));
+      }
+      return way.filter((w, i) => i === 0 || w.at.distanceTo(way[i - 1].at) > 0.05);
+    };
     this.start = on(RUN_FROM).at;
-    const stops = [RUN_FROM, ...LAP, RUN_FROM].map(on).filter((w) => !Number.isNaN(w.at.y));
-    const way: Waypoint[] = [stops[0]];
-    for (let i = 1; i < stops.length; i++) {
-      const bit = this.ways.between(way[way.length - 1], stops[i]);
-      if (bit) way.push(...bit.slice(1));
-    }
-    this.way = way.filter((w, i) => i === 0 || w.at.distanceTo(way[i - 1].at) > 0.05);
-    this.lapLength = this.way.slice(1).reduce((sum, w, i) => sum + w.at.distanceTo(this.way[i].at), 0);
-    Object.assign(this, { doing: 'changing', lap: 0, laps, leg: 1, along: 0, t: rand(...CHANGE) });
-    this.heading = this.way.length > 1 ? Math.atan2(this.way[1].at.x - this.start.x, this.way[1].at.z - this.start.z) : 0;
+    this.ways3 = { out: along([RUN_FROM, PLAZA]), lap: along(LAP), home: along([PLAZA, RUN_FROM]) };
+    this.lapLength = this.ways3.lap.slice(1).reduce((sum, w, i) => sum + w.at.distanceTo(this.ways3.lap[i].at), 0);
+    this.onto('out');
+    const w = this.way;
+    if (w.length > 1) this.heading = Math.atan2(w[1].at.x - w[0].at.x, w[1].at.z - w[0].at.z);
+    Object.assign(this, { doing: 'changing', lap: 0, laps, t: rand(...CHANGE) });
     if (this.root) this.root.visible = false;
+  }
+
+  /** Onto the start of a stage (he turns to face along it as he goes). */
+  private onto(stage: 'out' | 'lap' | 'home') {
+    this.stage = stage;
+    this.way = this.ways3[stage];
+    Object.assign(this, { leg: 1, along: 0 });
   }
 
   /** Straight off: no changing, no stretching (a preview, or settling where he'd be by now). */
   midway() {
     this.begin(2);
+    this.onto('lap');
+    const w = this.way;
+    if (w.length > 1) this.heading = Math.atan2(w[1].at.x - w[0].at.x, w[1].at.z - w[0].at.z);
     this.doing = 'running';
     const k = Math.random() * 0.8;
     let d = this.lapLength * k;
@@ -123,7 +143,7 @@ export class Runner {
     if (torch) torch.visible = night > 0.35;
     if (this.doing === 'changing') {
       root.visible = false;
-      if ((this.t -= dt) < 0) Object.assign(this, { doing: 'stretching', t: 0 });
+      if ((this.t -= dt) < 0) Object.assign(this, { doing: 'running', t: 0 }); // and down to the plaza
       return;
     }
     if (this.doing === 'done') {
@@ -132,11 +152,13 @@ export class Runner {
     }
     root.visible = true;
     this.t += dt;
-    if (this.doing === 'stretching' && this.t > STRETCH * 2 + JOG) Object.assign(this, { doing: 'running', t: 0 });
+    if (this.doing === 'stretching' && this.t > STRETCH * 2 + JOG) {
+      Object.assign(this, { doing: 'running', t: 0 });
+      this.onto('lap');
+    }
     if (this.doing === 'blowing' && this.t > BLOWING) {
-      this.doing = 'done';
-      root.visible = false;
-      return;
+      Object.assign(this, { doing: 'running', t: 0 }); // and home
+      this.onto('home');
     }
     const at = V();
     let heading = this.heading;
@@ -147,17 +169,19 @@ export class Runner {
         if (this.along < len) break;
         this.along -= len;
         if (++this.leg >= this.way.length) {
-          // round: off again, or back at the door
-          if (++this.lap < this.laps) Object.assign(this, { leg: 1 });
-          else {
-            Object.assign(this, { leg: this.way.length - 1, doing: 'blowing', t: 0 });
-            this.along = this.way[this.leg - 1].at.distanceTo(this.way[this.leg].at);
-            break;
+          // at the plaza: a stretch first; round again, or his breath back; home, and in
+          const stage = this.stage;
+          if (stage === 'lap' && ++this.lap < this.laps) {
+            this.onto('lap');
+            continue;
           }
+          Object.assign(this, { leg: this.way.length - 1, doing: stage === 'out' ? 'stretching' : stage === 'lap' ? 'blowing' : 'done', t: 0 });
+          this.along = this.way[this.leg - 1].at.distanceTo(this.way[this.leg].at);
+          break;
         }
       }
     }
-    if (this.doing === 'running' || this.doing === 'blowing') {
+    if (this.doing !== 'stretching' || this.way.length > 1) {
       const a = this.way[this.leg - 1];
       const b = this.way[this.leg];
       const len = Math.max(1e-3, a.at.distanceTo(b.at));
@@ -166,6 +190,10 @@ export class Runner {
       if (!Number.isNaN(h)) at.y = h;
       if (this.doing === 'running') heading = Math.atan2(b.at.x - a.at.x, b.at.z - a.at.z);
     } else at.copy(this.start);
+    if ((this.doing as Running) === 'done') {
+      root.visible = false; // in at the hut
+      return;
+    }
     const turn = Math.atan2(Math.sin(heading - this.heading), Math.cos(heading - this.heading));
     this.heading += dt ? turn * (1 - Math.exp(-6 * dt)) : turn;
     this.pose(at, dt);

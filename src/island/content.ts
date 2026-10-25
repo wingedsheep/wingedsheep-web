@@ -1172,8 +1172,8 @@ const runningDark = inTurn([
 ]);
 function runLine(ctx: IslandContext) {
   const r = ctx.life.vincent.runner;
-  if (r.doing === 'stretching') return 'A quad stretch by the hut door, wobbling a little. Then the other leg, and he’s off.';
-  if (r.doing === 'blowing') return 'Back at the hut, hands on his knees, getting his breath back. A good one.';
+  if (r.doing === 'stretching') return 'A quad stretch on the plaza, wobbling a little. Then the other leg, and he’s off.';
+  if (r.doing === 'blowing') return 'Back on the plaza, hands on his knees, getting his breath back. A good one.';
   if (r.lap > 0 && Math.random() < 0.4) return 'Second lap. The first one felt shorter.';
   return ctx.sky.lamps > 0.5 ? runningDark() : running();
 }
