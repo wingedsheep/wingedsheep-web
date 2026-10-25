@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import math
 
+import cats
+import characters
+import companion
 import dressing
 import palette as P
 from kit import Model, group, light
@@ -307,6 +310,27 @@ def reading_corner(root):
     s.build(root)
 
 
+def readers(root):
+    """Her curled up on the window seat, and him in the chair at the reading table, each with a
+    book: the runtime shows each only while they're in here (`companion_library`,
+    `vincent_library`: src/island/scene/companion.ts, vincent.ts)."""
+    companion.curled_up_reading(group("companion_library", (WINDOW_X - 0.4, Y1 - 0.4, 0), rot_z=0.25, parent=root, id="companion_library"), 0.71)
+    tx, ty = -1.6, 0.1
+    characters.vincent_reading(group("vincent_library", (tx + 0.9, ty - 0.92, 0), rot_z=0.5, parent=root, id="vincent_library"))
+
+
+def guests(root):
+    """Charlie and George, asleep on the rug in front of the hearth: the runtime shows each only
+    while it's in here (`charlie_library`, `george_library`: src/island/scene/shelter.ts), which
+    is now and then of a cold day, and more often when she's in the armchair."""
+    hx = X0 + 1.85
+    for make, name, (x, y), rot, size in ((cats.george, "george", (hx + 0.05, HEARTH_Y + 0.75), 0.2, 0.85),
+                                          (cats.charlie, "charlie", (hx - 0.05, HEARTH_Y - 0.35), -0.5, 0.85)):
+        c = group(f"{name}_library", (x, y, 0.035), rot_z=math.pi / 2 + rot, parent=root, guest=name)
+        c.scale = (size, size, size)
+        make(c)
+
+
 def door(root):
     g = group("door", parent=root, id="door")
     x, yc, w, h = X0, -3.2, 1.3, 2.7
@@ -422,6 +446,8 @@ def build():
     piano(root)
     fireplace(root)
     reading_corner(root)
+    readers(root)
+    guests(root)
     door(root)
     rug_and_table(root)
     catalogue(root)

@@ -5,10 +5,18 @@ import { indoors } from './shelter';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
-/** How each of them sleeps: breaths a minute (well, per second, ×2π), and whether they're a cat. */
-const SLEEPERS: Record<string, { breath: number; cat: boolean }> = {
+/**
+ * How each of them sleeps: breaths a minute (well, per second, ×2π), and whether they're a cat;
+ * `as`: whose parts it has, when it's one of them asleep somewhere else (the library's hearth,
+ * the workshop's hammock: shelter.ts).
+ */
+const SLEEPERS: Record<string, { breath: number; cat: boolean; as?: string }> = {
   charlie: { breath: 1.9, cat: true },
   george: { breath: 1.4, cat: true },
+  charlie_library: { breath: 1.9, cat: true, as: 'charlie' },
+  george_library: { breath: 1.4, cat: true, as: 'george' },
+  charlie_workshop: { breath: 1.9, cat: true, as: 'charlie' },
+  george_workshop: { breath: 1.4, cat: true, as: 'george' },
   cat: { breath: 1.7, cat: true },
   beike: { breath: 1.6, cat: false },
   // and the two of them, in the hut's bed at night (vincent.ts, companion.ts)
@@ -36,7 +44,8 @@ interface Sleeper {
 }
 
 /**
- * The animals in out of the rain (shelter.ts), asleep in the rooms (quarters.py, hut.py). Each is
+ * The animals in out of the rain (shelter.ts), asleep in the rooms (quarters.py, hut.py, and the
+ * cats now and then in the library and workshop: interior.py, workshop.py). Each is
  * shown only while it's indoors; they breathe, a tail tip twitches now and then, a zzz drifts up,
  * and you can pet them: a head comes up, hearts, a purr (or a tail thumping the rug), and back
  * to sleep.
@@ -58,7 +67,7 @@ export class Guests {
       const spec = SLEEPERS[root.name];
       if (!spec) continue;
       root.userData.id = root.name;
-      const part = (name: string) => root.getObjectByName(`${root.name}_${name}`);
+      const part = (name: string) => root.getObjectByName(`${spec.as ?? root.name}_${name}`);
       const s: Sleeper = {
         root, body: part('body'), head: part('head'), tail: part('tail'), rest: new Map(), ...spec,
         seed: Math.random() * 10, awake: 0, wag: 0, zzz: rand(2, 6),

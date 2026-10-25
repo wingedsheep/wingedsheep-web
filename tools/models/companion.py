@@ -409,6 +409,35 @@ def watching(root):
     group("companion_lap", (0, -0.2, 0.74 + up), parent=root)                        # where Charlie curls up, in the rain
 
 
+def curled_up_reading(root, seat: float):
+    """On the library's window seat (interior.py), her feet tucked up under her, a book open on
+    her knees: her seat is at z = `seat`. The runtime turns `companion_chair_page` now and then and
+    tips `companion_chair_head` down to the book, and up now and then to look out at the room."""
+    up = seat - 0.56
+    m = Model("companion_chair_body")
+    _top(m, up, root)
+    for s in (-1, 1):
+        x = s * 0.12
+        _limb(m, (x, 0.0, 0.66 + up), (x, -0.44, 0.74 + up), 0.18, P.E_LEGS)             # thighs, knees up a little
+        _limb(m, (x, -0.44, 0.74 + up), (x * 1.3, -0.1, 0.63 + up), 0.15, P.E_LEGS)      # shins folded back under her
+        sh, el = (s * 0.28, 0.03, 1.27 + up), (s * 0.29, -0.06, 0.99 + up)
+        mid = tuple(a_ + (b_ - a_) * 0.35 for a_, b_ in zip(sh, el))
+        _limb(m, sh, mid, 0.14, P.E_TOP)
+        _limb(m, mid, el, 0.12, P.E_ARM)
+        _limb(m, el, (s * 0.15, -0.36, 0.9 + up), 0.11, P.E_ARM)                       # hands either side of the book
+        m.box((0.09, 0.11, 0.08), (s * 0.15, -0.38, 0.9 + up), P.FAIR)
+    m.box((0.4, 0.28, 0.025), (0, -0.4, 0.86 + up), P.RED, rot=(0.35, 0, 0))            # the book, on her knees
+    m.box((0.18, 0.26, 0.02), (-0.095, -0.4, 0.88 + up), P.CANVAS, rot=(0.35, 0, 0))
+    m.build(root)
+    pg = Model("companion_chair_page")                                                  # pivots at the spine
+    pg.box((0.18, 0.26, 0.008), (0.09, 0, 0), P.CANVAS)
+    for i in range(4):
+        pg.box((0.13, 0.012, 0.004), (0.09, 0.08 - i * 0.05, 0.006), P.INK)
+    o = pg.build(root, loc=(0, -0.4, 0.89 + up))
+    o.rotation_euler = (0.35, 0, 0)
+    head(root, "companion_chair_head", (0, 0.02, 1.37 + up), rot=(0.35, 0, 0))
+
+
 def on_the_sofa(parent, loc, rot_z):
     """Her, in the lighthouse, under a group the runtime shows only while she's there."""
     g = group("companion_lighthouse", parent=parent)

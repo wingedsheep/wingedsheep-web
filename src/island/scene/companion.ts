@@ -17,15 +17,16 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const damp = THREE.MathUtils.damp;
 
 /** Where she can be (tools/models/companion.py): out on the island, or in the rooms. */
-export type Spot = 'reading' | 'fireside' | 'workout' | 'podcast' | 'yoga' | 'petting' | 'baking' | 'watching' | 'bed' | 'stroll' | 'meal' | 'gluhwein' | 'swim' | 'snow' | 'hammock' | 'going';
+export type Spot = 'reading' | 'fireside' | 'workout' | 'podcast' | 'yoga' | 'petting' | 'baking' | 'watching' | 'bed' | 'stroll' | 'meal' | 'gluhwein' | 'swim' | 'snow' | 'hammock' | 'library' | 'going';
 /** Which room each indoor spot is in, and the group the room shows while she's there. */
 const ROOMS: Partial<Record<Spot, { room: Room; group: string }>> = {
   baking: { room: 'hut', group: 'companion_hut' },
   watching: { room: 'lighthouse', group: 'companion_lighthouse' },
+  library: { room: 'library', group: 'companion_library' }, // on the window seat, with a book
   bed: { room: 'hut', group: 'companion_bed_reading' }, // or companion_bed_asleep, once she's dropped off
 };
-const DAYTIME: Spot[] = ['reading', 'fireside', 'workout', 'podcast', 'petting', 'baking', 'watching'];
-export type Room = 'hut' | 'lighthouse' | 'workshop';
+const DAYTIME: Spot[] = ['reading', 'fireside', 'workout', 'podcast', 'petting', 'baking', 'watching', 'library'];
+export type Room = 'hut' | 'lighthouse' | 'workshop' | 'library';
 
 /** What's on the telly while she's watching it (quarters.ts draws it, content.ts says what it is). */
 export type Show = 'murder' | 'location' | 'bnb' | 'rail';
@@ -72,16 +73,19 @@ const HER_DAY: Partial<Record<Spot, Record<'morning' | 'afternoon' | 'later' | '
   fireside: { morning: 0.3, afternoon: 0.4, later: 0.8, evening: 1.5 },
   petting: { morning: 0.9, afternoon: 0.7, later: 0.7, evening: 0.4 },
   hammock: { morning: 0.3, afternoon: 1.2, later: 0.9, evening: 0.2 },
+  library: { morning: 0.5, afternoon: 0.5, later: 0.7, evening: 1 }, // the library's window seat
 };
 /** The doors to the rooms (Blender x, y, on the ground just outside): where she goes in and comes out. */
 const DOORS: Partial<Record<Spot, [number, number]>> = {
   baking: [13.6, 14.5],
   bed: [13.6, 14.5],
   watching: [-30.3, -4.9],
+  library: [-11, -8.9],
 };
 
 /**
- * She's always somewhere on the island: reading on a blanket under the blossom tree, by the
+ * She's always somewhere on the island: reading on a blanket under the blossom tree (or, in any
+ * weather, curled up on the library's window seat), by the
  * campfire with a mug while Vincent plays, working out on a mat above the beach, up in the hut
  * with tea while a pie bakes, in front of the telly in the lighthouse, or on her knees in the
  * grass giving the cats or Beike a fuss (petting.ts). Every few minutes she moves on, but only
@@ -322,8 +326,8 @@ export class Companion {
     if (w.yoga) return ['yoga']; // with him, for as long as he's at it
     if (together.asked) return ['gluhwein']; // a walk, and something warm to drink on it
     if (play.asked) return ['snow']; // a snowman, and snowballs
-    if (w.rain > 0.1) return ['baking', 'watching'];
-    if (w.night > 0.5) return ['fireside', 'podcast', 'baking', 'watching']; // the pier's lit
+    if (w.rain > 0.1) return ['baking', 'watching', 'library'];
+    if (w.night > 0.5) return ['fireside', 'podcast', 'baking', 'watching', 'library']; // the pier's lit
     // a cold day's no excuse; and now and then she's off round the island (twice the odds of anything else)
     const out: Spot[] = [...(w.chill > 0.4 ? DAYTIME.filter((s) => s !== 'reading') : DAYTIME), 'stroll', 'stroll'];
     // a hot, still, dry day: a swim off the beach (twice the odds, too)

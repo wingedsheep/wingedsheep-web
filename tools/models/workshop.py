@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import math
 
+import cats
 import characters
 import dressing
 import palette as P
@@ -564,8 +565,14 @@ def lazy_corner(root):
         z = -0.55 - math.sin(i / 8 * math.pi) * 0.35
         h.box((0.27, 0.8, 0.04), (x, 0, z), "#c8503a" if i % 2 else "#e8b24a")
     h.ball(0.2, (-0.8, 0, -0.62), P.WHITE, subdiv=1, scale=(1, 1.4, 0.5))   # a pillow
-    h.build(root, loc=(0, 0, 1.6))
+    hammock = h.build(root, loc=(0, 0, 1.6))
     light(root, (0.6, -1.9, 0.9), SCREEN_GREEN, 3, 0.6)
+    # and whichever cat has come in for a nap, in the dip of it, rocking with it: the runtime shows
+    # each only while it's in here (`charlie_workshop`, `george_workshop`: src/island/scene/shelter.ts)
+    for make, name, x, rot in ((cats.george, "george", 0.2, 0.0), (cats.charlie, "charlie", -0.3, math.pi)):
+        c = group(f"{name}_workshop", (x, 0.02, -0.9), rot_z=rot, parent=hammock, guest=name)
+        c.scale = (0.78, 0.78, 0.78)
+        make(c)
 
 
 # --- the robot -----------------------------------------------------------------------------

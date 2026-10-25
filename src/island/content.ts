@@ -173,6 +173,16 @@ const NOOKS: Record<Exclude<Nook, 'bench'>, { at: string; george: string; charli
     george: 'George is asleep across the lighthouse doorstep. Nobody gets in or out without saying hello.',
     charlie: 'Charlie is curled up on the lighthouse doorstep, first in line for when the door opens.',
   },
+  hearth: {
+    at: 'on the library hearth',
+    george: 'George has the hearthstone, as close to the fire as fur allows. He has read none of these books.',
+    charlie: 'Charlie is curled up on the warm hearth, one ear turned to the crackle.',
+  },
+  workshop: {
+    at: 'in the workshop hammock',
+    george: 'George has the hammock, and the hammock has very little say in it.',
+    charlie: 'Charlie is asleep in the hammock, rocking very slightly. Supervising, he would say.',
+  },
 };
 const nook = (cat: 'charlie' | 'george') => (beds[cat] === 'bench' ? null : NOOKS[beds[cat] as Exclude<Nook, 'bench'>]);
 const say = (text: string) => (ctx: IslandContext) => ctx.toast(text);
@@ -1048,6 +1058,8 @@ const OFF_TO: Record<string, [string, string]> = { // his, hers
   petting: ['off to give someone a fuss', 'off to give someone a fuss'],
   swim: ['down for a swim', 'down for a swim'],
   hammock: ['off for a nap in the hammock', 'off to the hammock with her book'],
+  run: ['up to the hut to change for a run', ''],
+  sofa: ['in to the sofa in the lighthouse', ''],
   reading: ['', 'off to read under the blossom tree'],
   fireside: ['', 'over to the fire'],
   workout: ['', 'off to work out, not thrilled about it'],
@@ -1058,8 +1070,6 @@ const OFF_TO: Record<string, [string, string]> = { // his, hers
 const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
 const offTo = (ctx: IslandContext, who: 'v' | 'e') => {
   const to = who === 'v' ? ctx.life.vincent.headedFor : ctx.life.companion.headedFor;
-  run: ['up to the hut to change for a run', ''],
-  sofa: ['in to the sofa in the lighthouse', ''],
   return to ? OFF_TO[to]?.[who === 'v' ? 0 : 1] || 'on the way somewhere' : null;
 };
 // out in the snow, the two of them: a snowman, then snowballs (snowplay.ts)
@@ -1151,16 +1161,6 @@ const herHammock = inTurn([
   'The hammock creaks between the oaks. She turns a page.',
 ]);
 
-export const PLACES: Record<string, Place> = {
-  vincent_podcast: {
-    label: 'Vincent · pacing with a podcast',
-    activate: (ctx) => ctx.toast(listening()), // no hearts: he can't hear you, noise-cancelling
-  },
-  companion_podcast: withHer('Feet over the water, a podcast in', hearing),
-  companion_reading: withHer('Deep in a book', reading),
-  companion_fireside: withHer((ctx) => (fridayNight(ctx.sky.time) ? 'By the fire, with a beer' : 'By the fire, with tea'), (ctx) =>
-    ctx.sound.playing ? 'She’s singing along, a word or two ahead of him. He’s pretending not to notice.' : fridayNight(ctx.sky.time) ? borrel() : fireside()),
-  companion_workout: withHer('Working out above the beach, under protest', workout),
 const running = inTurn([
   'An easy pace, round the island. He nods as he goes past, saving his breath.',
   'Along the beach and out past the lighthouse, watch checked every hundred metres.',
@@ -1183,8 +1183,18 @@ const runLabel = (ctx: IslandContext) => {
     : ctx.sky.lamps > 0.5 ? 'Vincent · a run by head torch' : 'Vincent · out for a run';
 };
 
-  companion_petting_cats: withHer('Giving the cats a fuss', herCats),
+export const PLACES: Record<string, Place> = {
   vincent_run: { label: runLabel, activate: (ctx) => ctx.toast(runLine(ctx)) },
+  vincent_podcast: {
+    label: 'Vincent · pacing with a podcast',
+    activate: (ctx) => ctx.toast(listening()), // no hearts: he can't hear you, noise-cancelling
+  },
+  companion_podcast: withHer('Feet over the water, a podcast in', hearing),
+  companion_reading: withHer('Deep in a book', reading),
+  companion_fireside: withHer((ctx) => (fridayNight(ctx.sky.time) ? 'By the fire, with a beer' : 'By the fire, with tea'), (ctx) =>
+    ctx.sound.playing ? 'She’s singing along, a word or two ahead of him. He’s pretending not to notice.' : fridayNight(ctx.sky.time) ? borrel() : fireside()),
+  companion_workout: withHer('Working out above the beach, under protest', workout),
+  companion_petting_cats: withHer('Giving the cats a fuss', herCats),
   companion_petting_beike: withHer('Giving Beike a fuss', herBeike),
   vincent_petting_cats: { label: 'Vincent · giving the cats a fuss', activate: (ctx) => ctx.toast(hisCats()) },
   vincent_petting_beike: { label: 'Vincent · giving Beike a fuss', activate: (ctx) => ctx.toast(hisBeike()) },
@@ -1563,6 +1573,34 @@ const runLabel = (ctx: IslandContext) => {
 
 /** Things inside the library. Books are `book:<slug>` and open their post. */
 export const LIBRARY_PLACES: Record<string, Place> = {
+  // the two of them in with a book (companion.ts, vincent.ts `library`): shown only while they're in
+  companion_library: withHer('On the window seat, feet tucked up', inTurn([
+    'A thick history of the Cold War, open on her knees. She says it explains a great deal, and won’t say about whom.',
+    'Prisoner of Azkaban, again. She knows how it ends. That isn’t the point.',
+    'She looks up from the page just long enough to smile, and then she’s back in 1989.',
+  ])),
+  vincent_library: {
+    label: 'Vincent · a book at the reading table',
+    activate: (() => {
+      const line = inTurn([
+        'Deep in a Stormlight book, which is the only way to be in a Stormlight book. He holds up a finger: one more chapter.',
+        'A book on lucid dreaming. He says he’s practising. It looks a lot like reading.',
+        'Project Hail Mary, again. He’s got to the bit with Rocky and is grinning at the page.',
+      ]);
+      return (ctx: IslandContext) => ctx.toast(line());
+    })(),
+  },
+  // in for a nap by the fire (shelter.ts): shown, and clickable, only while they're in here
+  charlie_library: indoorPet('Charlie · curled up by the fire', [
+    'Charlie stretches one paw towards the fire, as far as it will go, and leaves it there.',
+    'A slow purr. The fire crackles back. They seem to be getting on.',
+    'One eye opens, checks that the fire is still doing its job, and closes again.',
+  ], 'cats'),
+  george_library: indoorPet('George · toasting by the hearth', [
+    'George has turned his warm side to the fire and his other side to the room. He’ll turn over later. Possibly.',
+    'He has found the one spot on the rug where the fire reaches all of him. He found it on purpose.',
+    'A long, warm purr. Somewhere on the shelves there’s a book about the patience of cats. He hasn’t read it.',
+  ], 'cats'),
   library_jack: {
     label: 'A jack-o’-lantern',
     activate: say('Carried down from the hut and set by the hearth for the week. Between it and the fire, the reading corner has never been so orange.'),
@@ -1679,6 +1717,17 @@ const BOAT_WEEKS = [
 ];
 
 export const WORKSHOP_PLACES: Record<string, Place> = {
+  // in for a nap in the hammock (shelter.ts): shown, and clickable, only while they're in here
+  charlie_workshop: indoorPet('Charlie · in the hammock', [
+    'The hammock rocks. Charlie lets it. He hasn’t opened his eyes once.',
+    'Charlie has come to keep an eye on things in here, and is doing it with both eyes shut.',
+    'A purr, and the hammock sways a little more. They’re in on it together.',
+  ], 'cats'),
+  george_workshop: indoorPet('George · filling the hammock', [
+    'George fills the hammock from end to end. The posts creak politely.',
+    'A belly up to the rafters. The robot steers well clear of it.',
+    'George opens one eye at a clank from the robot, decides it isn’t dinner, and shuts it again.',
+  ], 'cats'),
   led_jack: {
     label: 'A jack-o’-lantern · battery-powered',
     activate: say('No candle in this one: an LED and a battery pack, wired in over the lid. A candle and a room full of sawdust didn’t seem like a good mix.'),
@@ -1760,6 +1809,31 @@ const PROGRAMMES: Record<Show, { label: string; text: string; play: string; stay
   },
 };
 
+/** Vincent on the sofa (src/island/scene/vincent.ts, quarters.ts): a game on his own, a film with her. */
+const SOFA: Place = (() => {
+  const gaming = inTurn([
+    'GTA Arnhem: across the John Frost Bridge with the police right behind. He leans into every corner, as if that helps.',
+    '“Two seconds, I’m nearly at a save point.” He’s been nearly at a save point for a while now.',
+    'Thumbs going, tongue out a little at the corner of his mouth. Don’t talk to him for a bit.',
+  ]);
+  const film = inTurn([
+    'A film night, an arm round her along the back of the sofa. She has the popcorn and isn’t sharing yet.',
+    'They laugh at the same bit, and then look at each other to check it was funny. It was.',
+    'Feet up, the film on, nothing else to do tonight. This is the plan, and it’s a good one.',
+  ]);
+  return {
+    label: () => (sofa.film ? 'Vincent · a film with her' : sofa.game === 'won' ? 'Vincent · he won'
+      : sofa.game === 'lost' ? 'Vincent · he lost' : 'Vincent · on the sofa, gaming'),
+    activate(ctx) {
+      if (sofa.film) return ctx.toast(film());
+      if (sofa.game === 'won') return ctx.toast('Both arms up, controller and all. Nobody saw it, so he tells you about it. Twice.');
+      if (sofa.game === 'lost') return ctx.toast('Slumped back into the cushions. “The controller’s lagging.” It isn’t.');
+      if (indoors.has('george')) return ctx.toast('George is asleep on his lap, so he plays with his elbows tucked in, very carefully.');
+      ctx.toast(gaming());
+    },
+  };
+})();
+
 /** Vincent's desk in the quarters, and him at it when he's making his game (src/island/scene/vincent.ts). */
 const DESK: Place = {
   label: () => (!indoors.has('vincent_coding') ? 'Vincent’s desk · a game in the making'
@@ -1809,31 +1883,6 @@ const DESK: Place = {
     };
     return (ctx: IslandContext) => {
       if (!indoors.has('vincent_coding')) {
-/** Vincent on the sofa (src/island/scene/vincent.ts, quarters.ts): a game on his own, a film with her. */
-const SOFA: Place = (() => {
-  const gaming = inTurn([
-    'GTA Arnhem: across the John Frost Bridge with the police right behind. He leans into every corner, as if that helps.',
-    '“Two seconds, I’m nearly at a save point.” He’s been nearly at a save point for a while now.',
-    'Thumbs going, tongue out a little at the corner of his mouth. Don’t talk to him for a bit.',
-  ]);
-  const film = inTurn([
-    'A film night, an arm round her along the back of the sofa. She has the popcorn and isn’t sharing yet.',
-    'They laugh at the same bit, and then look at each other to check it was funny. It was.',
-    'Feet up, the film on, nothing else to do tonight. This is the plan, and it’s a good one.',
-  ]);
-  return {
-    label: () => (sofa.film ? 'Vincent · a film with her' : sofa.game === 'won' ? 'Vincent · he won'
-      : sofa.game === 'lost' ? 'Vincent · he lost' : 'Vincent · on the sofa, gaming'),
-    activate(ctx) {
-      if (sofa.film) return ctx.toast(film());
-      if (sofa.game === 'won') return ctx.toast('Both arms up, controller and all. Nobody saw it, so he tells you about it. Twice.');
-      if (sofa.game === 'lost') return ctx.toast('Slumped back into the cushions. “The controller’s lagging.” It isn’t.');
-      if (indoors.has('george')) return ctx.toast('George is asleep on his lap, so he plays with his elbows tucked in, very carefully.');
-      ctx.toast(gaming());
-    },
-  };
-})();
-
         return ctx.toast('The screen’s asleep. On the paper by the keyboard, a level sketched in pencil, and in the margin: “level 1?”');
       }
       if (ambush.on) return ctx.toast(clawed());
@@ -1865,16 +1914,20 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
     label: 'On the sofa, remote in hand',
     activate(ctx) {
       if (indoors.has('charlie')) ctx.toast('Charlie has her lap, and is purring louder than the telly. She shushes him. It doesn’t work.');
+      else if (sofa.film) ctx.toast('A film with him, the popcorn in her lap. She’ll let him have some at the good bit.');
       else ctx.toast(telly.show ? PROGRAMMES[telly.show].her : 'She shuffles the popcorn over so you can reach. Shh, though.');
     },
   },
   door: { label: 'The door · back to the island', activate: (ctx) => ctx.close() },
   desk: DESK,
   vincent_coding: DESK,
+  vincent_sofa: SOFA,
   reading_now: readingNow,
   stairs: { label: 'The stairs · up to the lamp' }, // src/island/lighthouse.ts does the climbing
   console: {
     label: () => (telly.film ? 'The telly · Tails of Power'
+      : sofa.film ? 'The telly · a film, the two of them'
+      : sofa.on ? 'The telly · GTA Arnhem, his go'
       : telly.show && indoors.has('companion_lighthouse') ? PROGRAMMES[telly.show].label
       : 'The telly · a game, or a film'),
     activate(ctx) {
@@ -1914,20 +1967,16 @@ export const LIGHTHOUSE_PLACES: Record<string, Place> = {
         : 'Black, no sugar, and hot. He’s taking his time with it, as one should.')
       : ctx.sky.lamps > 0.6
         ? 'Black, and stone cold. Someone said they’d be right there. About three hours ago.'
-      else if (sofa.film) ctx.toast('A film with him, the popcorn in her lap. She’ll let him have some at the good bit.');
         : 'Black, no sugar, still hot. Someone said they’d be right there.'),
   },
   coffee_machine: { label: 'The coffee machine', activate: (ctx) => ctx.toast(coffeeLine()) },
   tap: {
     label: 'The kitchen tap',
     activate(ctx) {
-  vincent_sofa: SOFA,
       ctx.sound.call('tap');
       const cats = indoors.has('charlie') || indoors.has('george');
       ctx.toast(cats
         ? 'You turn on the tap. Two cats who were fast asleep on the sofa a second ago are already racing for the counter. Their water bowl is full. It doesn’t count.'
-      : sofa.film ? 'The telly · a film, the two of them'
-      : sofa.on ? 'The telly · GTA Arnhem, his go'
         : 'You turn on the tap. Somewhere out on the island, two cats sit bolt upright.');
     },
   },
@@ -2341,6 +2390,8 @@ dressedUp(LIGHTHOUSE_PLACES, ['vincent_coding'], 'vampire');
 dressedUp(LIGHTHOUSE_PLACES, ['companion_watching'], 'witch');
 dressedUp(HUT_PLACES, ['vincent_guitar', 'vincent_meal_hut'], 'vampire');
 dressedUp(HUT_PLACES, ['companion_baking', 'companion_meal_hut'], 'witch');
+dressedUp(LIBRARY_PLACES, ['vincent_library'], 'vampire');
+dressedUp(LIBRARY_PLACES, ['companion_library'], 'witch');
 
 export function workshopPlaceFor(id: string): Place | undefined {
   return WORKSHOP_PLACES[id];

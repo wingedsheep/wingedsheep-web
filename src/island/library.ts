@@ -142,7 +142,10 @@ export class Library implements RoomInput {
     if (!hit) return;
     this.ui.tooltip(null);
     if (hit.id.startsWith('book:')) this.ctx.openArticle(hit.id.slice(5));
-    else libraryPlaceFor(hit.id)?.activate?.(this.ctx, hit.point);
+    else {
+      room.guests.pet(hit.id, hit.point);
+      libraryPlaceFor(hit.id)?.activate?.(this.ctx, hit.point);
+    }
   }
 
   /** Run the iris and, once inside, the room. `night` is 0 (day) … 1 (night) outside. */

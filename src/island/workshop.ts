@@ -238,6 +238,7 @@ export class Workshop implements RoomInput {
     const place = hit ? workshopPlaceFor(hit.id) : undefined;
     if (!hit || !place) return this.select(null);
     this.ui.tooltip(null);
+    this.room.guests.pet(hit.id, hit.point);
     place.activate?.(this.ctx, hit.point);
   }
 

@@ -714,3 +714,33 @@ def sheep(root):
             w.box((0.24, length, 0.05), (spread, side * length / 2, 0), P.FEATHER if i % 2 else P.WHITE,
                   rot=(0, 0, spread * side * 0.6))
         w.build(root, loc=(-0.05, side * 0.3, 0.42))
+
+
+def vincent_reading(root):
+    """In the chair at the library's reading table (interior.py), a book open in both hands in
+    front of his chest. Faces -y; the runtime turns `read_page` (the right-hand page, over to the
+    left now and then) and nods `read_head` down to the book and up again."""
+    seat = 0.5
+    up = seat - 0.56
+    m = Model("vincent_reading_body")
+    for x in (-0.16, 0.16):
+        m.box((0.21, 0.52, 0.21), (x, -0.24, 0.62 + up), P.V_LEGS)                        # thighs
+        m.box((0.16, 0.16, 0.52 + up), (x, -0.5, (0.52 + up) / 2 + 0.07), P.V_SHIN)       # bare shins
+        m.box((0.2, 0.34, 0.1), (x, -0.56, 0.05), P.SHOE)
+    _tee(m, 0.72 + up, root, cape=0.2)
+    for s in (-1, 1):
+        m.plank_line((s * 0.31, -0.02, 1.3 + up), (s * 0.33, -0.08, 1.12 + up), 0.15, 0.15, P.V_TOP)
+        m.plank_line((s * 0.33, -0.08, 1.12 + up), (s * 0.3, -0.12, 0.96 + up), 0.13, 0.13, P.V_ARM)
+        m.plank_line((s * 0.3, -0.12, 0.96 + up), (s * 0.16, -0.36, 1.06 + up), 0.11, 0.11, P.V_ARM)   # forearms up to the book
+        m.box((0.1, 0.11, 0.12), (s * 0.15, -0.4, 1.1 + up), P.SKIN)
+    # the book, held open and tipped back towards him
+    m.box((0.46, 0.03, 0.3), (0, -0.44, 1.16 + up), P.TENT_GREEN, rot=(-0.45, 0, 0))
+    m.box((0.2, 0.03, 0.27), (-0.11, -0.425, 1.17 + up), P.CANVAS, rot=(-0.45, 0, 0.12))
+    m.build(root)
+    pg = Model("read_page")                                                               # pivots at the spine
+    pg.box((0.2, 0.012, 0.27), (0.1, 0, 0), P.CANVAS)
+    for i in range(4):
+        pg.box((0.14, 0.004, 0.012), (0.1, -0.008, 0.08 - i * 0.05), P.INK)
+    o = pg.build(root, loc=(0, -0.43, 1.17 + up))
+    o.rotation_euler = (-0.45, 0, -0.12)
+    head(root, "read_head", (0, 0, 1.45 + up), rot=(0.3, 0, 0))

@@ -29,8 +29,9 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
  * on the grass by the beach, the climb up the mountain trail, the cats' bench or Beike's meadow
  * for a fuss (petting.ts), and on New Year's Day the sea (dive.ts); on a post day down the pier for
  * the parcel and up to the hut with it, on a windy Sunday the beach with a kite (errands.ts); the
- * rest are indoors: the guitar comes up to the hut's stove when it's wet out, and the workshop's
- * bench is mostly a Saturday's. He goes for a stroll round the island now and then, on a cold day
+ * rest are indoors: the guitar comes up to the hut's stove when it's wet out, the workshop's
+ * bench is mostly a Saturday's (and now and then an afternoon's odd job), and there's a book at
+ * the library's reading table (interior.ts). He goes for a stroll round the island now and then, on a cold day
  * with her and a mug of glühwein each (outings.ts), and sits down to breakfast and dinner with her,
  * by the fire or up at the hut (meals.ts). On a hot day he goes for a swim off the beach (swim.ts),
  * and with snow on the ground, by day, the two of them build a snowman and have a snowball fight
@@ -49,6 +50,7 @@ export type Whereabouts = 'guitar' | 'hut' | 'kayak' | 'yoga' | 'climb' | 'podca
   | 'boulder'
   | 'run'
   | 'sofa'
+  | 'library'
   | 'going';
 /** The yoga poses he flows through (characters.py POSES), in order. */
 export const POSES = ['lotus', 'tree', 'dog'] as const;
@@ -60,6 +62,7 @@ const ROOMS: Partial<Record<Whereabouts, { room: Room; group: string }>> = {
   hut: { room: 'hut', group: 'vincent_guitar' },
   workshop: { room: 'workshop', group: 'vincent_workshop' },
   sofa: { room: 'lighthouse', group: 'vincent_sofa' },
+  library: { room: 'library', group: 'vincent_library' }, // at the reading table, with a book
 };
 /** Seconds he spends at each: longest by far with the guitar. */
 const STAY: Record<Whereabouts, [number, number]> = {
@@ -75,7 +78,7 @@ const STAY: Record<Whereabouts, [number, number]> = {
   dive: [60, 60], // till half past twelve, when he's dressed again
   post: [1e9, 1e9], // until it's up at the hut
   kite: [150, 300],
-  workshop: [220, 420], // a long stint, on a Saturday
+  workshop: [220, 420], // a long stint, on a Saturday (half that, a weekday's odd job)
   stroll: [1e9, 1e9], // till he's round
   meal: [1e9, 1e9], // till they've eaten
   gluhwein: [1e9, 1e9], // till they're round, or she can't come
@@ -86,6 +89,7 @@ const STAY: Record<Whereabouts, [number, number]> = {
   boulder: [300, 540], // a session: a few goes at his problem (and he finishes the go he's on)
   run: [1e9, 1e9], // till he's round, and in again
   sofa: [300, 600], // a few goes, or the film
+  library: [200, 420], // a chapter or three
   going: [1e9, 1e9], // till he's there
 };
 /** The parts of his day: up till eleven, the afternoon, the end of it, and the evening. */
@@ -101,7 +105,8 @@ const DAY: Partial<Record<Whereabouts, Record<Part, number>>> = {
   kayak: { morning: 0, afternoon: 0.5, later: 0.45, evening: 0 },
   yoga: { morning: 0.1, afternoon: 0.35, later: 0.35, evening: 0.1 },
   climb: { morning: 0, afternoon: 0.45, later: 0.25, evening: 0 },
-  workshop: { morning: 0.15, afternoon: 0.25, later: 0.2, evening: 0.02 }, // a Saturday's, mostly (choose)
+  workshop: { morning: 0.04, afternoon: 0.4, later: 0.35, evening: 0.04 }, // a Saturday's most of all, but an odd job of an afternoon (choose)
+  library: { morning: 0.15, afternoon: 0.3, later: 0.4, evening: 0.45 }, // a book at the reading table
   stroll: { morning: 0.15, afternoon: 0.45, later: 0.55, evening: 0.4 },
   hammock: { morning: 0, afternoon: 0.55, later: 0.35, evening: 0 },
   boulder: { morning: 0, afternoon: 0.6, later: 0.6, evening: 0.05 },
@@ -121,6 +126,7 @@ const DOORS: Partial<Record<Whereabouts, [number, number]>> = {
   workshop: [11.5, -7.4],
   sofa: [-30.3, -4.9],
   run: [13.6, 14.5], // he gets changed at the hut
+  library: [-11, -8.9],
 };
 /** Seconds he waits at the start of a glühwein walk for her to come before he gives up on it. */
 const COMPANY_WAIT = 90;
@@ -174,7 +180,7 @@ export interface VincentWorld {
  * never gets up in the middle of a song. The kayak waits for daylight and fair weather.
  */
 export class Vincent {
-  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep', 'stroll', 'meal', 'gluhwein', 'swim', 'snow', 'meditate', 'hammock', 'boulder', 'run', 'sofa'];
+  static readonly SPOTS: Whereabouts[] = ['guitar', 'hut', 'kayak', 'yoga', 'climb', 'podcast', 'petting', 'coding', 'asleep', 'stroll', 'meal', 'gluhwein', 'swim', 'snow', 'meditate', 'hammock', 'boulder', 'run', 'sofa', 'library'];
   spot: Whereabouts = 'guitar';
   private next: Whereabouts | null = null;
   private stay = rand(...STAY.guitar);
@@ -590,9 +596,11 @@ export class Vincent {
     const runnable = w.rain < 0.1 && w.storm < 0.2 && w.wind < 13 && (w.lying ?? 0) < 0.25 && hour >= 9.5 && hour < 22.5
       && !((w.warm ?? 0) > 0.6 && hour >= 11.5 && hour < 17);
     const run: Whereabouts[] = runnable || (this.spot === 'run' && this.runner.busy) ? ['run'] : [];
-    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal, ...swim, ...snow, ...sit, ...nap, ...rock, ...run, 'sofa'];
+    // a book in the library, any weather, once he's properly up
+    const read: Whereabouts[] = hour >= 10 ? ['library'] : [];
+    if (fair) return ['guitar', 'kayak', 'yoga', 'climb', 'podcast', 'coding', ...(fuss ? ['petting' as const] : []), ...week, ...walks, ...meal, ...swim, ...snow, ...sit, ...nap, ...rock, ...run, 'sofa', ...read];
     // a podcast works in the dark; in the wet the guitar comes in to the hut
-    return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), 'sofa', ...week, ...walks, ...meal, ...snow, ...run];
+    return [...(w.rain < 0.1 ? ['guitar', 'podcast', 'coding'] as Whereabouts[] : ['hut', 'coding'] as Whereabouts[]), 'sofa', ...week, ...walks, ...meal, ...snow, ...run, ...read];
   }
 
   /**
@@ -616,7 +624,8 @@ export class Vincent {
     odds.push(['hut', DAY.guitar![part]], ['kite', 1.1], ['gluhwein', 0.6], ['snow', 2.5], ['swim', this.bather.other?.swimming ? 3 : 0.9]); // all the more if she's in
     // she's in watching the telly: a film, the two of them
     const film = indoors.has('companion_lighthouse');
-    const weigh = (spot: Whereabouts, p: number) => (spot === 'workshop' ? (saturday ? p * 6 : p * 0.3) : spot === 'coding' && saturday ? p * 0.5
+    // the workshop's a Saturday's, mostly; a weekday's odd job is never before he's had his coffee
+    const weigh = (spot: Whereabouts, p: number) => (spot === 'workshop' ? (saturday ? p * 6 : part === 'morning' ? 0 : p * 0.8) : spot === 'coding' && saturday ? p * 0.5
       : spot === 'sofa' && film ? p * 4 + 0.5 : p);
     const open = odds.filter(([spot]) => allowed.includes(spot) && spot !== from).map(([spot, p]): [Whereabouts, number] => [spot, weigh(spot, p)]);
     let r = Math.random() * open.reduce((sum, [, p]) => sum + p, 0);

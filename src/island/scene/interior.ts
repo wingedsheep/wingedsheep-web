@@ -11,6 +11,9 @@ import { haloTexture } from './sky';
 import { GRADIENT } from './toon';
 import { createWildlifeBook } from './wildlife-book';
 import { Haunts, undress } from './dressing';
+import { Guests } from './guests';
+import { indoors } from './shelter';
+import { wardrobe } from './wardrobe';
 
 /** Every row starts with room for its year plate; the books stand to the right of it. */
 const PLATE_SPACE = 0.62;
@@ -131,6 +134,26 @@ interface Lamp {
   seed: number;
 }
 
+/** Who reads in here (interior.py `readers`): their group, the page that turns (and the axis it turns on, its spine), and the head. */
+const READERS: [string, string, string, THREE.Vector3][] = [
+  ['companion_library', 'companion_chair_page', 'companion_chair_head', new THREE.Vector3(0, 0, 1)],
+  ['vincent_library', 'read_page', 'read_head', new THREE.Vector3(0, 1, 0)],
+];
+const Q = new THREE.Quaternion();
+
+interface Reader {
+  group: THREE.Object3D;
+  page: THREE.Object3D;
+  head: THREE.Object3D;
+  axis: THREE.Vector3;
+  pageRest: THREE.Quaternion;
+  headRest: THREE.Euler;
+  /** Through a page turn, 0..1 (−1: reading); the seconds till the next; and a look up, 1 easing to 0. */
+  turn: number;
+  next: number;
+  look: number;
+}
+
 interface Floater {
   sprite: THREE.Sprite;
   velocity: THREE.Vector3;
@@ -186,6 +209,10 @@ export class Interior {
 
   /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
   private haunts: Haunts;
+  /** Charlie or George, asleep in front of the fire (shelter.ts): shown only while they're in. */
+  readonly guests: Guests;
+  /** Her on the window seat and him at the reading table, each with a book, when they're in (interior.py `readers`). */
+  private readers: Reader[] = [];
 
   static async load(books: BookInfo[], base = '/models/'): Promise<Interior> {
     const gltf = await new GLTFLoader().loadAsync(`${base}library.glb?v=${__MODELS__}`);
@@ -201,6 +228,7 @@ export class Interior {
 
     const rows: Row[] = [];
     const named: THREE.Object3D[] = [];
+    const guests: THREE.Object3D[] = [];
     let sunbeam: THREE.Vector3 | undefined;
     const halo = haloTexture();
     root.traverse((o) => {
@@ -209,6 +237,8 @@ export class Interior {
         named.push(o);
         this.named.set(x.id, o);
       }
+      if (x.guest) guests.push(o);
+      if (x.wear && !(o as THREE.Mesh).isMesh) wardrobe.adopt(o, true);
       if (x.shelf !== undefined) {
         rows.push({ index: x.shelf, origin: o.getWorldPosition(V()), width: x.width, depth: x.depth, clear: x.clear });
       }
@@ -219,11 +249,18 @@ export class Interior {
         const mesh = o as THREE.Mesh;
         const src = mesh.material as THREE.MeshStandardMaterial;
         const glass = o.name.startsWith('window_glass') || o.parent?.name.startsWith('window_glass');
-        mesh.material = glass ? this.glass : toonIndoors(src.color, src.name.startsWith('glow_'));
+        mesh.material = wardrobe.adopt(o, true) ?? (glass ? this.glass : toonIndoors(src.color, src.name.startsWith('glow_')));
         mesh.castShadow = !glass && !src.name.startsWith('glow_');
         mesh.receiveShadow = true;
       }
     });
+    for (const [id, page, head, axis] of READERS) {
+      const group = root.getObjectByName(id);
+      const p = root.getObjectByName(page);
+      const h = root.getObjectByName(head);
+      if (!group || !p || !h) continue;
+      this.readers.push({ group, page: p, head: h, axis, pageRest: p.quaternion.clone(), headRest: h.rotation.clone(), turn: -1, next: rand(3, 9), look: 0 });
+    }
     this.lid = root.getObjectByName('piano_lid');
     this.globe = root.getObjectByName('globe_ball');
     if (this.globe) this.globeRest.copy(this.globe.rotation);
@@ -251,11 +288,41 @@ export class Interior {
     named.push(fieldBook);
     this.shelve(rows, books);
     this.haunts = new Haunts(root, this.scene, this.bounds);
+    this.guests = new Guests(this.scene, guests);
+    for (const a of this.guests.animals) this.named.set(a.userData.id, a);
     this.picker = new Picker(this.camera);
-    this.picker.add(...named, ...[...this.books.values()].map((b) => b.group));
+    this.picker.add(...named, ...this.guests.animals, ...[...this.books.values()].map((b) => b.group));
   }
 
   // --- what the page asks of it ----------------------------------------------------
+
+  /**
+   * Whoever's in with a book: reading, the head going down the page and back up to the top of
+   * the next, a page turned every so often, and now and then a look up (at the fire, or the room)
+   * before going back to it.
+   */
+  private reading(dt: number) {
+    for (const r of this.readers) {
+      r.group.visible = indoors.has(r.group.name);
+      if (!r.group.visible) continue;
+      if (r.turn < 0 && (r.next -= dt) <= 0) r.turn = 0;
+      if (r.turn >= 0) {
+        r.turn += dt / 0.8;
+        if (r.turn >= 1) {
+          r.turn = -1;
+          r.next = rand(5, 12);
+          if (Math.random() < 0.4) r.look = 1; // a look up, now the page is turned
+        }
+      }
+      const flip = r.turn < 0 ? 0 : THREE.MathUtils.smootherstep(r.turn, 0, 1) * Math.PI * 0.94;
+      r.page.quaternion.copy(r.pageRest).multiply(Q.setFromAxisAngle(r.axis, flip));
+      // down the page as it's read, and back up for the turn
+      const down = r.turn < 0 ? 0.12 * (1 - Math.max(0, r.next - 1) / 12) : 0.12 * (1 - r.turn);
+      r.look = Math.max(0, r.look - dt / 3.5);
+      const up = Math.sin(Math.min(1, r.look) * Math.PI) ** 0.5;
+      r.head.rotation.set(r.headRest.x + down - up * 0.4, r.headRest.y + up * 0.3, r.headRest.z);
+    }
+  }
 
   get camera() {
     return this.view.camera;
@@ -331,6 +398,8 @@ export class Interior {
   update(dt: number, night: number) {
     this.clock += dt;
     this.haunts.update(dt, night);
+    this.guests.update(dt);
+    this.reading(dt);
     const t = this.clock;
 
     for (const [i, f] of this.flames.entries()) {

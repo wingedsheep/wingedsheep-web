@@ -14,6 +14,7 @@ import { occasions } from './calendar';
 import { indoors } from './shelter';
 import { wardrobe } from './wardrobe';
 import { Haunts, undress } from './dressing';
+import { Guests } from './guests';
 
 
 const SKY_DAY = new THREE.Color('#a9dcff');
@@ -76,6 +77,8 @@ export class WorkshopRoom {
 
   /** Today's dressing (dressing.ts): what moves in it, and Halloween's gloom and mist. */
   private haunts: Haunts;
+  /** Charlie or George, in for a nap in the hammock (shelter.ts): shown only while they're in. */
+  readonly guests: Guests;
 
   static async load(base = '/models/'): Promise<WorkshopRoom> {
     const gltf = await new GLTFLoader().loadAsync(`${base}workshop.glb?v=${__MODELS__}`);
@@ -89,10 +92,12 @@ export class WorkshopRoom {
     root.updateMatrixWorld(true);
 
     const waypoints: Waypoint[] = [];
+    const guests: THREE.Object3D[] = [];
     const halo = haloTexture();
     root.traverse((o) => {
       const x = o.userData;
       if (x.id) this.named.set(x.id, o);
+      if (x.guest) guests.push(o);
       if (x.wear && !(o as THREE.Mesh).isMesh) wardrobe.adopt(o, true);
       if (x.waypoint) waypoints.push({ name: x.waypoint, position: o.getWorldPosition(V()), links: String(x.links ?? '').split(' ').filter(Boolean) });
       if (x.emit) this.emitters.push({ kind: x.emit, position: o.getWorldPosition(V()) });
@@ -131,6 +136,8 @@ export class WorkshopRoom {
     this.exhibits = new Exhibits({ particles: this.particles, notes: (at) => this.notes(at), exhibit, emitters: this.emitters, sound, hum });
     this.robot = new Robot(this.named.get('robot'), waypoints, { particles: this.particles, float: (_, at) => this.float(ICONS.zzz, at, V(0, 0.4, 0)), exhibit, sound }, () => this.night > 0.6);
     this.haunts = new Haunts(root, this.scene, this.bounds);
+    this.guests = new Guests(this.scene, guests);
+    for (const a of this.guests.animals) this.named.set(a.userData.id, a);
     this.picker = new Picker(this.camera);
     this.picker.add(...this.named.values());
 
@@ -182,6 +189,7 @@ export class WorkshopRoom {
     this.exhibits.playing = this.playing;
     this.exhibits.update(dt);
     this.robot.update(dt);
+    this.guests.update(dt);
     this.planing(dt);
     this.particles.update(dt);
     this.updateFloaters(dt);

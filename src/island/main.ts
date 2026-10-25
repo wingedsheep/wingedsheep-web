@@ -534,7 +534,7 @@ export async function bootIsland(host: HTMLElement) {
     life.fog = Math.max(weather.now.fog, mist.amount);
     if (!reducedMotion) life.update(dt);
     else life.shelter.update(dt, life.rain, true, life.heat);
-    const indoorsNow = hut.inside ? 'hut' : lighthouse.inside ? 'lighthouse' : workshop.inside ? 'workshop' : null;
+    const indoorsNow = hut.inside ? 'hut' : lighthouse.inside ? 'lighthouse' : workshop.inside ? 'workshop' : library.inside ? 'library' : null;
     life.companion.update(dt, {
       time: sky.time, night: sky.lamps, rain: life.rain, chill: life.chill, playing: life.playing, camera: rig.camera, room: indoorsNow,
       yoga: life.vincent.spot === 'yoga' && life.vincent.company ? life.vincent.pose : null,
