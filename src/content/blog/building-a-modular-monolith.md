@@ -1239,43 +1239,20 @@ data class OrderLineRequest(
 
 One limitation: an init block stops at the first failure. For an API called by other code, that's fine. For a form where a person wants to see every invalid field at once, annotation-based validation, which collects them all, gives the better experience. You can mix the two.
 
-**Avoid encoding volatile rules in the API.** `require(password.isNotEmpty())` is fine; `require(password.length >= 10)` couples your contract to a policy that might change. Check rules like that in the service.
-
-For internal domain objects, use `check`:
+**Keep volatile rules out of the API.** `require(name.isNotBlank())` is fine. A maximum length or a password policy can change, and the contract shouldn't have to change with it. Rules like that, and every rule that needs the database, go in the service, which returns them as errors:
 
 ```kotlin
 // products-impl
-internal data class Product(
-    val id: ProductId,
-    val name: String,
-    val price: Money,
-    val status: ProductStatus,
-) {
-    init {
-        check(name.isNotBlank()) { "Product name cannot be blank" }
-        check(name.length <= MAX_NAME_LENGTH) { "Product name too long" }
-    }
-
-    companion object {
-        const val MAX_NAME_LENGTH = 200
-    }
-}
-```
-
-If these fail, it means your application code tried to create an invalid domain object: a bug, not bad user input.
-
-That only holds if nothing unchecked reaches the constructor. The length limit is exactly the kind of volatile rule we kept out of the API, so a 300-character name sails through `CreateProductRequest`. The service has to turn it into an error before it builds a `Product`:
-
-```kotlin
 override fun createProduct(request: CreateProductRequest): Result<ProductDto, ProductError> {
-    if (request.name.length > Product.MAX_NAME_LENGTH) {
-        return Err(ProductError.InvalidData("Name can be at most ${Product.MAX_NAME_LENGTH} characters"))
+    if (request.name.length > MAX_NAME_LENGTH) {
+        return Err(ProductError.InvalidData("Name can be at most $MAX_NAME_LENGTH characters"))
     }
+    if (repository.existsByName(request.name)) return Err(ProductError.DuplicateName)
     // ...
 }
 ```
 
-The user gets a 400 that explains itself. The `check` in `Product` stays as a safety net: if it ever fires, someone skipped the service, and a 500 is the honest answer.
+That's the whole split: the request checks its own shape, the service checks the rules, and the user gets an error that explains itself. `check` is for something else: state your own code got wrong, like discontinuing a product that's already discontinued (Part 2). If one of those fails, it's a bug, and a 500 is the honest answer.
 
 ### Translating Errors to HTTP
 
