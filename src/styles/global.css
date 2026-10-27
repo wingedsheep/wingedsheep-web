@@ -429,12 +429,49 @@ body:has(.toast:not(.out)) .hint { visibility: hidden; }
   background: var(--page-well); color: var(--page-ink); font: 15px/1 var(--ui); clip-path: var(--notch);
 }
 .book-tools button small { font-size: 11px; }
+.book-tools button[hidden] { display: none; }
 .book-tools button:hover, .book-tools button[aria-pressed='true'] { background: var(--gold); color: var(--ink); }
 .book-ribbon { position: absolute; left: 3px; right: 3px; bottom: -2px; height: 4px; pointer-events: none; }
 .book-ribbon i {
   display: block; height: 100%; transform: scaleX(0); transform-origin: left;
   background: linear-gradient(var(--page-accent) 0 50%, color-mix(in srgb, var(--page-accent) 70%, #000) 50%);
 }
+/* the title stays in the toolbar once it scrolls away, with the chapter you're in after it */
+.book-bar-chapter:not(:empty)::before { content: '·'; margin: 0 0.5em; color: var(--page-rule); }
+.book-bar-chapter { color: var(--page-ink); }
+
+/* a long book's chapters: hung from the toolbar on a height-0 sticky shelf so they scroll with nothing */
+.book-chapters { position: sticky; top: var(--bar-h, 51px); z-index: 2; height: 0; }
+.book-chapters-box { position: relative; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--page-rule) transparent; }
+.book-chapters ol { margin: 0; padding: 0; list-style: none; }
+.book-chapters a {
+  display: block; padding: 5px 10px 5px 14px; font: 15px/1.3 var(--serif); color: var(--page-soft); text-decoration: none;
+  box-shadow: inset 3px 0 0 var(--page-rule); transition: color 0.15s, box-shadow 0.15s;
+}
+.book-chapters a:hover { color: var(--page-accent); }
+.book-chapters a[aria-current] { color: var(--page-ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--page-accent); }
+.book-chapters-top a { font: 13px/1.3 var(--ui); letter-spacing: 0.08em; text-transform: uppercase; padding-block: 6px 7px; }
+.book-chapters-left { margin: 10px 0 0; padding: 9px 0 0 14px; border-top: 2px solid var(--page-rule); font: 13px var(--ui); color: var(--page-soft); }
+
+/* room beside the page: the book opens wider and the chapters stand in a rail on the left */
+@media (min-width: 1240px) {
+  .book-open.has-chapters { width: min(1240px, calc(100vw - 32px)); }
+  .book-open.has-chapters #article-body { padding-left: 300px; }
+  .book-chapters-box { width: 236px; margin: 34px 0 0 36px; max-height: calc(100vh - 32px - var(--bar-h, 51px) - 64px); }
+  .book-tools [data-read='chapters'] { display: none; }
+}
+/* no room: the chapters drop down from their button in the toolbar */
+@media (max-width: 1239.98px) {
+  .book-chapters { filter: drop-shadow(0 6px 0 rgba(43, 37, 53, 0.18)); }
+  .book-chapters-box {
+    display: none; position: absolute; top: 6px; right: 12px; width: min(360px, calc(100% - 24px));
+    max-height: calc(100vh - 32px - var(--bar-h, 51px) - 40px); padding: 10px 10px 12px;
+    background: var(--page); box-shadow: inset 0 0 0 3px var(--page-rule); clip-path: var(--notch);
+  }
+  .chapters-open .book-chapters-box { display: block; animation: chapters-in 0.15s ease-out; }
+  .chapters-open [data-read='chapters'] { background: var(--gold); color: var(--ink); }
+}
+@keyframes chapters-in { from { transform: translateY(-6px); opacity: 0; } }
 
 #article-body { padding: 0 clamp(20px, 6vw, 72px) 80px; }
 
@@ -469,6 +506,8 @@ body:has(.toast:not(.out)) .hint { visibility: hidden; }
 .prose h2 { font: 600 1.42em/1.22 var(--serif); margin: 2.1em 0 0.6em; scroll-margin-top: 70px; text-wrap: balance; }
 .prose h2::before { content: ''; display: inline-block; width: 0.3em; height: 0.3em; margin: 0 0.55em 0.18em 0; background: var(--gold); transform: rotate(45deg); }
 .prose h3 { font: 600 1.14em/1.3 var(--serif); margin: 1.7em 0 0.4em; scroll-margin-top: 70px; }
+/* a heading you've jumped to takes the focus so the keyboard carries on from there, without a frame round it */
+.prose [tabindex='-1']:focus { outline: none; }
 .prose h4 { font: 15px var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-soft); margin: 1.6em 0 0.3em; }
 .prose a { color: var(--page-accent); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
 .prose a:hover { text-decoration-thickness: 2px; }
@@ -496,6 +535,16 @@ body:has(.toast:not(.out)) .hint { visibility: hidden; }
 .prose code { font: 0.84em var(--mono); background: var(--page-well); padding: 0.08em 0.32em; }
 .prose pre { margin: 1.6em 0; overflow-x: auto; padding: 16px 20px; font-size: 14.5px; line-height: 1.55; clip-path: var(--notch); hyphens: none; color-scheme: dark; scrollbar-color: #545d68 transparent; }
 .prose pre code { background: none; padding: 0; font-size: inherit; line-height: inherit; }
+.prose .code-block { position: relative; margin: 1.6em 0; }
+.prose .code-block pre { margin: 0; }
+.prose [data-read='copy'] {
+  position: absolute; top: 7px; right: 7px; padding: 2px 9px 4px; border: 0; cursor: pointer;
+  font: 13px var(--ui); color: #d8dee6; background: rgba(255, 255, 255, 0.1); clip-path: var(--notch);
+  opacity: 0; transition: opacity 0.15s, background 0.15s;
+}
+.prose .code-block:hover [data-read='copy'], .prose [data-read='copy']:focus-visible { opacity: 1; }
+.prose [data-read='copy']:hover { background: var(--gold); color: var(--ink); }
+@media (hover: none) { .prose [data-read='copy'] { opacity: 0.85; } }
 .prose table { display: block; overflow-x: auto; border-collapse: collapse; width: 100%; margin: 1.6em 0; font-size: 0.8em; line-height: 1.45; hyphens: none; }
 .prose th, .prose td { border-bottom: 2px solid var(--page-rule); padding: 7px 12px 7px 0; text-align: left; vertical-align: top; }
 .prose th { font: 13px var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--page-soft); }
@@ -528,6 +577,47 @@ body:has(.toast:not(.out)) .hint { visibility: hidden; }
 .prose .flow .prs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .prose .flow .prs span { padding: 2px 7px; border: 2px solid var(--page-accent); border-radius: 4px; font-size: 12px; }
 .prose .flow-loop { margin-top: -6px; text-align: center; color: var(--page-soft); }
+/* the modular monolith's diagrams, drawn in the page's own inks so they follow it by candlelight */
+.prose .diagram { margin: 2em 0; overflow-x: auto; }
+.prose .diagram svg { display: block; width: 100%; min-width: 560px; height: auto; font: 13px var(--ui); }
+.prose .diagram .box { fill: var(--page-well); stroke: var(--page-rule); stroke-width: 2; }
+.prose .diagram .box.hot { stroke: var(--page-accent); }
+.prose .diagram .frame { fill: none; stroke: var(--page-soft); stroke-width: 1.5; stroke-dasharray: 6 5; }
+.prose .diagram .line { fill: none; stroke: var(--page-soft); stroke-width: 1.6; }
+.prose .diagram .line.hot { stroke: var(--page-accent); stroke-dasharray: 5 4; }
+.prose .diagram .head { fill: var(--page-soft); }
+.prose .diagram .head.hot { fill: var(--page-accent); }
+.prose .diagram .dot { fill: var(--page-ink); }
+.prose .diagram .n { fill: var(--page-ink); font: 15px var(--ui); }
+.prose .diagram .s { fill: var(--page-soft); font: italic 13.5px var(--serif); }
+.prose .diagram .m { fill: var(--page-ink); font: 11.5px var(--mono); }
+.prose .diagram .k { fill: var(--page-soft); font: 12px var(--ui); }
+.prose .diagram .hot-t { fill: var(--page-accent); }
+/* cards side by side: one module (or one owner) each */
+.prose .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; font-size: 15px; line-height: 1.45; }
+.prose .card { padding: 12px 14px 10px; background: var(--page-well); clip-path: var(--notch); box-shadow: inset 0 3px 0 var(--card, var(--page-rule)); }
+.prose .card.hot { --card: var(--page-accent); }
+.prose .card b { display: block; font: 16px var(--ui); }
+.prose .card small { display: block; margin-bottom: 6px; font: italic 14px/1.35 var(--serif); color: var(--page-soft); }
+.prose .card ul { margin: 0; padding-left: 1.1em; }
+.prose .card li { margin: 0.15em 0; }
+.prose .card li::before { top: 0.6em; }
+.prose .cards-key { margin: 0 0 12px; text-align: center; }
+/* the dial: what to do from day one, and what to add once it starts to hurt */
+.prose .dial { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px; margin: 1.8em 0; font-size: 15.5px; line-height: 1.45; }
+.prose .dial > div { padding: 14px 18px 10px; background: var(--page-well); clip-path: var(--notch); }
+.prose .dial-head { margin: 0 0 8px; font: 13px var(--ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--page-accent); }
+.prose .dial dl { margin: 0; }
+.prose .dial dt { margin-top: 8px; font-style: italic; color: var(--page-soft); }
+.prose .dial dt:first-child { margin-top: 0; }
+.prose .dial dd { margin: 0; }
+/* a cheat sheet, kept as text so people and agents can both read it */
+.prose .cheat { margin: 1.6em 0 14px; padding: 16px 22px 10px; background: var(--page-well); clip-path: var(--notch); box-shadow: inset 0 3px 0 var(--page-accent); font-size: 17px; line-height: 1.5; }
+.prose .cheat ol { margin: 0; }
+.prose .cheat li { margin: 0 0 0.6em; }
+.prose .cheat + .cards { margin-bottom: 2em; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 14px; font-size: 16px; }
+.prose .cheat + .cards b { margin-bottom: 4px; }
+.prose .cheat + .cards li { margin: 0.3em 0; }
 /* the GPT-4 post's transcript: who's speaking, by colour (as its key describes) and by name */
 .prose :is(.user-text, .game-text, .gpt-text, .remark-text, .clarification-text) {
   display: block; padding: 8px 14px 10px 18px; margin-bottom: 10px; font-size: 0.9em; clip-path: var(--notch);
@@ -622,11 +712,20 @@ body:has(.toast:not(.out)) .hint { visibility: hidden; }
   .plate { font-size: 10px; padding: 1px 3px; }
   .book-open { top: 8px; bottom: 8px; width: calc(100vw - 16px); }
   .book-bar { padding: 8px 12px 9px 16px; gap: 8px; }
-  .book-bar-title { display: none; }
+  .book-back-more, .book-bar-title [data-bar-title] { display: none; }
+  .book-bar-chapter::before { display: none; }
+  .book-bar-title { font-size: 14px; }
   #article-body { padding: 0 20px 60px; }
   .article-head { margin-top: 28px; }
   .article-excerpt { font-size: 19px; }
   .article-nav { grid-template-columns: 1fr; }
+}
+
+/* a phone: narrower tools leave the toolbar room for the chapter you're in */
+@media (max-width: 480px) {
+  .book-bar { padding-right: 9px; }
+  .book-tools { gap: 3px; }
+  .book-tools button { width: 29px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

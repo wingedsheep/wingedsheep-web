@@ -304,7 +304,11 @@ export class UI {
     this.article.removeAttribute('aria-busy');
     this.article.scrollTop = 0;
     this.current = { kind: 'article', slug };
-    this.articleBack.textContent = `← back to the ${this.returnTo === 'library' ? 'shelves' : this.returnTo}`;
+    // on a phone the toolbar has only room for "← back"
+    const more = document.createElement('span');
+    more.className = 'book-back-more';
+    more.textContent = ` to the ${this.returnTo === 'library' ? 'shelves' : this.returnTo}`;
+    this.articleBack.replaceChildren('← back', more);
     this.events.panelOpened('article');
     $('h1', this.articleBody)?.focus({ preventScroll: true });
     this.reader.opened();

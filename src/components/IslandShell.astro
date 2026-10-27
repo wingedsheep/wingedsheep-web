@@ -537,15 +537,23 @@ const places = [
   <div id="backdrop" class="backdrop" hidden></div>
   <article id="article" class="book-open" hidden={!hasArticle} aria-live="polite">
     <div class="book-bar">
-      <a class="book-back" href="/blog/" data-close>← back to the shelves</a>
-      <span class="book-bar-title" data-bar-title aria-hidden="true"></span>
+      <a class="book-back" href="/blog/" data-close>← back<span class="book-back-more"> to the shelves</span></a>
+      <span class="book-bar-title" aria-hidden="true"><span data-bar-title></span><span class="book-bar-chapter" data-bar-chapter></span></span>
       <span class="book-tools">
+        <button data-read="chapters" aria-expanded="false" aria-controls="book-chapters" aria-label="Chapters" hidden><PixelIcon name="list" /></button>
         <button data-read="smaller" aria-label="Smaller text">A<small>−</small></button>
         <button data-read="larger" aria-label="Larger text">A<small>+</small></button>
         <button data-read="candle" aria-pressed="false" aria-label="Read by candlelight (dark page)"><PixelIcon name="candle" /></button>
       </span>
       <span class="book-ribbon" aria-hidden="true"><i data-progress></i></span>
     </div>
+    <!-- a long book's chapters: a rail beside the page when there's room, a menu when there isn't -->
+    <nav id="book-chapters" class="book-chapters" aria-label="Chapters" hidden>
+      <div class="book-chapters-box">
+        <ol data-chapters></ol>
+        <p class="book-chapters-left" data-left aria-live="off"></p>
+      </div>
+    </nav>
     <div id="article-body"><slot /></div>
   </article>
 
