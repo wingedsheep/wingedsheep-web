@@ -9,6 +9,7 @@ import { track } from './track';
 const GAMES: Record<string, { href: string; found?: 'arnhem' }> = {
   arnhem: { href: 'https://racer.wingedsheep.com/', found: 'arnhem' },
   rustwing: { href: 'https://rustwing.wingedsheep.com/' },
+  pingolin: { href: 'https://pingolin.wingedsheep.com/' },
 };
 
 export class GameBox {

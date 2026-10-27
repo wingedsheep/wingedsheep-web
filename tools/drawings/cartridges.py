@@ -2,7 +2,8 @@
 The labels on the cartridges in the box by the keeper's telly, at island pixels (80 × 60, shown
 blown up): GTA Arnhem drawn here in code (the John Frost bridge over the Rhine at sundown, the
 Eusebius tower behind it, a car on its way over), and Rustwing Raiders cut from the game's own
-title painting and brought down to a few colours.
+title painting and brought down to a few colours, and Pingolin drawn here too (an orange pangolin
+curled into a ball, flipped up through a jungle ruin at golden hour, a bumper lit beside it).
 
     python3 tools/drawings/cartridges.py ../flying/public/art/title.png public/art/cartridges
 """
@@ -65,11 +66,61 @@ def rustwing(title):
     return img.quantize(colors=28, dither=Image.Dither.NONE).convert("RGB")
 
 
+def pingolin():
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    # golden hour, warm low down
+    sky = ["#5a4a7a", "#8a5a78", "#c8706a", "#ec9a5c", "#f7c070", "#fbe0a0"]
+    for i, c in enumerate(sky):
+        d.rectangle((0, i * 40 // len(sky), W, (i + 1) * 40 // len(sky)), fill=c)
+    d.ellipse((30, 24, 50, 44), fill="#fff0c0")                       # the sun, behind the ruin
+    # far hills, then the ruin's arch and its pillars
+    d.polygon([(0, 40), (12, 31), (24, 36), (40, 29), (58, 35), (70, 30), (80, 34), (80, 46), (0, 46)], fill="#7a8a8a")
+    for x in (6, 66):
+        d.rectangle((x, 14, x + 7, 46), fill="#8a5a3a")
+        d.rectangle((x - 1, 12, x + 8, 15), fill="#a87048")
+    for x in range(10, 71):
+        y = 11 - 8 * math.sin(math.pi * (x - 10) / 60)
+        d.rectangle((x, y, x, y + 3), fill="#a87048")
+    # jungle hanging in at the sides
+    for cx, cy, r in [(2, 6, 7), (8, 2, 6), (76, 4, 7), (70, 0, 5), (0, 24, 5), (80, 22, 5)]:
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill="#2f5a3a")
+        d.ellipse((cx - r + 2, cy - r + 1, cx + r - 3, cy + r - 4), fill="#4a7a44")
+    # the bumper, lit
+    d.ellipse((54, 30, 66, 42), fill="#5a3020")
+    d.ellipse((55, 31, 65, 40), fill="#ff9a3a")
+    d.ellipse((57, 33, 63, 38), fill="#ffe08a")
+    for x, y in [(52, 36), (68, 36), (60, 28), (54, 30), (66, 30)]:
+        d.point((x, y), fill="#fff2b0")
+    # the ground, grassy on top, and the flipper at its pivot
+    d.polygon([(0, 46), (30, 54), (0, 60)], fill="#7a4a2e")
+    d.polygon([(80, 46), (50, 54), (80, 60)], fill="#7a4a2e")
+    d.line([(0, 46), (30, 54)], fill="#5a8a3a", width=2)
+    d.line([(80, 46), (50, 54)], fill="#5a8a3a", width=2)
+    d.rectangle((0, 56, W, H), fill="#3a2418")
+    d.line([(14, 50), (31, 43)], fill="#1d1a2c", width=4)              # flipped up
+    d.line([(14, 50), (31, 43)], fill="#ff8a2a", width=2)
+    d.ellipse((12, 48, 16, 52), fill="#ffe2a0")
+    # the swoosh it left, and the pingolin curled tight on its way up
+    for i, (x, y) in enumerate([(31, 41), (30, 37), (29, 33), (29, 29)]):
+        d.point((x, y), fill="#fff2b0" if i < 2 else "#ffd080")
+    cx, cy, r = 31, 22, 6
+    d.ellipse((cx - r - 1, cy - r - 1, cx + r + 1, cy + r + 1), fill="#1d1a2c")   # ink outline
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill="#c85a1a")
+    for k, (dx, dy) in enumerate([(-3, -3), (1, -4), (4, -1), (3, 3), (-1, 4), (-4, 1), (0, 0)]):
+        d.arc((cx + dx - 2, cy + dy - 2, cx + dx + 2, cy + dy + 2), 180, 360, fill="#ff8a2a")   # its scales
+    d.point([(cx - 3, cy - 4), (cx - 2, cy - 4), (cx - 4, cy - 3)], fill="#ffd8a0")         # the light on it
+    d.point([(cx + 3, cy + 2)], fill="#1d1a2c")                                            # an eye, peeking out
+    d.point([(cx + 4, cy + 3)], fill="#f0c0a0")                                            # and its nose
+    return img
+
+
 def main(title, out):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     arnhem().save(out / "arnhem.png", optimize=True)
     rustwing(title).save(out / "rustwing.png", optimize=True)
+    pingolin().save(out / "pingolin.png", optimize=True)
 
 
 if __name__ == "__main__":
